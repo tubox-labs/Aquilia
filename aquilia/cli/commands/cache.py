@@ -135,9 +135,10 @@ def cmd_cache_stats(verbose: bool = False) -> None:
 
         async def _stats():
             await svc.initialize()
-            info = await svc.info() if hasattr(svc, "info") else {}
+            # CacheService exposes stats() (a CacheStats dataclass), not info().
+            stats = await svc.stats()
             await svc.shutdown()
-            return info
+            return stats.to_dict()
 
         cache_data = asyncio.run(_stats())
         if not cache_data:

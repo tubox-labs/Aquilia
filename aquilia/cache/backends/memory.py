@@ -4,9 +4,15 @@ AquilaCache -- High-performance in-memory backend.
 Implements LRU, LFU, FIFO, and TTL eviction policies using efficient
 data structures:
 - **LRU**: OrderedDict with O(1) access/eviction
-- **LFU**: Min-heap + frequency counter with O(log n) eviction
-- **FIFO**: Deque with O(1) eviction
-- **TTL**: Sorted list by expiry time with O(log n) cleanup
+- **LFU**: Min-heap keyed on access frequency, with lazy invalidation --
+  amortised O(log n) eviction
+- **FIFO**: OrderedDict insertion order with O(1) eviction
+- **TTL**: Min-heap ordered by expiry, with lazy invalidation
+
+Both heaps use lazy invalidation: superseded entries are left in place and
+skipped when popped, and the heap is compacted once stale entries exceed
+half its length.  This keeps heap size proportional to live entries even
+under workloads that repeatedly overwrite the same keys.
 
 Thread-safe via asyncio.Lock for concurrent request handling.
 Includes latency tracking, capacity warnings, and max memory limits.
@@ -23,12 +29,15 @@ import random
 import sys
 import time
 from collections import OrderedDict, defaultdict
-from heapq import heappop, heappush
+from heapq import heapify, heappop, heappush
 from typing import Any
 
 from ..core import CacheBackend, CacheEntry, CacheStats, EvictionPolicy
 
 logger = logging.getLogger("aquilia.cache.memory")
+
+#: Compact a heap once stale entries outnumber live ones.
+_HEAP_COMPACT_RATIO = 2
 
 
 class MemoryBackend(CacheBackend):
@@ -37,7 +46,7 @@ class MemoryBackend(CacheBackend):
 
     Optimized for:
     - O(1) get/set/delete for LRU (via OrderedDict)
-    - O(log n) eviction for LFU (via heap)
+    - Amortised O(log n) eviction for LFU (via a lazily-invalidated min-heap)
     - Background TTL expiration sweeper
     - Tag-based group invalidation via inverted index
     """
@@ -54,6 +63,7 @@ class MemoryBackend(CacheBackend):
         "_namespace_index",
         "_freq_counter",
         "_ttl_heap",
+        "_lfu_heap",
         "_sweeper_task",
         "_sweep_interval",
         "_initialized",
@@ -105,8 +115,12 @@ class MemoryBackend(CacheBackend):
         # LFU frequency counter
         self._freq_counter: dict[str, int] = {}
 
-        # TTL expiry heap: (expires_at, key)
+        # TTL expiry heap: (expires_at, key). Entries are lazily invalidated:
+        # a popped tuple is discarded unless it matches the live entry.
         self._ttl_heap: list[tuple[float, str]] = []
+
+        # LFU eviction heap: (frequency, key), same lazy-invalidation scheme.
+        self._lfu_heap: list[tuple[int, str]] = []
 
         # Background sweeper
         self._sweeper_task: asyncio.Task | None = None
@@ -141,6 +155,7 @@ class MemoryBackend(CacheBackend):
             self._namespace_index.clear()
             self._freq_counter.clear()
             self._ttl_heap.clear()
+            self._lfu_heap.clear()
         self._initialized = False
 
     async def get(self, key: str) -> CacheEntry | None:
@@ -170,7 +185,11 @@ class MemoryBackend(CacheBackend):
 
             # LFU: update frequency
             if self._eviction_policy == EvictionPolicy.LFU:
-                self._freq_counter[key] = self._freq_counter.get(key, 0) + 1
+                freq = self._freq_counter.get(key, 0) + 1
+                self._freq_counter[key] = freq
+                # The prior heap tuple is superseded; push the updated frequency.
+                heappush(self._lfu_heap, (freq, key))
+                self._compact_lfu_heap()
 
             self._stats.record_get_latency((time.monotonic() - start) * 1000)
             return entry
@@ -226,10 +245,13 @@ class MemoryBackend(CacheBackend):
             # LFU: initialize frequency
             if self._eviction_policy == EvictionPolicy.LFU:
                 self._freq_counter[key] = 1
+                heappush(self._lfu_heap, (1, key))
+                self._compact_lfu_heap()
 
             # TTL heap
             if expires_at is not None:
                 heappush(self._ttl_heap, (expires_at, key))
+                self._compact_ttl_heap()
 
             # Stats
             self._stats.sets += 1
@@ -270,6 +292,7 @@ class MemoryBackend(CacheBackend):
                 self._namespace_index.clear()
                 self._freq_counter.clear()
                 self._ttl_heap.clear()
+                self._lfu_heap.clear()
                 self._stats.size = 0
                 self._stats.memory_bytes = 0
                 return count
@@ -364,6 +387,7 @@ class MemoryBackend(CacheBackend):
 
                 if self._eviction_policy == EvictionPolicy.LFU:
                     self._freq_counter[key] = 1
+                    heappush(self._lfu_heap, (1, key))
 
                 if expires_at is not None:
                     heappush(self._ttl_heap, (expires_at, key))
@@ -371,6 +395,8 @@ class MemoryBackend(CacheBackend):
                 self._stats.sets += 1
                 self._stats.memory_bytes += size_bytes
 
+            self._compact_ttl_heap()
+            self._compact_lfu_heap()
             self._stats.size = len(self._store)
 
     async def increment(self, key: str, delta: int = 1) -> int | None:
@@ -410,7 +436,20 @@ class MemoryBackend(CacheBackend):
         return self._initialized
 
     def _evict_key(self, key: str) -> None:
-        """Remove a key and clean up all indices. Caller must hold lock."""
+        """
+        Remove a key and clean up all indices.  Caller must hold the lock.
+
+        Args:
+            key: Key to remove.
+
+        Returns:
+            ``None``.
+
+        Note:
+            Heap entries for the key are not searched for and removed (that
+            would be O(n)); they are marked stale and skipped or compacted away
+            later.  This keeps deletion O(1) while still bounding heap growth.
+        """
         entry = self._store.pop(key, None)
         if entry is None:
             return
@@ -437,6 +476,62 @@ class MemoryBackend(CacheBackend):
         self._stats.memory_bytes = max(0, self._stats.memory_bytes - entry.size_bytes)
         self._stats.size = len(self._store)
 
+    def _compact_ttl_heap(self) -> None:
+        """
+        Drop superseded TTL heap tuples once the heap outgrows live entries.
+
+        Returns:
+            ``None``.
+
+        Note:
+            A tuple is live only if the stored entry still carries that exact
+            expiry; overwriting a key with a new TTL supersedes the old tuple.
+        """
+        if len(self._ttl_heap) <= _HEAP_COMPACT_RATIO * max(len(self._store), 8):
+            return
+        live = [
+            (expires_at, key)
+            for expires_at, key in self._ttl_heap
+            if (entry := self._store.get(key)) is not None and entry.expires_at == expires_at
+        ]
+        heapify(live)
+        self._ttl_heap = live
+
+    def _compact_lfu_heap(self) -> None:
+        """
+        Drop superseded LFU heap tuples once the heap outgrows live entries.
+
+        Returns:
+            ``None``.
+
+        Note:
+            A tuple is live only if it matches the key's current frequency;
+            every access pushes a new tuple and supersedes the previous one.
+        """
+        if len(self._lfu_heap) <= _HEAP_COMPACT_RATIO * max(len(self._freq_counter), 8):
+            return
+        live = [(freq, key) for freq, key in self._lfu_heap if self._freq_counter.get(key) == freq]
+        heapify(live)
+        self._lfu_heap = live
+
+    def _pop_least_frequent(self) -> str | None:
+        """
+        Pop the least-frequently-used live key from the LFU heap.
+
+        Returns:
+            The key to evict, or ``None`` if the heap holds no live entry.
+
+        Note:
+            Tuples whose frequency no longer matches ``_freq_counter`` were
+            superseded by a later access and are discarded on the way past.
+        """
+        while self._lfu_heap:
+            freq, key = heappop(self._lfu_heap)
+            if self._freq_counter.get(key) != freq:
+                continue
+            return key
+        return None
+
     def _evict_one(self) -> None:
         """Evict one entry based on policy. Caller must hold lock."""
         if not self._store:
@@ -444,22 +539,12 @@ class MemoryBackend(CacheBackend):
 
         key_to_evict: str | None = None
 
-        if self._eviction_policy == EvictionPolicy.LRU:
-            # OrderedDict: first item is least recently used
-            key_to_evict = next(iter(self._store))
-
-        elif self._eviction_policy == EvictionPolicy.FIFO:
+        if self._eviction_policy in (EvictionPolicy.LRU, EvictionPolicy.FIFO):
+            # OrderedDict: first item is least recently used / first inserted
             key_to_evict = next(iter(self._store))
 
         elif self._eviction_policy == EvictionPolicy.LFU:
-            # Find key with minimum frequency
-            if self._freq_counter:
-                key_to_evict = min(
-                    self._freq_counter,
-                    key=lambda k: self._freq_counter.get(k, 0),
-                )
-            else:
-                key_to_evict = next(iter(self._store))
+            key_to_evict = self._pop_least_frequent() or next(iter(self._store))
 
         elif self._eviction_policy == EvictionPolicy.RANDOM:
             keys = list(self._store.keys())
@@ -490,8 +575,17 @@ class MemoryBackend(CacheBackend):
             except Exception:
                 pass  # Sweeper is best-effort
 
-    async def _sweep_expired(self) -> None:
-        """Remove expired entries using the TTL heap."""
+    async def _sweep_expired(self) -> int:
+        """
+        Remove expired entries using the TTL heap.
+
+        Returns:
+            Number of entries evicted during this sweep.
+
+        Note:
+            Popped tuples that no longer describe a live entry are stale
+            (the key was overwritten or deleted) and are simply discarded.
+        """
         async with self._lock:
             now = time.monotonic()
             swept = 0
@@ -504,11 +598,25 @@ class MemoryBackend(CacheBackend):
 
                 heappop(self._ttl_heap)
 
-                # Verify key still exists and is actually expired
                 entry = self._store.get(key)
-                if entry and entry.is_expired:
+                if entry is None or entry.expires_at != expires_at:
+                    # Superseded by a newer set(), or already evicted.
+                    continue
+
+                if entry.is_expired:
                     self._evict_key(key)
                     self._stats.evictions += 1
                     swept += 1
 
+            self._compact_ttl_heap()
             return swept
+
+    @property
+    def ttl_heap_size(self) -> int:
+        """Current TTL heap length -- exposed for leak diagnostics and tests."""
+        return len(self._ttl_heap)
+
+    @property
+    def lfu_heap_size(self) -> int:
+        """Current LFU heap length -- exposed for leak diagnostics and tests."""
+        return len(self._lfu_heap)

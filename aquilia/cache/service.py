@@ -22,6 +22,7 @@ import asyncio
 import contextlib
 import inspect
 import logging
+import time
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
@@ -30,7 +31,7 @@ from .faults import (
     CacheBackendFault,
     CacheConnectionFault,
 )
-from .key_builder import DefaultKeyBuilder
+from .key_builder import KeyBuilder, build_key_builder
 
 logger = logging.getLogger("aquilia.cache")
 
@@ -89,7 +90,10 @@ class CacheService:
     ):
         self._backend = backend
         self._config = config or CacheConfig()
-        self._key_builder = DefaultKeyBuilder()
+        self._key_builder = build_key_builder(
+            self._config.key_builder,
+            version=self._config.key_version,
+        )
         self._default_ttl = self._config.default_ttl
         self._default_namespace = self._config.namespace
         self._key_prefix = self._config.key_prefix
@@ -415,6 +419,20 @@ class CacheService:
 
         Returns:
             Cached or freshly computed value
+
+        Note:
+            Coalescing is always process-local (an in-memory single-flight map).
+            When the backend supports distributed locking *and*
+            ``config.distributed_stampede_lock`` is enabled, the single winner
+            of the local race additionally takes a cross-process lock, so only
+            one worker in the whole fleet recomputes.  Workers that lose the
+            distributed race wait briefly for the winner's value rather than
+            duplicating the work; if it does not appear within
+            ``stampede_timeout`` they compute independently rather than stall.
+
+        Usage::
+
+            user = await cache.get_or_set("user:1", lambda: repo.find(1), ttl=300)
         """
         # Try cache first (fast path)
         value = await self.get(key, namespace=namespace)
@@ -475,14 +493,16 @@ class CacheService:
                     pass
 
             try:
-                # Compute the value
-                if inspect.iscoroutinefunction(loader):
-                    value = await loader()
-                else:
-                    value = loader()
-
-                # Store in cache
-                await self.set(key, value, ttl=ttl, namespace=namespace, tags=tags)
+                # Compute the value, coordinating with other processes when
+                # the backend can offer a cross-process lock.
+                value = await self._compute_single_flight(
+                    key,
+                    full_key,
+                    loader,
+                    ttl=ttl,
+                    namespace=namespace,
+                    tags=tags,
+                )
 
                 # Resolve the future for waiting coroutines
                 if not future.done():
@@ -500,11 +520,7 @@ class CacheService:
                     self._inflight.pop(full_key, None)
         else:
             # No stampede prevention -- simple get-or-set
-            if inspect.iscoroutinefunction(loader):
-                value = await loader()
-            else:
-                value = loader()
-
+            value = await self._call_loader(loader)
             await self.set(key, value, ttl=ttl, namespace=namespace, tags=tags)
             return value
 
@@ -607,6 +623,31 @@ class CacheService:
     def config(self) -> CacheConfig:
         """Access cache configuration."""
         return self._config
+
+    @property
+    def key_builder(self) -> KeyBuilder:
+        """
+        The key builder shared by this service and the decorator layer.
+
+        Returns:
+            The configured :class:`KeyBuilder`, already carrying
+            ``config.key_version``.
+
+        Usage::
+
+            full = cache.key_builder.build("users", "user:1", cache.key_prefix)
+        """
+        return self._key_builder
+
+    @property
+    def key_prefix(self) -> str:
+        """Global key prefix applied to every generated key."""
+        return self._key_prefix
+
+    @property
+    def default_namespace(self) -> str:
+        """Namespace used when a call site does not supply one."""
+        return self._default_namespace
 
     @property
     def is_distributed(self) -> bool:
@@ -732,6 +773,100 @@ class CacheService:
         return default_factory()
 
     # ── Internal ─────────────────────────────────────────────────────
+
+    async def _call_loader(self, loader: Callable[[], Coroutine[Any, Any, T]]) -> T:
+        """
+        Invoke a loader that may be sync or async.
+
+        Args:
+            loader: Callable producing the value.
+
+        Returns:
+            The loader's result.
+        """
+        if inspect.iscoroutinefunction(loader):
+            return await loader()
+        result = loader()
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    async def _compute_single_flight(
+        self,
+        key: str,
+        full_key: str,
+        loader: Callable[[], Coroutine[Any, Any, T]],
+        *,
+        ttl: int | None,
+        namespace: str | None,
+        tags: tuple[str, ...],
+    ) -> T:
+        """
+        Compute and store a value, holding a cross-process lock when available.
+
+        Args:
+            key: Caller-facing cache key.
+            full_key: Fully-qualified key, used to derive the lock name.
+            loader: Callable producing the value on miss.
+            ttl: TTL for the stored value.
+            namespace: Namespace for the stored value.
+            tags: Tags for the stored value.
+
+        Returns:
+            The computed (or peer-computed) value.
+
+        Note:
+            Losing the distributed race is not an error: the loser polls
+            briefly for the winner's value and falls back to computing
+            independently rather than blocking the request indefinitely.
+        """
+        backend = self._backend
+        if not (self._config.distributed_stampede_lock and backend.supports_distributed_lock):
+            value = await self._call_loader(loader)
+            await self.set(key, value, ttl=ttl, namespace=namespace, tags=tags)
+            return value
+
+        lock_key = f"_lock:{full_key}"
+        lease = self._config.stampede_lock_ttl
+        token = await backend.try_acquire_lock(lock_key, lease)
+
+        if token is None:
+            peer_value = await self._await_peer_value(key, namespace)
+            if peer_value is not None:
+                return peer_value
+            # Winner died or is slow -- compute rather than stall the request.
+            value = await self._call_loader(loader)
+            await self.set(key, value, ttl=ttl, namespace=namespace, tags=tags)
+            return value
+
+        try:
+            value = await self._call_loader(loader)
+            await self.set(key, value, ttl=ttl, namespace=namespace, tags=tags)
+            return value
+        finally:
+            with contextlib.suppress(Exception):
+                await backend.release_lock(lock_key, token)
+
+    async def _await_peer_value(self, key: str, namespace: str | None) -> Any:
+        """
+        Poll for a value being computed by another process.
+
+        Args:
+            key: Caller-facing cache key.
+            namespace: Namespace override.
+
+        Returns:
+            The peer-computed value, or ``None`` if it did not appear within
+            ``config.stampede_timeout``.
+        """
+        deadline = time.monotonic() + self._config.stampede_timeout
+        interval = self._config.stampede_poll_interval
+        while time.monotonic() < deadline:
+            await asyncio.sleep(interval)
+            value = await self.get(key, namespace=namespace)
+            if value is not None:
+                return value
+        return None
 
     def _emit_fault(self, fault: Any) -> None:
         """Emit a fault to the fault engine if available."""

@@ -30,6 +30,15 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
 
     Returns:
         Configured CacheBackend
+
+    Raises:
+        ConfigInvalidFault: If ``config.backend`` is unknown, or if
+            ``serializer="pickle"`` is requested without a
+            ``serializer_secret_key``.
+
+    Usage::
+
+        backend = create_cache_backend(CacheConfig(backend="redis"))
     """
     backend_type = config.backend.lower()
 
@@ -42,9 +51,7 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
 
     elif backend_type == "redis":
         from .backends.redis import RedisBackend
-        from .serializers import get_serializer
 
-        serializer = get_serializer(config.serializer)
         return RedisBackend(
             url=config.redis_url,
             max_connections=config.redis_max_connections,
@@ -52,12 +59,11 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
             connect_timeout=config.redis_socket_connect_timeout,
             retry_on_timeout=config.redis_retry_on_timeout,
             key_prefix=config.key_prefix,
-            serializer=serializer,
+            serializer=_build_serializer(config),
         )
 
     elif backend_type == "composite":
         from .backends.composite import CompositeBackend
-        from .serializers import get_serializer
 
         l1 = MemoryBackend(
             max_size=config.l1_max_size,
@@ -68,12 +74,11 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
         if config.l2_backend == "redis":
             from .backends.redis import RedisBackend
 
-            serializer = get_serializer(config.serializer)
             l2 = RedisBackend(
                 url=config.redis_url,
                 max_connections=config.redis_max_connections,
                 key_prefix=config.key_prefix,
-                serializer=serializer,
+                serializer=_build_serializer(config),
             )
         else:
             l2 = MemoryBackend(max_size=config.max_size)
@@ -92,6 +97,37 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
             key="cache.backend",
             reason=f"Unknown cache backend: {backend_type}",
         )
+
+
+def _build_serializer(config: CacheConfig) -> object:
+    """
+    Build the configured serializer, supplying the HMAC key when required.
+
+    Args:
+        config: Cache configuration.
+
+    Returns:
+        A serializer exposing ``serialize``/``deserialize``.
+
+    Raises:
+        ConfigInvalidFault: If ``serializer="pickle"`` is configured without
+            ``serializer_secret_key``, since unsigned pickle payloads are a
+            remote-code-execution vector.
+    """
+    from .serializers import get_serializer
+
+    secret = config.serializer_secret_key or None
+    if config.serializer == "pickle" and not secret:
+        raise ConfigInvalidFault(
+            key="cache.serializer_secret_key",
+            reason=(
+                "serializer='pickle' requires cache.serializer_secret_key. "
+                "The key HMAC-signs cached payloads so tampered data is never "
+                "unpickled. Use the application secret or a dedicated cache key, "
+                "or switch to serializer='json' / 'msgpack'."
+            ),
+        )
+    return get_serializer(config.serializer, secret_key=secret)
 
 
 def create_cache_service(config: CacheConfig) -> CacheService:
@@ -126,11 +162,16 @@ def build_cache_config(config_dict: dict[str, Any]) -> CacheConfig:
         eviction_policy=config_dict.get("eviction_policy", "lru"),
         namespace=config_dict.get("namespace", "default"),
         key_prefix=config_dict.get("key_prefix", "aq:"),
+        key_builder=config_dict.get("key_builder", "default"),
         serializer=config_dict.get("serializer", "json"),
+        serializer_secret_key=config_dict.get("serializer_secret_key", ""),
         ttl_jitter=config_dict.get("ttl_jitter", True),
         ttl_jitter_percent=config_dict.get("ttl_jitter_percent", 0.1),
         stampede_prevention=config_dict.get("stampede_prevention", True),
         stampede_timeout=config_dict.get("stampede_timeout", 30.0),
+        distributed_stampede_lock=config_dict.get("distributed_stampede_lock", True),
+        stampede_lock_ttl=config_dict.get("stampede_lock_ttl", 30.0),
+        stampede_poll_interval=config_dict.get("stampede_poll_interval", 0.05),
         health_check_interval=config_dict.get("health_check_interval", 60.0),
         capacity_warning_threshold=config_dict.get("capacity_warning_threshold", 0.85),
         key_version=config_dict.get("key_version", 1),

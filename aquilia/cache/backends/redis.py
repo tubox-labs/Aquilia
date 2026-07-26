@@ -4,10 +4,14 @@ AquilaCache -- Redis backend for distributed caching.
 Production-grade Redis integration with:
 - Connection pooling
 - Pipeline batching for get_many/set_many
-- Lua scripts for atomic operations
-- Tag-based invalidation via Redis sets
+- Lua scripts for atomic read-modify-write operations
+- Tag-based invalidation via Redis sets, with self-pruning membership
 - Health checks and reconnection
 - Serialization via pluggable CacheSerializer
+
+Tag and namespace sets are pruned opportunistically: reads through
+``delete_by_tags``/``clear`` drop members whose underlying key has expired,
+so sets do not accumulate indefinitely under natural TTL expiry.
 """
 
 from __future__ import annotations
@@ -16,23 +20,85 @@ import builtins
 import fnmatch
 import logging
 import time
+import uuid
 from typing import Any
 
 from ..core import CacheBackend, CacheEntry, CacheStats
 
 logger = logging.getLogger("aquilia.cache.redis")
 
+#: Atomically increment a counter only when it already exists.
+#:
+#: Redis' plain ``INCRBY`` creates missing keys, and a separate ``EXISTS``
+#: check-then-act is racy: two callers can both observe "missing" and both
+#: return None while a third creates the key.  Evaluating both steps inside
+#: one script makes the decision atomic.
+_INCR_IF_EXISTS_LUA = """
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return nil
+end
+return redis.call('INCRBY', KEYS[1], ARGV[1])
+"""
+
+#: Return only those set members that still resolve to a live key, deleting
+#: the rest from the set.  Keeps tag/namespace sets bounded when entries
+#: disappear through Redis' own TTL expiry rather than an explicit delete.
+_PRUNE_SET_LUA = """
+local members = redis.call('SMEMBERS', KEYS[1])
+local live = {}
+local dead = {}
+for i = 1, #members do
+  if redis.call('EXISTS', members[i]) == 1 then
+    live[#live + 1] = members[i]
+  else
+    dead[#dead + 1] = members[i]
+  end
+end
+if #dead > 0 then
+  redis.call('SREM', KEYS[1], unpack(dead))
+end
+return live
+"""
+
+
+#: Release a lock only when the caller still owns it.
+#:
+#: A naive DEL would let a worker whose lease already expired delete the lock
+#: another worker has since acquired.
+_RELEASE_LOCK_LUA = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+"""
+
 
 class RedisBackend(CacheBackend):
     """
-    Redis-backed cache using aioredis (redis-py async).
+    Redis-backed cache using redis-py's asyncio client.
 
     Features:
     - Connection pool with configurable size
     - Pipeline batching for bulk operations
-    - Lua-based atomic increment/decrement
-    - Tag index via Redis sets for O(1) tag invalidation
+    - Lua-based atomic increment/decrement (no check-then-act race)
+    - Tag index via Redis sets for O(1) tag invalidation, self-pruning
+    - Tags round-trip through ``get()``, matching MemoryBackend semantics
     - Automatic reconnection on transient failures
+
+    Args:
+        url: Redis connection URL.
+        max_connections: Connection pool size.
+        socket_timeout: Per-command socket timeout in seconds.
+        connect_timeout: Connection establishment timeout in seconds.
+        retry_on_timeout: Retry commands that time out.
+        key_prefix: Prefix applied to every key this backend writes.
+        serializer: Value serializer; defaults to JSON.
+
+    Usage::
+
+        backend = RedisBackend(url="redis://localhost:6379/0")
+        await backend.initialize()
+        await backend.set("user:1", {"id": 1}, ttl=60, tags=("users",))
     """
 
     __slots__ = (
@@ -47,6 +113,9 @@ class RedisBackend(CacheBackend):
         "_stats",
         "_start_time",
         "_initialized",
+        "_incr_script",
+        "_prune_script",
+        "_release_script",
     )
 
     def __init__(
@@ -69,6 +138,9 @@ class RedisBackend(CacheBackend):
         self._stats = CacheStats(backend="redis")
         self._start_time = time.monotonic()
         self._initialized = False
+        self._incr_script: Any = None
+        self._prune_script: Any = None
+        self._release_script: Any = None
 
         # Use JSON serializer by default
         if serializer is None:
@@ -107,6 +179,9 @@ class RedisBackend(CacheBackend):
             )
             # Verify connection
             await self._redis.ping()
+            self._incr_script = self._redis.register_script(_INCR_IF_EXISTS_LUA)
+            self._prune_script = self._redis.register_script(_PRUNE_SET_LUA)
+            self._release_script = self._redis.register_script(_RELEASE_LOCK_LUA)
             self._start_time = time.monotonic()
             self._initialized = True
         except Exception as e:
@@ -132,8 +207,29 @@ class RedisBackend(CacheBackend):
         """Build Redis set key for a namespace."""
         return f"{self._key_prefix}_ns:{namespace}"
 
+    def _meta_key(self, key: str) -> str:
+        """Build the sidecar key holding an entry's tags and namespace."""
+        return f"{self._key_prefix}_meta:{key}"
+
+    @staticmethod
+    def _decode(value: Any) -> str:
+        """Decode a Redis reply to ``str`` regardless of byte/str mode."""
+        return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+
     async def get(self, key: str) -> CacheEntry | None:
-        """Get a value from Redis."""
+        """
+        Fetch an entry, restoring its tags and namespace.
+
+        Args:
+            key: Unprefixed cache key.
+
+        Returns:
+            The reconstructed :class:`CacheEntry`, or ``None`` on miss or error.
+
+        Note:
+            Tags and namespace are read from a sidecar key written by ``set``,
+            so ``entry.tags`` is populated exactly as with ``MemoryBackend``.
+        """
         if not self._redis:
             self._stats.errors += 1
             return None
@@ -141,7 +237,12 @@ class RedisBackend(CacheBackend):
         full_key = self._full_key(key)
 
         try:
-            raw = await self._redis.get(full_key)
+            pipe = self._redis.pipeline()
+            pipe.get(full_key)
+            pipe.ttl(full_key)
+            pipe.hgetall(self._meta_key(key))
+            raw, ttl, meta = await pipe.execute()
+
             if raw is None:
                 self._stats.misses += 1
                 return None
@@ -149,16 +250,24 @@ class RedisBackend(CacheBackend):
             value = self._serializer.deserialize(raw)
             self._stats.hits += 1
 
-            # Get TTL for entry metadata
-            ttl = await self._redis.ttl(full_key)
             expires_at = None
             if ttl and ttl > 0:
                 expires_at = time.monotonic() + ttl
+
+            tags: tuple[str, ...] = ()
+            namespace = "default"
+            if meta:
+                decoded = {self._decode(k): self._decode(v) for k, v in meta.items()}
+                raw_tags = decoded.get("tags", "")
+                tags = tuple(t for t in raw_tags.split("\x1f") if t)
+                namespace = decoded.get("namespace", "default")
 
             return CacheEntry(
                 key=key,
                 value=value,
                 expires_at=expires_at,
+                tags=tags,
+                namespace=namespace,
             )
         except Exception as e:
             logger.warning(f"Redis GET error for key '{key}': {e}")
@@ -173,12 +282,30 @@ class RedisBackend(CacheBackend):
         tags: tuple[str, ...] = (),
         namespace: str = "default",
     ) -> None:
-        """Set a value in Redis with optional TTL and tags."""
+        """
+        Store a value with optional TTL, tags, and namespace.
+
+        Args:
+            key: Unprefixed cache key.
+            value: Value to serialize and store.
+            ttl: Time-to-live in seconds; ``None`` or ``0`` means no expiry.
+            tags: Tags for group invalidation.
+            namespace: Namespace for scoped clears.
+
+        Returns:
+            ``None``.
+
+        Note:
+            Tags/namespace are mirrored into a sidecar hash that carries the
+            same TTL as the entry, so it disappears with the entry instead of
+            leaking.
+        """
         if not self._redis:
             self._stats.errors += 1
             return
 
         full_key = self._full_key(key)
+        meta_key = self._meta_key(key)
 
         try:
             serialized = self._serializer.serialize(value)
@@ -189,6 +316,15 @@ class RedisBackend(CacheBackend):
                 pipe.setex(full_key, ttl, serialized)
             else:
                 pipe.set(full_key, serialized)
+
+            # Sidecar metadata so get() can restore tags/namespace.
+            pipe.delete(meta_key)
+            pipe.hset(
+                meta_key,
+                mapping={"tags": "\x1f".join(tags), "namespace": namespace},
+            )
+            if ttl and ttl > 0:
+                pipe.expire(meta_key, ttl)
 
             # Register in tag sets
             for tag in tags:
@@ -208,16 +344,47 @@ class RedisBackend(CacheBackend):
             logger.warning(f"Redis SET error for key '{key}': {e}")
             self._stats.errors += 1
 
+    async def _live_members(self, set_key: str) -> list[str]:
+        """
+        Return the still-live members of a tag/namespace set, pruning dead ones.
+
+        Args:
+            set_key: Fully-qualified Redis set key.
+
+        Returns:
+            Members whose underlying cache key still exists.
+
+        Note:
+            Keys that expired via Redis' own TTL leave stale set membership
+            behind; this removes them in the same round trip that reads them.
+        """
+        if not self._prune_script:
+            members = await self._redis.smembers(set_key)
+            return [self._decode(m) for m in members]
+        members = await self._prune_script(keys=[set_key])
+        return [self._decode(m) for m in members]
+
     async def delete(self, key: str) -> bool:
-        """Delete a key from Redis."""
+        """
+        Delete a key and its sidecar metadata.
+
+        Args:
+            key: Unprefixed cache key.
+
+        Returns:
+            True if the entry existed.
+        """
         if not self._redis:
             return False
 
         full_key = self._full_key(key)
 
         try:
-            result = await self._redis.delete(full_key)
-            if result:
+            pipe = self._redis.pipeline()
+            pipe.delete(full_key)
+            pipe.delete(self._meta_key(key))
+            results = await pipe.execute()
+            if results and results[0]:
                 self._stats.deletes += 1
                 return True
             return False
@@ -238,22 +405,31 @@ class RedisBackend(CacheBackend):
             return False
 
     async def clear(self, namespace: str | None = None) -> int:
-        """Clear cache entries."""
+        """
+        Clear a namespace, or every key carrying this backend's prefix.
+
+        Args:
+            namespace: Namespace to clear, or ``None`` for everything.
+
+        Returns:
+            Number of entries deleted.
+        """
         if not self._redis:
             return 0
 
         try:
             if namespace:
-                # Clear specific namespace
                 ns_key = self._ns_set_key(namespace)
-                members = await self._redis.smembers(ns_key)
+                members = await self._live_members(ns_key)
                 if members:
                     pipe = self._redis.pipeline()
                     for member in members:
                         pipe.delete(member)
+                        pipe.delete(self._meta_key(self._strip_prefix(member)))
                     pipe.delete(ns_key)
                     await pipe.execute()
                     return len(members)
+                await self._redis.delete(ns_key)
                 return 0
             else:
                 # Clear all keys with our prefix
@@ -276,6 +452,12 @@ class RedisBackend(CacheBackend):
             self._stats.errors += 1
             return 0
 
+    def _strip_prefix(self, full_key: str) -> str:
+        """Return the unprefixed form of a fully-qualified key."""
+        if full_key.startswith(self._key_prefix):
+            return full_key[len(self._key_prefix) :]
+        return full_key
+
     async def keys(self, pattern: str = "*", namespace: str | None = None) -> list[str]:
         """List keys matching pattern."""
         if not self._redis:
@@ -284,8 +466,7 @@ class RedisBackend(CacheBackend):
         try:
             if namespace:
                 ns_key = self._ns_set_key(namespace)
-                members = await self._redis.smembers(ns_key)
-                raw_keys = [m.decode("utf-8") if isinstance(m, bytes) else m for m in members]
+                raw_keys = await self._live_members(ns_key)
                 # Strip prefix
                 prefix_len = len(self._key_prefix)
                 keys = [k[prefix_len:] for k in raw_keys if k.startswith(self._key_prefix)]
@@ -303,14 +484,15 @@ class RedisBackend(CacheBackend):
                     if cursor == 0:
                         break
                 prefix_len = len(self._key_prefix)
+                internal = (
+                    f"{self._key_prefix}_tags:",
+                    f"{self._key_prefix}_ns:",
+                    f"{self._key_prefix}_meta:",
+                )
                 keys = []
                 for k in result:
-                    s = k.decode("utf-8") if isinstance(k, bytes) else k
-                    if (
-                        s.startswith(self._key_prefix)
-                        and not s.startswith(f"{self._key_prefix}_tags:")
-                        and not s.startswith(f"{self._key_prefix}_ns:")
-                    ):
+                    s = self._decode(k)
+                    if s.startswith(self._key_prefix) and not s.startswith(internal):
                         keys.append(s[prefix_len:])
 
             if pattern != "*":
@@ -340,30 +522,40 @@ class RedisBackend(CacheBackend):
         return self._stats
 
     async def delete_by_tags(self, tags: builtins.set[str]) -> int:
-        """Delete entries by tag using Redis sets."""
+        """
+        Delete every entry carrying any of the given tags.
+
+        Args:
+            tags: Tags to invalidate.
+
+        Returns:
+            Number of live entries deleted.
+
+        Note:
+            Membership of keys that already expired naturally is pruned as a
+            side effect, keeping tag sets bounded.
+        """
         if not self._redis:
             return 0
 
         try:
-            keys_to_delete: set[bytes] = set()
-
-            pipe = self._redis.pipeline()
+            keys_to_delete: set[str] = set()
             for tag in tags:
-                pipe.smembers(self._tag_set_key(tag))
-
-            results = await pipe.execute()
-
-            for members in results:
-                if members:
-                    keys_to_delete.update(members)
+                keys_to_delete.update(await self._live_members(self._tag_set_key(tag)))
 
             if not keys_to_delete:
+                # Still drop the (now empty) tag sets.
+                pipe = self._redis.pipeline()
+                for tag in tags:
+                    pipe.delete(self._tag_set_key(tag))
+                await pipe.execute()
                 return 0
 
-            # Delete all keys and tag sets
+            # Delete all keys, their sidecars, and the tag sets
             pipe = self._redis.pipeline()
             for key in keys_to_delete:
                 pipe.delete(key)
+                pipe.delete(self._meta_key(self._strip_prefix(key)))
             for tag in tags:
                 pipe.delete(self._tag_set_key(tag))
             await pipe.execute()
@@ -436,17 +628,30 @@ class RedisBackend(CacheBackend):
             self._stats.errors += 1
 
     async def increment(self, key: str, delta: int = 1) -> int | None:
-        """Atomic Redis INCRBY."""
+        """
+        Atomically increment an existing counter.
+
+        Args:
+            key: Unprefixed cache key.
+            delta: Amount to add (may be negative).
+
+        Returns:
+            The new value, or ``None`` if the key does not exist.
+
+        Note:
+            The existence check and the ``INCRBY`` run inside one Lua script,
+            so concurrent callers cannot both observe "missing" and race.
+            Absent keys are never created, matching ``MemoryBackend``.
+        """
         if not self._redis:
             return None
 
         try:
             full_key = self._full_key(key)
-            exists = await self._redis.exists(full_key)
-            if not exists:
-                return None
-            result = await self._redis.incrby(full_key, delta)
-            return result
+            if self._incr_script is None:
+                self._incr_script = self._redis.register_script(_INCR_IF_EXISTS_LUA)
+            result = await self._incr_script(keys=[full_key], args=[delta])
+            return None if result is None else int(result)
         except Exception as e:
             logger.warning(f"Redis INCRBY error: {e}")
             return None
@@ -459,4 +664,65 @@ class RedisBackend(CacheBackend):
             await self._redis.ping()
             return True
         except Exception:
+            return False
+
+    # ── Distributed locking ──────────────────────────────────────────
+
+    @property
+    def supports_distributed_lock(self) -> bool:
+        """Redis locks are visible to every process sharing the server."""
+        return True
+
+    async def try_acquire_lock(self, key: str, ttl: float) -> str | None:
+        """
+        Acquire a cross-process lock via ``SET NX PX``.
+
+        Args:
+            key: Lock key (already namespaced by the caller).
+            ttl: Lease duration in seconds.  The lock self-expires so a crashed
+                holder cannot deadlock the fleet.
+
+        Returns:
+            A random ownership token, or ``None`` if the lock is held elsewhere.
+
+        Usage::
+
+            token = await backend.try_acquire_lock("lock:user:1", ttl=30.0)
+        """
+        if not self._redis:
+            return None
+
+        token = uuid.uuid4().hex
+        try:
+            acquired = await self._redis.set(
+                self._full_key(key),
+                token,
+                nx=True,
+                px=max(1, int(ttl * 1000)),
+            )
+        except Exception as e:
+            logger.warning(f"Redis lock acquire error for '{key}': {e}")
+            return None
+        return token if acquired else None
+
+    async def release_lock(self, key: str, token: str) -> bool:
+        """
+        Release a lock, but only if this caller still owns it.
+
+        Args:
+            key: Lock key.
+            token: Token returned by ``try_acquire_lock``.
+
+        Returns:
+            True if the lock was owned by this caller and released.
+        """
+        if not self._redis:
+            return False
+        try:
+            if self._release_script is None:
+                self._release_script = self._redis.register_script(_RELEASE_LOCK_LUA)
+            result = await self._release_script(keys=[self._full_key(key)], args=[token])
+            return bool(result)
+        except Exception as e:
+            logger.warning(f"Redis lock release error for '{key}': {e}")
             return False

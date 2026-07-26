@@ -210,7 +210,9 @@ class CacheConfig:
     eviction_policy: str = "lru"  # "lru", "lfu", "ttl", "fifo", "random"
     namespace: str = "default"  # Default namespace
     key_prefix: str = "aq:"  # Key prefix for all entries
+    key_builder: str = "default"  # "default" (colon segments) or "hash" (SHA-256)
     serializer: str = "json"  # "json", "pickle", "msgpack"
+    serializer_secret_key: str = ""  # HMAC signing key -- required for "pickle"
 
     # TTL jitter -- prevents thundering herd on mass expiry
     ttl_jitter: bool = True  # Add randomness to TTL
@@ -219,6 +221,9 @@ class CacheConfig:
     # Stampede prevention -- singleflight for get_or_set
     stampede_prevention: bool = True  # Coalesce concurrent loads for same key
     stampede_timeout: float = 30.0  # Max wait for in-flight computation
+    distributed_stampede_lock: bool = True  # Also coalesce across processes when supported
+    stampede_lock_ttl: float = 30.0  # Lease for the cross-process lock (seconds)
+    stampede_poll_interval: float = 0.05  # Poll interval while awaiting a peer's value
 
     # Health check
     health_check_interval: float = 60.0  # Seconds between health checks (0 = disabled)
@@ -278,9 +283,11 @@ class CacheConfig:
             "eviction_policy": self.eviction_policy,
             "namespace": self.namespace,
             "key_prefix": self.key_prefix,
+            "key_builder": self.key_builder,
             "serializer": self.serializer,
             "ttl_jitter": self.ttl_jitter,
             "stampede_prevention": self.stampede_prevention,
+            "distributed_stampede_lock": self.distributed_stampede_lock,
             "key_version": self.key_version,
             "redis_url": self.redis_url,
             "redis_max_connections": self.redis_max_connections,
@@ -438,6 +445,60 @@ class CacheBackend(ABC):
     async def stats(self) -> CacheStats:
         """Get backend statistics."""
         ...
+
+    @property
+    def supports_distributed_lock(self) -> bool:
+        """
+        Whether this backend can coordinate locks across processes.
+
+        Returns:
+            ``True`` only for backends whose ``try_acquire_lock`` is visible to
+            every process sharing the store.  In-process backends return
+            ``False``, so callers know stampede protection is process-local.
+        """
+        return False
+
+    async def try_acquire_lock(self, key: str, ttl: float) -> str | None:
+        """
+        Attempt to acquire a cross-process lock.
+
+        Args:
+            key: Lock key, already fully qualified.
+            ttl: Lock lease in seconds; the lock self-expires after this so a
+                crashed holder cannot deadlock other workers.
+
+        Returns:
+            An opaque token identifying this holder, or ``None`` if another
+            holder currently owns the lock.  The default implementation always
+            returns ``None`` since no cross-process guarantee can be offered.
+
+        Usage::
+
+            token = await backend.try_acquire_lock("aq:lock:user:1", ttl=30.0)
+            if token:
+                try:
+                    ...
+                finally:
+                    await backend.release_lock("aq:lock:user:1", token)
+        """
+        return None
+
+    async def release_lock(self, key: str, token: str) -> bool:
+        """
+        Release a lock previously acquired with :meth:`try_acquire_lock`.
+
+        Args:
+            key: Lock key.
+            token: Token returned by the matching acquire call.
+
+        Returns:
+            True if this caller held the lock and released it.
+
+        Note:
+            Releasing is token-checked so a holder whose lease already expired
+            cannot delete a lock another worker has since acquired.
+        """
+        return False
 
     async def delete_by_tags(self, tags: builtins.set[str]) -> int:
         """

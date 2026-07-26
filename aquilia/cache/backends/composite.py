@@ -15,19 +15,25 @@ consistency across multiple server instances via the distributed L2.
 Resilience:
 - L2 failures on read degrade gracefully to L1 only
 - L2 failures on write are logged but don't break the request
-- Async L2 write mode available for lowest latency
+- Async L2 write mode available for lowest latency.  Scheduled writes are
+  tracked and awaited during ``shutdown``, so a shutdown that races an
+  in-flight L2 write does not silently drop it.
 """
 
 from __future__ import annotations
 
 import asyncio
 import builtins
+import contextlib
 import logging
 from typing import Any
 
 from ..core import CacheBackend, CacheEntry, CacheStats
 
 logger = logging.getLogger("aquilia.cache.composite")
+
+#: Seconds to wait for pending async L2 writes during shutdown.
+_DRAIN_TIMEOUT = 5.0
 
 
 class CompositeBackend(CacheBackend):
@@ -39,11 +45,24 @@ class CompositeBackend(CacheBackend):
 
     Features:
     - L2 error resilience (degrades to L1 on failure)
-    - Optional async L2 writes (fire-and-forget)
+    - Optional async L2 writes, tracked so they survive to completion
     - Promotion of L2 hits into L1
+
+    Args:
+        l1: Fast local backend (typically ``MemoryBackend``).
+        l2: Distributed backend (typically ``RedisBackend``).
+        promote_on_l2_hit: Promote L2 hits into L1.
+        async_l2_write: Schedule L2 writes in the background for lower latency.
+
+    Usage::
+
+        backend = CompositeBackend(MemoryBackend(), RedisBackend(), async_l2_write=True)
+        await backend.initialize()
+        await backend.set("k", "v", ttl=60)
+        await backend.shutdown()   # pending L2 writes are drained here
     """
 
-    __slots__ = ("_l1", "_l2", "_promote_on_l2_hit", "_async_l2_write", "_l2_healthy")
+    __slots__ = ("_l1", "_l2", "_promote_on_l2_hit", "_async_l2_write", "_l2_healthy", "_pending")
 
     def __init__(
         self,
@@ -52,18 +71,12 @@ class CompositeBackend(CacheBackend):
         promote_on_l2_hit: bool = True,
         async_l2_write: bool = False,
     ):
-        """
-        Args:
-            l1: Fast local backend (typically MemoryBackend)
-            l2: Distributed backend (typically RedisBackend)
-            promote_on_l2_hit: Promote L2 hits into L1
-            async_l2_write: Fire-and-forget L2 writes for lower latency
-        """
         self._l1 = l1
         self._l2 = l2
         self._promote_on_l2_hit = promote_on_l2_hit
         self._async_l2_write = async_l2_write
         self._l2_healthy = True
+        self._pending: set[asyncio.Task[None]] = set()
 
     @property
     def name(self) -> str:
@@ -73,13 +86,62 @@ class CompositeBackend(CacheBackend):
     def is_distributed(self) -> bool:
         return self._l2.is_distributed
 
+    @property
+    def pending_writes(self) -> int:
+        """Number of L2 writes currently in flight."""
+        return len(self._pending)
+
+    def _schedule_l2(self, coro: Any) -> None:
+        """
+        Run an L2 write in the background, retaining a strong reference.
+
+        Args:
+            coro: Coroutine performing the L2 write.
+
+        Returns:
+            ``None``.
+
+        Note:
+            Untracked ``ensure_future`` tasks can be garbage-collected before
+            completion; holding the task in ``_pending`` until its done-callback
+            fires is what makes ``drain`` (and therefore ``shutdown``) correct.
+        """
+        task = asyncio.ensure_future(coro)
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)
+
+    async def drain(self, timeout: float = _DRAIN_TIMEOUT) -> None:
+        """
+        Wait for in-flight async L2 writes to finish.
+
+        Args:
+            timeout: Maximum seconds to wait before cancelling stragglers.
+
+        Returns:
+            ``None``.
+
+        Usage::
+
+            await backend.drain(timeout=2.0)
+        """
+        while self._pending:
+            pending = tuple(self._pending)
+            _done, still_pending = await asyncio.wait(pending, timeout=timeout)
+            if still_pending:
+                for task in still_pending:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await task
+                return
+
     async def initialize(self) -> None:
         """Initialize both backends."""
         await self._l1.initialize()
         await self._l2.initialize()
 
     async def shutdown(self) -> None:
-        """Shutdown both backends."""
+        """Drain pending L2 writes, then shut down both backends."""
+        await self.drain()
         await self._l1.shutdown()
         await self._l2.shutdown()
 
@@ -128,7 +190,7 @@ class CompositeBackend(CacheBackend):
 
         # L2: async fire-and-forget or synchronous with error handling
         if self._async_l2_write:
-            asyncio.ensure_future(self._safe_l2_set(key, value, ttl, tags, namespace))
+            self._schedule_l2(self._safe_l2_set(key, value, ttl, tags, namespace))
         else:
             await self._safe_l2_set(key, value, ttl, tags, namespace)
 
@@ -233,7 +295,7 @@ class CompositeBackend(CacheBackend):
         """Write-through batch set with async L2 option."""
         await self._l1.set_many(items, ttl=ttl, namespace=namespace)
         if self._async_l2_write:
-            asyncio.ensure_future(self._safe_l2_set_many(items, ttl, namespace))
+            self._schedule_l2(self._safe_l2_set_many(items, ttl, namespace))
         else:
             await self._safe_l2_set_many(items, ttl, namespace)
 

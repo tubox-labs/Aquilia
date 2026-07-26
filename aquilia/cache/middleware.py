@@ -51,6 +51,32 @@ class CacheMiddleware(Middleware):
     - X-Cache-TTL response header for route-level TTL overrides
     - Integrates with CacheService for backend flexibility
 
+    Security:
+        The cache is **shared**, so any response that varies per identity
+        must not be stored under an identity-independent key.  Two
+        safeguards enforce this and neither can be disabled implicitly:
+
+        1. A request carrying an identity signal (``Cookie`` or
+           ``Authorization``) is only served from / stored in the cache when
+           that header is listed in ``vary_headers``; otherwise the request
+           bypasses the cache entirely.
+        2. A response that sets ``Set-Cookie`` (or is marked ``private`` /
+           ``no-store``) is never stored.
+
+        Pass ``cache_authenticated=True`` together with the relevant
+        ``vary_headers`` to deliberately cache per-identity responses.
+
+    Args:
+        cache_service: Backing cache service.
+        default_ttl: TTL in seconds applied when a route sets no override.
+        cacheable_methods: HTTP methods eligible for caching.
+        vary_headers: Request headers folded into the cache key.
+        namespace: Cache namespace for stored responses.
+        stale_while_revalidate: Seconds a stale entry may still be served
+            while a background refresh runs.
+        cache_authenticated: Allow caching of identity-bearing requests when
+            the corresponding header is present in ``vary_headers``.
+
     Usage::
 
         server.middleware_stack.add(
@@ -59,7 +85,17 @@ class CacheMiddleware(Middleware):
             priority=25,
             name="response_cache",
         )
+
+        # Deliberately cache per-session responses:
+        CacheMiddleware(
+            cache_service,
+            vary_headers=("Accept", "Cookie"),
+            cache_authenticated=True,
+        )
     """
+
+    #: Request headers that identify a caller and therefore partition the cache.
+    IDENTITY_HEADERS: tuple[str, ...] = ("cookie", "authorization")
 
     def __init__(
         self,
@@ -69,6 +105,7 @@ class CacheMiddleware(Middleware):
         vary_headers: tuple[str, ...] = ("Accept", "Accept-Encoding"),
         namespace: str = "http_response",
         stale_while_revalidate: int = 0,
+        cache_authenticated: bool = False,
     ):
         self._cache = cache_service
         self._default_ttl = default_ttl
@@ -76,6 +113,42 @@ class CacheMiddleware(Middleware):
         self._vary_headers = vary_headers
         self._namespace = namespace
         self._stale_while_revalidate = stale_while_revalidate
+        self._cache_authenticated = cache_authenticated
+        self._varied_identity = frozenset(h.lower() for h in vary_headers) & frozenset(self.IDENTITY_HEADERS)
+        self._refresh_tasks: set[asyncio.Task[None]] = set()
+
+        if cache_authenticated and not self._varied_identity:
+            logger.warning(
+                "CacheMiddleware(cache_authenticated=True) has no identity header in "
+                "vary_headers; authenticated requests will still bypass the cache. "
+                "Add 'Cookie' and/or 'Authorization' to vary_headers."
+            )
+
+    def _identity_blocks_cache(self, request: Request) -> bool:
+        """
+        Report whether this request's identity signals make caching unsafe.
+
+        A request is unsafe when it carries an identity header that is not
+        folded into the cache key, since the resulting entry would be served
+        to other callers.
+
+        Args:
+            request: Inbound request.
+
+        Returns:
+            True if the request must bypass the cache.
+        """
+        getter = getattr(getattr(request, "headers", None), "get", None)
+        if getter is None:
+            return False
+
+        for header in self.IDENTITY_HEADERS:
+            if not getter(header, ""):
+                continue
+            if self._cache_authenticated and header in self._varied_identity:
+                continue
+            return True
+        return False
 
     async def __call__(
         self,
@@ -88,6 +161,14 @@ class CacheMiddleware(Middleware):
         if request.method not in self._cacheable_methods:
             return await next_handler(request, ctx)
 
+        # Never let an identity-bearing request populate or read a shared entry
+        # unless its identity header is part of the cache key.
+        if self._identity_blocks_cache(request):
+            response = await next_handler(request, ctx)
+            if hasattr(response, "headers"):
+                response.set_header("X-Cache", "PRIVATE")
+            return response
+
         # Check for cache bypass header (requires valid secret token)
         bypass = ""
         if hasattr(request, "headers") and hasattr(request.headers, "get"):
@@ -96,7 +177,7 @@ class CacheMiddleware(Middleware):
             bypass_secret = os.environ.get("AQUILIA_CACHE_BYPASS_SECRET", "")
             if bypass_secret and hmac.compare_digest(bypass.strip(), bypass_secret):
                 response = await next_handler(request, ctx)
-                response.headers["X-Cache"] = "BYPASS"
+                response.set_header("X-Cache", "BYPASS")
                 return response
             else:
                 # Ignore invalid bypass attempts silently — treat as normal request
@@ -147,7 +228,7 @@ class CacheMiddleware(Middleware):
                     headers["Age"] = str(int(age))
 
                     # Trigger background refresh
-                    asyncio.ensure_future(self._background_refresh(request, ctx, next_handler, cache_key))
+                    self._spawn_refresh(request, ctx, next_handler, cache_key)
 
                     return Response(
                         content=cached_data.get("body", b""),
@@ -175,23 +256,27 @@ class CacheMiddleware(Middleware):
             return response
 
         # Check response-level cache control
-        resp_cache_control = ""
-        if hasattr(response, "headers"):
-            resp_cache_control = response.headers.get("Cache-Control", "") or ""
+        resp_cache_control = self._response_header(response, "cache-control")
         if "no-store" in resp_cache_control or "private" in resp_cache_control:
+            return response
+
+        # A response that establishes a session is per-caller by definition.
+        if self._response_header(response, "set-cookie"):
+            response.set_header("X-Cache", "PRIVATE")
             return response
 
         # Determine TTL (route-level override via X-Cache-TTL header)
         ttl = self._default_ttl
-        if hasattr(response, "headers"):
-            custom_ttl = response.headers.get("X-Cache-TTL", "")
-            if custom_ttl and custom_ttl.isdigit():
-                ttl = int(custom_ttl)
+        custom_ttl = self._response_header(response, "x-cache-ttl")
+        if custom_ttl.isdigit():
+            ttl = int(custom_ttl)
 
-        # Generate ETag
-        body = response.content if hasattr(response, "content") else b""
-        if isinstance(body, str):
-            body = body.encode("utf-8")
+        # Generate ETag. A body that cannot be materialised (streaming or
+        # awaitable content) is not cacheable -- caching an empty placeholder
+        # would serve blank responses on every subsequent hit.
+        body = response.body() if hasattr(response, "body") else None
+        if body is None:
+            return response
         etag = self._generate_etag(body)
 
         # Store in cache
@@ -212,13 +297,86 @@ class CacheMiddleware(Middleware):
         )
 
         # Add cache headers to response
-        response.headers["X-Cache"] = "MISS"
-        response.headers["ETag"] = etag
-        response.headers["Cache-Control"] = f"max-age={ttl}"
+        response.set_header("X-Cache", "MISS")
+        response.set_header("ETag", etag)
+        cache_control_value = f"max-age={ttl}"
         if self._stale_while_revalidate > 0:
-            response.headers["Cache-Control"] += f", stale-while-revalidate={self._stale_while_revalidate}"
+            cache_control_value += f", stale-while-revalidate={self._stale_while_revalidate}"
+        response.set_header("Cache-Control", cache_control_value)
 
         return response
+
+    @staticmethod
+    def _response_header(response: Response, name: str) -> str:
+        """
+        Read a response header case-insensitively.
+
+        Args:
+            response: Response to inspect.
+            name: Header name, lowercase.
+
+        Returns:
+            The header value, or an empty string when absent.
+
+        Note:
+            ``Response.headers`` normalises keys to lowercase, so a lookup by
+            the canonical mixed-case spelling silently misses.
+        """
+        headers = getattr(response, "headers", None)
+        if not headers:
+            return ""
+        value = headers.get(name) or headers.get(name.title()) or ""
+        if isinstance(value, list):
+            return ";".join(value)
+        return str(value)
+
+    def _spawn_refresh(
+        self,
+        request: Request,
+        ctx: RequestCtx,
+        next_handler: Any,
+        cache_key: str,
+    ) -> None:
+        """
+        Schedule a stale-while-revalidate refresh, retaining a strong reference.
+
+        Args:
+            request: The request to replay against the handler.
+            ctx: Request context for the replay.
+            next_handler: Downstream handler.
+            cache_key: Key whose entry should be refreshed.
+
+        Returns:
+            ``None``.
+
+        Note:
+            The task is held in ``_refresh_tasks`` until completion so the
+            event loop cannot garbage-collect it mid-flight.
+        """
+        task = asyncio.ensure_future(self._background_refresh(request, ctx, next_handler, cache_key))
+        self._refresh_tasks.add(task)
+        task.add_done_callback(self._refresh_tasks.discard)
+
+    async def drain(self, timeout: float = 5.0) -> None:
+        """
+        Await any in-flight background refreshes.
+
+        Args:
+            timeout: Maximum seconds to wait before cancelling stragglers.
+
+        Returns:
+            ``None``.
+
+        Usage::
+
+            await cache_middleware.drain()
+        """
+        if not self._refresh_tasks:
+            return
+        pending = tuple(self._refresh_tasks)
+        done, still_pending = await asyncio.wait(pending, timeout=timeout)
+        for task in still_pending:
+            task.cancel()
 
     async def _background_refresh(
         self,
@@ -231,9 +389,9 @@ class CacheMiddleware(Middleware):
         try:
             response = await next_handler(request, ctx)
             if 200 <= response.status < 400:
-                body = response.content if hasattr(response, "content") else b""
-                if isinstance(body, str):
-                    body = body.encode("utf-8")
+                body = response.body() if hasattr(response, "body") else None
+                if body is None:
+                    return
 
                 etag = self._generate_etag(body)
                 cache_data = {
