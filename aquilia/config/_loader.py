@@ -949,6 +949,30 @@ class ConfigLoader:
             },
         )
 
+    def get_filesystem_config(self) -> dict:
+        """Get filesystem configuration with defaults.
+
+        Populates :class:`aquilia.filesystem.FileSystemConfig` at boot.
+
+        Returns:
+            Filesystem configuration dictionary.  ``sandbox_root`` defaults to
+            ``None`` (no containment); set it -- together with
+            ``allow_unsandboxed: false`` -- for applications that resolve
+            user-supplied paths.
+        """
+        return self.get_subsystem_config(
+            "filesystem",
+            {
+                "enabled": False,
+                "sandbox_root": None,
+                "allow_unsandboxed": True,
+                "max_pool_threads": 8,
+                "max_path_length": 1024,
+                "follow_symlinks": False,
+                "atomic_writes": True,
+            },
+        )
+
     def get_middleware_config(self) -> list | None:
         """
         Get middleware chain configuration.

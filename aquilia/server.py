@@ -606,6 +606,9 @@ class AquiliaServer:
         # ── Storage subsystem ────────────────────────────────────────────
         self._setup_storage()
 
+        # ── Filesystem subsystem ─────────────────────────────────────────
+        self._setup_filesystem()
+
         # ── I18n subsystem ───────────────────────────────────────────────
         self._setup_i18n()
 
@@ -1397,16 +1400,30 @@ class AquiliaServer:
 
             self._cache_service = svc
 
+            # Decorator-based @cached/@invalidate resolve through this singleton.
+            from .cache.decorators import set_default_cache_service
+
+            set_default_cache_service(svc)
+
             # Optionally add HTTP response-cache middleware
             mw_cfg = cache_config.get("middleware", {})
-            if mw_cfg.get("enabled", False):
+            if mw_cfg.get("enabled", config_obj.middleware_enabled):
                 from .cache.middleware import CacheMiddleware
 
                 self.middleware_stack.add(
                     CacheMiddleware(
                         cache_service=svc,
-                        ttl=mw_cfg.get("ttl", 300),
-                        namespace=mw_cfg.get("namespace", "http"),
+                        default_ttl=mw_cfg.get("ttl", config_obj.middleware_default_ttl),
+                        cacheable_methods=tuple(
+                            mw_cfg.get("cacheable_methods", config_obj.middleware_cacheable_methods)
+                        ),
+                        vary_headers=tuple(mw_cfg.get("vary_headers", config_obj.middleware_vary_headers)),
+                        namespace=mw_cfg.get("namespace", "http_response"),
+                        stale_while_revalidate=mw_cfg.get(
+                            "stale_while_revalidate",
+                            config_obj.middleware_stale_while_revalidate,
+                        ),
+                        cache_authenticated=mw_cfg.get("cache_authenticated", False),
                     ),
                     scope="global",
                     priority=26,
@@ -1428,7 +1445,13 @@ class AquiliaServer:
 
         Actual backend initialization (creating dirs, connecting to S3, etc.)
         happens during :meth:`startup` where ``StorageRegistry.initialize_all()``
-        is called.
+        is called, followed by per-backend health registration via
+        :meth:`_register_storage_health`.
+
+        Note:
+            Backend classes are resolved from configuration, and a dotted path
+            is imported verbatim.  Storage configuration is therefore trusted
+            deployment input and must never be derived from request data.
         """
         storage_config = self.config.get_storage_config()
         if not storage_config.get("enabled", False):
@@ -1464,6 +1487,110 @@ class AquiliaServer:
         except Exception as e:
             self._storage_registry = None
             self.logger.error(f"Storage subsystem init failed (non-fatal): {e}", exc_info=True)
+
+    async def _register_storage_health(self, registry) -> None:
+        """
+        Probe every storage backend and publish its health.
+
+        Registers one aggregate ``storage`` entry plus a ``storage.<alias>``
+        entry per backend, so an outage on a single disk is visible instead of
+        being hidden behind a blanket HEALTHY status.
+
+        Args:
+            registry: The live :class:`StorageRegistry`.
+
+        Returns:
+            ``None``.
+
+        Note:
+            Probing is best-effort: a backend that raises during ``ping`` is
+            reported UNHEALTHY rather than aborting startup, since storage is
+            configured as a non-required subsystem.
+        """
+        try:
+            health_map = await registry.health_check()
+        except Exception as e:
+            self.health_registry.register(
+                "storage",
+                HealthStatus(
+                    name="storage",
+                    status=SubsystemStatus.UNHEALTHY,
+                    message=f"Health probe failed: {e}",
+                ),
+            )
+            return
+
+        for alias, healthy in health_map.items():
+            self.health_registry.register(
+                f"storage.{alias}",
+                HealthStatus(
+                    name=f"storage.{alias}",
+                    status=SubsystemStatus.HEALTHY if healthy else SubsystemStatus.UNHEALTHY,
+                    message=f"Backend '{alias}' {'healthy' if healthy else 'unhealthy'}",
+                ),
+            )
+
+        unhealthy = [alias for alias, ok in health_map.items() if not ok]
+        if not health_map:
+            status, message = SubsystemStatus.HEALTHY, "no backends configured"
+        elif not unhealthy:
+            status, message = SubsystemStatus.HEALTHY, f"{len(health_map)} backends active"
+        elif len(unhealthy) < len(health_map):
+            status, message = SubsystemStatus.DEGRADED, f"unhealthy: {', '.join(unhealthy)}"
+        else:
+            status, message = SubsystemStatus.UNHEALTHY, "all backends unhealthy"
+
+        self.health_registry.register(
+            "storage",
+            HealthStatus(name="storage", status=status, message=message),
+        )
+
+    def _setup_filesystem(self):
+        """
+        Initialize the filesystem subsystem from workspace config.
+
+        Reads ``Integration.filesystem()`` configuration, builds a
+        :class:`FileSystem` facade over a dedicated thread pool, and registers
+        it in every DI container so controllers and services can inject
+        ``FileSystem`` instead of hand-registering one.
+
+        The pool is started during :meth:`startup` and drained during
+        :meth:`shutdown`.
+
+        Returns:
+            ``None``.
+
+        Note:
+            ``sandbox_root`` should be set for any application that touches
+            user-supplied paths.  Setting ``allow_unsandboxed: false`` without
+            a ``sandbox_root`` is rejected at construction, so the insecure
+            combination cannot be shipped silently.
+        """
+        fs_config = self.config.get_filesystem_config()
+        if not fs_config.get("enabled", False):
+            self._filesystem = None
+            return
+
+        try:
+            from .di.providers import ValueProvider
+            from .filesystem import FileSystem, FileSystemConfig
+
+            filesystem = FileSystem(FileSystemConfig.from_dict(fs_config))
+
+            for container in self.runtime.di_containers.values():
+                container.register(
+                    ValueProvider(
+                        value=filesystem,
+                        token=FileSystem,
+                        scope="app",
+                    )
+                )
+
+            self._filesystem = filesystem
+
+        except Exception as e:
+            self._filesystem = None
+            self.logger.error(f"Filesystem subsystem init failed (non-fatal): {e}", exc_info=True)
 
     def _setup_i18n(self):
         """
@@ -3794,6 +3921,14 @@ class AquiliaServer:
                     self.logger.error(f"Storage startup failed: {e}")
                     # Non-fatal -- app can run without storage
 
+            # Step 3.8: Start the filesystem thread pool
+            if getattr(self, "_filesystem", None) is not None:
+                try:
+                    await self._filesystem.initialize()
+                except Exception as e:
+                    self.logger.error(f"Filesystem startup failed: {e}")
+                    # Non-fatal -- app can run without the filesystem facade
+
             # Step 4: Gather route/service counts for health registration
             routes = self.controller_router.get_routes()
 
@@ -3829,20 +3964,26 @@ class AquiliaServer:
                 ),
             )
             if hasattr(self, "_cache_service") and self._cache_service is not None:
+                cache_ok = await self._cache_service.health_check()
                 self.health_registry.register(
                     "cache",
                     HealthStatus(
                         name="cache",
-                        status=SubsystemStatus.HEALTHY,
+                        status=SubsystemStatus.HEALTHY if cache_ok else SubsystemStatus.UNHEALTHY,
+                        message=f"backend={self._cache_service.backend.name}",
                     ),
                 )
             if hasattr(self, "_storage_registry") and self._storage_registry is not None:
+                await self._register_storage_health(self._storage_registry)
+            if getattr(self, "_filesystem", None) is not None:
+                fs_health = await self._filesystem.health_check()
+                fs_ok = fs_health.get("status") == "healthy"
                 self.health_registry.register(
-                    "storage",
+                    "filesystem",
                     HealthStatus(
-                        name="storage",
-                        status=SubsystemStatus.HEALTHY,
-                        message=f"{len(self._storage_registry.aliases())} backends active",
+                        name="filesystem",
+                        status=SubsystemStatus.HEALTHY if fs_ok else SubsystemStatus.UNHEALTHY,
+                        message=f"pool_max_threads={fs_health.get('pool_max_threads')}",
                     ),
                 )
             if hasattr(self, "_mail_service") and self._mail_service is not None:
@@ -3917,6 +4058,17 @@ class AquiliaServer:
                 await self._storage_registry.shutdown_all()
             except Exception as e:
                 self.logger.warning(f"Error shutting down storage subsystem: {e}")
+            finally:
+                from .storage.executor import shutdown_executor
+
+                shutdown_executor()
+
+        # Shutdown filesystem subsystem
+        if getattr(self, "_filesystem", None) is not None:
+            try:
+                await self._filesystem.shutdown()
+            except Exception as e:
+                self.logger.warning(f"Error shutting down filesystem subsystem: {e}")
 
         # Cleanup DI containers
         for app_name, container in self.runtime.di_containers.items():

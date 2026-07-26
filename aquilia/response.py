@@ -429,6 +429,47 @@ class Response:
         """Get response headers."""
         return self._headers
 
+    @property
+    def content(self) -> Any:
+        """
+        The raw, unencoded response content as supplied by the handler.
+
+        Returns:
+            Whatever was passed to ``__init__`` -- bytes, str, a JSON-able
+            mapping/sequence, or a stream object.  Use :meth:`body` when bytes
+            are required.
+
+        Usage::
+
+            if isinstance(response.content, bytes):
+                ...
+        """
+        return self._content
+
+    def body(self) -> bytes | None:
+        """
+        Return the response body as bytes, when it can be produced eagerly.
+
+        Returns:
+            The encoded body, or ``None`` for streaming/awaitable content that
+            cannot be materialised without consuming the stream.
+
+        Note:
+            Callers that persist responses (such as the HTTP response cache)
+            must treat ``None`` as "not cacheable" rather than substituting an
+            empty body, which would serve blank pages from cache.
+
+        Usage::
+
+            payload = response.body()
+            if payload is not None:
+                cache_it(payload)
+        """
+        content = self._content
+        if isinstance(content, (bytes, str, dict, list)):
+            return self._encode_body(content)
+        return None
+
     def _detect_media_type(self, content: Any) -> str:
         """Auto-detect media type from content."""
         if isinstance(content, bytes):

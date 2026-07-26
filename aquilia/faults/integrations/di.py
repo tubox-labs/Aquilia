@@ -15,7 +15,6 @@ from aquilia.faults import (
 )
 from aquilia.faults.domains import (
     DIFault,
-    ProviderNotFoundFault,
 )
 
 
@@ -59,34 +58,71 @@ def patch_di_container():
     """
     Patch DI Container to emit structured faults.
 
-    Replaces bare exceptions with AquilaFaults:
-    - ProviderNotFoundError → ProviderNotFoundFault (already exists)
+    Enriches or converts bare exceptions:
+    - ProviderNotFoundError → enriched in place (already a ``DIFault``)
     - RuntimeError (async) → AsyncResolutionFault
     - ValueError (registration) → ProviderRegistrationFault
+
+    Returns:
+        ``None``.
+
+    Note:
+        The patch is idempotent.  It is applied whenever a server is
+        constructed, and re-wrapping already-wrapped methods on every call
+        would stack wrappers without bound.
+
+    Usage::
+
+        patch_di_container()
     """
     from aquilia.di.core import Container
     from aquilia.di.errors import ProviderNotFoundError as OldProviderNotFoundError
+
+    if getattr(Container.resolve, "__aquilia_fault_patched__", False):
+        return
 
     # Store original methods
     original_resolve = Container.resolve
     original_resolve_async = Container.resolve_async
     original_register = Container.register
 
+    def _enrich_not_found(container, error, token, tag):
+        """
+        Attach resolution context to a provider-not-found error, in place.
+
+        Args:
+            container: The ``Container`` that failed to resolve.
+            error: The raised ``ProviderNotFoundError``.
+            token: The token that was requested.
+            tag: Optional resolution tag.
+
+        Returns:
+            The same error instance, with ``metadata`` filled in.
+
+        Note:
+            ``ProviderNotFoundError`` already subclasses ``DIFault``, so it is
+            a structured fault.  Re-raising a separate ``ProviderNotFoundFault``
+            would change the exception *type* and silently break every
+            ``except ProviderNotFoundError`` handler in application code, so
+            the original error is enriched and re-raised instead.
+        """
+        unwrapped, _, _ = (
+            container._unwrap_token(token) if hasattr(container, "_unwrap_token") else (token, None, False)
+        )
+        tok_name = getattr(error, "token", None) or (unwrapped if isinstance(unwrapped, str) else str(unwrapped))
+        metadata = getattr(error, "metadata", None)
+        if isinstance(metadata, dict):
+            metadata.setdefault("provider", tok_name)
+            metadata.setdefault("tag", tag)
+            metadata.setdefault("candidates", list(getattr(error, "candidates", None) or []))
+        return error
+
     def patched_resolve(self, token, *, tag=None, optional=False):
         """Patched resolve with fault handling."""
         try:
             return original_resolve(self, token, tag=tag, optional=optional)
         except OldProviderNotFoundError as e:
-            # Convert to structured fault using unwrapped token name
-            unwrapped, _, _ = self._unwrap_token(token) if hasattr(self, "_unwrap_token") else (token, None, False)
-            tok_name = getattr(e, "token", None) or (unwrapped if isinstance(unwrapped, str) else str(unwrapped))
-            raise ProviderNotFoundFault(
-                provider_name=tok_name,
-                metadata={
-                    "tag": tag,
-                    "candidates": e.candidates if hasattr(e, "candidates") else [],
-                },
-            ) from e
+            raise _enrich_not_found(self, e, token, tag) from None
         except RuntimeError as e:
             msg = str(e)
             if "resolve() called from async context" in msg:
@@ -98,16 +134,7 @@ def patch_di_container():
         try:
             return await original_resolve_async(self, token, tag=tag, optional=optional, ctx=ctx)
         except OldProviderNotFoundError as e:
-            # Convert to structured fault using unwrapped token name
-            unwrapped, _, _ = self._unwrap_token(token) if hasattr(self, "_unwrap_token") else (token, None, False)
-            tok_name = getattr(e, "token", None) or (unwrapped if isinstance(unwrapped, str) else str(unwrapped))
-            raise ProviderNotFoundFault(
-                provider_name=tok_name,
-                metadata={
-                    "tag": tag,
-                    "candidates": e.candidates if hasattr(e, "candidates") else [],
-                },
-            ) from e
+            raise _enrich_not_found(self, e, token, tag) from None
 
     def patched_register(self, provider, tag=None):
         """Patched register with fault handling."""
@@ -128,6 +155,7 @@ def patch_di_container():
             raise ProviderRegistrationFault(token=token, reason=msg) from e
 
     # Apply patches
+    patched_resolve.__aquilia_fault_patched__ = True
     Container.resolve = patched_resolve
     Container.resolve_async = patched_resolve_async
     Container.register = patched_register
