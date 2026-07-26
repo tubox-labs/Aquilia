@@ -139,9 +139,17 @@ export const roadmap: RoadmapNode[] = [
     version: '1.3.3',
     codename: 'Analytical Depths',
     date: 'Jul 21, 2026',
-    status: 'current',
+    status: 'released',
     type: 'patch',
     highlights: ['Window Functions OVER', 'Common Table Expressions CTE', 'Recursive CTEs'],
+  },
+  {
+    version: '1.3.4',
+    codename: 'Structural Integrity',
+    date: 'Jul 26, 2026',
+    status: 'current',
+    type: 'patch',
+    highlights: ['Cache L2 Durability & Heap Bounds', 'Storage Sandboxing & Bounded Executor', 'Filesystem Stream Validation'],
   },
 ]
 
