@@ -19,7 +19,6 @@ Usage::
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 from collections.abc import AsyncIterator
 from typing import (
@@ -36,6 +35,7 @@ from ..base import (
     StorageMetadata,
 )
 from ..configs import AzureBlobConfig
+from ..executor import run_blocking
 
 
 class AzureBlobStorage(StorageBackend):
@@ -66,8 +66,6 @@ class AzureBlobStorage(StorageBackend):
                 "Azure backend requires 'azure-storage-blob'. Install: pip install azure-storage-blob",
                 backend="azure",
             )
-
-        loop = asyncio.get_event_loop()
 
         def _connect() -> Any:
             if self._config.connection_string:
@@ -108,14 +106,13 @@ class AzureBlobStorage(StorageBackend):
                 )
             return client
 
-        self._service_client = await loop.run_in_executor(None, _connect)
+        self._service_client = await run_blocking(_connect)
         self._container_client = self._service_client.get_container_client(self._config.container)
 
     async def shutdown(self) -> None:
         if self._service_client:
             try:
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, self._service_client.close)
+                await run_blocking(self._service_client.close)
             except Exception:
                 pass
             self._service_client = None
@@ -125,8 +122,7 @@ class AzureBlobStorage(StorageBackend):
         if not self._container_client:
             return False
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._container_client.get_container_properties)
+            await run_blocking(self._container_client.get_container_properties)
             return True
         except Exception:
             return False
@@ -165,8 +161,6 @@ class AzureBlobStorage(StorageBackend):
         data = await self._read_content(content)
         ct = content_type or self.guess_content_type(name)
 
-        loop = asyncio.get_event_loop()
-
         def _upload() -> None:
             from azure.storage.blob import ContentSettings
 
@@ -178,13 +172,12 @@ class AzureBlobStorage(StorageBackend):
                 metadata=metadata,
             )
 
-        await loop.run_in_executor(None, _upload)
+        await run_blocking(_upload)
         return name
 
     async def open(self, name: str, mode: str = "rb") -> StorageFile:
         self._ensure_container()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _download() -> tuple:
             blob_client = self._container_client.get_blob_client(blob_name)
@@ -199,7 +192,7 @@ class AzureBlobStorage(StorageBackend):
                 raise
 
         try:
-            data, props = await loop.run_in_executor(None, _download)
+            data, props = await run_blocking(_download)
         except FileNotFoundError:
             raise
         except Exception as e:
@@ -221,19 +214,17 @@ class AzureBlobStorage(StorageBackend):
     async def delete(self, name: str) -> None:
         self._ensure_container()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _delete() -> None:
             blob_client = self._container_client.get_blob_client(blob_name)
             with contextlib.suppress(Exception):
                 blob_client.delete_blob()
 
-        await loop.run_in_executor(None, _delete)
+        await run_blocking(_delete)
 
     async def exists(self, name: str) -> bool:
         self._ensure_container()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _exists() -> bool:
             blob_client = self._container_client.get_blob_client(blob_name)
@@ -243,12 +234,11 @@ class AzureBlobStorage(StorageBackend):
             except Exception:
                 return False
 
-        return await loop.run_in_executor(None, _exists)
+        return await run_blocking(_exists)
 
     async def stat(self, name: str) -> StorageMetadata:
         self._ensure_container()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _stat() -> StorageMetadata:
             blob_client = self._container_client.get_blob_client(blob_name)
@@ -268,15 +258,13 @@ class AzureBlobStorage(StorageBackend):
                 metadata=props.metadata or {},
             )
 
-        return await loop.run_in_executor(None, _stat)
+        return await run_blocking(_stat)
 
     async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         self._ensure_container()
         prefix = self._blob_name(path)
         if prefix and not prefix.endswith("/"):
             prefix += "/"
-
-        loop = asyncio.get_event_loop()
 
         def _list() -> tuple[list[str], list[str]]:
             dirs: set = set()
@@ -293,7 +281,7 @@ class AzureBlobStorage(StorageBackend):
                     files.append(f)
             return sorted(dirs), files
 
-        return await loop.run_in_executor(None, _list)
+        return await run_blocking(_list)
 
     async def size(self, name: str) -> int:
         meta = await self.stat(name)

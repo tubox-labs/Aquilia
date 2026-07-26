@@ -16,7 +16,6 @@ Usage::
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 from collections.abc import AsyncIterator
@@ -35,6 +34,7 @@ from ..base import (
     StorageMetadata,
 )
 from ..configs import GCSConfig
+from ..executor import run_blocking
 
 
 class GCSStorage(StorageBackend):
@@ -67,8 +67,6 @@ class GCSStorage(StorageBackend):
                 backend="gcs",
             )
 
-        loop = asyncio.get_event_loop()
-
         def _connect() -> Any:
             kwargs: dict[str, Any] = {}
             if self._config.project:
@@ -85,13 +83,12 @@ class GCSStorage(StorageBackend):
                 client = gcs_lib.Client(**kwargs)  # ADC
             return client
 
-        self._client = await loop.run_in_executor(None, _connect)
+        self._client = await run_blocking(_connect)
         self._bucket = self._client.bucket(self._config.bucket)
 
     async def shutdown(self) -> None:
         if self._client:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._client.close)
+            await run_blocking(self._client.close)
             self._client = None
             self._bucket = None
 
@@ -99,8 +96,7 @@ class GCSStorage(StorageBackend):
         if not self._bucket:
             return False
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._bucket.reload)
+            await run_blocking(self._bucket.reload)
             return True
         except Exception:
             return False
@@ -139,21 +135,18 @@ class GCSStorage(StorageBackend):
         data = await self._read_content(content)
         ct = content_type or self.guess_content_type(name)
 
-        loop = asyncio.get_event_loop()
-
         def _upload() -> None:
             blob = self._bucket.blob(blob_name)
             if metadata:
                 blob.metadata = metadata
             blob.upload_from_string(data, content_type=ct)
 
-        await loop.run_in_executor(None, _upload)
+        await run_blocking(_upload)
         return name
 
     async def open(self, name: str, mode: str = "rb") -> StorageFile:
         self._ensure_bucket()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _download() -> tuple:
             blob = self._bucket.blob(blob_name)
@@ -164,7 +157,7 @@ class GCSStorage(StorageBackend):
             return data, blob
 
         try:
-            data, blob = await loop.run_in_executor(None, _download)
+            data, blob = await run_blocking(_download)
         except FileNotFoundError:
             raise
         except Exception as e:
@@ -184,7 +177,6 @@ class GCSStorage(StorageBackend):
     async def delete(self, name: str) -> None:
         self._ensure_bucket()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _delete() -> None:
             blob = self._bucket.blob(blob_name)
@@ -192,22 +184,20 @@ class GCSStorage(StorageBackend):
                 blob.delete()
 
         with contextlib.suppress(Exception):
-            await loop.run_in_executor(None, _delete)
+            await run_blocking(_delete)
 
     async def exists(self, name: str) -> bool:
         self._ensure_bucket()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _exists() -> bool:
             return self._bucket.blob(blob_name).exists()
 
-        return await loop.run_in_executor(None, _exists)
+        return await run_blocking(_exists)
 
     async def stat(self, name: str) -> StorageMetadata:
         self._ensure_bucket()
         blob_name = self._blob_name(name)
-        loop = asyncio.get_event_loop()
 
         def _stat() -> StorageMetadata:
             blob = self._bucket.blob(blob_name)
@@ -225,15 +215,13 @@ class GCSStorage(StorageBackend):
                 storage_class=blob.storage_class or "",
             )
 
-        return await loop.run_in_executor(None, _stat)
+        return await run_blocking(_stat)
 
     async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         self._ensure_bucket()
         prefix = self._blob_name(path)
         if prefix and not prefix.endswith("/"):
             prefix += "/"
-
-        loop = asyncio.get_event_loop()
 
         def _list() -> tuple[list[str], list[str]]:
             blobs = self._client.list_blobs(self._config.bucket, prefix=prefix, delimiter="/")
@@ -246,7 +234,7 @@ class GCSStorage(StorageBackend):
             dirs: list[str] = [p.rstrip("/").rsplit("/", 1)[-1] for p in blobs.prefixes]
             return dirs, files
 
-        return await loop.run_in_executor(None, _list)
+        return await run_blocking(_list)
 
     async def size(self, name: str) -> int:
         meta = await self.stat(name)
@@ -256,7 +244,6 @@ class GCSStorage(StorageBackend):
         self._ensure_bucket()
         blob_name = self._blob_name(name)
         expiry = expire or self._config.presigned_expiry
-        loop = asyncio.get_event_loop()
 
         def _sign() -> str:
             blob = self._bucket.blob(blob_name)
@@ -265,7 +252,7 @@ class GCSStorage(StorageBackend):
                 method="GET",
             )
 
-        return await loop.run_in_executor(None, _sign)
+        return await run_blocking(_sign)
 
     # -- Internal ----------------------------------------------------------
 

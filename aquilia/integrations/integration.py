@@ -200,6 +200,13 @@ class Integration:
         return _build_integration(StorageIntegration, **kwargs)
 
     @staticmethod
+    def filesystem(**kwargs: Any) -> dict[str, Any]:
+        """Configure the local filesystem subsystem."""
+        from aquilia.integrations.filesystem import FileSystemIntegration
+
+        return _build_integration(FileSystemIntegration, **kwargs)
+
+    @staticmethod
     def templates(**kwargs: Any) -> dict[str, Any]:
         """Configure templates."""
         from aquilia.integrations.templates import TemplatesIntegration

@@ -18,7 +18,6 @@ Usage::
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import os
 import stat as stat_module
@@ -37,6 +36,7 @@ from ..base import (
     StorageMetadata,
 )
 from ..configs import SFTPConfig
+from ..executor import run_blocking
 
 
 class SFTPStorage(StorageBackend):
@@ -69,8 +69,6 @@ class SFTPStorage(StorageBackend):
                 backend="sftp",
             )
 
-        loop = asyncio.get_event_loop()
-
         def _connect() -> tuple:
             transport = paramiko.Transport((self._config.host, self._config.port))
 
@@ -92,10 +90,9 @@ class SFTPStorage(StorageBackend):
             sftp = paramiko.SFTPClient.from_transport(transport)
             return transport, sftp
 
-        self._transport, self._sftp = await loop.run_in_executor(None, _connect)
+        self._transport, self._sftp = await run_blocking(_connect)
 
     async def shutdown(self) -> None:
-        loop = asyncio.get_event_loop()
 
         def _close() -> None:
             if self._sftp:
@@ -105,7 +102,7 @@ class SFTPStorage(StorageBackend):
                 with contextlib.suppress(Exception):
                     self._transport.close()
 
-        await loop.run_in_executor(None, _close)
+        await run_blocking(_close)
         self._sftp = None
         self._transport = None
 
@@ -139,8 +136,6 @@ class SFTPStorage(StorageBackend):
         remote = self._remote_path(name)
         data = await self._read_content(content)
 
-        loop = asyncio.get_event_loop()
-
         def _upload() -> None:
             # Ensure parent directories
             parent = os.path.dirname(remote)
@@ -151,13 +146,12 @@ class SFTPStorage(StorageBackend):
             buf = io.BytesIO(data)
             self._sftp.putfo(buf, remote)
 
-        await loop.run_in_executor(None, _upload)
+        await run_blocking(_upload)
         return name
 
     async def open(self, name: str, mode: str = "rb") -> StorageFile:
         self._ensure_sftp()
         remote = self._remote_path(name)
-        loop = asyncio.get_event_loop()
 
         def _download() -> bytes:
             import io
@@ -169,25 +163,23 @@ class SFTPStorage(StorageBackend):
                 raise FileNotFoundError(f"File not found: {name}", backend="sftp", path=name)
             return buf.getvalue()
 
-        data = await loop.run_in_executor(None, _download)
+        data = await run_blocking(_download)
         meta = await self.stat(name)
         return StorageFile(name=name, mode=mode, content=data, meta=meta)
 
     async def delete(self, name: str) -> None:
         self._ensure_sftp()
         remote = self._remote_path(name)
-        loop = asyncio.get_event_loop()
 
         def _delete() -> None:
             with contextlib.suppress(OSError):
                 self._sftp.remove(remote)
 
-        await loop.run_in_executor(None, _delete)
+        await run_blocking(_delete)
 
     async def exists(self, name: str) -> bool:
         self._ensure_sftp()
         remote = self._remote_path(name)
-        loop = asyncio.get_event_loop()
 
         def _exists() -> bool:
             try:
@@ -196,12 +188,11 @@ class SFTPStorage(StorageBackend):
             except OSError:
                 return False
 
-        return await loop.run_in_executor(None, _exists)
+        return await run_blocking(_exists)
 
     async def stat(self, name: str) -> StorageMetadata:
         self._ensure_sftp()
         remote = self._remote_path(name)
-        loop = asyncio.get_event_loop()
 
         def _stat() -> StorageMetadata:
             try:
@@ -216,12 +207,11 @@ class SFTPStorage(StorageBackend):
                 created_at=(datetime.fromtimestamp(attrs.st_atime, tz=timezone.utc) if attrs.st_atime else None),
             )
 
-        return await loop.run_in_executor(None, _stat)
+        return await run_blocking(_stat)
 
     async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         self._ensure_sftp()
         remote = self._remote_path(path) if path else self._config.root
-        loop = asyncio.get_event_loop()
 
         def _list() -> tuple[list[str], list[str]]:
             dirs: list[str] = []
@@ -237,7 +227,7 @@ class SFTPStorage(StorageBackend):
                     files.append(entry.filename)
             return dirs, files
 
-        return await loop.run_in_executor(None, _list)
+        return await run_blocking(_list)
 
     async def size(self, name: str) -> int:
         meta = await self.stat(name)

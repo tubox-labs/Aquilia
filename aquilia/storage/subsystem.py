@@ -1,7 +1,7 @@
 """
-Storage Subsystem -- Aquilia boot lifecycle integration for storage.
+Storage Subsystem -- BootContext-driven storage lifecycle integration.
 
-Integrates the storage system into the Aquilia server lifecycle:
+Integrates the storage system into a ``BaseSubsystem`` boot pipeline:
 1. Reads storage configuration from ``BootContext.config["storage"]``
 2. Instantiates and registers backends with ``StorageRegistry``
 3. Initialises all backends (connect, create dirs, etc.)
@@ -10,6 +10,15 @@ Integrates the storage system into the Aquilia server lifecycle:
 6. Graceful shutdown with resource cleanup
 
 Priority: 25 (before database=30, effects=45, controllers=60)
+
+Relationship to ``AquiliaServer``:
+    ``AquiliaServer`` boots storage directly through ``_setup_storage`` /
+    ``_register_storage_health``, which offer the same guarantees (DI
+    registration plus per-backend health entries) inside the server's own
+    ordered ``_setup_*`` sequence.  This class is the entry point for hosts
+    that drive subsystems through a ``BootContext`` instead -- embedders,
+    tests, and alternative runners.  Both paths share ``StorageRegistry``, so
+    behaviour does not diverge; only the orchestration differs.
 
 Configuration (via Workspace.storage() or config file)::
 
@@ -22,6 +31,11 @@ Configuration (via Workspace.storage() or config file)::
           backend: s3
           bucket: my-cdn-bucket
           region: us-east-1
+
+Note:
+    A backend entry's ``backend`` value may be a dotted import path, which is
+    imported verbatim.  Storage configuration is trusted deployment input and
+    must never be built from request-supplied data.
 """
 
 from __future__ import annotations

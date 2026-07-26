@@ -62,7 +62,19 @@ class FileSystemConfig:
     sandbox_root: str | None = None
     """If set, all file operations are restricted to this directory tree.
     Paths outside the sandbox are rejected with ``FS_PATH_TRAVERSAL``.
-    SEC-FS-03."""
+    SEC-FS-03.
+
+    Leaving this ``None`` disables containment entirely.  That is only
+    permitted when :attr:`allow_unsandboxed` is ``True`` (the default, for
+    tooling and CLI use); set ``allow_unsandboxed=False`` in application
+    config to make an unset ``sandbox_root`` a hard boot-time error."""
+
+    allow_unsandboxed: bool = True
+    """Whether operations are permitted when no ``sandbox_root`` is set.
+
+    Set to ``False`` in production application config so that a missing
+    sandbox root fails loudly at construction time instead of silently
+    disabling path containment.  SEC-FS-03."""
 
     # ── Atomic Writes ────────────────────────────────────────────────────
 
@@ -95,6 +107,28 @@ class FileSystemConfig:
 
     max_filename_length: int = 255
     """Maximum length for sanitized filenames.  SEC-FS-13."""
+
+    def __post_init__(self) -> None:
+        """
+        Validate the security posture of the configuration.
+
+        Raises:
+            ConfigInvalidFault: If ``allow_unsandboxed`` is ``False`` while
+                ``sandbox_root`` is unset, i.e. containment was demanded but
+                no root was supplied.
+        """
+        if not self.allow_unsandboxed and not self.sandbox_root:
+            from aquilia.faults.domains import ConfigInvalidFault
+
+            raise ConfigInvalidFault(
+                key="filesystem.sandbox_root",
+                reason=(
+                    "allow_unsandboxed=False requires an explicit sandbox_root. "
+                    "Set filesystem.sandbox_root to the directory tree all file "
+                    "operations must stay within, or set allow_unsandboxed=True "
+                    "to knowingly run without path containment."
+                ),
+            )
 
     def effective_max_pool_threads(self) -> int:
         """Return the effective max pool thread count, accounting for

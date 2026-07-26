@@ -89,6 +89,8 @@ class S3Config(StorageConfig):
     default_acl: str | None = None  # e.g. 'private', 'public-read'
     storage_class: str = "STANDARD"  # STANDARD, GLACIER, etc.
     presigned_expiry: int = 3600  # Default presigned URL expiry (seconds)
+    multipart_threshold: int = 8 * 1024 * 1024  # Switch to multipart above this size
+    multipart_chunk_size: int = 8 * 1024 * 1024  # Part size (S3 minimum is 5 MiB)
     transfer_config: dict[str, Any] = field(default_factory=dict)  # boto3 TransferConfig
 
 

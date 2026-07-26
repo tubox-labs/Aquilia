@@ -63,6 +63,9 @@ from aquilia.integrations.cache import CacheIntegration
 # ── Database ──────────────────────────────────────────────────────────
 from aquilia.integrations.database import DatabaseIntegration
 
+# ── Storage ───────────────────────────────────────────────────────────
+from aquilia.integrations.filesystem import FileSystemIntegration
+
 # ── I18n ──────────────────────────────────────────────────────────────
 from aquilia.integrations.i18n import I18nIntegration
 from aquilia.integrations.integration import Integration as Integration
@@ -116,8 +119,6 @@ from aquilia.integrations.specula import SpeculaIntegration
 
 # ── Static Files ──────────────────────────────────────────────────────
 from aquilia.integrations.static import StaticFilesIntegration
-
-# ── Storage ───────────────────────────────────────────────────────────
 from aquilia.integrations.storage import StorageIntegration
 
 # ── Tasks ─────────────────────────────────────────────────────────────
@@ -159,6 +160,7 @@ __all__ = [
     # Subsystems
     "CacheIntegration",
     "TasksIntegration",
+    "FileSystemIntegration",
     "StorageIntegration",
     "TemplatesIntegration",
     # Security

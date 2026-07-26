@@ -278,6 +278,13 @@ class StorageFile:
 
     @property
     def size(self) -> int:
+        """
+        Byte length of the file.
+
+        Returns:
+            The materialised content length when known, else the size reported
+            by ``meta`` (available for not-yet-streamed files), else ``0``.
+        """
         if self._content is not None:
             return len(self._content)
         if self.meta:
@@ -480,10 +487,25 @@ class StorageBackend(ABC):
     # -- Convenience (default implementations) -----------------------------
 
     async def copy(self, src: str, dst: str) -> str:
-        """Copy a file within the same backend."""
-        async with await self.open(src) as f:
-            data = await f.read()
-        return await self.save(dst, data, overwrite=True)
+        """
+        Copy a file within the same backend.
+
+        Args:
+            src: Source relative path/key.
+            dst: Destination relative path/key.
+
+        Returns:
+            The name the copy was stored under.
+
+        Note:
+            The content is forwarded as a chunk iterator, so backends that
+            support streaming writes never materialise the whole file.
+        """
+        source = await self.open(src)
+        try:
+            return await self.save(dst, source, overwrite=True)
+        finally:
+            await source.close()
 
     async def move(self, src: str, dst: str) -> str:
         """Move a file within the same backend."""
@@ -564,17 +586,26 @@ class StorageBackend(ABC):
         """Normalise any content type to raw bytes.
 
         Handles ``bytes``, ``StorageFile``, sync file-like objects
-        (via executor), and async iterators.
+        (via the dedicated storage executor), and async iterators.
+
+        Args:
+            content: Any supported content form.
+
+        Returns:
+            The full payload as bytes.
+
+        Note:
+            This materialises the whole payload.  Backends that can stream
+            (local, S3) chunk the content instead and do not call this.
         """
         if isinstance(content, bytes):
             return content
         if isinstance(content, StorageFile):
             return await content.read()
         if hasattr(content, "read"):
-            import asyncio
+            from .executor import run_blocking
 
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, content.read)  # type: ignore
+            return await run_blocking(content.read)  # type: ignore[union-attr]
         # AsyncIterator[bytes]
         parts: list[bytes] = []
         async for chunk in content:  # type: ignore

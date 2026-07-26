@@ -44,8 +44,20 @@ def validate_path(
     Layers:
         1. Null byte rejection (SEC-FS-01)
         2. Path normalization & canonical resolution (SEC-FS-02)
-        3. Sandbox containment check (SEC-FS-03)
-        4. Path length validation (SEC-FS-04)
+        3. Path length validation (SEC-FS-04)
+        4. Sandbox containment check (SEC-FS-03)
+
+    Note:
+        Symlinks are **always** resolved here via ``os.path.realpath`` before
+        the containment check, regardless of ``config.follow_symlinks``.  That
+        flag governs metadata semantics only (whether ``stat``/directory scans
+        describe the link or its target); resolving before containment is
+        mandatory for security and is therefore not configurable.
+
+        When neither ``sandbox`` nor ``config.sandbox_root`` is set, containment
+        is skipped.  That is only allowed when ``config.allow_unsandboxed`` is
+        ``True``; otherwise a ``PermissionDeniedFault`` is raised so a missing
+        sandbox fails loudly instead of silently disabling protection.
 
     Args:
         path: The raw path to validate.
@@ -59,7 +71,12 @@ def validate_path(
     Raises:
         PathTraversalFault: If the path escapes the sandbox.
         PathTooLongFault: If the path exceeds the configured limit.
-        PermissionDeniedFault: If the path contains null bytes.
+        PermissionDeniedFault: If the path contains null bytes, or if no
+            sandbox is configured while ``allow_unsandboxed`` is ``False``.
+
+    Usage::
+
+        safe = validate_path("uploads/a.png", sandbox="/srv/uploads", operation="read")
     """
     cfg = config or FileSystemConfig()
     path_str = str(path)
@@ -86,17 +103,25 @@ def validate_path(
 
     # ── Layer 4: Sandbox containment (SEC-FS-03) ───────────────────────
     sandbox_root = sandbox or cfg.sandbox_root
-    if sandbox_root is not None:
-        sandbox_resolved = Path(os.path.realpath(str(sandbox_root)))
-        # Use os.path.commonpath to prevent prefix-matching pitfalls
-        # e.g. /app/data-evil should not match sandbox /app/data
-        try:
-            resolved.relative_to(sandbox_resolved)
-        except ValueError:
-            raise PathTraversalFault(
+    if sandbox_root is None:
+        if not cfg.allow_unsandboxed:
+            raise PermissionDeniedFault(
                 operation=operation,
                 path=path_str,
             )
+        return resolved
+
+    sandbox_resolved = Path(os.path.realpath(str(sandbox_root)))
+    # relative_to compares path components, so a sibling directory such as
+    # /app/data-evil cannot satisfy a sandbox of /app/data the way a naive
+    # string-prefix check would.
+    try:
+        resolved.relative_to(sandbox_resolved)
+    except ValueError:
+        raise PathTraversalFault(
+            operation=operation,
+            path=path_str,
+        )
 
     return resolved
 

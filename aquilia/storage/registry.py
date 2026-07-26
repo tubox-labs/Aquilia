@@ -15,6 +15,7 @@ controllers and effects can consume it.
 from __future__ import annotations
 
 import importlib
+import logging
 from collections.abc import Iterator
 from typing import Any
 
@@ -23,6 +24,8 @@ from .configs import (
     StorageConfig,
     config_from_dict,
 )
+
+logger = logging.getLogger("aquilia.storage.registry")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Backend factory map (shorthand → dotted import path)
@@ -56,6 +59,22 @@ def create_backend(config: StorageConfig) -> StorageBackend:
     1. Resolves the backend shorthand ('s3') or dotted import path.
     2. Imports the class.
     3. Instantiates it with the config.
+
+    Args:
+        config: Backend configuration carrying the ``backend`` selector.
+
+    Returns:
+        The instantiated backend.
+
+    Raises:
+        BackendUnavailableError: If the selector is neither a known shorthand
+            nor a dotted path.
+
+    Note:
+        A dotted ``config.backend`` is imported verbatim, which is an
+        arbitrary-module-load primitive.  Storage configuration is trusted
+        deployment input; it must never be derived from untrusted or
+        request-supplied data.
     """
     backend_key = config.backend
 
@@ -166,20 +185,57 @@ class StorageRegistry:
     # -- Lifecycle ---------------------------------------------------------
 
     async def initialize_all(self) -> None:
-        """Initialize every registered backend."""
-        for _alias, backend in self._backends.items():
-            await backend.initialize()
+        """
+        Initialize every registered backend.
+
+        Returns:
+            ``None``.
+
+        Raises:
+            BackendUnavailableError: If the default backend fails to
+                initialize, since the application cannot serve without it.
+
+        Note:
+            A non-default backend that fails is logged and left uninitialised
+            rather than aborting boot; its ``ping`` will report unhealthy and
+            the rest of the application still starts.
+        """
+        for alias, backend in self._backends.items():
+            try:
+                await backend.initialize()
+            except Exception as exc:
+                if alias == self._default_alias:
+                    raise BackendUnavailableError(
+                        f"Default storage backend {alias!r} failed to initialize: {exc}",
+                        backend=alias,
+                    ) from exc
+                logger.warning("Storage backend %r failed to initialize: %s", alias, exc)
 
     async def shutdown_all(self) -> None:
-        """Shutdown every registered backend."""
-        for _alias, backend in self._backends.items():
+        """
+        Shutdown every registered backend.
+
+        Returns:
+            ``None``.
+
+        Note:
+            Shutdown is best-effort: a backend that raises is logged so the
+            remaining backends still get a chance to release resources.
+        """
+        for alias, backend in self._backends.items():
             try:
                 await backend.shutdown()
-            except Exception:
-                pass  # Best-effort cleanup
+            except Exception as exc:
+                logger.warning("Storage backend %r failed to shut down: %s", alias, exc)
 
     async def health_check(self) -> dict[str, bool]:
-        """Ping every backend and return alias → healthy map."""
+        """
+        Ping every backend.
+
+        Returns:
+            Mapping of alias to health flag; a backend whose ``ping`` raises
+            is reported as unhealthy rather than propagating the error.
+        """
         results: dict[str, bool] = {}
         for alias, backend in self._backends.items():
             try:

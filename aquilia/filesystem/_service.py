@@ -279,12 +279,33 @@ class FileSystem:
         *,
         sandbox: str | Path | None = None,
     ) -> AsyncIterator[bytes]:
-        """Stream file contents in chunks."""
+        """
+        Stream file contents in chunks.
+
+        Args:
+            path: File to read.
+            chunk_size: Bytes per chunk; falls back to
+                ``config.default_chunk_size`` when omitted.
+            offset: Start byte offset.
+            end: End byte offset (exclusive).
+            sandbox: Sandbox root override.
+
+        Returns:
+            Async iterator over byte chunks.
+
+        Raises:
+            PathTraversalFault: If the resolved path escapes the sandbox.
+
+        Usage::
+
+            async for chunk in fs.stream_read(path, sandbox=uploads_root):
+                ...
+        """
         from ._streaming import stream_read
 
         return stream_read(
             path,
-            chunk_size=chunk_size,
+            chunk_size=chunk_size or self._config.default_chunk_size,
             offset=offset,
             end=end,
             pool=self._pool,
@@ -300,13 +321,32 @@ class FileSystem:
         *,
         sandbox: str | Path | None = None,
     ) -> int:
-        """Stream-copy a file. Returns bytes copied."""
+        """
+        Stream-copy a file.
+
+        Args:
+            src: Source path.
+            dst: Destination path.
+            chunk_size: Bytes per chunk; falls back to
+                ``config.default_chunk_size`` when omitted.
+            sandbox: Sandbox root override applied to both paths.
+
+        Returns:
+            Number of bytes copied.
+
+        Raises:
+            PathTraversalFault: If either path escapes the sandbox.
+
+        Usage::
+
+            copied = await fs.stream_copy(src, dst, sandbox=uploads_root)
+        """
         from ._streaming import stream_copy
 
         return await stream_copy(
             src,
             dst,
-            chunk_size=chunk_size,
+            chunk_size=chunk_size or self._config.default_chunk_size,
             pool=self._pool,
             config=self._config,
             sandbox=sandbox,
@@ -388,6 +428,7 @@ class FileSystem:
         self,
         path: str | Path,
         *,
+        ignore_errors: bool = False,
         sandbox: str | Path | None = None,
     ) -> None:
         """Recursively remove a directory tree."""
@@ -395,6 +436,87 @@ class FileSystem:
 
         return await remove_tree(
             path,
+            ignore_errors=ignore_errors,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
+        )
+
+    async def copy_tree(
+        self,
+        src: str | Path,
+        dst: str | Path,
+        *,
+        symlinks: bool = False,
+        dirs_exist_ok: bool = False,
+        sandbox: str | Path | None = None,
+    ) -> str:
+        """
+        Recursively copy a directory tree.
+
+        Args:
+            src: Source directory.
+            dst: Destination directory.
+            symlinks: Copy symlinks as symlinks rather than following them.
+            dirs_exist_ok: Do not raise if destination directories exist.
+            sandbox: Sandbox root override applied to both paths.
+
+        Returns:
+            Destination path as a string.
+
+        Raises:
+            PathTraversalFault: If either path escapes the sandbox.
+
+        Usage::
+
+            await fs.copy_tree("/srv/a", "/srv/b", sandbox="/srv")
+        """
+        from ._directory import copy_tree
+
+        return await copy_tree(
+            src,
+            dst,
+            symlinks=symlinks,
+            dirs_exist_ok=dirs_exist_ok,
+            pool=self._pool,
+            config=self._config,
+            sandbox=sandbox,
+        )
+
+    def walk(
+        self,
+        top: str | Path,
+        *,
+        topdown: bool = True,
+        followlinks: bool = False,
+        sandbox: str | Path | None = None,
+    ) -> AsyncIterator[tuple[str, list[str], list[str]]]:
+        """
+        Recursively walk a directory tree.
+
+        Args:
+            top: Root directory to walk.
+            topdown: Yield a directory before its subdirectories.
+            followlinks: Follow symbolic links while walking.
+            sandbox: Sandbox root override.
+
+        Returns:
+            Async iterator of ``(dirpath, dirnames, filenames)`` tuples.
+
+        Raises:
+            PathTraversalFault: If the resolved root escapes the sandbox.
+
+        Usage::
+
+            async for dirpath, dirs, files in fs.walk("/srv", sandbox="/srv"):
+                ...
+        """
+        from ._directory import walk
+
+        return walk(
+            top,
+            topdown=topdown,
+            followlinks=followlinks,
             pool=self._pool,
             config=self._config,
             sandbox=sandbox,

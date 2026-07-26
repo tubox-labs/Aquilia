@@ -5,6 +5,9 @@ Provides async equivalents of ``os.listdir``, ``os.walk``, ``os.scandir``,
 ``shutil.rmtree``, ``shutil.copytree``, and related functions.
 
 All operations are delegated to the dedicated filesystem thread pool.
+Every path-accepting function validates its argument through
+``_security.validate_path`` before touching the OS, so directory access
+honours the same sandbox containment rules as file access (SEC-FS-03).
 Recursive operations enforce a configurable depth limit (SEC-FS-10).
 """
 
@@ -16,9 +19,12 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from aquilia.typing import PathLike
+
 from ._config import FileSystemConfig
 from ._errors import FileSystemIOFault, wrap_os_error
 from ._pool import FileSystemPool
+from ._security import validate_path
 
 # ═══════════════════════════════════════════════════════════════════════════
 # DirEntry — Async-friendly directory entry
@@ -59,9 +65,11 @@ class DirEntry:
 
 
 async def list_dir(
-    path: str | Path,
+    path: PathLike,
     *,
     pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: PathLike | None = None,
 ) -> list[str]:
     """
     List directory contents (names only).
@@ -71,23 +79,35 @@ async def list_dir(
     Args:
         path: Directory to list.
         pool: Thread pool to use.
+        config: Filesystem config supplying limits and ``sandbox_root``.
+        sandbox: Sandbox root override.
 
     Returns:
         List of entry names (files and directories).
+
+    Raises:
+        PathTraversalFault: If the resolved path escapes the sandbox.
+        FileSystemFault: If the directory cannot be listed.
+
+    Usage::
+
+        names = await list_dir("/srv/uploads", sandbox="/srv/uploads")
     """
     _pool = pool or _get_default_pool()
-    path = Path(path)
+    safe = _validate(path, config, sandbox, "listdir")
 
     try:
-        return await _pool.run(os.listdir, str(path))
+        return await _pool.run(os.listdir, str(safe))
     except Exception as exc:
-        raise wrap_os_error(exc, "listdir", str(path)) from exc
+        raise wrap_os_error(exc, "listdir", str(safe)) from exc
 
 
 async def scan_dir(
-    path: str | Path,
+    path: PathLike,
     *,
     pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: PathLike | None = None,
 ) -> list[DirEntry]:
     """
     Scan directory contents with metadata.
@@ -98,12 +118,24 @@ async def scan_dir(
     Args:
         path: Directory to scan.
         pool: Thread pool to use.
+        config: Filesystem config supplying limits and ``sandbox_root``.
+        sandbox: Sandbox root override.
 
     Returns:
         List of ``DirEntry`` objects.
+
+    Raises:
+        PathTraversalFault: If the resolved path escapes the sandbox.
+        FileSystemFault: If the directory cannot be scanned.
+
+    Usage::
+
+        for entry in await scan_dir("/srv/uploads", sandbox="/srv/uploads"):
+            if entry.is_file_cached:
+                print(entry.name)
     """
     _pool = pool or _get_default_pool()
-    path_str = str(path)
+    path_str = str(_validate(path, config, sandbox, "scandir"))
 
     def _scan() -> list[DirEntry]:
         entries: list[DirEntry] = []
@@ -128,12 +160,14 @@ async def scan_dir(
 
 
 async def make_dir(
-    path: str | Path,
+    path: PathLike,
     *,
     mode: int = 0o777,
     parents: bool = False,
     exist_ok: bool = False,
     pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: PathLike | None = None,
 ) -> None:
     """
     Create a directory.
@@ -146,23 +180,38 @@ async def make_dir(
         parents: Create parent directories as needed.
         exist_ok: Don't raise if directory already exists.
         pool: Thread pool to use.
+        config: Filesystem config supplying limits and ``sandbox_root``.
+        sandbox: Sandbox root override.
+
+    Returns:
+        ``None``.
+
+    Raises:
+        PathTraversalFault: If the resolved path escapes the sandbox.
+        FileSystemFault: If the directory cannot be created.
+
+    Usage::
+
+        await make_dir("/srv/uploads/2026", parents=True, sandbox="/srv/uploads")
     """
     _pool = pool or _get_default_pool()
-    path = Path(path)
+    safe = _validate(path, config, sandbox, "mkdir")
 
     def _mkdir() -> None:
-        path.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
+        safe.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
 
     try:
         await _pool.run(_mkdir)
     except Exception as exc:
-        raise wrap_os_error(exc, "mkdir", str(path)) from exc
+        raise wrap_os_error(exc, "mkdir", str(safe)) from exc
 
 
 async def remove_dir(
-    path: str | Path,
+    path: PathLike,
     *,
     pool: FileSystemPool | None = None,
+    config: FileSystemConfig | None = None,
+    sandbox: PathLike | None = None,
 ) -> None:
     """
     Remove an empty directory.
@@ -172,22 +221,36 @@ async def remove_dir(
     Args:
         path: Directory to remove (must be empty).
         pool: Thread pool to use.
+        config: Filesystem config supplying limits and ``sandbox_root``.
+        sandbox: Sandbox root override.
+
+    Returns:
+        ``None``.
+
+    Raises:
+        PathTraversalFault: If the resolved path escapes the sandbox.
+        FileSystemFault: If the directory cannot be removed.
+
+    Usage::
+
+        await remove_dir("/srv/uploads/empty", sandbox="/srv/uploads")
     """
     _pool = pool or _get_default_pool()
-    path = Path(path)
+    safe = _validate(path, config, sandbox, "rmdir")
 
     try:
-        await _pool.run(path.rmdir)
+        await _pool.run(safe.rmdir)
     except Exception as exc:
-        raise wrap_os_error(exc, "rmdir", str(path)) from exc
+        raise wrap_os_error(exc, "rmdir", str(safe)) from exc
 
 
 async def remove_tree(
-    path: str | Path,
+    path: PathLike,
     *,
     ignore_errors: bool = False,
     pool: FileSystemPool | None = None,
     config: FileSystemConfig | None = None,
+    sandbox: PathLike | None = None,
 ) -> None:
     """
     Recursively remove a directory tree.
@@ -201,11 +264,23 @@ async def remove_tree(
         path: Root directory to remove.
         ignore_errors: If True, errors are silently ignored.
         pool: Thread pool to use.
-        config: Filesystem config (for depth limit).
+        config: Filesystem config (depth limit, sandbox root).
+        sandbox: Sandbox root override.
+
+    Returns:
+        ``None``.
+
+    Raises:
+        PathTraversalFault: If the resolved path escapes the sandbox.
+        FileSystemFault: On removal failure when ``ignore_errors`` is False.
+
+    Usage::
+
+        await remove_tree("/srv/uploads/tmp", sandbox="/srv/uploads")
     """
     _pool = pool or _get_default_pool()
     cfg = config or FileSystemConfig()
-    path_str = str(path)
+    path_str = str(_validate(path, cfg, sandbox, "rmtree"))
 
     def _rmtree() -> None:
         # Verify depth limit before proceeding
@@ -221,11 +296,12 @@ async def remove_tree(
 
 
 async def copy_tree(
-    src: str | Path,
-    dst: str | Path,
+    src: PathLike,
+    dst: PathLike,
     *,
     pool: FileSystemPool | None = None,
     config: FileSystemConfig | None = None,
+    sandbox: PathLike | None = None,
     symlinks: bool = False,
     dirs_exist_ok: bool = False,
 ) -> str:
@@ -240,17 +316,26 @@ async def copy_tree(
         src: Source directory.
         dst: Destination directory.
         pool: Thread pool to use.
-        config: Filesystem config.
+        config: Filesystem config (depth limit, sandbox root).
+        sandbox: Sandbox root override applied to both paths.
         symlinks: Copy symlinks as symlinks (vs following them).
         dirs_exist_ok: Don't raise if destination dirs exist.
 
     Returns:
         Destination path as string.
+
+    Raises:
+        PathTraversalFault: If either path escapes the sandbox.
+        FileSystemFault: On copy failure.
+
+    Usage::
+
+        await copy_tree("/srv/a", "/srv/b", sandbox="/srv")
     """
     _pool = pool or _get_default_pool()
     cfg = config or FileSystemConfig()
-    src_str = str(src)
-    dst_str = str(dst)
+    src_str = str(_validate(src, cfg, sandbox, "copytree_src"))
+    dst_str = str(_validate(dst, cfg, sandbox, "copytree_dst"))
 
     def _copytree() -> str:
         _check_depth(src_str, cfg.max_recursion_depth)
@@ -269,12 +354,13 @@ async def copy_tree(
 
 
 async def walk(
-    top: str | Path,
+    top: PathLike,
     *,
     topdown: bool = True,
     followlinks: bool = False,
     pool: FileSystemPool | None = None,
     config: FileSystemConfig | None = None,
+    sandbox: PathLike | None = None,
 ) -> AsyncIterator[tuple[str, list[str], list[str]]]:
     """
     Recursively walk a directory tree.
@@ -288,14 +374,24 @@ async def walk(
         topdown: If True, yield directory before its subdirectories.
         followlinks: If True, follow symbolic links.
         pool: Thread pool to use.
-        config: Filesystem config.
+        config: Filesystem config (depth limit, sandbox root).
+        sandbox: Sandbox root override.
 
     Yields:
         ``(dirpath, dirnames, filenames)`` tuples.
+
+    Raises:
+        PathTraversalFault: If the resolved root escapes the sandbox.
+        FileSystemFault: On walk failure.
+
+    Usage::
+
+        async for dirpath, dirs, files in walk("/srv/uploads", sandbox="/srv/uploads"):
+            ...
     """
     _pool = pool or _get_default_pool()
     cfg = config or FileSystemConfig()
-    top_str = str(top)
+    top_str = str(_validate(top, cfg, sandbox, "walk"))
 
     def _walk() -> list[tuple[str, list[str], list[str]]]:
         results: list[tuple[str, list[str], list[str]]] = []
@@ -326,6 +422,36 @@ async def walk(
 # ═══════════════════════════════════════════════════════════════════════════
 # Internal Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
+
+def _validate(
+    path: PathLike,
+    config: FileSystemConfig | None,
+    sandbox: PathLike | None,
+    operation: str,
+) -> Path:
+    """
+    Resolve and sandbox-check a directory path.
+
+    Args:
+        path: Raw path supplied by the caller.
+        config: Filesystem config, or ``None`` for defaults.
+        sandbox: Explicit sandbox root, overriding ``config.sandbox_root``.
+        operation: Operation label recorded on raised faults.
+
+    Returns:
+        The canonical, validated path.
+
+    Raises:
+        PathTraversalFault: If the resolved path escapes the sandbox.
+    """
+    cfg = config or FileSystemConfig()
+    return validate_path(
+        path,
+        config=cfg,
+        sandbox=sandbox or cfg.sandbox_root,
+        operation=operation,
+    )
 
 
 def _check_depth(path: str, max_depth: int) -> None:
