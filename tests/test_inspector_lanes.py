@@ -163,6 +163,10 @@ async def test_cache_lane_recorded():
 
         config = MagicMock()
         config.apply_jitter = MagicMock(side_effect=lambda ttl: ttl)
+        config.key_builder = "default"
+        config.key_version = 0
+        config.key_prefix = "aq:"
+        config.namespace = "default"
 
         cache = CacheService(backend=backend, config=config)
 
