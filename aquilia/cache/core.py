@@ -61,6 +61,7 @@ class CacheEntry:
     tags: tuple[str, ...] = ()
     namespace: str = "default"
     version: int = 1
+    seq: int = 0
 
     @property
     def is_expired(self) -> bool:

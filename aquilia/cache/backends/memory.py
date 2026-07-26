@@ -69,6 +69,7 @@ class MemoryBackend(CacheBackend):
         "_initialized",
         "_capacity_warning_threshold",
         "_capacity_warned",
+        "_seq",
     )
 
     def __init__(
@@ -115,9 +116,9 @@ class MemoryBackend(CacheBackend):
         # LFU frequency counter
         self._freq_counter: dict[str, int] = {}
 
-        # TTL expiry heap: (expires_at, key). Entries are lazily invalidated:
+        # TTL expiry heap: (expires_at, entry_id, key). Entries are lazily invalidated:
         # a popped tuple is discarded unless it matches the live entry.
-        self._ttl_heap: list[tuple[float, str]] = []
+        self._ttl_heap: list[tuple[float, int, str]] = []
 
         # LFU eviction heap: (frequency, key), same lazy-invalidation scheme.
         self._lfu_heap: list[tuple[int, str]] = []
@@ -125,6 +126,7 @@ class MemoryBackend(CacheBackend):
         # Background sweeper
         self._sweeper_task: asyncio.Task | None = None
         self._initialized = False
+        self._seq = 0
 
     @property
     def name(self) -> str:
@@ -225,6 +227,7 @@ class MemoryBackend(CacheBackend):
                 expires_at = time.monotonic() + ttl
 
             # Create entry
+            self._seq += 1
             entry = CacheEntry(
                 key=key,
                 value=value,
@@ -232,6 +235,7 @@ class MemoryBackend(CacheBackend):
                 size_bytes=size_bytes,
                 tags=tags,
                 namespace=namespace,
+                seq=self._seq,
             )
 
             # Store
@@ -250,7 +254,7 @@ class MemoryBackend(CacheBackend):
 
             # TTL heap
             if expires_at is not None:
-                heappush(self._ttl_heap, (expires_at, key))
+                heappush(self._ttl_heap, (expires_at, entry.seq, key))
                 self._compact_ttl_heap()
 
             # Stats
@@ -374,12 +378,14 @@ class MemoryBackend(CacheBackend):
                     expires_at = time.monotonic() + ttl
 
                 size_bytes = sys.getsizeof(value)
+                self._seq += 1
                 entry = CacheEntry(
                     key=key,
                     value=value,
                     expires_at=expires_at,
                     size_bytes=size_bytes,
                     namespace=namespace,
+                    seq=self._seq,
                 )
 
                 self._store[key] = entry
@@ -390,7 +396,7 @@ class MemoryBackend(CacheBackend):
                     heappush(self._lfu_heap, (1, key))
 
                 if expires_at is not None:
-                    heappush(self._ttl_heap, (expires_at, key))
+                    heappush(self._ttl_heap, (expires_at, entry.seq, key))
 
                 self._stats.sets += 1
                 self._stats.memory_bytes += size_bytes
@@ -489,11 +495,18 @@ class MemoryBackend(CacheBackend):
         """
         if len(self._ttl_heap) <= _HEAP_COMPACT_RATIO * max(len(self._store), 8):
             return
-        live = [
-            (expires_at, key)
-            for expires_at, key in self._ttl_heap
-            if (entry := self._store.get(key)) is not None and entry.expires_at == expires_at
-        ]
+        live = []
+        for item in self._ttl_heap:
+            if len(item) == 3:
+                expires_at, seq, key = item
+                entry = self._store.get(key)
+                if entry is not None and entry.seq == seq:
+                    live.append(item)
+            elif len(item) == 2:
+                expires_at, key = item
+                entry = self._store.get(key)
+                if entry is not None and entry.expires_at == expires_at:
+                    live.append(item)
         heapify(live)
         self._ttl_heap = live
 
@@ -591,17 +604,24 @@ class MemoryBackend(CacheBackend):
             swept = 0
 
             while self._ttl_heap:
-                expires_at, key = self._ttl_heap[0]
+                item = self._ttl_heap[0]
+                expires_at = item[0]
 
                 if expires_at > now:
                     break
 
                 heappop(self._ttl_heap)
 
-                entry = self._store.get(key)
-                if entry is None or entry.expires_at != expires_at:
-                    # Superseded by a newer set(), or already evicted.
-                    continue
+                if len(item) == 3:
+                    seq, key = item[1], item[2]
+                    entry = self._store.get(key)
+                    if entry is None or entry.seq != seq:
+                        continue
+                else:
+                    key = item[1]
+                    entry = self._store.get(key)
+                    if entry is None or entry.expires_at != expires_at:
+                        continue
 
                 if entry.is_expired:
                     self._evict_key(key)
