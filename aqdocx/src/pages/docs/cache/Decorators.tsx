@@ -65,6 +65,46 @@ async def get_user_profile(user_id: int):
 async def get_feed(user_id: str, *, no_cache: bool = False):
     return await feed_repo.fetch(user_id)
 `}</CodeBlock>
+        <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Changed in 1.3.4 — key generation and <code className="text-aquilia-500">None</code> results</h3>
+          <p className={`text-sm mb-3 ${textMuted}`}>
+            Two decorator behaviors were corrected. Before 1.3.4 the first positional argument was
+            excluded from every generated key, so all calls to a single-argument function collapsed
+            onto one entry and returned another call&apos;s value. Keys are now built from the full
+            call signature.
+          </p>
+          <CodeBlock language="python" filename="key_correctness.py">{`@cached(ttl=60, namespace="users")
+async def fetch(user_id: int):
+    return {"id": user_id}
+
+await fetch(1)   # {'id': 1}
+await fetch(2)   # before 1.3.4: {'id': 1}  <-- wrong value, served silently
+                 # 1.3.4+:       {'id': 2}
+`}</CodeBlock>
+          <p className={`text-sm mt-4 mb-3 ${textMuted}`}>
+            Results of <code className="text-aquilia-500">None</code> are also cached now (previously
+            they were recomputed on every call, forever). Use <code className="text-aquilia-500">condition</code> to
+            opt out where recomputation is intended.
+          </p>
+          <CodeBlock language="python" filename="none_caching.py">{`# 1.3.4+: the negative result is cached for its TTL
+@cached(ttl=60, namespace="lookups")
+async def find_user(email: str) -> User | None:
+    return await User.objects.filter(email=email).first()
+
+# Opt out: recompute on every call, as before 1.3.4
+@cached(ttl=60, namespace="lookups", condition=lambda r: r is not None)
+async def find_user_strict(email: str) -> User | None:
+    return await User.objects.filter(email=email).first()
+`}</CodeBlock>
+          <p className={`text-sm mt-4 ${textMuted}`}>
+            Decorator keys now also carry the configured <code className="text-aquilia-500">key_prefix</code> and{' '}
+            <code className="text-aquilia-500">key_version</code> and embed the namespace exactly once,
+            matching keys built by <code className="text-aquilia-500">CacheService</code> directly.
+            Existing entries written under the old layout become unreachable and expire under their
+            own TTL. If you use <code className="text-aquilia-500">@cached</code> on plain functions with a
+            distributed backend, flush the affected namespaces after upgrading.
+          </p>
+        </div>
       </section>
 
       {/* @cache_aside */}
@@ -110,28 +150,67 @@ async def import_products(batch: list[dict]):
         <p className={`mb-4 ${textMuted}`}>
           HTTP response cache middleware. Intercepts incoming requests, generates and validates ETags, vary headers, and serves cached response payloads for GET/HEAD methods.
         </p>
-        <CodeBlock language="python" filename="cache_middleware_signature.py" highlightLines={[2, 5]}>{`CacheMiddleware(
+        <CodeBlock language="python" filename="cache_middleware_signature.py" highlightLines={[2, 5, 8]}>{`CacheMiddleware(
     cache_service,
     default_ttl: int = 60,
     cacheable_methods: tuple[str, ...] = ("GET", "HEAD"),
     vary_headers: tuple[str, ...] = ("Accept", "Accept-Encoding"),
     namespace: str = "http_response",
     stale_while_revalidate: int = 0,
+    cache_authenticated: bool = False,   # 1.3.4+
 )`}</CodeBlock>
-        <CodeBlock language="python" filename="server_setup.py" highlightLines={[3]}>{`from aquilia.cache.middleware import CacheMiddleware
+        <div className={`my-6 rounded-xl border p-5 ${isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Security — identity-aware caching (changed in 1.3.4)</h3>
+          <p className={`text-sm mb-3 ${textMuted}`}>
+            The response cache is <strong>shared</strong>. Before 1.3.4 the default cache key varied
+            only on <code className="text-aquilia-500">Accept</code> and{' '}
+            <code className="text-aquilia-500">Accept-Encoding</code>, so on a per-user route the first
+            authenticated visitor&apos;s response was cached and served to everyone else hitting that
+            path until the TTL expired.
+          </p>
+          <p className={`text-sm mb-3 ${textMuted}`}>
+            Two safeguards now apply, and neither can be disabled implicitly:
+          </p>
+          <ol className={`list-decimal pl-6 space-y-1 text-sm mb-3 ${textMuted}`}>
+            <li>
+              A request carrying <code className="text-aquilia-500">Cookie</code> or{' '}
+              <code className="text-aquilia-500">Authorization</code> bypasses the cache unless that
+              header is listed in <code className="text-aquilia-500">vary_headers</code> <em>and</em>{' '}
+              <code className="text-aquilia-500">cache_authenticated=True</code> is passed.
+            </li>
+            <li>
+              A response that sets <code className="text-aquilia-500">Set-Cookie</code> is never stored.
+            </li>
+          </ol>
+          <p className={`text-sm ${textMuted}`}>
+            Both paths mark the response <code className="text-aquilia-500">X-Cache: PRIVATE</code>.
+            Anonymous traffic caches exactly as before. Expect a hit-rate drop on authenticated
+            routes after upgrading — that drop is the leak closing.
+          </p>
+        </div>
+        <CodeBlock language="python" filename="server_setup.py" highlightLines={[3, 16]}>{`from aquilia.cache.middleware import CacheMiddleware
 
+# Anonymous / public routes -- safe default, nothing extra required
 server.middleware_stack.add(
     CacheMiddleware(
         cache_service=cache_service,
         default_ttl=60,
         cacheable_methods=("GET", "HEAD"),
-        vary_headers=("Accept", "Accept-Encoding", "Authorization"),
+        vary_headers=("Accept", "Accept-Encoding"),
         namespace="http",
         stale_while_revalidate=30,
     ),
     scope="global",
     priority=26,
     name="cache",
+)
+
+# Deliberate per-identity caching -- opt in AND vary on the identity header
+CacheMiddleware(
+    cache_service=cache_service,
+    default_ttl=30,
+    vary_headers=("Accept", "Cookie"),
+    cache_authenticated=True,
 )
 `}</CodeBlock>
       </section>

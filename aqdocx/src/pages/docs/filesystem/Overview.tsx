@@ -110,6 +110,35 @@ files = await fs.list_dir("./logs")
 for file in files:
     stats = await fs.stat(file)
     print(f"{file}: {stats.size} bytes")`}</CodeBlock>
+
+        <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>New in 1.3.4 — filesystem is a first-class subsystem</h3>
+          <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            Previously <code className="text-aquilia-500">FileSystem</code> had to be constructed and
+            registered by hand, with no managed thread-pool lifecycle and no health reporting. It can
+            now be declared in <code className="text-aquilia-500">workspace.py</code>; the server builds
+            it over a dedicated pool, registers it in every DI container, starts the pool during
+            startup, and drains it on shutdown.
+          </p>
+          <CodeBlock language="python" filename="workspace.py">{`from aquilia.integrations import Integration
+
+Integration.filesystem(
+    enabled=True,
+    sandbox_root="/srv/uploads",
+    allow_unsandboxed=False,   # a missing sandbox_root becomes a loud config error
+    max_pool_threads=8,
+)`}</CodeBlock>
+          <CodeBlock language="python" filename="controllers.py">{`from aquilia.filesystem import FileSystem
+
+class ReportController(Controller):
+    def __init__(self, fs: FileSystem):   # injected, no manual registration
+        self.fs = fs`}</CodeBlock>
+          <p className={`text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            The subsystem is <strong>disabled by default</strong>, so existing applications are
+            unaffected and manual construction keeps working. Health is reported under the{' '}
+            <code className="text-aquilia-500">filesystem</code> key alongside cache and storage.
+          </p>
+        </div>
       </section>
 
       {/* Features Grid */}

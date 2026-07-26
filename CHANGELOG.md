@@ -121,6 +121,145 @@ A comprehensive two-round architectural audit of the Aquilary registry, Auto-Dis
 #### Controllers — Router Performance (PERF)
 - **`ControllerRouter.url_for()` O(n·m) linear scan**: Generating URLs required scanning the entire registered route list. Fixed: Added `_name_index` dictionary populated at initialization. `url_for()` lookups are now O(1).
 
+### Added (Phase 3)
+
+#### Cache — Configuration & Key Building
+- **`CacheConfig.key_builder`** — select the key layout: `"default"` (colon segments) or `"hash"` (SHA-256 fixed length). Unknown values raise `ConfigInvalidFault` instead of silently falling back.
+- **`CacheConfig.serializer_secret_key`** — HMAC signing key for the pickle serializer. Makes `serializer="pickle"` reachable through standard configuration for the first time; omitting it raises an actionable fault naming the exact setting.
+- **`build_key_builder(strategy, *, version)`** factory and a `KeyBuilder` protocol documenting the contract for custom key builders. `CacheService.key_builder`, `key_prefix`, and `default_namespace` are now public properties.
+
+#### Cache — Cross-Process Stampede Prevention
+- **Distributed lock contract on `CacheBackend`** — `supports_distributed_lock`, `try_acquire_lock(key, ttl)`, and `release_lock(key, token)`. Implemented in `RedisBackend` with `SET NX PX` and a token-checked Lua release, so a holder whose lease expired cannot delete a lock another worker has since acquired. In-process backends advertise `False`, making the scope limitation explicit rather than implied.
+- **New config**: `distributed_stampede_lock` (default `true`), `stampede_lock_ttl` (default `30.0`), `stampede_poll_interval` (default `0.05`). Verified with six independent backends sharing one Redis: one loader invocation total, versus six before.
+
+#### Cache — Middleware
+- **`CacheMiddleware(cache_authenticated=...)`** — explicit opt-in for caching identity-bearing responses, valid only when the identity header is also present in `vary_headers`.
+- **`CacheMiddleware.drain(timeout=5.0)`** — awaits in-flight stale-while-revalidate refreshes, which are now tracked rather than fire-and-forget.
+
+#### Cache — Diagnostics
+- **`MemoryBackend.ttl_heap_size` / `lfu_heap_size`** — expose internal heap lengths for leak triage and tests.
+- **`CompositeBackend.pending_writes` and `drain(timeout)`** — observe and await in-flight async L2 writes.
+
+#### Storage
+- **`aquilia/storage/executor.py`** — a dedicated, bounded thread pool (`run_blocking`, `get_executor`, `shutdown_executor`) shared by all cloud backends, replacing the interpreter's default executor. Threads are named `aquilia-storage`; size via `AQUILIA_STORAGE_MAX_WORKERS` (default `min(32, cpu_count + 4)`).
+- **`S3Config.multipart_threshold` and `multipart_chunk_size`** — enable true S3 multipart upload, lifting the 5 GB single-request limit and bounding peak memory to one part. A failed part aborts the upload rather than leaving an incomplete one billing.
+- **`LocalStorage.root`** — exposes the resolved sandbox root.
+
+#### Filesystem
+- **`FileSystemConfig.allow_unsandboxed`** (default `true`) — set to `false` to make an unset `sandbox_root` a loud configuration error instead of silently disabling path containment.
+- **`FileSystem.copy_tree()` and `FileSystem.walk()`** — previously missing from the facade despite existing in the underlying module.
+- **`AsyncFileStream.path` / `AsyncWriteStream.path`** — the resolved, sandbox-validated path.
+
+#### Runtime — Filesystem Subsystem
+- **`Integration.filesystem()`** — the filesystem is now a first-class subsystem. `Server._setup_filesystem()` builds a `FileSystem` over a dedicated pool and registers it in every DI container; the pool starts at `startup()` and drains at `shutdown()`. Keys: `enabled`, `sandbox_root`, `allow_unsandboxed`, `max_pool_threads`, `max_path_length`, `follow_symlinks`, `atomic_writes`. Disabled by default; manual registration continues to work.
+
+#### HTTP
+- **`Response.content` property and `Response.body()`** — public accessors for response content. `body()` returns encoded bytes, or `None` for streaming/awaitable content that cannot be materialised without consuming the stream.
+
+### Changed (Phase 3)
+
+- **Cache keys now carry the configured version.** Because `key_version` defaults to `1` and previously did nothing, generated keys gain a `v1:` segment (`aq:users:user:123` becomes `aq:v1:users:user:123`). Old entries are unreachable and expire under their own TTL — a one-time cold cache on deploy. Set `key_version=0` to keep the previous layout.
+- **Decorator and service cache keys share one layout.** `@cached` no longer embeds the namespace twice and now carries the configured `key_prefix` and `key_version`.
+- **`None` results are cached.** Functions returning `None` were recomputed on every call forever; they now cache for their TTL. Opt out with `condition=lambda r: r is not None`.
+- **Authenticated responses are no longer served from the shared HTTP cache.** Requests carrying `Cookie` or `Authorization` bypass the cache, and responses setting `Set-Cookie` are never stored; both are marked `X-Cache: PRIVATE`. Opt in with `cache_authenticated=True` plus the identity header in `vary_headers`.
+- **Storage registry boot is criticality-aware.** A failing default backend raises `BackendUnavailableError`; a failing optional backend is logged, reported unhealthy, and no longer prevents the application from starting. Shutdown logs failures instead of silently swallowing them.
+- **`StorageSubsystem` is documented as the `BootContext` entry point** for embedders and alternative runners, complementing (not competing with) `AquiliaServer._setup_storage()`. Both share `StorageRegistry`, so behaviour cannot diverge.
+
+### Fixed (Phase 3)
+
+#### Cache — `@cached` Returned Values From Other Calls (CRITICAL)
+- **First positional argument was excluded from every cache key**: the decorator decided whether to strip a bound `self` with `hasattr(args[0], "__class__")`, which is true for every Python object. All calls to a single-argument function collapsed onto one key, so `fetch(2)` silently returned `fetch(1)`'s value. Fixed with a real method check based on the function's qualified name and the runtime type of the first argument. This was a silent data-correctness bug, not an error — flush affected namespaces after upgrading.
+
+#### Cache — HTTP Response Cache Leaked Across Users (CRITICAL / SECURITY)
+- **Default `vary_headers` excluded `Cookie` and `Authorization`**: with the middleware at `scope="global"`, the first authenticated user to hit a path had their response cached and served to every subsequent visitor until the TTL expired — the cache-poisoning class behind numerous real-world CDN data leaks. The safe configuration was not the default. Fixed with two safeguards that cannot be disabled implicitly: identity-bearing requests bypass the cache unless explicitly opted in, and `Set-Cookie` responses are never stored.
+
+#### Cache — Response Bodies Were Cached Empty (BUG)
+- **Middleware read a nonexistent `Response.content`**: the attribute had been made private, and a `hasattr` guard converted the resulting failure into a silent `b""` default. Every cached entry had an empty body and an ETag computed over empty bytes, so a cache *hit* served a blank response. Fixed by adding public `content`/`body()` accessors; content that cannot be materialised is treated as not cacheable rather than stored as a blank.
+
+#### Cache — Middleware Was Never Installed (BUG)
+- **`Server._setup_cache()` passed an invalid `ttl=` argument** to `CacheMiddleware`. The `TypeError` was swallowed by a broad `except`, logged as a non-fatal init failure, and the response cache was silently never installed even when explicitly enabled. Configured `cacheable_methods`, `vary_headers`, and `stale_while_revalidate` were also dropped. Fixed, and `set_default_cache_service()` is now invoked so `@cached` on standalone functions resolves the configured service.
+
+#### Cache — Header Casing (BUG)
+- **Mixed-case header writes bypassed `Response`'s lowercase normalisation**: `Cache-Control: no-store` / `private` and the `X-Cache-TTL` per-route override were read with mixed-case names against a lowercase mapping and never matched. Fixed: all writes go through `Response.set_header()`, and reads are case-insensitive.
+
+#### Cache — Dead `key_version` Configuration (BUG)
+- **`CacheConfig.key_version` never reached the key builder**: it was parsed from config and exposed in `to_dict()`, but `CacheService` constructed `DefaultKeyBuilder()` with no arguments, which defaults to `version=0` and omits the version segment. The documented mass-invalidation workflow silently did nothing. Fixed.
+
+#### Cache — Duplicated Key Builders (ARCH)
+- **`decorators.py` held a second module-level builder** pinned at `version=0` and invisible to the configured `key_prefix`. Its `from_args()` already prefixed the namespace, and `CacheService` prefixed it again, embedding the namespace twice in every decorator key. Fixed: the decorator computes only the call signature and the service applies namespace, prefix, and version exactly once.
+
+#### Cache — LFU Eviction Was O(n) (PERF)
+- **Docstring claimed "Min-heap + frequency counter with O(log n) eviction"; the code did `min(self._freq_counter, key=...)`** — a linear scan over every key on every eviction, with no LFU heap existing at all. Fixed with a real `(frequency, key)` min-heap using lazy invalidation, giving amortised O(log n).
+
+#### Cache — Unbounded Memory Heap Growth (BUG)
+- **`_ttl_heap` grew without bound**: `set()` pushed a tuple on every TTL'd write and `_evict_key()` — the single index-cleanup path — never touched the heap. Workloads that rewrite the same TTL'd key (session refresh, rate-limit counters) leaked steadily in long-running processes without affecting correctness, so tests never caught it. Fixed with lazy invalidation and bulk compaction against live entries: 2,000 rewrites of one key now bound the heap to ≤ 16 entries, versus 2,000 before.
+
+#### Cache — Redis Claimed Lua Atomicity That Did Not Exist (BUG / DOCS)
+- **Docstring advertised "Lua scripts for atomic operations"; no `EVAL` or `register_script` call existed.** `increment()` was an `exists()` check followed by a separate `incrby()` — a check-then-act race where concurrent callers on a missing key can both observe "absent". Fixed with a real Lua script evaluating both steps atomically. Verified against live Redis: 50 concurrent increments on a counter seeded at 10 produced 50 distinct results with a maximum of exactly 60.
+
+#### Cache — Redis Tag and Namespace Sets Grew Forever (BUG)
+- **Nothing removed set membership when a key expired via Redis' own TTL.** Workloads relying on natural expiry accumulated stale members indefinitely. Fixed with a Lua prune that returns live members and `SREM`s the rest in the same round trip, invoked by `delete_by_tags`, `clear(namespace)`, and `keys(namespace=...)`.
+
+#### Cache — Redis `get()` Always Returned Empty Tags (BUG)
+- **Tags and namespace were not fetched back on read**, so code written and tested against `MemoryBackend` that inspected `entry.tags` silently misbehaved against Redis in production. Fixed with a TTL-matched sidecar hash that expires with the entry; `keys()` filters internal `_meta:`, `_tags:`, and `_ns:` keys from results.
+
+#### Cache — Composite Async L2 Writes Could Be Dropped (BUG)
+- **`asyncio.ensure_future(...)` results were discarded**, so writes could be garbage-collected mid-flight and `shutdown()` had no way to await them — on the code path whose entire purpose is L2 durability. Fixed by tracking tasks until completion and draining on shutdown. Verified against live Redis: 25 async writes followed immediately by shutdown produced 25 durable entries with tags intact.
+
+#### Cache — Pickle Serializer Was Unreachable (BUG)
+- **`create_cache_backend()` called `get_serializer()` without a secret key**, and no such field existed in `CacheConfig`, so `serializer="pickle"` always raised — a documented option unreachable through any standard configuration flow. Fixed via `serializer_secret_key`; the serializer still refuses to run unsigned.
+
+#### Filesystem — Streaming Bypassed Sandbox Validation (CRITICAL / SECURITY)
+- **`stream_read`, `stream_copy`, `AsyncFileStream`, and `AsyncWriteStream` accepted `config` and `sandbox` arguments and ignored them entirely** — `_security` was not even imported. The `FileSystem` facade exposed identical method shapes on both sides, so a developer assuming parity between `read_file(sandbox=...)` and `stream_read(sandbox=...)` got complete path-traversal exposure on the second call, with no error and no warning, on the code path recommended for large user-uploaded files. Fixed: paths are validated and canonicalised at construction, before any descriptor is opened.
+
+#### Filesystem — Directory Operations Raised `TypeError` (CRITICAL)
+- **Every `FileSystem` directory method was unusable**: `list_dir`, `scan_dir`, `make_dir`, `remove_dir`, and `remove_tree` passed `config=`/`sandbox=` to `_directory` functions that accepted neither, raising `TypeError: list_dir() got an unexpected keyword argument 'config'`. Fixed: the underlying functions accept and enforce both, closing the same traversal gap as the streaming path.
+
+#### Storage — `LocalStorage` Containment Bypass (CRITICAL / SECURITY)
+- **`str(full).startswith(str(self._root))` allowed sibling-directory escape**: with a root of `/var/data`, the path `/var/data-private/secret.txt` satisfies the prefix test despite being outside the root. The framework's own `filesystem/_security.py` already handled this correctly — `storage/backends/local.py` reimplemented sandboxing independently and incorrectly. Fixed by delegating to the single canonical `validate_path`, which resolves symlinks and compares path components.
+
+#### Storage — Full-File Buffering Contradicted the Streaming Contract (PERF)
+- **`LocalStorage.open()` called `read_bytes()` and `S3Storage.open()` called `Body.read()`**, materialising entire objects in memory despite `StorageFile` being documented as supporting `async for chunk in sf`. Multi-gigabyte transfers risked out-of-memory failures. Fixed: local reads/writes/copies go through the filesystem streaming primitives and S3 iterates `StreamingBody` in chunks; content materialises only if `read()` is called explicitly.
+
+#### Storage — Deprecated and Unbounded Executor Usage (SCALE)
+- **Every cloud backend called `asyncio.get_event_loop().run_in_executor(None, ...)`**, placing storage I/O on the interpreter's shared default executor with no way to size or observe it, using the deprecated loop accessor inside coroutines. Fixed across S3, GCS, Azure, SFTP, and `StorageBackend._read_content`.
+
+#### Runtime — Health Checks Reported Hardcoded `HEALTHY` (BUG)
+- **Cache and storage health were registered as literal `HEALTHY` without probing anything.** An unreachable cache backend, or one storage disk out of five being down, was invisible to `/health`. Fixed: cache performs a real write/read/delete round trip, storage pings every backend and registers a `storage.<alias>` entry per disk plus a `healthy`/`degraded`/`unhealthy` aggregate naming the failing aliases, and the filesystem reports pool state.
+
+#### Dependency Injection — Patch Broke the Public Exception Contract (CRITICAL)
+- **`patch_di_container()` re-raised `ProviderNotFoundFault` in place of `ProviderNotFoundError`.** Since the former is not a subclass of the latter, every `except ProviderNotFoundError` handler silently stopped working the moment any server was constructed in the process. The conversion was also redundant — `ProviderNotFoundError` already subclasses `DIFault`. Fixed: the original error is enriched in place with `provider`, `tag`, and `candidates` metadata and re-raised unchanged. The patch is now idempotent; repeated server construction previously stacked wrappers without bound.
+
+### Security (Phase 3)
+
+- **Two critical path-traversal exposures closed** — the filesystem streaming path silently ignored its sandbox argument, and `LocalStorage` used a prefix-match containment check vulnerable to sibling-directory escape. Path containment now has exactly one implementation in the framework, used by both subsystems.
+- **Cross-user HTTP response cache leak closed** — authenticated responses are no longer served from a shared, identity-independent cache entry.
+- **Secure-by-default opt-in added** — `allow_unsandboxed=False` turns a missing sandbox root into a loud configuration error.
+- **Signed pickle serialization made usable** — the HMAC-signed serializer is reachable through configuration and still refuses to deserialize unsigned payloads.
+- **Trust boundary documented** — `StorageRegistry.create_backend()` imports any dotted path in configuration and is effectively an arbitrary-module-load primitive; storage configuration must never be derived from request data.
+
+### Performance (Phase 3)
+
+- LFU eviction is amortised O(log n) instead of O(n) per eviction.
+- TTL and LFU heaps are bounded relative to live entries, eliminating a slow memory leak in long-running processes.
+- Redis `get()` fetches value, TTL, and metadata in a single pipelined round trip.
+- Local and S3 object reads are memory-bounded to one chunk regardless of object size.
+- S3 uploads above the threshold use multipart, lifting the 5 GB limit and bounding peak memory to one part.
+- Storage I/O runs on a dedicated bounded pool instead of competing with unrelated work on the shared default executor.
+
+### Documentation (Phase 3)
+
+- Comprehensive docstrings — description, arguments, returns, raises, notes, and usage examples — across every new and modified public API in `aquilia.cache`, `aquilia.storage`, and `aquilia.filesystem`.
+- Docstring/implementation drift corrected where documentation claimed behaviour the code did not have (LFU heap eviction, Redis Lua atomicity, storage streaming without full materialisation).
+- `validate_path` now documents that symlinks are always resolved for the containment check regardless of `follow_symlinks`, which governs metadata semantics only.
+- New release note pages: [Cache System Audit Fixes](releases/1.3.4/cache_audit.md), [Storage & Filesystem Audit Fixes](releases/1.3.4/storage_filesystem_audit.md), [Subsystem Lifecycle & Health](releases/1.3.4/subsystem_lifecycle.md).
+
+### Tests (Phase 3)
+
+- **`tests/test_cache_storage_filesystem_audit.py`** — 59 regression tests pinning every Phase 3 finding, named by audit ID. Coverage includes cross-user cache leakage through the real `Request`/`Response` pipeline, sibling-directory traversal via planted symlinks, streaming sandbox enforcement on both source and destination, heap-growth bounds, decorator key correctness, and registry failure semantics.
+- Redis-backed behaviour (Lua atomics, tag pruning, sidecar round-trip, distributed locking, composite write durability) verified against a live Redis 7 instance in addition to the offline suite.
+- Full suite: 7,023 passing, 21 skipped. Ruff lint and format clean.
+
 ## [1.3.3] — 2026-07-21 — "Analytical Depths"
 
 ### Added

@@ -208,6 +208,8 @@ workspace = (
                   ['prefix', 'str', '""', 'Virtual directory prefix inside the bucket.'],
                   ['default_acl', 'str | None', 'None', 'Access control policy list (e.g. public-read).'],
                   ['presigned_expiry', 'int', '3600', 'Expires time in seconds for generated presigned URLs.'],
+                  ['multipart_threshold', 'int', '8388608', 'Payloads at or above this size upload via S3 multipart, lifting the 5 GB single-request limit.'],
+                  ['multipart_chunk_size', 'int', '8388608', 'Part size for multipart uploads. S3 requires at least 5 MiB for every part except the last.'],
                 ].map(([attr, type, defVal, desc], i) => (
                   <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
                     <td className="py-3 px-6 font-mono text-xs font-semibold text-aquilia-400">{attr}</td>

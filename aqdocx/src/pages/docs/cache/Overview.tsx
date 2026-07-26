@@ -55,11 +55,27 @@ for container in self.runtime.di_containers.values():
 
 self._cache_service = svc
 
-# 4. Conditionally add HTTP response-cache middleware
+# 4. Publish the singleton so @cached works on standalone functions
+set_default_cache_service(svc)
+
+# 5. Conditionally add HTTP response-cache middleware
 mw_cfg = cache_config.get("middleware", {})
-if mw_cfg.get("enabled", False):
+if mw_cfg.get("enabled", config_obj.middleware_enabled):
     self.middleware_stack.add(
-        CacheMiddleware(cache_service=svc, ttl=mw_cfg.get("ttl", 300)),
+        CacheMiddleware(
+            cache_service=svc,
+            default_ttl=mw_cfg.get("ttl", config_obj.middleware_default_ttl),
+            cacheable_methods=tuple(
+                mw_cfg.get("cacheable_methods", config_obj.middleware_cacheable_methods)
+            ),
+            vary_headers=tuple(mw_cfg.get("vary_headers", config_obj.middleware_vary_headers)),
+            namespace=mw_cfg.get("namespace", "http_response"),
+            stale_while_revalidate=mw_cfg.get(
+                "stale_while_revalidate",
+                config_obj.middleware_stale_while_revalidate,
+            ),
+            cache_authenticated=mw_cfg.get("cache_authenticated", False),
+        ),
         scope="global",
         priority=26,
         name="cache",
@@ -138,10 +154,8 @@ class ProductController(Controller):
         </h2>
         <div className="space-y-4 border-l-2 border-amber-500/30 pl-6 py-1">
           {[
-            ['Flat Config Mapping', 'Server auto-wiring checks nested cache.middleware properties, whereas ConfigLoader parses flat keys (middleware_enabled).'],
-            ['Middleware TTL SignatureMismatch', 'CacheMiddleware is instantiated with ttl=..., but its constructor expects default_ttl=... in the ASGI setup.'],
-            ['Decorator Registry Resolver', 'Decorators resolve cache service from self.cache or self._cache in controllers. Standalone functions require manual set_default_cache_service.'],
-            ['CLI Stats Command Bug', 'The aq cache stats command invokes svc.info(), but CacheService only exposes stats(), leading to empty outputs.'],
+            ['Flat Config Mapping', 'Server auto-wiring reads nested cache.middleware properties and falls back to the flat keys parsed by ConfigLoader (middleware_enabled, middleware_default_ttl, and so on).'],
+            ['Decorator Registry Resolver', 'Decorators resolve the cache service from self.cache or self._cache in controllers. Standalone functions use the module-level singleton, which the server publishes automatically via set_default_cache_service during _setup_cache (1.3.4+).'],
           ].map(([title, desc], i) => (
             <div key={i} className="text-sm">
               <strong className="font-mono text-amber-500 block mb-0.5">{title}</strong>

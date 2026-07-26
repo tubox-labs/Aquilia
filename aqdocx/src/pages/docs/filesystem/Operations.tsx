@@ -164,6 +164,37 @@ async for chunk in stream_read("archive.tar.gz", chunk_size=1024 * 64):
 
 # Stream copy directly from source to destination
 bytes_copied = await stream_copy("large.mp4", "backup.mp4", chunk_size=1024 * 1024)`}</CodeBlock>
+
+        <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Security — streaming honours the sandbox (fixed in 1.3.4)</h3>
+          <p className={`text-sm mb-3 ${subtleText}`}>
+            Before 1.3.4, <code className="text-aquilia-500">stream_read</code> and{' '}
+            <code className="text-aquilia-500">stream_copy</code> accepted{' '}
+            <code className="text-aquilia-500">sandbox</code> and <code className="text-aquilia-500">config</code>{' '}
+            arguments and <strong>ignored them entirely</strong>. Because the method shapes matched the
+            protected whole-file helpers exactly, this looked correct in review while providing no
+            protection at all — on the code path recommended for large user-uploaded files.
+          </p>
+          <p className={`text-sm mb-3 ${subtleText}`}>
+            Paths are now validated and canonicalised before any descriptor is opened. Both the source
+            and destination of a copy are checked independently.
+          </p>
+          <CodeBlock language="python" highlightLines={[2, 8]}>{`# Enforced from 1.3.4 onward
+async for chunk in stream_read(user_path, sandbox="/srv/uploads"):
+    process_chunk(chunk)
+
+await stream_copy(src, dst, sandbox="/srv/uploads")
+
+# Escaping the sandbox now raises instead of silently succeeding
+await stream_copy("/etc/passwd", dst, sandbox="/srv/uploads")
+# -> PathTraversalFault`}</CodeBlock>
+          <p className={`text-sm mt-3 ${subtleText}`}>
+            Symlinks are always resolved before the containment check, independently of{' '}
+            <code className="text-aquilia-500">follow_symlinks</code>, which governs{' '}
+            <code className="text-aquilia-500">stat</code>/scan metadata semantics only. If a call site
+            starts raising after upgrading, the traversal was already happening unchecked.
+          </p>
+        </div>
       </section>
 
       {/* Path Globbing */}

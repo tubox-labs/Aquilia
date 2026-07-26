@@ -84,11 +84,43 @@ saved_path = await registry.default.save("docs/invoice.pdf", b"PDF_DATA")
 
 # Open a file as an async stream (returns a StorageFile wrapper)
 async with await registry.default.open("docs/invoice.pdf") as file:
-    content = await file.read()  # read all bytes
-    
+    content = await file.read()  # materialises the whole payload
+
+# Preferred for large objects: iterate, keeping memory bounded to one chunk
+async with await registry.default.open("backups/db.tar.gz") as file:
+    async for chunk in file:
+        await sink.write(chunk)
+
 # Save/access from a specific non-default backend
 await registry["s3"].save("backups/db.tar.gz", b"TAR_DATA")
 print(await registry["s3"].exists("backups/db.tar.gz"))`}</CodeBlock>
+
+          <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+            <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Improved in 1.3.4 — real streaming, multipart uploads, dedicated pool</h3>
+            <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              The local and S3 backends previously loaded whole objects into memory on{' '}
+              <code className="text-aquilia-500">open()</code> despite documenting a streaming
+              contract, which risked out-of-memory failures on large files. They now stream in
+              chunks; content materialises only if you call{' '}
+              <code className="text-aquilia-500">read()</code> explicitly. Backends that stream also
+              stream on <code className="text-aquilia-500">save()</code> and{' '}
+              <code className="text-aquilia-500">copy()</code>.
+            </p>
+            <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              S3 uploads above <code className="text-aquilia-500">multipart_threshold</code> now use
+              multipart, so objects larger than the 5 GB single-request limit succeed and peak memory
+              stays near one part. A failed part aborts the upload rather than leaving an incomplete
+              one behind.
+            </p>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              All blocking SDK calls run on a dedicated bounded thread pool with{' '}
+              <code className="text-aquilia-500">aquilia-storage</code> threads instead of the
+              interpreter&apos;s shared default executor, so storage I/O no longer competes with
+              unrelated work. Size it with{' '}
+              <code className="text-aquilia-500">AQUILIA_STORAGE_MAX_WORKERS</code> (default{' '}
+              <code className="text-aquilia-500">min(32, cpu_count + 4)</code>).
+            </p>
+          </div>
         </div>
       </section>
 

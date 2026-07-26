@@ -72,7 +72,92 @@ Complete migration instructions for all v1.3.4 changes.
 - AQUILIA_FAIL_FAST=1 startup error option
 - authenticate_password(issue_tokens=False) session auth pattern
 - Throttle.with_redis() distributed rate limiting upgrade
-`
+
+## Phase 3 - Cache, Storage & Filesystem
+
+Every public API is preserved. Three behaviours change as corrections of clearly-wrong behaviour:
+
+- Cache keys gain a version segment (key_version now reaches the key builder). Expect one cold cache on deploy, or set key_version=0 to keep the old layout.
+- @cached no longer drops the first positional argument, so decorated functions stop returning other calls' values. Flush affected namespaces on a distributed backend.
+- Authenticated responses are no longer served from the shared HTTP cache. Opt in with cache_authenticated=True plus the identity header in vary_headers.
+
+Optional adoption: Integration.filesystem() for a DI-injectable FileSystem, distributed_stampede_lock for cross-process coalescing, serializer_secret_key for signed pickle, multipart_threshold for large S3 objects, and allow_unsandboxed=False for a fail-loudly sandbox posture.
+`,
+    "cache_audit.md": `# Cache System Audit Fixes
+
+Fixes applied to aquilia.cache in v1.3.4, from the Cache & Storage architectural audit.
+
+## Critical
+
+- @cached dropped the first positional argument, so all calls to a single-argument function collapsed onto one key and returned another call's value. A silent data-correctness bug, not an error.
+- CacheMiddleware cached identity-bearing responses under an identity-independent key, serving the first authenticated user's response to everyone. Requests carrying Cookie or Authorization now bypass the cache, and Set-Cookie responses are never stored, unless cache_authenticated=True is set alongside the identity header in vary_headers.
+- The middleware read a nonexistent Response.content, so every cached entry stored an empty body. Response now exposes public content and body() accessors; unmaterialisable content is treated as not cacheable.
+- Server._setup_cache() passed an invalid ttl= argument; the TypeError was swallowed and the middleware was silently never installed even when enabled.
+
+## Correctness
+
+- key_version was parsed from config and never reached the key builder, so the documented mass-invalidation workflow did nothing.
+- decorators.py held a second key builder pinned at version=0, embedding the namespace twice and ignoring key_prefix. Decorator and service keys now share one layout.
+- Functions returning None were never cached and recomputed forever. They are cached now; opt out with condition=lambda r: r is not None.
+- Cache-Control no-store/private and the X-Cache-TTL override were read case-sensitively against a lowercase header map and never matched.
+
+## Performance and leaks
+
+- LFU eviction was a linear scan despite documenting O(log n). A real (frequency, key) min-heap now backs it.
+- The TTL heap grew without bound when the same TTL'd key was rewritten. Both heaps compact against live entries: 2,000 rewrites now bound the heap to at most 16 entries.
+
+## Redis
+
+- The docstring claimed Lua atomicity that did not exist; increment() was a check-then-act race. It now runs the existence check and INCRBY in one script.
+- Tag and namespace sets accumulated members whose keys expired naturally. A Lua prune removes them during ordinary reads.
+- get() never returned tags, silently diverging from MemoryBackend. A TTL-matched sidecar restores tags and namespace.
+- Stampede prevention was per-process. RedisBackend now offers a leased, token-checked SET NX PX lock so only one worker in the fleet recomputes.
+
+## Configuration
+
+- serializer="pickle" was unreachable because no secret key could be supplied. Added serializer_secret_key.
+- CompositeBackend discarded async L2 write tasks, so shutdown could drop them. Tasks are tracked and drained.`,
+    "storage_filesystem_audit.md": `# Storage & Filesystem Audit Fixes
+
+Fixes applied to aquilia.storage and aquilia.filesystem in v1.3.4. The central finding was that path containment had been implemented twice - correctly in filesystem, incorrectly in storage. There is now exactly one implementation, used by both.
+
+## Critical
+
+- The streaming path ignored its sandbox entirely. stream_read and stream_copy accepted config and sandbox arguments and never passed them to the validator, while presenting the same method shape as the protected whole-file helpers. Paths are now validated before any descriptor is opened.
+- Every FileSystem directory method raised TypeError: list_dir() got an unexpected keyword argument 'config'. The underlying functions now accept and enforce config and sandbox.
+- LocalStorage used str.startswith() for containment, so /var/data-private satisfied a root of /var/data. It now delegates to the framework's canonical validate_path, which resolves symlinks and compares path components.
+
+## Performance and scale
+
+- Local and S3 backends buffered whole objects in memory despite documenting a streaming contract. Both stream in chunks now; content materialises only on an explicit read().
+- S3 used put_object for everything, capping objects at 5 GB. Multipart upload is used above multipart_threshold, and a failed part aborts the upload.
+- All cloud backends used the shared default executor via the deprecated get_event_loop(). A dedicated bounded pool (aquilia-storage threads, AQUILIA_STORAGE_MAX_WORKERS) replaces it.
+
+## Robustness
+
+- StorageRegistry.initialize_all() aborted the whole subsystem if any backend failed. Only a failing default backend is fatal now; optional backends degrade and report unhealthy.
+- FileSystemConfig gained allow_unsandboxed. Setting it to False makes an unset sandbox_root a boot-time error instead of silently disabling containment.
+- validate_path documents that symlinks are always resolved for containment regardless of follow_symlinks, which governs metadata semantics only.
+- StorageRegistry.create_backend() imports any dotted path in configuration; the trust boundary is now documented.`,
+    "subsystem_lifecycle.md": `# Subsystem Lifecycle & Health
+
+Boot, health, and DI integration changes for cache, storage, and filesystem in v1.3.4.
+
+## Filesystem is a first-class subsystem
+
+Previously FileSystem required manual construction and DI registration, with no managed pool lifecycle and no health reporting. Integration.filesystem() now registers it in every DI container, starts the pool at startup, and drains it at shutdown. Disabled by default, so existing applications are unaffected.
+
+## Health checks reflect reality
+
+Cache and storage health were registered as literal HEALTHY without probing anything, so an unreachable backend was invisible to /health. The cache now performs a real write/read/delete round trip; storage pings every backend and publishes one storage.alias entry per disk plus a healthy/degraded/unhealthy aggregate naming the failing aliases; the filesystem reports pool state.
+
+## StorageSubsystem clarified, not deleted
+
+StorageSubsystem is the BootContext entry point for embedders, tests, and alternative runners, while AquiliaServer boots storage through its own ordered setup sequence. Both share StorageRegistry, so behaviour cannot diverge - only the orchestration differs. This is now stated in the module docstring rather than left ambiguous.
+
+## DI exception contract restored
+
+patch_di_container() re-raised ProviderNotFoundFault in place of ProviderNotFoundError, so every handler catching ProviderNotFoundError silently stopped working once any server was constructed. The conversion was redundant - ProviderNotFoundError already subclasses DIFault. The original error is now enriched in place and re-raised unchanged, and the patch is idempotent.`
   },
   "1.3.2": {
     "README.md": `# Aquilia v1.3.2 Release Notes — "Specula API Observatory"
