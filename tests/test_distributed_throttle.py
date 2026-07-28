@@ -1,13 +1,14 @@
 import asyncio
-import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from aquilia.controller.base import Throttle
 from aquilia.controller.throttle import (
     MemoryThrottleBackend,
     RedisThrottleBackend,
     ThrottleBackendFactory,
 )
-from aquilia.controller.base import Throttle
 
 
 class DummyRequest:
@@ -21,14 +22,14 @@ class DummyRequest:
 @pytest.mark.asyncio
 async def test_memory_throttle_backend():
     backend = MemoryThrottleBackend(max_clients=10)
-    
+
     # Under limit
     assert await backend.is_allowed("test1", limit=2, window=10) is True
     assert await backend.is_allowed("test1", limit=2, window=10) is True
-    
+
     # Over limit
     assert await backend.is_allowed("test1", limit=2, window=10) is False
-    
+
     # Check count
     assert await backend.get_count("test1", window=10) == 2
     assert await backend.get_count("test2", window=10) == 0
@@ -88,11 +89,11 @@ async def test_redis_throttle_backend_success(monkeypatch):
     # limit=2, count=2, should be False
     assert await backend.is_allowed("test1", limit=2, window=10) is False
 
-    
+
 def test_throttle_backend_factory():
     mem_backend = ThrottleBackendFactory.create("memory")
     assert isinstance(mem_backend, MemoryThrottleBackend)
-    
+
     redis_backend = ThrottleBackendFactory.create("redis://localhost:6379")
     assert isinstance(redis_backend, RedisThrottleBackend)
 
@@ -101,7 +102,7 @@ def test_throttle_backend_factory():
 async def test_throttle_with_memory_factory():
     throttle = Throttle.with_memory(limit=5, window=10)
     assert isinstance(throttle.backend, MemoryThrottleBackend)
-    
+
     req = DummyRequest("10.0.0.1")
     for _ in range(5):
         assert await throttle.acheck(req) is True
@@ -121,17 +122,17 @@ async def test_throttle_with_redis_factory():
     req = DummyRequest("10.0.0.2")
     assert await throttle.acheck(req) is True
 
-    
+
 @pytest.mark.asyncio
 async def test_concurrent_stress():
     throttle = Throttle.with_memory(limit=10, window=60)
     req = DummyRequest("stress_ip")
-    
+
     async def make_request():
         return await throttle.acheck(req)
-        
+
     tasks = [make_request() for _ in range(100)]
     results = await asyncio.gather(*tasks)
-    
+
     allowed = sum(1 for r in results if r)
     assert allowed == 10

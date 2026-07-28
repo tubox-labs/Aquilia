@@ -1,5 +1,5 @@
-import pytest
-from aquilia.models import F, Sum, Window, Rank, DenseRank, RowNumber, Ntile, Lag, Lead, FirstValue, LastValue, NthValue, FrameType, FrameBound, WindowFrame
+from aquilia.models import FrameBound, FrameType, Lag, Ntile, Rank, Sum, Window, WindowFrame
+
 
 def test_rank_as_sql():
     expr = Window(Rank(), partition_by=['country'], order_by='-score')

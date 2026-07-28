@@ -13,7 +13,6 @@ from aquilia.models.base import Model, ModelRegistry
 from aquilia.models.fields import EncryptedField, EncryptedMixin, FieldValidationError, MoneyField
 from aquilia.models.fields_module import AutoField, CharField, GenericForeignKey, GeometryField, PointField
 
-
 # ── MoneyField ──────────────────────────────────────────────────────────────
 
 

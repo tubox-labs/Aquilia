@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import tempfile
-import shutil
-from pathlib import Path
 import pytest
 
-from aquilia import Workspace, Controller, GET, RequestCtx, Response, AppManifest
-from aquilia.testing import TestClient
 from aquilia.runtime import AquiliaRuntime
-from aquilia.integrations import TemplatesIntegration
+from aquilia.testing import TestClient
 
 
 @pytest.mark.asyncio

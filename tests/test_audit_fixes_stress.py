@@ -19,13 +19,9 @@ from __future__ import annotations
 import asyncio
 import gc
 import inspect
-import logging
 import time
-import types
 import unittest
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-
+from unittest.mock import patch
 
 # ─── Minimal stubs so tests run without the full ASGI stack ──────────────────
 
@@ -158,8 +154,8 @@ class TestLifecycleHookSimpleRoute(unittest.IsolatedAsyncioTestCase):
         still use the fast path (is_simple=True) for performance.
         """
         from aquilia.controller.base import Controller
-        from aquilia.controller.engine import ControllerEngine
         from aquilia.controller.decorators import GET
+        from aquilia.controller.engine import ControllerEngine
 
         class NoHookController(Controller):
             prefix = "/fast"
@@ -223,8 +219,8 @@ class TestLifecycleHookSimpleRoute(unittest.IsolatedAsyncioTestCase):
     async def test_no_hooks_no_pipeline_no_contract_is_simple(self):
         """A plain no-frills path-param route is simple (fast-path eligible)."""
         from aquilia.controller.base import Controller
-        from aquilia.controller.engine import ControllerEngine
         from aquilia.controller.decorators import GET
+        from aquilia.controller.engine import ControllerEngine
 
         class PlainController(Controller):
             prefix = "/plain"
@@ -251,10 +247,10 @@ class TestLifecycleHookSimpleRoute(unittest.IsolatedAsyncioTestCase):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _make_test_auth_manager():
+    from aquilia.auth.hashing import PasswordHasher
     from aquilia.auth.manager import AuthManager
     from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
     from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenManager
-    from aquilia.auth.hashing import PasswordHasher
 
     identity_store = MemoryIdentityStore()
     credential_store = MemoryCredentialStore()
@@ -369,8 +365,9 @@ class TestMetadataForwardRefMatching(unittest.TestCase):
     """
 
     def _extract_params(self, handler_func, path="/<id:int>"):
-        from aquilia.controller.metadata import _extract_method_params
         import inspect as ins
+
+        from aquilia.controller.metadata import _extract_method_params
         sig = ins.signature(handler_func)
         return _extract_method_params(handler_func, sig, path)
 
@@ -379,7 +376,7 @@ class TestMetadataForwardRefMatching(unittest.TestCase):
         §6.3: 'RequestLog' contains 'Request' as substring — must NOT be
         skipped by the special-param detector when used as a forward ref.
         """
-        def handler(self, id: int, log: "RequestLog"):  # noqa: F821
+        def handler(self, id: int, log: RequestLog):  # noqa: F821
             pass
 
         params = self._extract_params(handler)
@@ -392,7 +389,7 @@ class TestMetadataForwardRefMatching(unittest.TestCase):
 
     def test_password_reset_request_not_classified_as_special(self):
         """§6.3: 'PasswordResetRequest' contains 'Request' — must not be dropped."""
-        def handler(self, body: "PasswordResetRequest"):  # noqa: F821
+        def handler(self, body: PasswordResetRequest):  # noqa: F821
             pass
 
         params = self._extract_params(handler, path="/reset")
@@ -404,7 +401,7 @@ class TestMetadataForwardRefMatching(unittest.TestCase):
 
     def test_exact_request_ctx_string_is_still_special(self):
         """§6.3: The exact string 'RequestCtx' must still be treated as special."""
-        def handler(self, ctx: "RequestCtx"):  # noqa: F821
+        def handler(self, ctx: RequestCtx):  # noqa: F821
             pass
 
         params = self._extract_params(handler, path="/items")
@@ -415,7 +412,7 @@ class TestMetadataForwardRefMatching(unittest.TestCase):
 
     def test_exact_request_string_is_still_special(self):
         """§6.3: The exact string 'Request' must still be treated as special."""
-        def handler(self, request: "Request"):  # noqa: F821
+        def handler(self, request: Request):  # noqa: F821
             pass
 
         params = self._extract_params(handler, path="/items")
@@ -592,10 +589,10 @@ class TestUrlForIndexedLookup(unittest.TestCase):
     """§7/§11.11: url_for must use _name_index (O(1)) built at initialize() time."""
 
     def _build_router_with_n_routes(self, n: int):
-        from aquilia.controller.compiler import ControllerCompiler
-        from aquilia.controller.router import ControllerRouter
         from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
         from aquilia.controller.decorators import GET
+        from aquilia.controller.router import ControllerRouter
 
         compiler = ControllerCompiler()
         router = ControllerRouter()
@@ -607,7 +604,7 @@ class TestUrlForIndexedLookup(unittest.TestCase):
                 return {"i": _i}
             _handler.__name__ = handler_name
 
-            decorated = GET(f"/<item_id:int>")(_handler)
+            decorated = GET("/<item_id:int>")(_handler)
 
             ctrl_cls = type(
                 f"BenchController{i}",
@@ -630,8 +627,8 @@ class TestUrlForIndexedLookup(unittest.TestCase):
     def test_url_for_resolves_by_full_name(self):
         from aquilia.controller.base import Controller
         from aquilia.controller.compiler import ControllerCompiler
-        from aquilia.controller.router import ControllerRouter
         from aquilia.controller.decorators import GET
+        from aquilia.controller.router import ControllerRouter
 
         class NamedController(Controller):
             prefix = "/named"
@@ -650,8 +647,8 @@ class TestUrlForIndexedLookup(unittest.TestCase):
     def test_url_for_resolves_by_bare_handler_name(self):
         from aquilia.controller.base import Controller
         from aquilia.controller.compiler import ControllerCompiler
-        from aquilia.controller.router import ControllerRouter
         from aquilia.controller.decorators import GET
+        from aquilia.controller.router import ControllerRouter
 
         class BareController(Controller):
             prefix = "/bare"
@@ -748,10 +745,10 @@ class TestConcurrentDispatchStress(unittest.IsolatedAsyncioTestCase):
 
     async def test_200_concurrent_requests_lifecycle_hooks(self):
         from aquilia.controller.base import Controller
-        from aquilia.controller.engine import ControllerEngine
-        from aquilia.controller.factory import ControllerFactory
         from aquilia.controller.compiler import ControllerCompiler
         from aquilia.controller.decorators import GET
+        from aquilia.controller.engine import ControllerEngine
+        from aquilia.controller.factory import ControllerFactory
 
         ControllerEngine.clear_caches()
 
@@ -816,7 +813,7 @@ class TestLargeRouteTableConflictPerformance(unittest.TestCase):
                 return _i
 
             h.__name__ = f"get_{i}"
-            decorated = GET(f"/<item_id:int>")(h)
+            decorated = GET("/<item_id:int>")(h)
             cls = type(
                 f"LC{i}",
                 (Controller,),
@@ -847,8 +844,8 @@ class TestCacheStabilityUnderChurn(unittest.TestCase):
     """Create+GC many controller classes to exercise id()-keyed cache safety."""
 
     def test_cache_survives_class_churn(self):
-        from aquilia.controller.engine import ControllerEngine
         from aquilia.controller.base import Controller
+        from aquilia.controller.engine import ControllerEngine
 
         ControllerEngine.clear_caches()
 
@@ -870,8 +867,9 @@ class TestAuthConcurrentMixedTokenIssuance(unittest.IsolatedAsyncioTestCase):
     """Concurrent auth calls with mixed issue_tokens flags must not interfere."""
 
     async def test_concurrent_auth_mixed_issue_tokens(self):
-        from aquilia.auth.manager import SignInProvisionPolicy
         import asyncio
+
+        from aquilia.auth.manager import SignInProvisionPolicy
 
         manager = _make_test_auth_manager()
 
@@ -928,8 +926,9 @@ class TestAuditRegressionMatrix(unittest.TestCase):
         assert "issue_tokens" in sig.parameters
 
     def test_s62_signin_provision_policy_has_issue_tokens(self):
-        from aquilia.auth.manager import SignInProvisionPolicy
         import dataclasses
+
+        from aquilia.auth.manager import SignInProvisionPolicy
         fields = {f.name for f in dataclasses.fields(SignInProvisionPolicy)}
         assert "issue_tokens" in fields
 

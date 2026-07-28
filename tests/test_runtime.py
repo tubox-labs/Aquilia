@@ -180,12 +180,10 @@ class TestAquiliaRuntimeLifecycle:
         # Mock workspace content extraction and importlib
         with patch.object(
             Path, "read_text", return_value='workspace = Workspace("app")\nworkspace.module(Module("auth"))'
-        ):
-            with patch(
-                "importlib.import_module", side_effect=ValueError("Field.__init__() takes 1 positional argument")
-            ):
-                with pytest.raises(ValueError, match="Field.__init__"):
-                    runtime.discover()
+        ), patch(
+            "importlib.import_module", side_effect=ValueError("Field.__init__() takes 1 positional argument")
+        ), pytest.raises(ValueError, match="Field.__init__"):
+            runtime.discover()
 
         assert runtime.phase == RuntimePhase.FAILED
 

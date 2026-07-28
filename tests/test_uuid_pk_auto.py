@@ -41,13 +41,11 @@ import pytest_asyncio
 from aquilia.db.engine import configure_database
 from aquilia.models.base import Model, ModelRegistry
 from aquilia.models.fields_module import (
-    UNSET,
     CharField,
     FieldValidationError,
     ForeignKey,
     UUIDField,
 )
-
 
 # ── Model definitions ───────────────────────────────────────────────────────
 
@@ -301,7 +299,7 @@ class TestUUIDPkRoundtrip:
         obj = await UUIDPkModel.create(name="Row")
         # Fetch via raw SQL to check from_row() deserialization
         row = await db.fetch_one(
-            f'SELECT * FROM uuid_pk_model WHERE "id" = ?',
+            'SELECT * FROM uuid_pk_model WHERE "id" = ?',
             [str(obj.id)],
         )
         assert row is not None

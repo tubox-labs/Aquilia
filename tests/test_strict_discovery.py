@@ -1,22 +1,22 @@
-import pytest
-from pathlib import Path
 from textwrap import dedent
 
+import pytest
+
 from aquilia.discovery.engine import AutoDiscoveryEngine
-from aquilia.manifest import ComponentKind
+
 
 @pytest.fixture
 def workspace_dir(tmp_path):
     modules = tmp_path / "modules"
     modules.mkdir()
-    
+
     # Create module1
     mod1 = modules / "mod1"
     mod1.mkdir()
-    
+
     (mod1 / "__init__.py").write_text("")
     (mod1 / "manifest.py").write_text("from aquilia.manifest import AppManifest\nmanifest = AppManifest(name='mod1')")
-    
+
     # Simple AST-discoverable class
     (mod1 / "simple.py").write_text(dedent("""
         from aquilia.controller import Controller
@@ -64,24 +64,24 @@ def workspace_dir(tmp_path):
 def test_ast_mode(workspace_dir):
     engine = AutoDiscoveryEngine(workspace_dir)
     res = engine.discover("mod1", strict=False)
-    
+
     names = {c.name for c in res.components}
-    
+
     # AST mode can find simple and transitive because name ends in Controller
     assert "SimpleController" in names
-    
+
 def test_strict_mode(workspace_dir):
     engine = AutoDiscoveryEngine(workspace_dir)
     res = engine.discover("mod1", strict=True)
-    
+
     names = {c.name for c in res.components}
-    
+
     assert "SimpleController" in names
     assert "AliasedController" in names
     assert "TransitiveController" in names
     assert "BaseControllerCustom" in names
     assert "ReexportedService" in names
-    
+
     # bad_import should gracefully fail and NOT include MissingService
     assert "MissingService" not in names
 

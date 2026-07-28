@@ -45,8 +45,7 @@ from aquilia.db.engine import configure_database
 from aquilia.faults.domains import QueryFault
 from aquilia.models.base import Model, ModelRegistry
 from aquilia.models.fields_module import CharField, IntegerField
-from aquilia.models.transactions import Atomic, _txn_depth, atomic
-
+from aquilia.models.transactions import _txn_depth, atomic
 
 # ── Models ───────────────────────────────────────────────────────────────────
 
