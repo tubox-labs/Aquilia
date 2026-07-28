@@ -913,6 +913,16 @@ class ConfigLoader:
                 "default_timeout": 300.0,
                 "auto_start": True,
                 "dead_letter_max": 1000,
+                "scheduler_tick": 15.0,
+                # Distributed / persistent backends
+                "redis_url": None,
+                "redis_prefix": "aquilia:tasks:",
+                "sql_table": "aquilia_tasks",
+                "lease_seconds": 300.0,
+                "heartbeat_interval": 30.0,
+                "reclaim_interval": 60.0,
+                "dedup_ttl": 3600.0,
+                "worker_id": None,
             },
         )
 

@@ -191,6 +191,19 @@ class MailIntegration:
     tracing_enabled: bool = False
     enabled: bool = True
 
+    # ── Background delivery ─────────────────────────────────────────
+
+    #: Deliver via background tasks instead of inside the request.
+    #: Requires ``Integration.tasks()``.
+    queue_enabled: bool = False
+    #: Keep envelopes and suppression state in the application database so
+    #: queued mail and bounce records survive a restart.
+    queue_persistent: bool = False
+    #: Window in which an identical send is collapsed instead of sent twice.
+    queue_dedupe_window_seconds: int = 3600
+    #: How long delivered envelopes are retained.
+    queue_retention_days: int = 30
+
     def to_dict(self) -> dict[str, Any]:
         # Normalise auth
         auth_dict: dict[str, Any] | None = None
@@ -243,4 +256,10 @@ class MailIntegration:
             },
             "metrics_enabled": self.metrics_enabled,
             "tracing_enabled": self.tracing_enabled,
+            "queue": {
+                "enabled": self.queue_enabled,
+                "persistent": self.queue_persistent,
+                "dedupe_window_seconds": self.queue_dedupe_window_seconds,
+                "retention_days": self.queue_retention_days,
+            },
         }

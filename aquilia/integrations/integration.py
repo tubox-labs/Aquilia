@@ -90,9 +90,41 @@ class Integration:
         metrics_enabled: bool = True,
         tracing_enabled: bool = False,
         enabled: bool = True,
+        queue_enabled: bool = False,
+        queue_persistent: bool = False,
+        queue_dedupe_window_seconds: int = 3600,
+        queue_retention_days: int = 30,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Configure mail subsystem. Returns config dict for Workspace.integrate()."""
+        """
+        Configure mail subsystem. Returns config dict for Workspace.integrate().
+
+        Args:
+            queue_enabled: Deliver mail through background tasks instead of
+                inside the request.  Requires ``Integration.tasks()``; without
+                a running task manager the service falls back to inline
+                delivery rather than accepting mail it cannot send.
+            queue_persistent: Keep envelopes and the suppression list in the
+                application database, so queued mail and bounce state survive
+                a restart.  Requires ``Integration.database()``.  Pair with
+                ``Integration.tasks(backend="redis"|"sql")`` for an end-to-end
+                durable path.
+            queue_dedupe_window_seconds: Window in which an identical send is
+                treated as a duplicate and collapsed rather than sent twice.
+            queue_retention_days: How long delivered envelopes are retained.
+
+        Examples::
+
+            # Development: inline delivery, console output
+            Integration.mail(console_backend=True)
+
+            # Production: durable background delivery
+            Integration.mail(
+                default_from="noreply@myapp.com",
+                queue_enabled=True,
+                queue_persistent=True,
+            )
+        """
         from aquilia.integrations.mail import MailIntegration
 
         kwargs.update(
@@ -117,6 +149,10 @@ class Integration:
                 "metrics_enabled": metrics_enabled,
                 "tracing_enabled": tracing_enabled,
                 "enabled": enabled,
+                "queue_enabled": queue_enabled,
+                "queue_persistent": queue_persistent,
+                "queue_dedupe_window_seconds": queue_dedupe_window_seconds,
+                "queue_retention_days": queue_retention_days,
             }
         )
         return _build_integration(MailIntegration, **kwargs)
@@ -186,7 +222,22 @@ class Integration:
         backend: str = "memory",
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Configure background tasks."""
+        """
+        Configure background tasks.
+
+        Args:
+            backend: ``"memory"`` (single-process, non-durable),
+                ``"redis"`` (distributed + durable), or ``"sql"``
+                (durable on the application's own database).
+            **kwargs: Any :class:`~aquilia.integrations.tasks.TasksIntegration`
+                field — ``num_workers``, ``redis_url``, ``lease_seconds``, etc.
+
+        Examples::
+
+            Integration.tasks(num_workers=8)
+            Integration.tasks(backend="redis", redis_url="redis://cache:6379/0")
+            Integration.tasks(backend="sql", sql_table="jobs")
+        """
         from aquilia.integrations.tasks import TasksIntegration
 
         kwargs.update({"backend": backend})

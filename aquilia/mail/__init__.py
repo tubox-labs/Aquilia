@@ -1,30 +1,47 @@
 """
-AquilaMail -- Production-ready async mail subsystem for Aquilia.
+AquilaMail -- async mail subsystem for Aquilia.
 
-Ergonomic mail API with Aquilia-native features:
-- Unique Aquilia Template Syntax (ATS) for mail templates
-- Provider-agnostic sending (SMTP, SES, SendGrid, custom)
-- Reliable delivery: retries, backoff, idempotency, rate-limiting
-- Bounce & complaint handling, suppression lists
-- Observability: metrics, tracing, structured logs
-- Security: DKIM signing, TLS, PII redaction
+Features:
+- Aquilia Template Syntax (ATS) for mail bodies — expressions and filters,
+  HTML-autoescaped by default (:mod:`aquilia.mail.template`)
+- Provider-agnostic sending (SMTP, SES, SendGrid, console, file, custom)
+- Priority-ordered provider failover
+- Per-provider rate limiting (token bucket, from ``rate_limit_per_min``)
+- Retry with exponential backoff, delivered through :mod:`aquilia.tasks`
+- Shared MIME construction with optional DKIM signing
+  (:mod:`aquilia.mail.mime`; requires ``dkimpy``)
+- TLS, XOAUTH2 for Gmail / Microsoft 365, env-var credential indirection
+- Durable envelope store and queued background delivery through
+  :mod:`aquilia.tasks` (:mod:`aquilia.mail.store`)
+- Bounce/complaint webhooks with signature verification, and automatic
+  suppression (:mod:`aquilia.mail.webhooks`, :mod:`aquilia.mail.suppression`)
+- PII redaction of recipient addresses in logs and faults
+  (:mod:`aquilia.mail.redaction`)
+- Observability: inspector trace spans, structured faults, admin dashboard
 - DI-scoped, manifest-wired, lifecycle-aware
+
+Not implemented today (deliberately absent, not stubbed):
+
+- Delivery / open / click tracking storage
+- Template control flow (``if``/``for``) and inheritance — ATS raises on
+  these rather than emitting raw tags
 
 Quick Start:
     from aquilia.mail import send_mail, asend_mail
 
-    # Synchronous
+    # Async — the normal path inside controllers, middleware and tasks
+    await asend_mail(
+        subject="Hello",
+        body="Welcome!",
+        to=["user@example.com"],
+    )
+
+    # Synchronous — scripts and management commands only; raises if called
+    # from inside a running event loop
     send_mail(
         subject="Hello",
         body="Welcome!",
         from_email="noreply@myapp.com",
-        to=["user@example.com"],
-    )
-
-    # Async
-    await asend_mail(
-        subject="Hello",
-        body="Welcome!",
         to=["user@example.com"],
     )
 
@@ -87,6 +104,9 @@ from .message import (
     TemplateMessage,
 )
 
+# ── MIME construction & DKIM ────────────────────────────────────────
+from .mime import build_mime_message, message_to_bytes, sign_dkim
+
 # ── Provider interface & implementations ─────────────────────────────
 from .providers import (
     ConsoleProvider,
@@ -99,8 +119,33 @@ from .providers import (
     SMTPProvider,
 )
 
+# ── PII redaction ───────────────────────────────────────────────────
+from .redaction import redact_email, redact_pii
+
 # ── Convenience API ─────────────────────────────────────────────────
 from .service import asend_mail, send_mail
+
+# ── Envelope store (durable queued delivery) ───────────────────────
+from .store import EnvelopeStore, MemoryEnvelopeStore, SQLEnvelopeStore
+
+# ── Suppression list (bounces, complaints, opt-outs) ───────────────
+from .suppression import (
+    MemorySuppressionList,
+    SQLSuppressionList,
+    SuppressionEntry,
+    SuppressionList,
+    SuppressionReason,
+)
+
+# ── Provider webhooks ───────────────────────────────────────────────
+from .webhooks import (
+    EventType,
+    WebhookEvent,
+    parse_mailgun,
+    parse_sendgrid,
+    parse_ses,
+    process_webhook,
+)
 
 __all__ = [
     # Message types
@@ -140,6 +185,30 @@ __all__ = [
     "SendGridProvider",
     "SESProvider",
     "SMTPProvider",
+    # MIME & DKIM
+    "build_mime_message",
+    "message_to_bytes",
+    "sign_dkim",
+    # PII redaction
+    "redact_email",
+    "redact_pii",
+    # Envelope store
+    "EnvelopeStore",
+    "MemoryEnvelopeStore",
+    "SQLEnvelopeStore",
+    # Suppression
+    "SuppressionList",
+    "MemorySuppressionList",
+    "SQLSuppressionList",
+    "SuppressionEntry",
+    "SuppressionReason",
+    # Webhooks
+    "EventType",
+    "WebhookEvent",
+    "parse_ses",
+    "parse_sendgrid",
+    "parse_mailgun",
+    "process_webhook",
     # DI
     "MailConfigProvider",
     "MailServiceProvider",

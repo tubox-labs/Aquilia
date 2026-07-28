@@ -3,7 +3,9 @@ SMTP Provider -- Production-grade async SMTP delivery via aiosmtplib.
 
 Features:
 - Async SMTP with STARTTLS / direct SSL
-- Automatic MIME message construction (plain, HTML, attachments)
+- MIME construction shared with the SES provider (:mod:`aquilia.mail.mime`)
+- AUTH LOGIN/PLAIN and XOAUTH2 (Gmail, Microsoft 365)
+- Optional DKIM signing of the outgoing message
 - Connection pooling with keep-alive and reconnect logic
 - Configurable timeouts, retries, source-address binding
 - TLS certificate validation (customisable)
@@ -15,6 +17,7 @@ Features:
 
 Dependencies:
     pip install aiosmtplib   (required)
+    pip install dkimpy       (only when DKIM signing is enabled)
 
 Usage::
 
@@ -29,24 +32,31 @@ Usage::
     await provider.initialize()
     result = await provider.send(envelope)
     await provider.shutdown()
+
+    # OAuth2 (Gmail / Microsoft 365)
+    provider = SMTPProvider(
+        name="gmail",
+        host="smtp.gmail.com",
+        port=587,
+        username="user@gmail.com",
+        oauth2_token=current_access_token,
+    )
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import logging
 import ssl
 import time
 from collections.abc import Sequence
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import formatdate, make_msgid
+from email.message import Message
 from typing import Any
 
 from ..envelope import MailEnvelope
+from ..mime import build_mime_message, sign_dkim
 from ..providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.smtp")
@@ -76,10 +86,64 @@ _PERMANENT_CODES = frozenset(
 
 class SMTPProvider:
     """
-    Async SMTP mail provider backed by aiosmtplib.
+    Async SMTP mail provider backed by ``aiosmtplib``.
 
-    Supports STARTTLS, direct SSL, authentication, connection pooling,
-    and full MIME message construction.
+    Supports STARTTLS, direct SSL, AUTH LOGIN/PLAIN, XOAUTH2, connection
+    pooling, DKIM signing, and full MIME construction.
+
+    Lifecycle:
+        :meth:`initialize` pre-warms one connection so bad credentials or
+        TLS settings surface at startup instead of on the first send;
+        :meth:`shutdown` drains the pool.
+
+    Async-safety:
+        The pool is guarded by an ``asyncio.Lock``.  A connection is owned
+        exclusively by one send while checked out, so concurrent sends never
+        interleave on the same socket.
+
+    Performance:
+        Pooled connections avoid a TCP + TLS + AUTH round trip per message;
+        :meth:`send_batch` reuses a single connection across a batch.
+        Connections older than ``pool_recycle`` are discarded, since most
+        SMTP servers drop idle sessions unilaterally.
+
+    Args:
+        name: Provider name used in config, logs and failover ordering.
+        host: SMTP server hostname.
+        port: SMTP port (587 STARTTLS, 465 implicit SSL, 25 plain).
+        username: Account identifier for AUTH.
+        password: Password for AUTH LOGIN/PLAIN.  Ignored when
+            ``oauth2_token`` is supplied.
+        use_tls: Upgrade the connection with STARTTLS.
+        use_ssl: Connect with implicit TLS (port 465).
+        timeout: Per-operation socket timeout in seconds.
+        oauth2_token: OAuth2 access token; when present, XOAUTH2 is used
+            instead of password auth (required by Gmail and Microsoft 365,
+            which have retired basic auth for SMTP).
+        source_address: Local address to bind for outbound connections.
+        local_hostname: Name sent in EHLO.
+        validate_certs: Verify the server certificate chain.
+        client_cert: Client certificate path for mutual TLS.
+        client_key: Client private key path for mutual TLS.
+        pool_size: Maximum idle connections retained.
+        pool_recycle: Seconds after which an idle connection is discarded.
+        priority: Failover order; lower is preferred.
+        rate_limit_per_min: Advisory send rate enforced by
+            :class:`~aquilia.mail.service.MailService`; 0 disables it.
+        security: ``MailConfig.security`` used for DKIM signing; ``None``
+            disables signing for this provider.
+
+    Attributes:
+        supports_batching: Always ``True`` — see :meth:`send_batch`.
+        max_batch_size: Largest batch accepted in one connection.
+
+    Examples::
+
+        provider = SMTPProvider(name="mailhog", host="localhost", port=1025,
+                                use_tls=False)
+        await provider.initialize()
+        result = await provider.send(envelope)
+        assert result.is_success
     """
 
     name: str
@@ -99,6 +163,7 @@ class SMTPProvider:
         timeout: float = 30.0,
         *,
         # Advanced options
+        oauth2_token: str | None = None,
         source_address: str | None = None,
         local_hostname: str | None = None,
         validate_certs: bool = True,
@@ -107,12 +172,15 @@ class SMTPProvider:
         pool_size: int = 3,
         pool_recycle: float = 300.0,
         priority: int = 10,
+        rate_limit_per_min: int = 600,
+        security: Any = None,
     ):
         self.name = name
         self.host = host
         self.port = port
         self.username = username
         self.password = password
+        self.oauth2_token = oauth2_token
         self.use_tls = use_tls
         self.use_ssl = use_ssl
         self.timeout = timeout
@@ -124,6 +192,8 @@ class SMTPProvider:
         self.pool_size = pool_size
         self.pool_recycle = pool_recycle
         self.priority = priority
+        self.rate_limit_per_min = rate_limit_per_min
+        self.security = security
 
         # Connection pool state
         self._pool: list[Any] = []
@@ -185,8 +255,44 @@ class SMTPProvider:
             )
         return ctx
 
+    def _xoauth2_string(self) -> str:
+        """
+        Build the base64 SASL XOAUTH2 initial-response string.
+
+        Format per Google/Microsoft: ``user=<addr>^Aauth=Bearer <token>^A^A``
+        where ``^A`` is ``\\x01``, base64-encoded.
+
+        Raises:
+            ValueError: If no username is configured — XOAUTH2 identifies the
+                mailbox by address, so a token alone is not sufficient.
+        """
+        if not self.username:
+            raise ValueError("XOAUTH2 requires a username (the mailbox address) alongside the access token")
+        raw = f"user={self.username}\x01auth=Bearer {self.oauth2_token}\x01\x01"
+        return base64.b64encode(raw.encode()).decode()
+
+    async def _authenticate(self, smtp: Any) -> None:
+        """
+        Authenticate a freshly connected SMTP session.
+
+        Prefers XOAUTH2 when an OAuth2 token is configured, since Gmail and
+        Microsoft 365 no longer accept password auth for SMTP.  Falls back to
+        the library's AUTH LOGIN/PLAIN negotiation, and stays anonymous when
+        no credentials are set (valid for internal relays).
+        """
+        if self.oauth2_token:
+            await smtp.execute_command(b"AUTH", b"XOAUTH2", self._xoauth2_string().encode())
+            return
+        if self.username and self.password:
+            await smtp.login(self.username, self.password)
+
     async def _create_connection(self) -> Any:
-        """Create a new aiosmtplib SMTP connection."""
+        """
+        Create and authenticate a new ``aiosmtplib`` SMTP connection.
+
+        Raises:
+            ImportError: If ``aiosmtplib`` is not installed.
+        """
         try:
             import aiosmtplib
         except ImportError:
@@ -206,9 +312,7 @@ class SMTPProvider:
         )
 
         await smtp.connect()
-
-        if self.username and self.password:
-            await smtp.login(self.username, self.password)
+        await self._authenticate(smtp)
 
         return smtp
 
@@ -256,87 +360,39 @@ class SMTPProvider:
 
     # ── MIME Message Construction ───────────────────────────────────
 
-    def _build_mime_message(self, envelope: MailEnvelope) -> MIMEMultipart:
+    def _build_mime_message(self, envelope: MailEnvelope) -> Message:
         """
-        Build a full MIME message from a MailEnvelope.
+        Build a MIME message for an envelope.
 
-        Structure:
-            multipart/mixed
-            ├── multipart/alternative
-            │   ├── text/plain
-            │   └── text/html (if present)
-            ├── attachment 1
-            ├── attachment 2
-            └── ...
+        Delegates to :func:`aquilia.mail.mime.build_mime_message` so SMTP and
+        SES produce byte-identical messages for the same envelope.
         """
-        # Root message
-        msg = MIMEMultipart("mixed")
+        return build_mime_message(envelope)
 
-        # Headers
-        msg["From"] = envelope.from_email
-        msg["To"] = ", ".join(envelope.to)
-        if envelope.cc:
-            msg["Cc"] = ", ".join(envelope.cc)
-        msg["Subject"] = envelope.subject
-        msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(domain=self._extract_domain(envelope.from_email))
+    async def _transmit(self, conn: Any, envelope: MailEnvelope) -> tuple[Message, Any]:
+        """
+        Send one envelope over an established connection.
 
-        if envelope.reply_to:
-            msg["Reply-To"] = envelope.reply_to
+        When DKIM signing is configured the message is serialized and signed
+        first, then sent with ``sendmail`` — ``send_message`` would re-render
+        the message object and invalidate the signature.
 
-        # Custom headers
-        for key, value in envelope.headers.items():
-            msg[key] = value
+        Returns:
+            ``(mime_message, server_response)``.
+        """
+        mime_msg = self._build_mime_message(envelope)
+        recipients = envelope.all_recipients()
 
-        # Aquilia headers
-        msg["X-Aquilia-Envelope-ID"] = envelope.id
-        if envelope.trace_id:
-            msg["X-Aquilia-Trace-ID"] = envelope.trace_id
-        if envelope.tenant_id:
-            msg["X-Aquilia-Tenant-ID"] = envelope.tenant_id
-
-        # Body (alternative: text + html)
-        if envelope.body_html:
-            alt = MIMEMultipart("alternative")
-            alt.attach(MIMEText(envelope.body_text, "plain", "utf-8"))
-            alt.attach(MIMEText(envelope.body_html, "html", "utf-8"))
-            msg.attach(alt)
+        if self.security is not None and getattr(self.security, "dkim_enabled", False):
+            raw = sign_dkim(mime_msg.as_bytes(), self.security)
+            _errors, response = await conn.sendmail(envelope.from_email, recipients, raw)
         else:
-            msg.attach(MIMEText(envelope.body_text, "plain", "utf-8"))
-
-        # Attachments
-        for attachment in envelope.attachments:
-            part = MIMEBase(*attachment.content_type.split("/", 1))
-            # Attachment content is stored in blob store; here we
-            # set metadata only. The actual bytes must be resolved
-            # before calling send() in a real pipeline.
-            # For now, we set a placeholder and let the pipeline fill it.
-            part.set_payload(envelope.metadata.get(f"blob:{attachment.digest}", b""))
-            encoders.encode_base64(part)
-
-            if attachment.inline and attachment.content_id:
-                part.add_header(
-                    "Content-Disposition",
-                    "inline",
-                    filename=attachment.filename,
-                )
-                part.add_header("Content-ID", f"<{attachment.content_id}>")
-            else:
-                part.add_header(
-                    "Content-Disposition",
-                    "attachment",
-                    filename=attachment.filename,
-                )
-            msg.attach(part)
-
-        return msg
-
-    @staticmethod
-    def _extract_domain(email: str) -> str:
-        """Extract domain from an email address."""
-        if "<" in email:
-            email = email.split("<")[1].rstrip(">")
-        return email.rsplit("@", 1)[-1] if "@" in email else "localhost"
+            _errors, response = await conn.send_message(
+                mime_msg,
+                sender=envelope.from_email,
+                recipients=recipients,
+            )
+        return mime_msg, response
 
     # ── Send ────────────────────────────────────────────────────────
 
@@ -344,30 +400,34 @@ class SMTPProvider:
         """
         Send a single envelope via SMTP.
 
-        Acquires a pooled connection, builds the MIME message,
-        sends via SMTP, and returns a structured result.
+        Acquires a pooled connection, builds (and optionally DKIM-signs) the
+        MIME message, transmits it, and returns a structured result.  Errors
+        are classified into transient / permanent / rate-limited rather than
+        raised, so the service layer can decide whether to fail over or retry.
+
+        Args:
+            envelope: Envelope to deliver.
+
+        Returns:
+            A :class:`~aquilia.mail.providers.ProviderResult`.
+
+        Examples::
+
+            result = await provider.send(envelope)
+            if result.should_retry:
+                await asyncio.sleep(result.retry_after or 30)
         """
         conn = None
         try:
             conn = await self._acquire_connection()
-            mime_msg = self._build_mime_message(envelope)
-
-            # All recipients (to + cc + bcc)
-            recipients = envelope.all_recipients()
-
-            errors, message = await conn.send_message(
-                mime_msg,
-                sender=envelope.from_email,
-                recipients=recipients,
-            )
+            mime_msg, response = await self._transmit(conn, envelope)
 
             self._total_sent += 1
-            message_id = mime_msg["Message-ID"]
 
             return ProviderResult(
                 status=ProviderResultStatus.SUCCESS,
-                provider_message_id=message_id,
-                raw_response={"smtp_response": str(message)},
+                provider_message_id=mime_msg["Message-ID"],
+                raw_response={"smtp_response": str(response)},
             )
 
         except Exception as e:
@@ -391,9 +451,17 @@ class SMTPProvider:
         envelopes: Sequence[MailEnvelope],
     ) -> list[ProviderResult]:
         """
-        Send a batch of envelopes, reusing a single connection.
+        Send a batch of envelopes over a single connection.
 
-        Falls back to individual sends on connection error.
+        A per-envelope failure is recorded and the batch continues.  A
+        connection-level failure aborts the remainder as transient, because
+        every subsequent send on that socket would fail the same way.
+
+        Args:
+            envelopes: Envelopes to deliver, in order.
+
+        Returns:
+            One result per input envelope, positionally aligned.
         """
         results: list[ProviderResult] = []
         conn = None
@@ -401,13 +469,7 @@ class SMTPProvider:
             conn = await self._acquire_connection()
             for envelope in envelopes:
                 try:
-                    mime_msg = self._build_mime_message(envelope)
-                    recipients = envelope.all_recipients()
-                    errors, message = await conn.send_message(
-                        mime_msg,
-                        sender=envelope.from_email,
-                        recipients=recipients,
-                    )
+                    mime_msg, _response = await self._transmit(conn, envelope)
                     self._total_sent += 1
                     results.append(
                         ProviderResult(
@@ -533,12 +595,17 @@ class SMTPProvider:
         )
 
     def to_dict(self) -> dict:
-        """Serialize to provider config dict for MailIntegration."""
+        """
+        Serialize to a provider config dict for ``MailIntegration``.
+
+        Reports the provider's real ``rate_limit_per_min`` rather than a
+        constant, so the admin dashboard shows the limit actually enforced.
+        """
         d = {
             "type": self.provider_type,
             "name": self.name,
             "enabled": True,
-            "rate_limit_per_min": 600,
+            "rate_limit_per_min": self.rate_limit_per_min,
             "priority": self.priority,
             "host": self.host,
             "port": self.port,

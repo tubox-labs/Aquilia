@@ -49,7 +49,31 @@ class SendGridProvider:
     """
     Async SendGrid mail provider using the v3 Web API.
 
-    Uses httpx for async HTTP with connection pooling.
+    Uses ``httpx`` for async HTTP with connection pooling.
+
+    Args:
+        name: Provider name used in config, logs and failover ordering.
+        api_key: SendGrid API key.  Prefer supplying it through
+            ``MailAuth.api_key(env=...)`` so the secret never lands in
+            ``workspace.py``.
+        sandbox_mode: Validate requests without delivering them.
+        click_tracking: Rewrite links for click tracking.
+        open_tracking: Insert the open-tracking pixel.
+        categories: SendGrid categories applied to every send.
+        asm_group_id: Unsubscribe group ID.
+        ip_pool_name: Dedicated IP pool.
+        template_id: SendGrid dynamic template ID.
+        api_base_url: API base URL override (for testing or proxies).
+        timeout: HTTP timeout in seconds.
+        priority: Failover order; lower is preferred.
+        rate_limit_per_min: Advisory send rate enforced by
+            :class:`~aquilia.mail.service.MailService`; 0 disables it.
+
+    Examples::
+
+        provider = SendGridProvider(name="sg", api_key=os.environ["SG_KEY"])
+        await provider.initialize()
+        result = await provider.send(envelope)
     """
 
     name: str
@@ -77,9 +101,11 @@ class SendGridProvider:
         api_base_url: str = _SENDGRID_API_BASE,
         timeout: float = 30.0,
         priority: int = 10,
+        rate_limit_per_min: int = 600,
     ):
         self.name = name
         self.api_key = api_key
+        self.rate_limit_per_min = rate_limit_per_min
         self.sandbox_mode = sandbox_mode
         self.click_tracking = click_tracking
         self.open_tracking = open_tracking
@@ -416,7 +442,7 @@ class SendGridProvider:
             "type": self.provider_type,
             "name": self.name,
             "enabled": True,
-            "rate_limit_per_min": 600,
+            "rate_limit_per_min": self.rate_limit_per_min,
             "priority": self.priority,
             "config": extras,
         }

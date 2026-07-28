@@ -139,6 +139,12 @@ class MailAuthConfigContract(Contract):
         write_only=True,
         help_text="SMTP password or app-specific password (write-only)",
     )
+    password_env = TextFacet(
+        default=None,
+        required=False,
+        allow_null=True,
+        help_text="Environment variable name that holds the SMTP password",
+    )
 
     # ── NTLM extras ──
     domain = TextFacet(
@@ -170,12 +176,24 @@ class MailAuthConfigContract(Contract):
         allow_null=True,
         help_text="AWS access key ID for SES",
     )
+    aws_access_key_id_env = TextFacet(
+        default=None,
+        required=False,
+        allow_null=True,
+        help_text="Environment variable name that holds the AWS access key ID",
+    )
     aws_secret_access_key = TextFacet(
         default=None,
         required=False,
         allow_null=True,
         write_only=True,
         help_text="AWS secret access key for SES (write-only)",
+    )
+    aws_secret_access_key_env = TextFacet(
+        default=None,
+        required=False,
+        allow_null=True,
+        help_text="Environment variable name that holds the AWS secret access key",
     )
     aws_region = TextFacet(
         default=None,
@@ -198,6 +216,12 @@ class MailAuthConfigContract(Contract):
         allow_null=True,
         write_only=True,
         help_text="OAuth2 bearer access token (write-only)",
+    )
+    access_token_env = TextFacet(
+        default=None,
+        required=False,
+        allow_null=True,
+        help_text="Environment variable name that holds the OAuth2 access token",
     )
     refresh_token = TextFacet(
         default=None,
@@ -224,6 +248,12 @@ class MailAuthConfigContract(Contract):
         allow_null=True,
         write_only=True,
         help_text="OAuth2 client secret (write-only)",
+    )
+    client_secret_env = TextFacet(
+        default=None,
+        required=False,
+        allow_null=True,
+        help_text="Environment variable name that holds the OAuth2 client secret",
     )
     scope = TextFacet(
         default=None,
@@ -326,8 +356,21 @@ class TemplateConfigContract(Contract):
 
 
 class QueueConfigContract(Contract):
-    """Contract for queue / storage settings."""
+    """
+    Contract for queue / storage settings.
 
+    ``enabled`` turns on background delivery: sends are recorded to the
+    envelope store and delivered by a task worker instead of inside the
+    request.  It requires a running ``TaskManager``; without one the service
+    falls back to inline delivery rather than accepting mail it cannot send.
+    """
+
+    enabled = BoolFacet(default=False, required=False, help_text="Deliver mail via background tasks")
+    persistent = BoolFacet(
+        default=False,
+        required=False,
+        help_text="Keep envelopes and suppression state in the application database",
+    )
     db_url = TextFacet(default="", required=False, help_text="Empty = use app main database")
     batch_size = IntFacet(min_value=1, max_value=10000, default=50, required=False)
     poll_interval = FloatFacet(min_value=0.1, max_value=60.0, default=1.0, required=False)

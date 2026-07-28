@@ -87,6 +87,15 @@ def cmd_mail_check(verbose: bool = False) -> None:
         issues.append("default_from is set to 'noreply@localhost' -- update for production")
     if not providers and not config.get("console_backend"):
         issues.append("No providers and console_backend=False -- mail won't be sent")
+    if isinstance(security, dict) and security.get("dkim_enabled"):
+        # DKIM failures raise at send time rather than silently shipping an
+        # unsigned message, so surface a missing dependency or domain here.
+        if not security.get("dkim_domain"):
+            issues.append("DKIM is enabled but dkim_domain is unset -- sends will fail")
+        try:
+            import dkim  # noqa: F401 -- availability probe only
+        except ImportError:
+            issues.append("DKIM is enabled but 'dkimpy' is not installed -- pip install aquilia[mail-dkim]")
 
     if issues:
         click.echo(click.style(f"\n  Warnings ({len(issues)}):", fg="yellow"))

@@ -309,7 +309,10 @@ async def test_mail_lane_recorded():
         envelope.to = ["rcpt@example.com"]
         envelope.cc = []
         envelope.status.value = "sent"
-        msg.build_envelope = MagicMock(return_value=(envelope, []))
+        # build_envelope returns (envelope, blobs), where blobs maps an
+        # attachment digest to its bytes -- not a list.
+        envelope.metadata = {}
+        msg.build_envelope = MagicMock(return_value=(envelope, {}))
 
         res_id = await service.send_message(msg)
         assert res_id == "env-123"

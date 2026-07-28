@@ -1643,6 +1643,84 @@ class AquiliaServer:
             self._i18n_service = None
             self.logger.error(f"I18n subsystem init failed (non-fatal): {e}", exc_info=True)
 
+    def _create_task_backend(
+        self,
+        backend_type: str,
+        tasks_config: dict,
+        *,
+        dead_letter_max: int,
+        lease_seconds: float,
+        worker_id: str | None,
+    ):
+        """
+        Build the configured task backend.
+
+        Args:
+            backend_type: ``"memory"``, ``"redis"``, or ``"sql"``.
+            tasks_config: Resolved ``Integration.tasks()`` config.
+            dead_letter_max: Dead-letter retention.
+            lease_seconds: Claim lifetime for distributed backends.
+            worker_id: Explicit worker identity, or ``None`` to auto-derive.
+
+        Returns:
+            A :class:`~aquilia.tasks.engine.TaskBackend`, or ``None`` to let
+            the caller fall back to :class:`MemoryBackend`.
+
+        Notes:
+            A distributed backend that fails to construct falls back to
+            in-memory with a loud warning rather than aborting startup: the
+            application can still serve requests, and the warning names the
+            durability that was lost.  An unknown backend name is likewise a
+            warning, not a crash, so a typo does not take production down.
+        """
+        from .tasks import MemoryBackend
+
+        if backend_type == "memory":
+            return MemoryBackend(dead_letter_max=dead_letter_max)
+
+        if backend_type == "redis":
+            try:
+                from .tasks.backends import RedisBackend
+
+                return RedisBackend(
+                    url=tasks_config.get("redis_url"),
+                    prefix=tasks_config.get("redis_prefix", "aquilia:tasks:"),
+                    lease_seconds=lease_seconds,
+                    worker_id=worker_id,
+                    dead_letter_max=dead_letter_max,
+                )
+            except Exception as e:
+                self.logger.error(
+                    "Redis task backend unavailable (%s); falling back to in-memory. "
+                    "Queued jobs will NOT survive a restart and workers will NOT share a queue.",
+                    e,
+                )
+                return None
+
+        if backend_type in ("sql", "database", "db"):
+            try:
+                from .tasks.backends import SQLBackend
+
+                return SQLBackend(
+                    table=tasks_config.get("sql_table", "aquilia_tasks"),
+                    lease_seconds=lease_seconds,
+                    worker_id=worker_id,
+                    dead_letter_max=dead_letter_max,
+                )
+            except Exception as e:
+                self.logger.error(
+                    "SQL task backend unavailable (%s); falling back to in-memory. "
+                    "Queued jobs will NOT survive a restart.",
+                    e,
+                )
+                return None
+
+        self.logger.warning(
+            "Unknown task backend %r; using the in-memory backend. Valid values: 'memory', 'redis', 'sql'.",
+            backend_type,
+        )
+        return None
+
     def _setup_tasks(self):
         """
         Initialize the background task subsystem from workspace config.
@@ -1663,12 +1741,20 @@ class AquiliaServer:
             from .di.providers import ValueProvider
             from .tasks import MemoryBackend, TaskManager
 
-            # Select backend
-            backend_type = tasks_config.get("backend", "memory")
-            if backend_type == "memory":
-                backend = MemoryBackend()
-            else:
-                backend = MemoryBackend()  # Fallback; Redis backend is future
+            backend_type = str(tasks_config.get("backend", "memory")).lower()
+            dead_letter_max = tasks_config.get("dead_letter_max", 1000)
+            lease_seconds = tasks_config.get("lease_seconds", 300.0)
+            worker_id = tasks_config.get("worker_id")
+
+            backend = self._create_task_backend(
+                backend_type,
+                tasks_config,
+                dead_letter_max=dead_letter_max,
+                lease_seconds=lease_seconds,
+                worker_id=worker_id,
+            )
+            if backend is None:
+                backend = MemoryBackend(dead_letter_max=dead_letter_max)
 
             # Create TaskManager
             manager = TaskManager(
@@ -1677,9 +1763,30 @@ class AquiliaServer:
                 default_queue=tasks_config.get("default_queue", "default"),
                 cleanup_interval=tasks_config.get("cleanup_interval", 300.0),
                 cleanup_max_age=tasks_config.get("cleanup_max_age", 3600.0),
+                scheduler_tick=tasks_config.get("scheduler_tick", 15.0),
+                default_timeout=tasks_config.get("default_timeout", 300.0),
+                default_max_retries=tasks_config.get("max_retries", 3),
+                default_retry_delay=tasks_config.get("retry_delay", 1.0),
+                default_retry_backoff=tasks_config.get("retry_backoff", 2.0),
+                default_retry_max_delay=tasks_config.get("retry_max_delay", 300.0),
+                lease_seconds=lease_seconds,
+                heartbeat_interval=tasks_config.get("heartbeat_interval", 30.0),
+                reclaim_interval=tasks_config.get("reclaim_interval", 60.0),
+                dedup_ttl=tasks_config.get("dedup_ttl", 3600.0),
             )
 
+            # auto_start=False leaves workers stopped so the app can drive the
+            # manager explicitly (batch runners, tests, one-off CLI processes).
+            self._task_auto_start = bool(tasks_config.get("auto_start", True))
+
             self._task_manager = manager
+
+            # Give the mail subsystem a scheduler for delivery retries. Mail
+            # deliberately has no scheduler of its own; without this binding,
+            # transient send failures surface to the caller instead of being
+            # retried with backoff.
+            if getattr(self, "_mail_service", None) is not None:
+                self._mail_service.bind_task_manager(manager)
 
             # Register TaskManager in every DI container
             for container in self.runtime.di_containers.values():
@@ -3824,11 +3931,16 @@ class AquiliaServer:
 
             # Step 3.3: Start background task manager
             if hasattr(self, "_task_manager") and self._task_manager is not None:
-                try:
-                    await self._task_manager.start()
-                except Exception as e:
-                    self.logger.error(f"Task manager startup failed: {e}")
-                    # Non-fatal -- app can run without background tasks
+                if getattr(self, "_task_auto_start", True):
+                    try:
+                        await self._task_manager.start()
+                    except Exception as e:
+                        self.logger.error(f"Task manager startup failed: {e}")
+                        # Non-fatal -- app can run without background tasks
+                else:
+                    self.logger.info(
+                        "Task manager created but auto_start=False; call TaskManager.start() to begin processing."
+                    )
 
             # Step 3.5: Register effects from manifests and initialize providers
             self.runtime._register_effects()

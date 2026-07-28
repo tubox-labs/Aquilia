@@ -207,16 +207,58 @@ class EmailMessage:
 
     def send(self, fail_silently: bool = False) -> str | None:
         """
-        Send synchronously.
+        Send synchronously, from outside an event loop.
+
+        Aquilia's request pipeline is async: inside a controller, middleware,
+        task, or any other coroutine, use :meth:`asend` instead.  A synchronous
+        send cannot drive the loop that is already running, so calling this
+        from async context raises :class:`~aquilia.mail.faults.MailConfigFault`
+        with that instruction rather than the opaque
+        ``RuntimeError: This event loop is already running``.
+
+        This method is for genuinely synchronous entry points — management
+        commands, scripts, and sync-only third-party callbacks.
+
+        Args:
+            fail_silently: Swallow send errors and return ``None``.  Does not
+                suppress the async-context guard, which is a programming
+                error rather than a delivery failure.
 
         Returns:
-            envelope_id on success, None if fail_silently and error.
+            The envelope ID on success, or ``None`` when ``fail_silently``
+            absorbed an error.
+
+        Raises:
+            MailConfigFault: If called while an event loop is running, or if
+                no :class:`~aquilia.mail.service.MailService` is installed.
+            MailSendFault: On delivery failure when ``fail_silently`` is off.
+
+        Examples::
+
+            # In a script / management command
+            EmailMessage(subject="Nightly", body="ok", to="ops@x.com").send()
+
+            # In an Aquilia controller — use asend()
+            await EmailMessage(subject="Hi", body="ok", to=user.email).asend()
         """
+        from .faults import MailConfigFault
         from .service import _get_mail_service
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass  # No running loop — a synchronous send is valid here.
+        else:
+            raise MailConfigFault(
+                "EmailMessage.send() cannot run inside a running event loop. "
+                "Use 'await message.asend()' (or 'await asend_mail(...)') from "
+                "async code such as controllers, middleware, and tasks.",
+                config_key="mail.send",
+            )
 
         svc = _get_mail_service()
         try:
-            return asyncio.get_event_loop().run_until_complete(svc.send_message(self))
+            return asyncio.run(svc.send_message(self))
         except Exception:
             if fail_silently:
                 return None
@@ -224,10 +266,25 @@ class EmailMessage:
 
     async def asend(self, fail_silently: bool = False) -> str | None:
         """
-        Send asynchronously.
+        Send asynchronously — the primary API inside Aquilia.
+
+        Args:
+            fail_silently: Swallow send errors and return ``None``.
 
         Returns:
-            envelope_id on success.
+            The envelope ID on success, or ``None`` when ``fail_silently``
+            absorbed an error.
+
+        Raises:
+            MailConfigFault: If no MailService is installed or no provider
+                is configured.
+            MailValidationFault: If the message has no recipients.
+            MailSendFault: On delivery failure when ``fail_silently`` is off.
+
+        Examples::
+
+            msg = EmailMessage(subject="Welcome", body="Hi", to=user.email)
+            envelope_id = await msg.asend()
         """
         from .service import _get_mail_service
 
@@ -317,20 +374,34 @@ class TemplateMessage(EmailMessage):
         self.template_context = context or {}
 
     def build_envelope(self, default_from: str = "noreply@localhost") -> tuple[MailEnvelope, dict[str, bytes]]:
-        """Build envelope, rendering the template first."""
-        from .template import render_template
+        """
+        Build the envelope, rendering the ATS template first.
 
-        # Render the ATS template
+        The template body is rendered with HTML autoescaping enabled (see
+        :mod:`aquilia.mail.template`); the subject is rendered **without**
+        escaping because a mail header is plain text — escaping there would
+        turn ``Asha & Co`` into ``Asha &amp; Co`` in the recipient's inbox.
+
+        Returns:
+            ``(envelope, attachment_blobs)`` — same contract as
+            :meth:`EmailMessage.build_envelope`.
+
+        Raises:
+            MailTemplateFault: If the template is missing or uses syntax ATS
+                does not support.
+            MailValidationFault: If no recipient is set.
+        """
+        from .template import render_string, render_template
+
+        # Render the ATS template (HTML body → autoescaped)
         rendered_html = render_template(self.template_name, self.template_context)
 
         # Auto-generate plain text from HTML (basic strip)
         rendered_text = _html_to_text(rendered_html)
 
-        # Subject may contain ATS expressions -- render inline
+        # Subject may contain ATS expressions -- render inline, unescaped
         if "<<" in self.subject:
-            from .template import render_string
-
-            self.subject = render_string(self.subject, self.template_context)
+            self.subject = render_string(self.subject, self.template_context, autoescape=False)
 
         self.body = rendered_text
         self._alternatives.append((rendered_html, "text/html"))

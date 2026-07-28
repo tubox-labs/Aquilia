@@ -35,14 +35,10 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import Sequence
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import formatdate, make_msgid
 from typing import Any
 
 from ..envelope import MailEnvelope
+from ..mime import build_mime_message, message_to_bytes
 from ..providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.ses")
@@ -73,8 +69,40 @@ class SESProvider:
     """
     Async AWS SES mail provider.
 
-    Uses aiobotocore for true async I/O. Falls back to boto3 in a
-    thread pool if aiobotocore is not installed.
+    Uses ``aiobotocore`` for true async I/O, falling back to ``boto3`` in a
+    thread pool when it is not installed.
+
+    Lifecycle:
+        :meth:`initialize` creates the SES v2 client (and, for aiobotocore,
+        enters its async context); :meth:`shutdown` releases it.
+
+    Args:
+        name: Provider name used in config, logs and failover ordering.
+        region: AWS region hosting the verified identity.
+        aws_access_key_id: Access key; ``None`` defers to the environment or
+            an attached IAM role, which is the preferred production setup.
+        aws_secret_access_key: Secret key paired with the access key.
+        aws_session_token: STS session token for assumed roles.
+        configuration_set: SES configuration set for event publishing.
+        source_arn: Sending-authorization ARN for cross-account identities.
+        return_path: Bounce return path.
+        tags: SES message tags attached to every send.
+        use_raw: Send full MIME via ``SendRawEmail``.  Required for
+            attachments, inline images and DKIM signing; disable only for
+            simple structured sends.
+        endpoint_url: Override the SES endpoint (VPC endpoints, localstack).
+        priority: Failover order; lower is preferred.
+        rate_limit_per_min: Advisory send rate enforced by
+            :class:`~aquilia.mail.service.MailService`; 0 disables it.
+        security: ``MailConfig.security`` used for DKIM signing.  Note SES
+            also offers its own domain-level DKIM; enable one or the other.
+
+    Examples::
+
+        provider = SESProvider(name="ses", region="eu-west-1",
+                               configuration_set="prod")
+        await provider.initialize()
+        result = await provider.send(envelope)
     """
 
     name: str
@@ -101,6 +129,8 @@ class SESProvider:
         # Connection
         endpoint_url: str | None = None,
         priority: int = 10,
+        rate_limit_per_min: int = 600,
+        security: Any = None,
     ):
         self.name = name
         self.region = region
@@ -114,6 +144,8 @@ class SESProvider:
         self.use_raw = use_raw
         self.endpoint_url = endpoint_url
         self.priority = priority
+        self.rate_limit_per_min = rate_limit_per_min
+        self.security = security
 
         # Client state
         self._session: Any = None
@@ -194,66 +226,13 @@ class SESProvider:
     # ── MIME Construction ───────────────────────────────────────────
 
     def _build_raw_message(self, envelope: MailEnvelope) -> bytes:
-        """Build a raw MIME message (bytes) for SES SendRawEmail."""
-        msg = MIMEMultipart("mixed")
+        """
+        Build the raw MIME bytes for ``SendRawEmail``.
 
-        msg["From"] = envelope.from_email
-        msg["To"] = ", ".join(envelope.to)
-        if envelope.cc:
-            msg["Cc"] = ", ".join(envelope.cc)
-        msg["Subject"] = envelope.subject
-        msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(domain=self._extract_domain(envelope.from_email))
-        if envelope.reply_to:
-            msg["Reply-To"] = envelope.reply_to
-
-        # Custom headers
-        for key, value in envelope.headers.items():
-            msg[key] = value
-
-        # Aquilia tracking headers
-        msg["X-Aquilia-Envelope-ID"] = envelope.id
-        if envelope.trace_id:
-            msg["X-Aquilia-Trace-ID"] = envelope.trace_id
-
-        # Body
-        if envelope.body_html:
-            alt = MIMEMultipart("alternative")
-            alt.attach(MIMEText(envelope.body_text, "plain", "utf-8"))
-            alt.attach(MIMEText(envelope.body_html, "html", "utf-8"))
-            msg.attach(alt)
-        else:
-            msg.attach(MIMEText(envelope.body_text, "plain", "utf-8"))
-
-        # Attachments
-        for attachment in envelope.attachments:
-            maintype, subtype = attachment.content_type.split("/", 1)
-            part = MIMEBase(maintype, subtype)
-            blob_data = envelope.metadata.get(f"blob:{attachment.digest}", b"")
-            part.set_payload(blob_data)
-            encoders.encode_base64(part)
-            if attachment.inline and attachment.content_id:
-                part.add_header(
-                    "Content-Disposition",
-                    "inline",
-                    filename=attachment.filename,
-                )
-                part.add_header("Content-ID", f"<{attachment.content_id}>")
-            else:
-                part.add_header(
-                    "Content-Disposition",
-                    "attachment",
-                    filename=attachment.filename,
-                )
-            msg.attach(part)
-
-        return msg.as_bytes()
-
-    @staticmethod
-    def _extract_domain(email: str) -> str:
-        if "<" in email:
-            email = email.split("<")[1].rstrip(">")
-        return email.rsplit("@", 1)[-1] if "@" in email else "localhost"
+        Delegates to :mod:`aquilia.mail.mime`, so SES and SMTP emit identical
+        messages, and applies DKIM signing when configured.
+        """
+        return message_to_bytes(build_mime_message(envelope), self.security)
 
     # ── SES API Helpers ─────────────────────────────────────────────
 
@@ -442,7 +421,7 @@ class SESProvider:
             "type": self.provider_type,
             "name": self.name,
             "enabled": True,
-            "rate_limit_per_min": 600,
+            "rate_limit_per_min": self.rate_limit_per_min,
             "priority": self.priority,
         }
         extras: dict = {"region": self.region, "use_raw": self.use_raw}

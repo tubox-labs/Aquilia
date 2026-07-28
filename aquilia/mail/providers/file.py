@@ -51,9 +51,28 @@ logger = logging.getLogger("aquilia.mail.providers.file")
 
 class FileProvider:
     """
-    Mail provider that writes emails to .eml files on disk.
+    Mail provider that writes emails to ``.eml`` files on disk.
 
-    Ideal for development, testing, and audit trails.
+    Ideal for development, testing, and audit trails: each envelope becomes a
+    standalone message file openable in any mail client.
+
+    Args:
+        name: Provider name used in config and logs.
+        output_dir: Directory receiving the message files.
+        max_files: Cap on retained files; the oldest are pruned beyond it.
+        write_index: Also maintain a JSON index of written messages.
+        include_metadata: Embed Aquilia envelope metadata as headers.
+        file_extension: Extension for written files.
+        priority: Failover order; lower is preferred.
+        rate_limit_per_min: Advisory rate reported to the admin dashboard.
+            Defaults to ``0`` (unthrottled) — local disk writes need no
+            pacing.
+
+    Examples::
+
+        provider = FileProvider(output_dir="./sent-mail")
+        await provider.initialize()
+        await provider.send(envelope)
     """
 
     name: str
@@ -72,6 +91,7 @@ class FileProvider:
         include_metadata: bool = True,
         file_extension: str = ".eml",
         priority: int = 90,
+        rate_limit_per_min: int = 0,
     ):
         self.name = name
         self.output_dir = Path(output_dir)
@@ -80,6 +100,7 @@ class FileProvider:
         self.include_metadata = include_metadata
         self.file_extension = file_extension
         self.priority = priority
+        self.rate_limit_per_min = rate_limit_per_min
 
         self._initialized = False
         self._write_lock = asyncio.Lock()
@@ -353,7 +374,7 @@ class FileProvider:
             "type": self.provider_type,
             "name": self.name,
             "enabled": True,
-            "rate_limit_per_min": 600,
+            "rate_limit_per_min": self.rate_limit_per_min,
             "priority": self.priority,
             "config": {
                 "output_dir": self.output_dir.as_posix(),

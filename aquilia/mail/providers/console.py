@@ -19,7 +19,19 @@ class ConsoleProvider:
     """
     Provider that logs emails to the console instead of sending them.
 
-    This is the default provider in development mode.
+    Default provider in development mode, and the automatic fallback when
+    ``MailConfig.console_backend`` is set and no other provider initialises.
+
+    Args:
+        name: Provider name used in config and logs.
+        rate_limit_per_min: Advisory rate reported to the admin dashboard.
+            Defaults to ``0`` (unthrottled) — throttling a console printer
+            would only slow down development.
+
+    Examples::
+
+        provider = ConsoleProvider()
+        await provider.send(envelope)   # prints, always succeeds
     """
 
     name: str = "console"
@@ -28,8 +40,9 @@ class ConsoleProvider:
     supports_batching: bool = True
     max_batch_size: int = 100
 
-    def __init__(self, name: str = "console"):
+    def __init__(self, name: str = "console", *, rate_limit_per_min: int = 0):
         self.name = name
+        self.rate_limit_per_min = rate_limit_per_min
 
     async def initialize(self) -> None:
         pass
@@ -92,6 +105,6 @@ class ConsoleProvider:
             "type": self.provider_type,
             "name": self.name,
             "enabled": True,
-            "rate_limit_per_min": 600,
+            "rate_limit_per_min": self.rate_limit_per_min,
             "priority": self.priority,
         }

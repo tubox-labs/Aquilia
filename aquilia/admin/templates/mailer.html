@@ -672,25 +672,34 @@ await msg.asend()</code></pre>
             <h4><i class="icon-filter"></i> Filters</h4>
             <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>&lt;&lt; name | title &gt;&gt;
 &lt;&lt; price | currency("USD") &gt;&gt;
-&lt;&lt; bio | truncate(120) &gt;&gt;</code></pre>
+&lt;&lt; bio | truncate(120) &gt;&gt;
+&lt;&lt; n | trim | upper &gt;&gt;</code></pre>
+        </div>
+        <div class="ml-config-item">
+            <h4><i class="icon-shield"></i> Auto-escaping</h4>
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>&lt;&lt; user.name &gt;&gt;
+  HTML-escaped by default
+
+&lt;&lt; html_fragment | safe &gt;&gt;
+  opt out (trusted markup only)</code></pre>
         </div>
         <div class="ml-config-item">
             <h4><i class="icon-git-branch"></i> Control Flow</h4>
-            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>[[% if user.is_premium %]]
-  Premium content here
-[[% endif %]]
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>Not supported.
 
-[[% for item in order.items %]]
-  &lt;&lt; item.name &gt;&gt;: &lt;&lt; item.price &gt;&gt;
-[[% endfor %]]</code></pre>
+ATS renders expressions and
+filters only. A template using
+[[% if %]] / [[% for %]] raises
+MailTemplateFault — precompute
+the value in Python instead.</code></pre>
         </div>
         <div class="ml-config-item">
             <h4><i class="icon-layers"></i> Template Inheritance</h4>
-            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>[[% extends "base_email.aqt" %]]
+            <pre style="font-size:0.72rem;line-height:1.5;color:var(--text-secondary);margin:0;"><code>Not supported.
 
-[[% block content %]]
-  Your email body here
-[[% endblock %]]</code></pre>
+Compose shared markup in Python
+and pass it in as context with
+the | safe filter.</code></pre>
         </div>
     </div>
 </div>

@@ -47,6 +47,7 @@ class MailAuth:
     aws_region: str | None = None
     aws_session_token: str | None = None
     access_token: str | None = None
+    access_token_env: str | None = None
     refresh_token: str | None = None
     token_url: str | None = None
     client_id: str | None = None
@@ -114,9 +115,35 @@ class MailAuth:
         token_url: str,
         scope: str | None = None,
         access_token: str | None = None,
+        access_token_env: str | None = None,
         refresh_token: str | None = None,
     ) -> MailAuth:
-        """OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.)."""
+        """
+        OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.).
+
+        SMTP delivery uses the ``access_token`` via the XOAUTH2 mechanism.
+        Aquilia does not perform the token exchange itself — supply a
+        currently valid token, either literally or through
+        ``access_token_env``, from whatever component owns the refresh cycle.
+
+        Args:
+            client_id: OAuth2 client identifier.
+            client_secret: Literal client secret.
+            client_secret_env: Environment variable holding the client secret.
+            token_url: Token endpoint, recorded for the refresh owner's use.
+            scope: Requested scope.
+            access_token: Literal bearer token used for XOAUTH2.
+            access_token_env: Environment variable holding the bearer token.
+            refresh_token: Refresh token, recorded for the refresh owner's use.
+
+        Examples::
+
+            MailAuth.oauth2(
+                client_id="...",
+                token_url="https://oauth2.googleapis.com/token",
+                access_token_env="GMAIL_ACCESS_TOKEN",
+            )
+        """
         return cls(
             method="oauth2",
             client_id=client_id,
@@ -125,6 +152,7 @@ class MailAuth:
             token_url=token_url,
             scope=scope,
             access_token=access_token,
+            access_token_env=access_token_env,
             refresh_token=refresh_token,
         )
 
@@ -169,6 +197,7 @@ class MailAuth:
             "aws_region",
             "aws_session_token",
             "access_token",
+            "access_token_env",
             "refresh_token",
             "token_url",
             "client_id",
