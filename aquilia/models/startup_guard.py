@@ -98,7 +98,7 @@ def check_db_ready(
         _warn_not_ready(
             "Database file does not exist",
             db_url=db_url,
-            hint="Run the following commands to create and initialize the database:",
+            hint="Run the following commands to initialize database:",
         )
         return False
 
@@ -108,32 +108,47 @@ def check_db_ready(
         _warn_not_ready(
             "Unapplied migrations detected",
             db_url=db_url,
-            hint="Run the following commands to apply pending migrations:",
+            hint="Run the following commands to apply migrations:",
         )
         return False
 
     return True
 
 
+def _box_line(text: str = "", align: str = "left") -> str:
+    """Format a single box line to exactly 58 inner characters (64 total width)."""
+    text = text[:58]
+    if align == "center":
+        return f"║ {text:^58} ║"
+    elif align == "right":
+        return f"║ {text:>58} ║"
+    else:
+        return f"║ {text:<58} ║"
+
+
 def _warn_not_ready(reason: str, *, db_url: str, hint: str) -> None:
     """Print a yellow warning banner (non-fatal)."""
-    msg = f"""
-{_YELLOW}{_BOLD}╔══════════════════════════════════════════════════════════════╗
-║                   DATABASE NOT READY                         ║
-╠══════════════════════════════════════════════════════════════╣{_RESET}
-{_YELLOW}║  {reason:<60}║
-║                                                              ║
-║  Database: {db_url:<49}║
-║                                                              ║
-║  {hint:<60}║
-║                                                              ║
-║    $ aq db makemigrations                                    ║
-║    $ aq db migrate                                           ║
-║                                                              ║
-║  Or set AQUILIA_AUTO_MIGRATE=1 to auto-create on startup.    ║
-╚══════════════════════════════════════════════════════════════╝{_RESET}
-"""
-    print(msg, file=sys.stderr)
+    top = f"{_YELLOW}{_BOLD}╔" + "═" * 60 + "╗"
+    sep = "╠" + "═" * 60 + "╣" + _RESET
+    bot = f"{_YELLOW}╚" + "═" * 60 + f"╝{_RESET}"
+
+    lines = [
+        top,
+        f"{_YELLOW}{_BOLD}" + _box_line("DATABASE NOT READY", align="center"),
+        sep,
+        _YELLOW + _box_line(reason),
+        _box_line(),
+        _box_line(f"Database: {db_url}"),
+        _box_line(),
+        _box_line(hint),
+        _box_line(),
+        _box_line("  $ aq db makemigrations"),
+        _box_line("  $ aq db migrate"),
+        _box_line(),
+        _box_line("Or set AQUILIA_AUTO_MIGRATE=1 to auto-create on startup."),
+        bot,
+    ]
+    print("\n" + "\n".join(lines), file=sys.stderr)
 
 
 def _fail_start(reason: str, *, db_url: str, hint: str) -> None:
