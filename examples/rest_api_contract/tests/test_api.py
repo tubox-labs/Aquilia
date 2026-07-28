@@ -4,18 +4,13 @@ Tests request body validation, model imprinting, pagination, projections, and Op
 """
 
 import uuid
-import pytest
 
-from aquilia.controller.pagination import PageNumberPagination
-from modules.rest.contracts import (
-    CreateArticleContract,
-    QueryArticleContract,
-    RestContract,
-    UpdateArticleContract
-)
-from modules.rest.faults import RestNotFoundFault
+import pytest
+from modules.rest.contracts import CreateArticleContract
 from modules.rest.models import Rest
 from modules.rest.services import RestService
+
+from aquilia.controller.pagination import PageNumberPagination
 
 
 @pytest.mark.asyncio

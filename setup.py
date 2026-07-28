@@ -49,7 +49,7 @@ EXTRAS = {
     "redis": ["redis[asyncio]>=5.0.0"],
     "mail": ["aiosmtplib>=3.0.0"],
     "mail-ses": ["aiobotocore>=2.9.0"],
-    "mail-sendgrid": ["httpx>=0.27.0"],
+    "mail-sendgrid": [],
     "server": ["gunicorn>=22.0.0", "uvicorn[standard]>=0.30.0"],
     # -- MLOps extras --
     "mlops": ["numpy>=1.24.0"],
@@ -63,13 +63,11 @@ EXTRAS = {
         "pytest>=8.0.0",
         "pytest-asyncio>=0.23.0",
         "pytest-cov>=4.1.0",
-        "httpx>=0.27.0",
     ],
     "dev": [
         "pytest>=8.0.0",
         "pytest-asyncio>=0.23.0",
         "pytest-cov>=4.1.0",
-        "httpx>=0.27.0",
         "ruff>=0.4.0",
         "mypy>=1.10.0",
         "pre-commit>=3.7.0",

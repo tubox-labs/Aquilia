@@ -7,7 +7,7 @@ a provider, calls send(envelope), and handles the ProviderResult.
 Included backends:
 - SMTP (aiosmtplib)          -- aquilia.mail.providers.smtp
 - AWS SES (aiobotocore)      -- aquilia.mail.providers.ses
-- SendGrid (httpx)           -- aquilia.mail.providers.sendgrid
+- SendGrid (aquilia.http)     -- aquilia.mail.providers.sendgrid
 - Console (dev)              -- aquilia.mail.providers.console
 - File (dev)                 -- aquilia.mail.providers.file
 """

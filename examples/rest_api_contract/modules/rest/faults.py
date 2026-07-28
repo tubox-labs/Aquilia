@@ -3,6 +3,7 @@ Structured Faults for rest Module.
 """
 
 from typing import Any
+
 from aquilia.faults import Fault, FaultDomain, Severity
 
 REST_DOMAIN = FaultDomain.custom("rest", "REST domain faults")

@@ -1,8 +1,8 @@
 """
-SendGrid Provider -- Async SendGrid Web API v3 delivery via httpx.
+SendGrid Provider -- Async SendGrid Web API v3 delivery via aquilia.http.
 
 Features:
-- Async HTTP via httpx (connection pooling, HTTP/2 support)
+- Async HTTP via aquilia.http (connection pooling)
 - Full Mail Send v3 API integration
 - Personalisation, categories, custom args, ASM group
 - Attachment support (base64 encoded)
@@ -13,9 +13,6 @@ Features:
 - Batch sending via personalizations
 - Sandbox mode for testing
 - Detailed structured logging
-
-Dependencies:
-    pip install httpx   (required)
 
 Usage::
 
@@ -49,7 +46,7 @@ class SendGridProvider:
     """
     Async SendGrid mail provider using the v3 Web API.
 
-    Uses ``httpx`` for async HTTP with connection pooling.
+    Uses ``aquilia.http`` for async HTTP with connection pooling.
 
     Args:
         name: Provider name used in config, logs and failover ordering.
@@ -128,33 +125,30 @@ class SendGridProvider:
     # ── Lifecycle ───────────────────────────────────────────────────
 
     async def initialize(self) -> None:
-        """Initialize the httpx async client."""
+        """Initialize the native AsyncHTTPClient."""
         if self._initialized:
             return
 
-        try:
-            import httpx
-        except ImportError:
-            raise ImportError("httpx is required for the SendGrid provider. Install it with: pip install httpx")
+        from aquilia.http import AsyncHTTPClient
 
         if not self.api_key:
             logger.warning(f"SendGrid provider '{self.name}' has no API key configured")
 
-        self._client = httpx.AsyncClient(
+        self._client = AsyncHTTPClient(
             base_url=self.api_base_url,
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
                 "User-Agent": "aquilia-mail/1.0",
             },
-            timeout=httpx.Timeout(self.timeout),
+            timeout=self.timeout,
         )
         self._initialized = True
 
     async def shutdown(self) -> None:
-        """Close the httpx client."""
+        """Close the AsyncHTTPClient."""
         if self._client is not None:
-            await self._client.aclose()
+            await self._client.close()
             self._client = None
         self._initialized = False
 
@@ -301,7 +295,7 @@ class SendGridProvider:
                     },
                 )
             else:
-                return self._handle_error_response(response, envelope)
+                return await self._handle_error_response(response, envelope)
 
         except Exception as e:
             self._total_errors += 1
@@ -313,7 +307,7 @@ class SendGridProvider:
                 retry_after=retry_after,
             )
 
-    def _handle_error_response(
+    async def _handle_error_response(
         self,
         response: Any,
         envelope: MailEnvelope,
@@ -323,9 +317,10 @@ class SendGridProvider:
         status_code = response.status_code
 
         try:
-            body = response.json()
+            body = await response.json()
         except Exception:
-            body = {"errors": [{"message": response.text}]}
+            text = await response.text()
+            body = {"errors": [{"message": text}]}
 
         errors = body.get("errors", [])
         error_msg = "; ".join(e.get("message", str(e)) for e in errors) if errors else f"HTTP {status_code}"

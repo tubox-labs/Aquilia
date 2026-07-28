@@ -23,11 +23,7 @@ Cross-Module Dependencies:
 from aquilia import AppManifest
 from aquilia.manifest import (
     FaultHandlingConfig,
-    MiddlewareConfig,
-    SessionConfig,
-    TemplateConfig,
 )
-
 
 manifest = AppManifest(
     # ── Identity ──────────────────────────────────────────────────────

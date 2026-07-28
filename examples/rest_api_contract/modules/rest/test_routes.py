@@ -2,7 +2,7 @@
 Test routes for rest module - Additional test endpoints.
 """
 
-from aquilia import Controller, GET, POST, RequestCtx, Response
+from aquilia import GET, POST, Controller, RequestCtx, Response
 
 
 class TestRestController(Controller):

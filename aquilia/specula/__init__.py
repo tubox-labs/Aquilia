@@ -13,7 +13,7 @@ Features:
   - Live spec updates via SSE (dev-mode hot-reload)
   - Multi-version spec support (integrates with aquilia.versioning)
   - Try It Out: real HTTP requests from the browser
-  - Code generation: curl, Python (httpx), JavaScript (fetch), TypeScript (axios)
+  - Code generation: curl, Python (aquilia.http), JavaScript (fetch), TypeScript (axios)
   - Fuzzy search across operations and schemas
   - Mock server: plausible example responses
   - Postman Collection v2.1 + Insomnia v4 export

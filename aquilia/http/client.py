@@ -475,6 +475,8 @@ class AsyncHTTPClient:
         await self._session.close()
         logger.debug("Client closed")
 
+    aclose = close
+
     async def __aenter__(self) -> AsyncHTTPClient:
         """Async context manager entry."""
         return self

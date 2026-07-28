@@ -672,8 +672,6 @@ class AquiliaRuntime:
             "aquilia.sqlite",
             "asyncio",
             "urllib3",
-            "httpcore",
-            "httpx",
             "watchfiles",
             "uvicorn.error",
             "python_multipart",

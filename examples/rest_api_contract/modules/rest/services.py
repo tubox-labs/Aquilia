@@ -7,10 +7,10 @@ from typing import Any
 
 from aquilia.contracts import Contract
 from aquilia.di import service
+from aquilia.faults import ModelNotFoundFault
 
 from .contracts import CreateArticleContract
 from .faults import RestNotFoundFault
-from aquilia.faults import ModelNotFoundFault
 from .models import Rest
 
 

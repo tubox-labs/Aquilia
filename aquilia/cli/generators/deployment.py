@@ -650,7 +650,7 @@ COPY requirements*.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install development tools
-RUN pip install --no-cache-dir watchfiles httpx pytest pytest-asyncio ruff
+RUN pip install --no-cache-dir watchfiles pytest pytest-asyncio ruff
 
 # Copy application source (will be overridden by volume mount in dev compose)
 COPY . .

@@ -11,9 +11,7 @@ import aquilia
 from aquilia.testing import (
     AquiliaTestCase,
     SimpleTestCase,
-    TestClient,
 )
-
 
 # ── Unit-style tests (no server) ──────────────────────────────────
 

@@ -212,8 +212,8 @@ class LiveServerTestCase(AquiliaTestCase):
             manifests = [app_manifest]
 
             async def test_healthcheck(self):
-                import httpx
-                async with httpx.AsyncClient() as http:
+                from aquilia.http import AsyncHTTPClient
+                async with AsyncHTTPClient() as http:
                     resp = await http.get(f"{self.live_server_url}/health")
                     assert resp.status_code == 200
     """

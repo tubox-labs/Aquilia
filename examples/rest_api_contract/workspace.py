@@ -14,20 +14,19 @@ settings (server, auth, DB) — lives in this one file.
 Override order: BaseEnv → <AQ_ENV>Env → environment variables
 """
 
-from aquilia import Workspace, Module
-from aquilia import AquilaConfig, Secret, Env
+from aquilia import AquilaConfig, Env, Module, Secret, Workspace
 from aquilia.integrations import (
-    MiddlewareChain,
+    CacheIntegration,
+    DatabaseIntegration,
     DiIntegration,
+    FaultHandlingIntegration,
+    MiddlewareChain,
+    PatternsIntegration,
     RegistryIntegration,
     RoutingIntegration,
-    FaultHandlingIntegration,
-    PatternsIntegration,
-    DatabaseIntegration,
-    CacheIntegration,
-    TemplatesIntegration,
+    SpeculaIntegration,
     StaticFilesIntegration,
-    SpeculaIntegration
+    TemplatesIntegration,
 )
 
 # ── Environment Configuration ────────────────────────────────────

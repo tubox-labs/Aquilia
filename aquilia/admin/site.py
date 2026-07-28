@@ -2685,7 +2685,7 @@ class AdminSite:
                         "tcp_connection",
                         "live_url",
                         "browser_automation",
-                        "httpx_compatible",
+                        "http_client_compatible",
                     ],
                     "category": "e2e",
                 },

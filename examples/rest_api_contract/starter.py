@@ -5,7 +5,7 @@ Replace this controller with your own routes.
 Delete this file once you have real endpoints.
 """
 
-from aquilia import Controller, GET, RequestCtx, Response
+from aquilia import GET, Controller, RequestCtx, Response
 
 
 class StarterController(Controller):
