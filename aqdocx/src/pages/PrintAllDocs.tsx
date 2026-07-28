@@ -203,11 +203,13 @@ import { TemplatesLoaders } from './docs/templates/Loaders'
 import { TemplatesSecurity } from './docs/templates/Security'
 import { MailOverview } from './docs/mail/Overview'
 import { MailService } from './docs/mail/Service'
+import { MailDelivery } from './docs/mail/Delivery'
 import { MailProviders } from './docs/mail/Providers'
 import { MailTemplates } from './docs/mail/Templates'
 import { TasksOverview } from './docs/tasks/Overview'
 import { TasksAPI } from './docs/tasks/API'
 import { TasksConfiguration } from './docs/tasks/Configuration'
+import { TasksDistributed } from './docs/tasks/Distributed'
 import { TasksRetry } from './docs/tasks/Retry'
 import { TasksScheduling } from './docs/tasks/Scheduling'
 import { TasksController } from './docs/tasks/Controller'
@@ -495,11 +497,13 @@ export function PrintAllDocs() {
         <div className="print-page-break"><TemplatesSecurity /></div>
         <div className="print-page-break"><MailOverview /></div>
         <div className="print-page-break"><MailService /></div>
+        <div className="print-page-break"><MailDelivery /></div>
         <div className="print-page-break"><MailProviders /></div>
         <div className="print-page-break"><MailTemplates /></div>
         <div className="print-page-break"><TasksOverview /></div>
         <div className="print-page-break"><TasksAPI /></div>
         <div className="print-page-break"><TasksConfiguration /></div>
+        <div className="print-page-break"><TasksDistributed /></div>
         <div className="print-page-break"><TasksRetry /></div>
         <div className="print-page-break"><TasksScheduling /></div>
         <div className="print-page-break"><TasksController /></div>

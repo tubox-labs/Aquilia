@@ -36,10 +36,27 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.3.5',
+    codename: 'Distributed Tide',
+    date: 'Jul 28, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Distributed and durable background tasks via Redis and SQL backends, workflow DAGs, enforced idempotency, and a background mail delivery queue with provider webhook processing and automatic bounce suppression. No breaking changes.',
+    highlights: ['Redis & SQL Task Backends', 'Workflows & DAGs', 'Mail Queue & Bounce Suppression'],
+    assets: [
+      { name: 'aquilia-1.3.5.tar.gz', size: '2.7 MB', type: 'Source' },
+      { name: 'aquilia-1.3.5-py3-none-any.whl', size: '2.2 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.5',
+    commitCount: '38',
+    contributors: 2
+  },
+  {
     version: '1.3.4',
     codename: 'Structural Integrity',
     date: 'Jul 24, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Two-round architectural audit: 13 bugs fixed across Aquilary registry, Auto-Discovery, Manifest system, Workspace, Config, and CLI subsystems. No breaking changes.',

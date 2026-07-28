@@ -29,6 +29,60 @@ interface ChangelogEntry {
 
 const staticChangelogs: ChangelogEntry[] = [
   {
+    version: '1.3.5',
+    codename: 'Distributed Tide',
+    date: '2026-07-28',
+    tag: 'patch',
+    summary: 'Background tasks become genuinely distributed and durable, and mail becomes a production delivery pipeline. Jobs now execute across multiple worker processes and machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; mail is delivered by background workers with provider webhook processing and automatic suppression of bounced recipients. No breaking changes — all v1.3.4 applications run without modification, and default behavior is unchanged.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'RedisBackend (aquilia.tasks.backends.RedisBackend): multi-process, multi-machine task queue with durable job state. Claims are atomic through Lua scripts against sorted sets. Requires pip install aquilia[redis] and redis_url.',
+          'SQLBackend (aquilia.tasks.backends.SQLBackend): durable job state on the application database (SQLite, Postgres, MySQL, Oracle). Claims via conditional UPDATE inside transactions without requiring SELECT FOR UPDATE SKIP LOCKED.',
+          'Lease-based crash recovery: claimed jobs hold a lease_seconds duration renewed on heartbeat_interval; a reclaim loop returns abandoned jobs from crashed workers back to the ready pool.',
+          'Workflows, Signatures, & DAGs (aquilia.tasks.workflow): compose jobs into chain(*sigs), group(sigs), chord(header, callback), or arbitrary Workflow DAGs with depends_on graph validation.',
+          'Enforced Enqueue Deduplication: dedup parameter on TaskManager.enqueue() ("allow", "skip", "raise") matching on Job.fingerprint backed by Redis SET NX or SQL aquilia_task_locks primary key.',
+          'Background Mail Delivery Queue: send_message() records envelopes in EnvelopeStore (MemoryEnvelopeStore or SQLEnvelopeStore) and dispatches background delivery via task aquilia.mail.deliver.',
+          'Provider Webhooks & Suppression: parse_ses, parse_sendgrid, parse_mailgun with HMAC/ECDSA signature verification, process_webhook event normalisation, and SuppressionList auto-blocking for hard bounces and complaints.',
+          'DKIM Signing & Security: byte-level DKIM signing (sign_dkim) via dkimpy, XOAUTH2 authentication support in MailAuth.oauth2, PII email redaction (redact_email, redact_pii), and aq mail check configuration verification.',
+          'Documented ATS Public API: configure(template_dirs), render_string, render_template, register_filter, and built-in filters (currency, default, escape, join, length, lower, safe, title, trim, truncate, upper).'
+        ]
+      },
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'backend="redis" builds a functional Redis backend instead of logging a warning and falling back.',
+          'JobResult.to_dict() preserves JSON-safe primitive types instead of forcing repr() on everything.',
+          'Mail providers share a single unified MIME builder (aquilia.mail.mime).',
+          'aq mail check validates DKIM domain and dkimpy dependency availability.'
+        ]
+      },
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'Mail delivery task was unresolvable across processes: registered under stable task name aquilia.mail.deliver.',
+          'Consumer-only workers polled default queue only: queues are now seeded from all @task descriptors and refreshed dynamically from backend stats.',
+          'Job results degraded to repr strings on persistent backends: JSON primitives now preserved correctly.',
+          'queue.persistent had no configuration surface: threaded through Integration.mail(queue_persistent=...) and SQLEnvelopeStore.'
+        ]
+      },
+      {
+        title: 'Security',
+        type: 'security',
+        items: [
+          'Provider webhook signature verification for SES, SendGrid, and Mailgun.',
+          'DKIM misconfigurations raise errors at send time rather than shipping unsigned messages.',
+          'Registry-only callable resolution prevents arbitrary code execution via task queue payloads.',
+          'PII redaction for recipient emails in log output and fault messages.'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.3.4',
     codename: 'Structural Integrity',
     date: '2026-07-24',

@@ -115,6 +115,33 @@ class MailEnvelope:
     digest: str = ""              # SHA-256 checksum hash of the envelope`}</CodeBlock>
       </section>
 
+      {/* PII Redaction & Storage */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          PII Redaction &amp; Delivery Components
+        </h2>
+        <p className={`text-sm mb-4 ${textMuted}`}>
+          <code className="text-aquilia-400">MailService</code> automatically redacts personal identifying email addresses in log outputs and fault tracebacks when <code className="text-aquilia-400">pii_redaction_enabled=True</code>. Local parts are masked while domains are preserved (e.g. <code className="text-aquilia-400">a******o@example.com</code>).
+        </p>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          When background delivery is enabled, <code className="text-aquilia-400">mail.store</code> holds the envelope records and <code className="text-aquilia-400">mail.suppression</code> manages recipient suppression state.
+        </p>
+        <CodeBlock
+          language="python"
+          filename="mail_service_components.py"
+        >{`from aquilia.mail.redaction import redact_email, redact_pii
+
+# Mask single address
+redact_email("asha.rao@example.com")  # 'a******o@example.com'
+
+# Mask addresses inside freeform text
+redact_pii("Send failed for user@example.com")  # 'Send failed for u**r@example.com'
+
+# Access attached store and suppression list
+store = mail.store
+suppression = mail.suppression`}</CodeBlock>
+      </section>
+
       {/* Fault Hierarchy */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>

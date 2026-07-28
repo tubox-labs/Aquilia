@@ -1,8 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Code } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Code, ShieldCheck } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function MailTemplates() {
@@ -23,100 +22,53 @@ export function MailTemplates() {
           <span className="gradient-text font-mono">Aquilia Template Syntax (ATS)</span>
         </h1>
         <p className={`text-lg leading-relaxed ${textMuted}`}>
-          AquilaMail templates utilize the Aquilia Template Syntax (ATS). ATS provides a simple expression engine designed to prevent code-injection vulnerabilities inside email bodies.
+          AquilaMail templates use Aquilia Template Syntax (ATS) — an expression and filter engine with mandatory HTML autoescaping by default. Control flow structures are prohibited so template rendering stays safe and deterministic.
         </p>
       </div>
 
-      {/* Extended Template Syntax Example */}
+      {/* Overview & Security */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          ATS Syntax Reference & Complete Example
+          Expression-Only Design &amp; Security
         </h2>
-        <p className={`text-sm mb-6 ${textMuted}`}>
-          The following example compiles user profiles, loops through purchases, formats localized currency, and structures blocks inside a single transaction receipt template:
+        <p className={`text-sm mb-4 ${textMuted}`}>
+          ATS is deliberately minimal: it supports expressions and filter applications only. There are no loops (<code className="text-aquilia-400">for</code>), conditionals (<code className="text-aquilia-400">if</code>), or layout inheritance. Any attempt to use control flow tags raises <code className="text-aquilia-400">MailTemplateFault</code> at render time rather than silently shipping unparsed tags to a user's inbox.
         </p>
-        <CodeBlock
-          language="html"
-          filename="mail_templates/order_receipt.aqt"
-          highlightLines={[1, 4, 8, 12, 16, 21]}
-        >{`[[% extends "layouts/base.aqt" %]]
-
-[[% block body %]]
-  <!-- 1. Dotted variable resolutions with title casing -->
-  <h2>Hi, << order.customer.profile.name | title >>!</h2>
-  
-  <!-- 2. Global variable bindings and formatting filters -->
-  <p>Thank you for shopping at << brand_name | upper >>. Your order #<< order.number >> has cleared.</p>
-  
-  <!-- 3. Loop iteration over transaction collections -->
-  <h3>Your Ordered Items:</h3>
-  <ul>
-    [[% for item in order.items %]]
-      <li><< item.title >> (Qty: << item.qty >>) - << item.subtotal | format_currency("USD") >></li>
-    [[% endfor %]]
-  </ul>
-
-  <!-- 4. Control-flow conditional blocks -->
-  [[% if order.discount_amount > 0 %]]
-    <p style="color: #22c55e;">Promo applied: -<< order.discount_amount | format_currency("USD") >></p>
-  [[% else %]]
-    <p style="color: #999;">No promotional codes applied.</p>
-  [[% endif %]]
-[[% endblock %]]`}</CodeBlock>
+        <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-start gap-3">
+          <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          <p className={`text-xs leading-relaxed ${textMuted}`}>
+            <strong>Automatic HTML Autoescaping:</strong> All interpolated expressions are automatically HTML-escaped using <code className="text-aquilia-400">html.escape()</code> (including double and single quotes). To bypass escaping for pre-sanitized HTML fragments, append <code className="text-aquilia-400">| safe</code>.
+          </p>
+        </div>
       </section>
 
-      {/* Syntax Details */}
+      {/* Syntax Examples */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          ATS Syntax Rules
+          ATS Syntax Reference
         </h2>
         <div className="space-y-8">
           {[
             {
               syntax: '<< expr >>',
-              desc: 'Expression interpolation. Safely resolves dotted attributes or dictionary keys. If a variable resolves to None or raises AttributeError, it fails gracefully and prints an empty string.',
-              code: `<!-- Context: {"user": {"profile": {"first_name": "asha"}}} -->
-<p>Hello, << user.profile.first_name >>!</p>
-<!-- Result: <p>Hello, asha!</p> -->`
+              desc: 'Expression interpolation with automatic HTML escaping. Supports dict keys and attribute access (e.g. user.profile.name). Undefined values resolve to empty strings.',
+              code: `<!-- Context: {"user": {"name": "<b>Asha</b>"}} -->
+<p>Hi << user.name >>!</p>
+<!-- Output: <p>Hi &lt;b&gt;Asha&lt;/b&gt;!</p> -->`
             },
             {
               syntax: '<< expr | filter >>',
-              desc: 'Applies formatting filters to variables. Filters can accept parameters. Standard whitelisted filters include uppercase, title, date formats, and localized currency symbols.',
-              code: `<!-- Context: {"product": {"price": 99.95, "title": "aquilia book"}} -->
-<p>Product: << product.title | title >> - << product.price | format_currency("EUR") >></p>
-<!-- Result: <p>Product: Aquilia Book - €99.95</p> -->`
+              desc: 'Applies a filter to an expression. Built-in filters include title, upper, lower, trim, length, default, currency, escape, safe.',
+              code: `<!-- Context: {"price": 12.5, "title": "welcome guide"} -->
+<p><< title | title >>: << price | currency('USD') >></p>
+<!-- Output: <p>Welcome Guide: USD 12.50</p> -->`
             },
             {
-              syntax: '[[% if condition %]] ... [[% endif %]]',
-              desc: 'Control-flow conditional branches for displaying content contextually based on truthy/falsy evaluation.',
-              code: `<!-- Context: {"user": {"is_vip": True}} -->
-[[% if user.is_vip %]]
-  <p>Thank you for being a VIP member!</p>
-[[% endif %]]`
-            },
-            {
-              syntax: '[[% for item in list %]] ... [[% endfor %]]',
-              desc: 'Loop iteration blocks for lists, matrices, or collections.',
-              code: `<!-- Context: {"features": ["Caching", "DI", "Sockets"]} -->
-<ul>
-  [[% for feature in features %]]
-    <li>Feature: << feature >></li>
-  [[% endfor %]]
-</ul>`
-            },
-            {
-              syntax: '[[% block name %]] ... [[% endblock %]]',
-              desc: 'Declares layout inheritance blocks. Enables base templates to define regions that extending child templates override.',
-              code: `<!-- base.aqt -->
-<div class="main-body">
-  [[% block main %]][[% endblock %]]
-</div>
-
-<!-- welcome.aqt -->
-[[% extends "base.aqt" %]]
-[[% block main %]]
-  <p>Overridden template content body.</p>
-[[% endblock %]]`
+              syntax: '<< expr | safe >>',
+              desc: 'Explicit opt-out of HTML autoescaping. Only use with trusted HTML content generated by your own application.',
+              code: `<!-- Context: {"body_html": "<strong>Your account is active.</strong>"} -->
+<div><< body_html | safe >></div>
+<!-- Output: <div><strong>Your account is active.</strong></div> -->`
             }
           ].map((item, i) => (
             <div key={i} className="py-4 border-b border-white/5 last:border-0">
@@ -130,40 +82,79 @@ export function MailTemplates() {
         </div>
       </section>
 
-      {/* TemplateMessage Usage */}
+      {/* Public Python API */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Using TemplateMessage
+          Documented ATS Python API (<code className="text-aquilia-400">aquilia.mail.template</code>)
         </h2>
         <p className={`text-sm mb-6 ${textMuted}`}>
-          Instantiate a <DocTerm id="mail.TemplateMessage">TemplateMessage</DocTerm> class with the template file path and context payload. Subject lines can also contain inline ATS expressions:
+          Render strings, render template files, or extend ATS with custom registered filters directly from Python:
         </p>
         <CodeBlock
           language="python"
-          filename="send_template.py"
-          highlightLines={[4, 5, 6, 7]}
-        >{`from aquilia.mail import TemplateMessage
-
-msg = TemplateMessage(
-    template="order_receipt.aqt",
-    context={
-        "order": {
-            "number": "TX-104",
-            "customer": {"profile": {"name": "asha"}},
-            "total": 129.99,
-            "discount_amount": 15.00,
-            "items": [
-                {"title": "Aquilia Server License", "qty": 1, "subtotal": 129.99}
-            ]
-        },
-        "brand_name": "Aquilia Inc"
-    },
-    subject="Your Receipt for << order.number >> from << brand_name >>!",
-    to=["asha@example.com"]
+          filename="ats_api_usage.py"
+          highlightLines={[7, 10, 16, 21]}
+        >{`from aquilia.mail.template import (
+    configure, render_string, render_template, register_filter, FILTERS
 )
 
-# Template renders at envelope compile time. HTML and text alternative are generated.
-await msg.asend()`}</CodeBlock>
+# 1. Configure template search paths
+configure(["mail_templates", "modules/auth/templates"])
+
+# 2. Render inline template string
+html_out = render_string(
+    "Hello << user.name | title >>, total: << amount | currency >>",
+    {"user": {"name": "asha"}, "amount": 49.99}
+)
+
+# 3. Render template file from configured directories
+rendered = render_template("welcome.aqt", {"user": user_dict})
+
+# 4. Register custom filter
+@register_filter("mask_card")
+def mask_card_filter(value: str) -> str:
+    return f"•••• •••• •••• {str(value)[-4:]}"
+
+# Now usable in templates: << card_number | mask_card >>`}</CodeBlock>
+      </section>
+
+      {/* Built-in Filters */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Built-in ATS Filters
+        </h2>
+        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl">
+          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <thead>
+              <tr className="border-b border-white/5 bg-white/5">
+                <th className="text-left py-4 px-6 font-semibold text-aquilia-500 w-32">Filter</th>
+                <th className="text-left py-4 px-6">Signature</th>
+                <th className="text-left py-4 px-6">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {[
+                ['currency', 'currency(code="USD")', 'Formats numeric values as currency strings.'],
+                ['default', 'default(fallback)', 'Returns fallback if value is None or empty string.'],
+                ['escape', 'escape', 'Explicitly HTML escapes a string.'],
+                ['join', 'join(delimiter=", ")', 'Joins list elements into a single string.'],
+                ['length', 'length', 'Returns length of string, list, or dict.'],
+                ['lower', 'lower', 'Converts text to lowercase.'],
+                ['upper', 'upper', 'Converts text to uppercase.'],
+                ['title', 'title', 'Capitalizes the first character of each word.'],
+                ['trim', 'trim', 'Strips leading and trailing whitespace.'],
+                ['truncate', 'truncate(length=50)', 'Truncates text to specified length.'],
+                ['safe', 'safe', 'Marks output as safe from autoescaping.'],
+              ].map(([filterName, sig, desc], i) => (
+                <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
+                  <td className="py-3.5 px-6 font-mono font-semibold text-xs text-aquilia-400">{filterName}</td>
+                  <td className="py-3.5 px-6 font-mono text-xs">{sig}</td>
+                  <td className={`py-3.5 px-6 text-xs ${textMuted}`}>{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* Navigation */}
@@ -171,16 +162,16 @@ await msg.asend()`}</CodeBlock>
         <Link to="/docs/mail/providers" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
           <ArrowLeft className="w-4 h-4" /> Providers
         </Link>
-        <Link to="/docs/getting-started/developer-guide" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
-          Developer Guide <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/mail/delivery" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          Delivery &amp; Bounces <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 
       <NextSteps
         items={[
-          { text: 'Developer Integration Guide', link: '/docs/getting-started/developer-guide' },
-          { text: 'Storage Subsystem Overview', link: '/docs/storage' },
-          { text: 'CLI and Macro Tools', link: '/docs/cli' },
+          { text: 'Delivery Queue & Bounce Suppression', link: '/docs/mail/delivery' },
+          { text: 'MailService & Dispatch Options', link: '/docs/mail/service' },
+          { text: 'Mail Providers (SMTP, SES, SendGrid)', link: '/docs/mail/providers' },
         ]}
       />
     </div>

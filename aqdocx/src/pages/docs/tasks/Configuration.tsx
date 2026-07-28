@@ -113,7 +113,7 @@ workspace = (
             </thead>
             <tbody className="divide-y divide-white/5">
               {[
-                ['backend', 'str', '"memory"', 'Storage backend. "memory" stores job states inside the process memory.'],
+                ['backend', 'str', '"memory"', 'Job storage backend. "memory" (single-process, non-durable), "redis" (distributed + durable), or "sql" (durable on the application database).'],
                 ['num_workers', 'int', '4', 'Number of parallel async worker loop coroutines to run.'],
                 ['default_queue', 'str', '"default"', 'Fallback queue name when queue is not explicitly declared.'],
                 ['cleanup_interval', 'float', '300.0', 'Frequency (in seconds) of sweeps to purge terminated jobs.'],
@@ -126,6 +126,14 @@ workspace = (
                 ['auto_start', 'bool', 'True', 'Whether to boot worker queues during server bootstrap lifecycle.'],
                 ['dead_letter_max', 'int', '1000', 'Maximum capacity of the Dead-Letter Queue (DLQ) buffer.'],
                 ['scheduler_tick', 'float', '15.0', 'Frequency (in seconds) to check and trigger scheduled tasks.'],
+                ['redis_url', 'str | None', 'None', 'Redis connection URL for backend="redis". Falls back to $REDIS_URL when unset.'],
+                ['redis_prefix', 'str', '"aquilia:tasks:"', 'Redis key namespace, so several applications can share one Redis instance.'],
+                ['sql_table', 'str', '"aquilia_tasks"', 'Job table name for backend="sql".'],
+                ['lease_seconds', 'float', '300.0', 'How long a claimed job stays owned before another worker may reclaim it.'],
+                ['heartbeat_interval', 'float', '30.0', 'How often a running job renews its lease. Must be well under lease_seconds.'],
+                ['reclaim_interval', 'float', '60.0', 'How often to sweep for jobs abandoned by crashed workers.'],
+                ['dedup_ttl', 'float', '3600.0', 'How long a deduplication reservation is held for dedup="skip" / "raise".'],
+                ['worker_id', 'str | None', 'None', 'Worker identity recorded as a job owner. Defaults to hostname:pid:random.'],
               ].map(([opt, type, defVal, desc], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
                   <td className="py-3.5 px-6 font-mono font-semibold text-xs text-aquilia-400">{opt}</td>

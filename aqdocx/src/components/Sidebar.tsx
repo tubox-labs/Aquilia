@@ -453,6 +453,7 @@ export const sections: SidebarSection[] = [
         children: [
           { label: 'Overview', path: '/docs/mail' },
           { label: 'MailService', path: '/docs/mail/service' },
+          { label: 'Delivery & Bounces', path: '/docs/mail/delivery' },
           { label: 'Providers', path: '/docs/mail/providers' },
           { label: 'Templates', path: '/docs/mail/templates' },
         ]
@@ -469,6 +470,7 @@ export const sections: SidebarSection[] = [
           { label: 'Overview', path: '/docs/tasks/overview' },
           { label: 'API Reference', path: '/docs/tasks/api' },
           { label: 'Configuration', path: '/docs/tasks/configuration' },
+          { label: 'Distributed & Workflows', path: '/docs/tasks/distributed' },
           { label: 'Retry Logic', path: '/docs/tasks/retry' },
           { label: 'Scheduling', path: '/docs/tasks/scheduling' },
           { label: 'Controller Guide', path: '/docs/tasks/controller' },

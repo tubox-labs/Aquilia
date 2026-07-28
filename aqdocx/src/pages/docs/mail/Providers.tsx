@@ -179,6 +179,54 @@ workspace.integrate(MailIntegration(
 ))`}</CodeBlock>
       </section>
 
+      {/* Mail Authentication Schemes */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Mail Authentication &amp; OAuth2
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          Configure provider authentication via <code className="text-aquilia-400">MailAuth</code> helpers: <code className="text-aquilia-400">plain</code>, <code className="text-aquilia-400">oauth2</code> (XOAUTH2 for Gmail / Office365), <code className="text-aquilia-400">api_key</code>, or <code className="text-aquilia-400">ntlm</code>.
+        </p>
+        <CodeBlock
+          language="python"
+          filename="mail_auth.py"
+        >{`from aquilia.mail import MailAuth
+
+# Standard SMTP authentication
+auth_plain = MailAuth.plain("username", password_env="SMTP_PASSWORD")
+
+# OAuth2 (XOAUTH2) authentication for Gmail or Microsoft 365
+auth_oauth = MailAuth.oauth2(
+    user="sender@example.com",
+    access_token_env="GMAIL_OAUTH_TOKEN",
+)`}</CodeBlock>
+      </section>
+
+      {/* Shared MIME Builder & DKIM Signing */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Shared MIME Construction &amp; DKIM Signing
+        </h2>
+        <p className={`text-sm mb-4 ${textMuted}`}>
+          Every provider shares a single MIME builder (<code className="text-aquilia-400">aquilia.mail.mime</code>). It handles multipart message formatting, inline attachments, tracking headers (<code className="text-aquilia-400">X-Aquilia-Envelope-ID</code>), and DKIM signing.
+        </p>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          DKIM signing is executed at the byte level before transmission using <code className="text-aquilia-400">dkimpy</code>. Enable DKIM in security config; missing keys or dependencies fail the send early so unauthenticated mail is never shipped.
+        </p>
+        <CodeBlock
+          language="python"
+          filename="dkim_config.py"
+        >{`MailIntegration(
+    dkim_enabled=True,
+    dkim_domain="example.com",
+    dkim_selector="aquilia",
+    dkim_private_key_env="DKIM_PRIVATE_KEY",
+)`}</CodeBlock>
+        <p className={`text-xs mt-4 ${textMuted}`}>
+          Install DKIM support via <code className="text-aquilia-400">pip install aquilia[mail-dkim]</code>. Validate configuration with <code className="text-aquilia-400">aq mail check</code>.
+        </p>
+      </section>
+
       {/* MailProviderRegistry */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>

@@ -246,6 +246,7 @@ import { TemplatesSecurity } from './pages/docs/templates/Security'
 // Mail
 import { MailOverview } from './pages/docs/mail/Overview'
 import { MailService } from './pages/docs/mail/Service'
+import { MailDelivery } from './pages/docs/mail/Delivery'
 import { MailProviders } from './pages/docs/mail/Providers'
 import { MailTemplates } from './pages/docs/mail/Templates'
 
@@ -304,6 +305,7 @@ import { TestingRunner } from './pages/docs/testing/Runner'
 import { TasksOverview } from './pages/docs/tasks/Overview'
 import { TasksAPI } from './pages/docs/tasks/API'
 import { TasksConfiguration } from './pages/docs/tasks/Configuration'
+import { TasksDistributed } from './pages/docs/tasks/Distributed'
 import { TasksRetry } from './pages/docs/tasks/Retry'
 import { TasksScheduling } from './pages/docs/tasks/Scheduling'
 import { TasksController } from './pages/docs/tasks/Controller'
@@ -655,6 +657,7 @@ export default function App() {
           {/* Mail */}
           <Route path="mail" element={<MailOverview />} />
           <Route path="mail/service" element={<MailService />} />
+          <Route path="mail/delivery" element={<MailDelivery />} />
           <Route path="mail/providers" element={<MailProviders />} />
           <Route path="mail/templates" element={<MailTemplates />} />
 
@@ -689,6 +692,7 @@ export default function App() {
           <Route path="tasks/overview" element={<TasksOverview />} />
           <Route path="tasks/api" element={<TasksAPI />} />
           <Route path="tasks/configuration" element={<TasksConfiguration />} />
+          <Route path="tasks/distributed" element={<TasksDistributed />} />
           <Route path="tasks/retry" element={<TasksRetry />} />
           <Route path="tasks/scheduling" element={<TasksScheduling />} />
           <Route path="tasks/controller" element={<TasksController />} />

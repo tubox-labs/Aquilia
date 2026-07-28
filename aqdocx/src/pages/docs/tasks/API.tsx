@@ -372,7 +372,60 @@ def tasks(
     dead_letter_max: int = 1000,
     scheduler_tick: float = 15.0,
     enabled: bool = True,
+    redis_url: str | None = None,
+    redis_prefix: str = "aquilia:tasks:",
+    sql_table: str = "aquilia_tasks",
+    lease_seconds: float = 300.0,
+    heartbeat_interval: float = 30.0,
+    reclaim_interval: float = 60.0,
+    dedup_ttl: float = 3600.0,
+    worker_id: str | None = None,
 ) -> dict[str, Any]`}</CodeBlock>
+      </section>
+
+      {/* Workflows & DAG Primitives */}
+      <section id="workflows-api" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          Workflows &amp; DAG API (<code className="text-aquilia-500">aquilia.tasks.workflow</code>)
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Declarative pipeline composition tools for chaining, grouping, chor-ing, or constructing arbitrary task DAGs.
+        </p>
+
+        <CodeBlock language="python">{`from aquilia.tasks.workflow import Signature, Workflow, WorkflowResult, chain, group, chord
+
+# Signature: Unenqueued task + arguments contract
+sig = my_task.s(arg1, kwarg1="val").with_parent_results()
+
+# Helpers:
+chain(*signatures)                   # Sequential execution pipeline
+group(signatures)                    # Parallel fan-out
+chord(header, callback)              # Fan-out then fan-in callback
+
+# Arbitrary DAG:
+wf = Workflow("my_dag")
+step1 = wf.add(task1.s())
+step2 = wf.add(task2.s(), depends_on=[step1])
+result: WorkflowResult = await wf.run(manager)`}</CodeBlock>
+      </section>
+
+      {/* Worker Class */}
+      <section id="worker-class" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          Worker Class (<code className="text-aquilia-500">aquilia.tasks.worker</code>)
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Standalone worker loop class for custom worker pools, granular draining, and per-worker counters.
+        </p>
+
+        <CodeBlock language="python">{`from aquilia.tasks.worker import Worker
+
+worker = Worker(manager, name="mailer-1", poll_interval=0.1)
+await worker.start()
+await worker.stop()
+stats = worker.stats  # {"name": "mailer-1", "running": False, "jobs_processed": 12, "jobs_failed": 1}`}</CodeBlock>
       </section>
 
       {/* Structured Faults */}
@@ -395,10 +448,14 @@ def tasks(
             <tbody className="divide-y divide-white/5">
               {[
                 ['TaskFault', 'Base class for all background task failures.'],
-                ['TaskScheduleFault', 'Raised when interval <= 0 or cron expression lacks exactly 5 fields.'],
-                ['TaskNotBoundFault', 'Raised when calling .delay() before a TaskManager is bound (startup lifecycle not run).'],
+                ['TaskScheduleFault', 'Raised when interval <= 0 or cron expression lacks valid fields.'],
+                ['TaskNotBoundFault', 'Raised when calling .delay() before a TaskManager is bound.'],
                 ['TaskEnqueueFault', 'Raised when trying to enqueue a non-callable object.'],
-                ['TaskResolutionFault', 'Raised when workers cannot find task in registry (e.g., deleted code/import issues).'],
+                ['TaskResolutionFault', 'Raised when workers cannot find task in registry (import or naming issues).'],
+                ['TaskSerializationFault', 'Raised when task arguments or result payloads fail JSON serialization on a distributed backend.'],
+                ['TaskBackendFault', 'Raised when a distributed backend (Redis or SQL) encounters a storage or connection error.'],
+                ['TaskDuplicateFault', 'Raised when enqueue(..., dedup="raise") detects an in-flight duplicate job.'],
+                ['TaskWorkflowFault', 'Raised when a workflow DAG contains cycles, unknown dependencies, or invalid step declarations.'],
               ].map(([fault, desc], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
                   <td className="py-3.5 px-6 font-mono text-xs font-semibold text-aquilia-400">{fault}</td>

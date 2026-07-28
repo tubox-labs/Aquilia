@@ -4,7 +4,8 @@ import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import {
   Zap, Clock, RefreshCw, Layers, Play, CheckCircle, XCircle,
-  AlertTriangle, RotateCcw, Timer, ListOrdered, Box, Cpu
+  AlertTriangle, RotateCcw, Timer, ListOrdered, Box, Cpu,
+  Network, GitBranch, Fingerprint
 } from 'lucide-react'
 
 export function TasksOverview() {
@@ -35,8 +36,23 @@ export function TasksOverview() {
     },
     {
       icon: <Layers className="w-5 h-5 text-purple-400" />,
-      title: 'Zero Dependencies',
-      desc: 'Built entirely on the Python standard library. Employs a heap-based priority queue without Redis or RabbitMQ.',
+      title: 'Zero-Dependency Default',
+      desc: 'The in-memory backend is pure standard library — a heap-based priority queue with no Redis or RabbitMQ. Opt into Redis or SQL when you need durability.',
+    },
+    {
+      icon: <Network className="w-5 h-5 text-cyan-400" />,
+      title: 'Distributed & Durable',
+      desc: 'Redis and SQL backends run jobs across many worker processes and machines. Lease-based claiming reclaims work from crashed workers instead of losing it.',
+    },
+    {
+      icon: <GitBranch className="w-5 h-5 text-orange-400" />,
+      title: 'Workflows & DAGs',
+      desc: 'Compose jobs with chain, group, and chord, or declare arbitrary dependency graphs. The graph is durable the moment it is submitted.',
+    },
+    {
+      icon: <Fingerprint className="w-5 h-5 text-rose-400" />,
+      title: 'Idempotent Enqueue',
+      desc: 'dedup="skip" collapses identical work into one job, enforced across processes by Redis SET NX or a SQL unique constraint.',
     },
     {
       icon: <Box className="w-5 h-5 text-pink-400" />,
