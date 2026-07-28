@@ -147,9 +147,17 @@ export const roadmap: RoadmapNode[] = [
     version: '1.3.4',
     codename: 'Structural Integrity',
     date: 'Jul 26, 2026',
-    status: 'current',
+    status: 'released',
     type: 'patch',
     highlights: ['Cache L2 Durability & Heap Bounds', 'Storage Sandboxing & Bounded Executor', 'Filesystem Stream Validation'],
+  },
+  {
+    version: '1.3.5',
+    codename: 'Distributed Tide',
+    date: 'Jul 28, 2026',
+    status: 'current',
+    type: 'patch',
+    highlights: ['Distributed Tasks & Workflows', 'Mail Delivery Queue & Bounces', 'Zero-Dependency Native HTTP'],
   },
 ]
 

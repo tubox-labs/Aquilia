@@ -37,7 +37,7 @@ export function HTTPOverview() {
         </p>
         <div className="space-y-6">
           {[
-            { title: 'Zero Dependencies', desc: 'Pure Python asyncio + ssl sockets. No need to install aiohttp, httpx, or requests.' },
+            { title: 'Zero Dependencies', desc: 'Pure Python asyncio + ssl sockets. No need to install third-party HTTP clients like aiohttp or requests.' },
             { title: 'Framework Integration', desc: 'Native use of Aquilia faults, config loaders, dependency injection container, and effects systems.' },
             { title: 'Connection Pooling', desc: 'HTTP/1.1 keep-alive with connection reuse and pool limits.' },
             { title: 'Async-First', desc: 'Built from the ground up for async/await. No blocking threads or calls.' },

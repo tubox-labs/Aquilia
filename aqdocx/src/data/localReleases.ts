@@ -1,4 +1,1921 @@
 export const localReleases: Record<string, Record<string, string>> = {
+  "1.3.5": {
+    "README.md": `# Aquilia v1.3.5 Release Notes — "Distributed Tide"
+
+Aquilia v1.3.5 makes the background task system genuinely distributed and durable, and turns the mail subsystem into a production-grade delivery pipeline.
+
+Before this release, background tasks ran in a single process on an in-memory queue — jobs were lost on restart, a second web worker meant a second independent queue, and \`backend="redis"\` was accepted by configuration and then silently ignored. Mail was sent inline inside the request handler, with no bounce handling and no suppression list.
+
+This release closes both gaps: jobs now execute across multiple worker processes and multiple machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; and mail is delivered by background workers with provider webhook processing and automatic suppression of bounced and complaining recipients.
+
+All of it is backward compatible. Change no configuration and v1.3.5 behaves exactly as v1.3.4 did.
+
+---
+
+## Table of Contents
+
+1. [Distributed & Persistent Task Backends](distributed_tasks.md)
+   - \`RedisBackend\` — atomic Lua claim, \`SET NX\` fingerprint reservation
+   - \`SQLBackend\` — durable queue on the application's own database
+   - Lease-based claiming, heartbeat renewal, and crash recovery
+   - \`Job.to_payload()\` / \`Job.from_payload()\` transport serialization
+   - Registry-based callable resolution across process boundaries
+2. [Workflows & DAGs](workflows.md)
+   - \`Signature\`, \`Workflow\`, \`WorkflowResult\`
+   - \`chain\` (sequential), \`group\` (parallel), \`chord\` (fan-in)
+   - Arbitrary DAGs via \`depends_on\`
+   - \`with_parent_results()\` continuation passing
+   - Cycle and unknown-dependency validation
+3. [Idempotency & Distributed Deduplication](idempotency.md)
+   - \`Job.fingerprint\` finally enforced
+   - \`dedup="allow" | "skip" | "raise"\`
+   - Cross-process locking via Redis \`SET NX\` and a SQL unique constraint
+4. [Mail Delivery Queue](mail_queue.md)
+   - \`EnvelopeStore\` — \`MemoryEnvelopeStore\` and \`SQLEnvelopeStore\`
+   - Background delivery through the existing task scheduler
+   - Envelope-ID-only jobs, designed for distributed workers
+   - Send-time deduplication by idempotency key and content digest
+5. [Bounce Handling, Webhooks & Suppression](bounces_suppression.md)
+   - \`parse_ses\`, \`parse_sendgrid\`, \`parse_mailgun\` with signature verification
+   - \`process_webhook\` applying bounces and complaints
+   - \`SuppressionList\` — permanent and TTL suppression, enforced on send
+6. [Mail Security, MIME & Templates](mail_security.md)
+   - Shared MIME assembly across every provider
+   - Real DKIM signing at the byte level
+   - XOAUTH2 authentication, TLS enforcement, PII redaction
+   - ATS template filters and autoescaping
+7. [Native HTTP Client & Dependency Cleanup](http_native.md)
+   - Zero third-party HTTP client dependencies (\`httpx\` removed)
+   - \`SendGridProvider\` and \`LiveServerTestCase\` updated to \`aquilia.http\`
+8. [CLI Changes](cli.md)
+   - \`aq mail check\` validates DKIM configuration
+9. [Bug Fixes](bugfixes.md)
+   - Mail delivery task unresolvable across processes (CRITICAL)
+   - Consumer-only workers polled nothing (CRITICAL)
+   - Job results degraded to \`repr\` strings on persistent backends
+   - \`queue.persistent\` had no configuration surface
+10. [Migration Guide](migration.md)
+   - Upgrade checklist, per-feature migrations, compatibility notes, known issues
+
+---
+
+## Highlights
+
+### Distributed execution with crash recovery
+
+A worker claims a job under a time-bounded lease and renews it by heartbeat. If the worker dies, the lease lapses and a peer reclaims the job instead of the job being lost.
+
+\`\`\`python
+# workspace.py — production
+Integration.tasks(
+    backend="redis",
+    redis_url="redis://cache:6379/0",
+    num_workers=16,
+    lease_seconds=120,
+)
+\`\`\`
+
+Task code is unchanged between backends. Switching is configuration, not a rewrite.
+
+### Workflows
+
+\`\`\`python
+from aquilia.tasks.workflow import chain, chord
+
+# Sequential, each step fed by the previous
+await chain(
+    extract.s(source),
+    transform.s().with_parent_results(),
+    load.s().with_parent_results(),
+).run(tasks)
+
+# Parallel shards, then a fan-in callback
+await chord(
+    [shard.s(n) for n in range(8)],
+    merge.s().with_parent_results(),
+).run(tasks)
+\`\`\`
+
+The graph is durable the moment it is submitted. No orchestrator process, and a \`WAITING\` step holds no worker slot.
+
+### Enforced idempotency
+
+\`\`\`python
+# Ten identical requests; one job.
+await tasks.enqueue(rebuild_index, dedup="skip")
+\`\`\`
+
+Correctness comes from the storage layer — Redis \`SET NX\`, or a SQL primary-key constraint — so two racing processes produce one job.
+
+### Background mail delivery
+
+\`\`\`python
+Integration.mail(
+    default_from="noreply@example.com",
+    providers=[...],
+    queue_enabled=True,
+    queue_persistent=True,
+)
+\`\`\`
+
+\`asend()\` returns as soon as the envelope is stored. Delivery, retries, and backoff run on a worker — reusing the task scheduler rather than introducing a second queue.
+
+### Automatic bounce suppression
+
+\`\`\`python
+events = parse_ses(await ctx.body(), verify_topic_arn=SES_TOPIC_ARN)
+await process_webhook(events, suppression=mail.suppression, store=mail.store)
+\`\`\`
+
+A hard bounce or spam complaint removes the address from every future send, protecting sender reputation without application code.
+
+---
+
+## What's New
+
+| Capability | Summary |
+|---|---|
+| \`RedisBackend\` | Distributed, durable task queue with atomic Lua claim |
+| \`SQLBackend\` | Durable task queue on the existing application database |
+| \`Job.to_payload()\` / \`from_payload()\` | JSON transport form with fail-at-enqueue validation |
+| \`Workflow\`, \`Signature\`, \`WorkflowResult\` | Job graphs with dependencies |
+| \`chain\`, \`group\`, \`chord\` | Sequential, parallel, and fan-in composition |
+| \`dedup="skip" \\| "raise"\` | Enforced fingerprint deduplication |
+| \`TaskDuplicateFault\`, \`TaskSerializationFault\`, \`TaskBackendFault\`, \`TaskWorkflowFault\` | New structured faults |
+| \`EnvelopeStore\` | Durable record of accepted mail |
+| \`SuppressionList\` | Bounce and complaint suppression, enforced on send |
+| \`parse_ses\` / \`parse_sendgrid\` / \`parse_mailgun\` | Provider webhook parsing with signature verification |
+| \`process_webhook\` | Applies delivery events to suppression and envelope status |
+| \`build_mime_message\` / \`message_to_bytes\` / \`sign_dkim\` | Shared MIME assembly and DKIM signing |
+| \`redact_email\` / \`redact_pii\` | PII redaction for mail logs |
+| \`MailAuth.oauth2(...)\` | XOAUTH2 bearer-token SMTP authentication |
+| \`aquilia[mail-dkim]\` | New optional extra for DKIM signing |
+
+---
+
+## Major Improvements
+
+- **Backend selection is honest.** \`backend="redis"\` used to log a warning and fall back to in-memory. It now builds a real Redis backend; only an unknown backend name or an unreachable service falls back, and both say so loudly.
+- **Serialization fails at the call site.** A non-JSON argument raises \`TaskSerializationFault\` at \`enqueue()\`, not on a remote worker hours later.
+- **Queue discovery.** A consumer-only worker polls the queues declared by its \`@task\` descriptors, plus any queue it discovers on the shared backend.
+- **Mail providers share one MIME implementation.** Header handling, attachments, and tracking headers no longer drift between SMTP, SES, SendGrid, and the development backends.
+- **Graceful degradation everywhere.** An unreachable Redis, database, or DKIM dependency degrades with an error naming exactly what was lost, rather than aborting startup.
+
+---
+
+## Performance Improvements
+
+- Mail moves off the request path entirely: a full SMTP conversation becomes one store write plus one enqueue.
+- Workflow steps in \`WAITING\` consume no worker slot, replacing the pattern of a long-lived job blocking on its children.
+- \`dedup="skip"\` collapses duplicate work before it executes — the cheapest possible optimization for a burst of identical requests.
+- \`MemoryBackend\` is untouched; single-process applications see no change.
+- \`SQLBackend\` claim is a single conditional \`UPDATE\` in a transaction; \`RedisBackend\` claim is one round trip against a sorted set.
+
+---
+
+## Developer Experience Improvements
+
+- One mental model for background work: mail delivery is an ordinary task on an ordinary queue, visible in the admin dashboard alongside everything else.
+- \`aq mail check\` catches DKIM misconfiguration before the first send fails.
+- Structured faults name the failure precisely — \`TaskSerializationFault\` reports which argument, \`TaskWorkflowFault\` names the cycle.
+- The \`aquilia.tasks\` package docstring no longer claims distributed backends and workflows are unimplemented.
+
+---
+
+## Security Improvements
+
+- **Webhook signature verification** for SES (topic ARN), SendGrid (ECDSA public key), and Mailgun (HMAC signing key), with replay rejection via a timestamp window. Without it, anyone can forge a bounce and suppress an arbitrary address.
+- **DKIM signing** applied at the byte level immediately before transmission, covering exactly what the provider receives. Failures raise rather than shipping unsigned mail.
+- **TLS enforcement** on SMTP remains on by default.
+- **PII redaction** masks recipient local parts in logs while preserving domains.
+- **Registry-only callable resolution** means a queue entry can never name a function the application did not register — a durable queue is not an arbitrary-code-execution channel.
+- **Parameterized SQL throughout** the new backends and stores; table and column identifiers are validated against a restricted character set.
+
+---
+
+## Bug Fixes
+
+| Issue | Subsystem | Fix |
+|---|---|---|
+| Mail delivery task unresolvable across processes | Mail / Tasks | Delivery registered as \`@task(name="aquilia.mail.deliver")\`; workers resolve it by stable name. |
+| Consumer-only workers polled nothing | Tasks | Queues seeded from \`@task\` descriptors and refreshed from \`backend.get_queue_stats()\`. |
+| Job results degraded to \`repr\` strings | Tasks | JSON-safe values round-trip; only non-serializable values fall back to \`repr\`. |
+| \`queue.persistent\` had no config surface | Mail | Threaded through \`Integration.mail\`, \`MailIntegration\`, \`QueueConfigContract\`, and store selection. |
+| \`Job.fingerprint\` computed but never read | Tasks | Enforced at enqueue via \`dedup\`. |
+| \`MailSuppressedFault\` unreachable | Mail | Now part of a working suppression path. |
+| Stale package docstring | Tasks | No longer lists shipped features as "deliberately absent". |
+
+---
+
+## Breaking Changes
+
+None. See [Migration Guide](migration.md).
+
+---
+
+## Deprecated / Removed
+
+Nothing was deprecated or removed in this release.
+
+---
+
+## Internal Refactoring
+
+- MIME assembly extracted from four providers into \`aquilia/mail/mime.py\`.
+- PII redaction extracted into \`aquilia/mail/redaction.py\`.
+- The \`TaskBackend\` ABC gained \`heartbeat\`, \`reclaim_expired\`, \`reserve_fingerprint\`, \`release_fingerprint\`, and \`get_dependency_results\`, so \`MemoryBackend\` and the durable backends satisfy one contract.
+- SMTP provider restructured around shared MIME assembly, byte-level signing, and pluggable authentication.
+
+---
+
+## Compatibility
+
+| Area | Status |
+|---|---|
+| Python 3.10–3.13 | Supported, unchanged |
+| Existing workspaces and manifests | No changes required |
+| Existing \`@task\` functions | No changes required |
+| Existing mail call sites | No changes required |
+| Default behavior | Identical to v1.3.4 |
+
+---
+
+## Known Issues
+
+- The Redis backend has no automated test coverage in this release; the SQL backend carries the durable-path integration tests.
+- Mailgun signature verification is opt-in and warns when omitted.
+- No built-in webhook route ships; applications wire the parsers into their own controller.
+- Workflow steps whose parent failed remain \`WAITING\` rather than being cancelled.
+
+Details and workarounds in the [Migration Guide](migration.md#known-issues).
+
+---
+
+## Testing
+
+\`tests/test_tasks_mail_enterprise.py\` adds 43 tests covering job serialization, deduplication semantics, workflow composition and validation, durable-backend behavior driven against real SQLite (restart survival, cross-process queue discovery, cross-manager deduplication, lease reclaim), the mail delivery queue, suppression, webhook parsing and processing, and template autoescaping.
+
+\`tests/test_audit_tasks_mail.py\` covers the mail provider, DKIM, MIME, redaction, and rate-limiting paths.
+
+Full suite: 7,189 passing.
+
+---
+
+## Credits
+
+Thanks to everyone who reported that \`backend="redis"\` did not do anything.
+`,
+    "bounces_suppression.md": `# Bounce Handling, Webhooks & Suppression Lists — Aquilia v1.3.5
+
+Provider delivery events are now parsed, verified, and applied. A hard bounce or spam complaint automatically removes the address from all future sends. Before this release, \`MailSuppressedFault\` existed in the fault taxonomy but nothing raised it — there was no suppression list and no webhook handling at all.
+
+---
+
+## Motivation
+
+Deliverability is reputation, and reputation is destroyed by continuing to mail addresses that bounce. Every ESP tracks bounce and complaint rates; exceed their thresholds and legitimate mail starts landing in spam or being rejected outright.
+
+Handling this correctly requires three things Aquilia did not have: parsing each provider's webhook format, verifying those webhooks are genuine, and a persistent list consulted on every send.
+
+---
+
+## Architecture
+
+\`\`\`
+provider webhook (HTTP POST)
+        │
+        ▼
+parse_ses / parse_sendgrid / parse_mailgun    ← verify signature, normalize
+        │
+        ▼
+   list[WebhookEvent]                          ← provider-neutral
+        │
+        ▼
+   process_webhook(events, suppression=..., store=...)
+        │
+        ├─ suppress the address (permanent or TTL)
+        └─ update the envelope's status
+        │
+        ▼
+next send → MailService filters suppressed recipients
+\`\`\`
+
+---
+
+## Webhook Parsing
+
+Three provider parsers normalize into one vocabulary:
+
+\`\`\`python
+from aquilia.mail import parse_ses, parse_sendgrid, parse_mailgun
+
+parse_ses(payload, *, verify_topic_arn=None)
+parse_sendgrid(payload, *, headers=None, public_key=None, max_age_seconds=600.0)
+parse_mailgun(payload, *, signing_key=None, max_age_seconds=600.0)
+\`\`\`
+
+Each returns \`list[WebhookEvent]\`:
+
+\`\`\`python
+@dataclass
+class WebhookEvent:
+    event_type: EventType
+    email: str
+    provider: str
+    timestamp: datetime
+    message_id: str | None = None
+    envelope_id: str | None = None   # from the X-Aquilia-Envelope-ID header
+    detail: str | None = None        # e.g. the SMTP rejection line
+    raw: dict[str, Any]              # original payload, kept for auditing
+\`\`\`
+
+\`EventType\` normalizes each provider's vocabulary: \`DELIVERED\`, \`HARD_BOUNCE\`, \`SOFT_BOUNCE\`, \`COMPLAINT\`, \`REJECTED\`, \`OPENED\`, \`CLICKED\`, \`UNSUBSCRIBED\`, \`DEFERRED\`, \`UNKNOWN\`. An unrecognized event becomes \`UNKNOWN\` and is preserved rather than dropped, so a provider adding a new type stays visible.
+
+### Signature verification
+
+**Verify webhooks in production.** An unverified endpoint lets anyone POST a forged bounce and suppress an arbitrary address — a trivial denial-of-service against your own users.
+
+- **SES** — pass \`verify_topic_arn\` to reject notifications from any other SNS topic.
+- **SendGrid** — pass \`public_key\` (the ECDSA verification key from your SendGrid settings) with the request \`headers\`. Replays older than \`max_age_seconds\` are rejected.
+- **Mailgun** — pass \`signing_key\`. The HMAC signature and timestamp are verified.
+
+Omitting these parameters parses without verification and logs a warning naming the risk.
+
+---
+
+## Suppression Lists
+
+\`\`\`python
+from aquilia.mail import SuppressionReason
+
+await suppression.suppress(
+    email,
+    reason=SuppressionReason.HARD_BOUNCE,
+    expires_in=None,      # seconds; ignored for permanent reasons
+    provider="ses",
+    detail="550 5.1.1 user unknown",
+)
+await suppression.unsuppress(email)          # -> bool
+await suppression.is_suppressed(email)       # -> bool
+await suppression.get(email)                 # -> SuppressionEntry | None
+await suppression.list_all(limit=100, offset=0)
+await suppression.filter_recipients(emails)  # -> (allowed, blocked)
+await suppression.cleanup()                  # drop expired entries
+\`\`\`
+
+| Reason | Permanence |
+|---|---|
+| \`HARD_BOUNCE\` | Permanent — the address does not exist |
+| \`SOFT_BOUNCE\` | Expires (defaults to 24 hours) — mailbox full, server down |
+| \`COMPLAINT\` | Permanent — the most reputation-damaging signal a provider tracks |
+| \`UNSUBSCRIBE\` | Permanent |
+| \`MANUAL\` | Permanent — operator-added |
+
+Two implementations ship: \`MemorySuppressionList\` (default) and \`SQLSuppressionList\` (table \`aquilia_mail_suppressions\`, selected by \`queue_persistent=True\`).
+
+Addresses are normalized — lowercased and trimmed — before storage and lookup, so \`User@Example.COM\` and \` user@example.com \` are the same entry.
+
+---
+
+## Wiring a Webhook Endpoint
+
+Aquilia does not register a webhook route for you; the path, authentication, and CSRF exemption belong to the application. The handler is a few lines:
+
+\`\`\`python
+from aquilia import Controller, POST, RequestCtx, Response
+from aquilia.mail import parse_ses, process_webhook
+
+class MailWebhookController(Controller):
+    prefix = "/webhooks/mail"
+
+    @POST("/ses")
+    async def ses(self, ctx: RequestCtx):
+        events = parse_ses(await ctx.body(), verify_topic_arn=SES_TOPIC_ARN)
+        summary = await process_webhook(
+            events,
+            suppression=self.mail.suppression,
+            store=self.mail.store,
+        )
+        return Response.json(summary)   # {"suppressed": 2, "delivered": 5, "ignored": 1}
+\`\`\`
+
+Exempt the webhook path from CSRF — providers do not carry your CSRF token. Rely on signature verification for authenticity instead.
+
+---
+
+## Enforcement on Send
+
+\`MailService\` consults the suppression list while preparing every envelope. Suppressed recipients are removed; if *every* recipient is suppressed the envelope is marked \`CANCELLED\` and no delivery is attempted.
+
+\`\`\`python
+await mail.suppression.suppress("bounced@example.com", reason=SuppressionReason.HARD_BOUNCE)
+
+envelope_id = await EmailMessage(subject="Hi", body="x", to="bounced@example.com").asend()
+envelope = await mail.store.get(envelope_id)
+envelope.status    # EnvelopeStatus.CANCELLED
+\`\`\`
+
+---
+
+## Edge Cases
+
+**Partial suppression.** An envelope with three recipients where one is suppressed sends to the remaining two. Only an envelope with no deliverable recipients is cancelled.
+
+**Soft bounce TTL.** \`process_webhook\` suppresses soft bounces for \`soft_bounce_ttl\` (default 86,400 seconds) rather than permanently, since the cause is usually transient. Tune it per provider.
+
+**Events with no address.** Counted as \`ignored\` rather than raising — a malformed event should not fail the whole batch.
+
+**Non-suppressing events.** \`DELIVERED\`, \`OPENED\`, \`CLICKED\`, and \`DEFERRED\` update envelope status where applicable but never suppress.
+
+**Malformed payloads.** A body that is not valid JSON raises \`MailFault\`, so a broken request surfaces as a 4xx rather than being silently swallowed.
+
+**Envelope correlation.** Providers that echo custom headers return \`X-Aquilia-Envelope-ID\`, letting an event update the exact envelope. Providers that do not echo headers still suppress by address; the envelope simply is not correlated.
+
+---
+
+## Performance Implications
+
+One suppression lookup per envelope on the send path. \`MemorySuppressionList\` is a dict lookup. \`SQLSuppressionList\` is an indexed primary-key read; \`filter_recipients\` batches a multi-recipient envelope rather than issuing one query per address.
+
+Webhook processing is O(n) in events, with one suppression write per suppressing event.
+
+---
+
+## Compatibility
+
+Purely additive. \`MailService.suppression\` defaults to an empty \`MemorySuppressionList\`, so no address is suppressed until a webhook or an operator adds one — existing applications see no behavioral change. \`MailSuppressedFault\`, previously unreachable, is now part of a working path.
+
+---
+
+## Related
+
+- [Mail Delivery Queue](mail_queue.md)
+- [Mail Security & MIME](mail_security.md)
+- [Migration Guide](migration.md)
+`,
+    "bugfixes.md": `# Bug Fixes — Aquilia v1.3.5
+
+Four defects were found and fixed while auditing the enterprise task and mail work. Three would only surface once a durable or distributed backend was in use — which is exactly what this release enables, so each would have been a first-day production failure for anyone adopting the new capability.
+
+---
+
+## 1. Mail delivery task unresolvable across processes
+
+**Severity:** Critical, on any persistent backend.
+
+### Previous behavior
+
+Background mail delivery enqueued a plain module-level function. On \`MemoryBackend\` this worked, because the job carried the live callable in-process.
+
+The moment a durable backend was configured, delivery stopped. The job serialized to a module-path reference, and the consuming worker — which resolves callables through the \`@task\` registry rather than importing arbitrary paths — could not resolve it. Envelopes sat in \`QUEUED\` forever. Nothing crashed loudly; mail simply never arrived.
+
+### Root cause
+
+\`_deliver_envelope_task\` was a bare \`async def\`, never registered with \`@task\`. Worker resolution goes through \`get_task(job.func_ref)\`, which only knows about registered descriptors. This is a deliberate security property — a queue entry must not be able to name arbitrary importable code — but it means an unregistered function is unreachable.
+
+### New behavior
+
+The delivery task is registered under a stable name:
+
+\`\`\`python
+@task(name="aquilia.mail.deliver", queue=MailService.retry_queue, max_retries=0)
+async def _deliver_envelope_task(envelope_id: str) -> None: ...
+\`\`\`
+
+A worker in any process resolves it by name. The name is stable, so a future rename of the Python function does not orphan jobs already in the queue.
+
+### User impact
+
+Anyone enabling \`queue_enabled=True\` together with \`backend="redis"\` or \`backend="sql"\` would have had silently undelivered mail. Fixed before either capability shipped.
+
+---
+
+## 2. Consumer-only workers polled nothing
+
+**Severity:** Critical, for distributed deployments.
+
+### Previous behavior
+
+A dedicated worker process — one that consumes jobs but never enqueues any — processed nothing. Jobs queued by web workers on any queue other than \`default\` were ignored indefinitely.
+
+### Root cause
+
+\`TaskManager._queues\` was populated exclusively as a side effect of \`enqueue()\`. A process that never enqueues therefore knew about exactly one queue: its configured \`default_queue\`. The worker loop iterates the known queue set, so work on \`mail\`, \`reports\`, or any other queue was invisible to it.
+
+This was harmless while everything ran in one process — the enqueuer and the worker were the same object. It becomes fatal the moment producer and consumer are separate processes, which is the entire point of a distributed backend.
+
+### New behavior
+
+Two additions:
+
+1. \`_bind_task_descriptors()\` registers the queue of every \`@task\` descriptor, so importing a task module is enough to poll its queue.
+2. On a distributed backend, the manager adopts queues reported by \`backend.get_queue_stats()\` at startup and refreshes them on each reclaim tick — so a queue created by a peer after startup is picked up.
+
+### User impact
+
+Dedicated worker processes now consume the queues their producers use, without needing to be told which those are.
+
+---
+
+## 3. Job results degraded to repr strings on persistent backends
+
+**Severity:** High — silent data corruption in workflows.
+
+### Previous behavior
+
+\`\`\`python
+# In-process
+job.result.value    # 4  (int)
+
+# Same job on a SQL or Redis backend
+job.result.value    # '4'  (str)
+\`\`\`
+
+A chord callback consuming \`parent_results\` received \`['4', '6']\` instead of \`[4, 6]\`. Arithmetic silently produced string concatenation or a \`TypeError\` far from the cause.
+
+### Root cause
+
+\`JobResult.to_dict()\` serialized unconditionally with \`repr(self.value)\`. The rationale — an arbitrary return value is not guaranteed to be JSON-compatible — was sound, but the blanket application destroyed values that serialize perfectly well.
+
+### New behavior
+
+JSON-safe values round-trip unchanged; only genuinely non-serializable values fall back to \`repr\`:
+
+\`\`\`python
+value = self.value
+if value is not None:
+    try:
+        json.dumps(value)
+    except (TypeError, ValueError):
+        value = repr(value)
+\`\`\`
+
+### User impact
+
+Workflow fan-in receives real values on every backend. Applications that had adapted to the string form — parsing \`repr\` output back — should remove that workaround.
+
+\`\`\`python
+# Before — workaround
+total = sum(int(r) for r in parent_results)
+
+# After
+total = sum(parent_results)
+\`\`\`
+
+---
+
+## 4. \`queue.persistent\` had no configuration surface or wiring
+
+**Severity:** Medium — an advertised capability that could not be reached.
+
+### Previous behavior
+
+\`SQLEnvelopeStore\` and \`SQLSuppressionList\` existed and worked, but nothing constructed them from configuration. The only way to get durable mail state was to instantiate the stores by hand and pass them to \`MailService(store=..., suppression=...)\`. The \`queue\` config block had no \`persistent\` key at all, so setting it in \`workspace.py\` was silently dropped by contract validation.
+
+### New behavior
+
+\`persistent\` is a real config field, threaded end to end:
+
+- \`Integration.mail(queue_persistent=True)\`
+- \`MailIntegration.queue_persistent\`
+- \`QueueConfigContract.persistent\`
+- \`MailService._prepare_stores()\` selects SQL-backed stores when set
+
+An unavailable database logs an error naming the durability that was lost and falls back to in-memory stores, rather than aborting startup — mail degrades to non-durable instead of taking the application down.
+
+Explicitly-supplied stores still win: a caller passing \`store=\` meant it, and configuration does not override that.
+
+### User impact
+
+Durable envelope and suppression storage is now reachable from \`workspace.py\`.
+
+---
+
+## Documentation Correctness Fix
+
+The \`aquilia.tasks\` package docstring listed "Persistent or distributed backends", "Job chaining / workflow DAGs" under **"Not implemented today (deliberately absent, not stubbed)"**. All three shipped in this release; the docstring is updated. It now documents the at-least-once delivery contract instead, and the one thing still genuinely absent (per-queue rate limiting).
+
+---
+
+## Related
+
+- [Distributed & Persistent Backends](distributed_tasks.md)
+- [Workflows & DAGs](workflows.md)
+- [Mail Delivery Queue](mail_queue.md)
+- [Migration Guide](migration.md)
+`,
+    "cli.md": `# CLI Changes — Aquilia v1.3.5
+
+No commands were added, removed, or renamed in this release. One existing command gained new validation.
+
+---
+
+## \`aq mail check\`
+
+\`aq mail check\` validates mail configuration without sending anything. It now also validates DKIM configuration.
+
+### Why
+
+DKIM signing failures raise at send time rather than silently shipping an unsigned message — a receiving server treats a missing signature very differently from an invalid one, and an operator who enabled DKIM expects signed mail or a loud error. That is the right runtime behavior, but it means a misconfiguration is not discovered until the first real send, possibly in production.
+
+\`aq mail check\` now surfaces both failure modes up front.
+
+### New checks
+
+When \`dkim_enabled\` is true:
+
+1. **\`dkim_domain\` unset** — signing cannot proceed without a domain.
+2. **\`dkimpy\` not installed** — the signing dependency is missing.
+
+### Output
+
+\`\`\`
+$ aq mail check
+DKIM is enabled but dkim_domain is unset -- sends will fail
+DKIM is enabled but 'dkimpy' is not installed -- pip install aquilia[mail-dkim]
+\`\`\`
+
+A clean configuration reports no issues, as before.
+
+### Recommended workflow
+
+\`\`\`bash
+# After enabling DKIM in workspace.py
+pip install aquilia[mail-dkim]
+aq mail check                          # verify configuration
+aq mail send-test --to you@example.com # verify real delivery
+\`\`\`
+
+Add \`aq mail check\` to CI or a deploy preflight step for any application that sends mail.
+
+---
+
+## Unchanged Commands
+
+\`aq mail send-test\` and \`aq mail inspect\` are unchanged. No flags were added, changed, or deprecated, and no output formats changed.
+
+Background task workers are not started by a dedicated CLI command; a worker process is a normal Aquilia application configured with \`num_workers\` and a shared backend. See [Distributed & Persistent Backends](distributed_tasks.md).
+
+---
+
+## Related
+
+- [Mail Security & MIME](mail_security.md)
+- [Migration Guide](migration.md)
+`,
+    "distributed_tasks.md": `# Distributed & Persistent Task Backends — Aquilia v1.3.5
+
+Background tasks now run across multiple worker processes and multiple machines, with job state that survives a restart. Before this release the only backend was \`MemoryBackend\`: jobs lived in the worker process and were lost on restart, and \`backend="redis"\` logged a warning and silently fell back to in-memory.
+
+---
+
+## Motivation
+
+The task system was single-process. That is fine for a cron-like cleanup job, but it fails the moment an application scales horizontally:
+
+- Two web workers each ran their own queue, so a periodic task fired twice.
+- A deploy dropped every queued job on the floor.
+- A worker crash lost whatever that worker was executing, permanently.
+- \`Integration.tasks(backend="redis")\` was accepted by config validation and then ignored at runtime.
+
+---
+
+## Design Goals
+
+1. **Backend choice is configuration, not code.** Task functions, decorators, and \`enqueue()\` calls are identical on every backend.
+2. **No lost work on crash.** A worker that dies mid-job must have that job picked up by a peer.
+3. **Fail at enqueue, not on a remote worker.** Anything that cannot cross a process boundary must be rejected at the call site, where the stack trace is useful.
+4. **Existing single-process apps unaffected.** \`memory\` stays the default and behaves exactly as before.
+
+---
+
+## Architecture
+
+### Job serialization
+
+A job that crosses a process boundary cannot carry a live Python callable or arbitrary objects. Two new methods on \`Job\` define the transport form:
+
+\`\`\`python
+payload = job.to_payload()      # JSON-compatible dict
+restored = Job.from_payload(payload)
+\`\`\`
+
+\`to_payload()\` validates \`args\` and \`kwargs\` against \`json.dumps\` and raises \`TaskSerializationFault\` if they cannot be represented. \`from_payload()\` deliberately leaves the callable unset — the worker resolves it from \`func_ref\` through the \`@task\` registry, so a queue entry can never name a function the application did not register.
+
+\`Job.to_dict()\` is unchanged and remains the human-facing view used by the admin dashboard.
+
+### Lease-based claiming
+
+Both durable backends use the same coordination model:
+
+1. A worker claims a job and takes a lease for \`lease_seconds\` (default \`300.0\`).
+2. While executing, it renews the lease every \`heartbeat_interval\` seconds (default \`30.0\`).
+3. A background reclaim loop sweeps every \`reclaim_interval\` seconds (default \`60.0\`) and returns jobs whose lease lapsed to the runnable pool.
+
+If a worker is killed, its lease expires and a peer reclaims the job instead of the job being lost.
+
+**This is at-least-once delivery.** A worker that stalls past its lease — a long GC pause, a blocked event loop — can have its job reclaimed and executed a second time. Task functions should be idempotent.
+
+### \`RedisBackend\`
+
+Multi-process and multi-machine, backed by Redis. Claims are atomic through a Lua script against a sorted set; fingerprint reservation uses \`SET NX\`. Fastest option, and the right default for high throughput.
+
+### \`SQLBackend\`
+
+Durable state on the database the application already uses — no new infrastructure. Works on SQLite, PostgreSQL, MySQL, and Oracle through Aquilia's existing parameterized query layer.
+
+A claim is a conditional \`UPDATE ... WHERE id = ? AND state = ?\` inside a transaction; \`rowcount == 0\` means another worker won the race, so the loser moves on rather than double-running the job. This works on every supported dialect without needing \`SELECT ... FOR UPDATE SKIP LOCKED\`, which SQLite does not have.
+
+Two tables are created on first \`initialize()\`:
+
+\`\`\`
+aquilia_tasks(
+    id TEXT PRIMARY KEY, queue TEXT, priority INTEGER, state TEXT,
+    func_ref TEXT, payload TEXT,             -- full JSON job
+    available_at TEXT,                        -- when it may run
+    lease_expires_at TEXT, owner TEXT,        -- distributed claim
+    dedup_key TEXT, workflow_id TEXT,
+    created_at TEXT, completed_at TEXT, sequence INTEGER
+)
+aquilia_task_locks(fingerprint TEXT PRIMARY KEY, job_id TEXT, expires_at TEXT)
+\`\`\`
+
+The unique primary key on \`aquilia_task_locks.fingerprint\` is what makes deduplication correct under concurrency: two workers racing to reserve the same fingerprint both attempt an \`INSERT\`, and the database rejects exactly one.
+
+Redis is faster and scales further. SQL wins when you cannot add a Redis dependency, or when you want jobs to commit in the *same transaction* as the business data that created them, so a rolled-back request cannot leave an orphaned job behind. Above roughly a few hundred jobs/second, prefer Redis.
+
+---
+
+## Configuration
+
+\`\`\`python
+# workspace.py
+
+# Development — single process, non-durable (default, unchanged)
+Integration.tasks(num_workers=4)
+
+# Production — distributed workers, durable queue
+Integration.tasks(
+    backend="redis",
+    redis_url="redis://cache:6379/0",
+    redis_prefix="aquilia:tasks:",
+    num_workers=16,
+    lease_seconds=120,
+    heartbeat_interval=30,
+    reclaim_interval=60,
+)
+
+# Durable without extra infrastructure
+Integration.tasks(backend="sql", sql_table="aquilia_tasks")
+\`\`\`
+
+### New options
+
+| Option | Default | Purpose |
+|---|---|---|
+| \`backend\` | \`"memory"\` | \`"memory"\`, \`"redis"\`, or \`"sql"\` (aliases: \`"database"\`, \`"db"\`) |
+| \`redis_url\` | \`None\` | Redis connection URL; falls back to \`$REDIS_URL\` |
+| \`redis_prefix\` | \`"aquilia:tasks:"\` | Key namespace, so several apps can share one Redis |
+| \`sql_table\` | \`"aquilia_tasks"\` | Job table name for the SQL backend |
+| \`lease_seconds\` | \`300.0\` | How long a claimed job stays owned before a peer may reclaim it |
+| \`heartbeat_interval\` | \`30.0\` | Lease renewal cadence; must be well under \`lease_seconds\` |
+| \`reclaim_interval\` | \`60.0\` | How often to sweep for jobs abandoned by crashed workers |
+| \`dedup_ttl\` | \`3600.0\` | How long a deduplication reservation is held |
+| \`worker_id\` | \`None\` | Worker identity recorded as a job's owner; defaults to \`hostname:pid:random\` |
+
+Install the Redis extra with \`pip install aquilia[redis]\`. The SQL backend requires \`Integration.database(...)\` and no extra dependency.
+
+---
+
+## Usage
+
+Task code does not change between backends:
+
+\`\`\`python
+from aquilia.tasks import task
+
+@task(queue="reports", max_retries=3)
+async def rebuild_report(report_id: int) -> dict:
+    return {"rebuilt": report_id}
+\`\`\`
+
+\`\`\`python
+job_id = await tasks.enqueue(rebuild_report, 42)
+job = await tasks.get_job(job_id)
+\`\`\`
+
+### Running a dedicated worker process
+
+A process that only consumes work is a normal Aquilia app with \`num_workers\` set and no enqueueing of its own. The queues it polls are derived from the \`@task\` descriptors it has imported, plus any queue it discovers on the shared backend — so a worker does not need to know in advance which queues its producers use.
+
+---
+
+## Edge Cases
+
+**Non-serializable arguments.** On a persistent backend, passing an object JSON cannot represent raises \`TaskSerializationFault\` at \`enqueue()\`:
+
+\`\`\`python
+await tasks.enqueue(process, open("f.txt"))   # TaskSerializationFault
+\`\`\`
+
+This is deliberate. The alternative is a job that enqueues cleanly and then fails unrecoverably on a remote worker, far from the call site. On \`MemoryBackend\` live objects still work, because the job never leaves the process.
+
+**Unregistered task names.** A worker resolves \`func_ref\` through the \`@task\` registry. If the consumer process has not imported the module that registers the task, the job raises \`TaskResolutionFault\` rather than executing arbitrary named code. Ensure every worker imports the same task modules.
+
+**Backend unavailable at startup.** A Redis or database that cannot be reached logs an error naming the durability that was lost and falls back to \`MemoryBackend\`, rather than aborting startup. The application still serves requests; queued jobs are not durable until the backend recovers and the process restarts.
+
+**Unknown backend name.** A typo such as \`backend="rabbitmq"\` logs a warning listing the valid values and uses \`MemoryBackend\`. A typo does not take production down.
+
+**Clock skew across machines.** Leases are stored as absolute timestamps. Significant clock skew between workers can cause premature reclaim (duplicate execution) or delayed reclaim. Run NTP.
+
+---
+
+## Performance Implications
+
+- \`MemoryBackend\` is unchanged; single-process applications see no difference.
+- \`RedisBackend\` claim is one round trip against an in-memory sorted set.
+- \`SQLBackend\` claim is one \`UPDATE\` inside a transaction. Throughput is bounded by database write capacity; above a few hundred jobs/second prefer Redis.
+- The reclaim loop runs once per \`reclaim_interval\` per process and issues one sweep query. Raising \`reclaim_interval\` reduces load; lowering it shortens the window during which a crashed worker's job sits idle.
+
+---
+
+## Compatibility
+
+Fully backward compatible. \`memory\` remains the default, \`MemoryBackend\` behavior is unchanged, and every existing \`@task\` and \`enqueue()\` call works untouched. The new configuration options are additive with defaults matching prior behavior.
+
+---
+
+## Related
+
+- [Workflows & DAGs](workflows.md) — composing jobs, which requires a shared backend to span processes
+- [Idempotency & Deduplication](idempotency.md) — the distributed lock built on this coordination layer
+- [Mail Delivery Queue](mail_queue.md) — the first framework subsystem to run on it
+- [Migration Guide](migration.md)
+`,
+    "http_native.md": `# Native HTTP Client & Third-Party HTTP Removal — Aquilia v1.3.5
+
+In Aquilia v1.3.5, all remaining traces of third-party HTTP clients (specifically \`httpx\`) have been completely removed from the framework codebase, dependencies, test suite, and documentation in favor of Aquilia's native zero-dependency \`aquilia.http\` client.
+
+---
+
+## 1. Overview & Motivation
+
+Aquilia features a production-grade, fully asynchronous HTTP client implementation in \`aquilia.http\` built directly on Python standard library primitives (\`asyncio\`, \`ssl\`, \`gzip\`, \`zlib\`).
+
+Previously, optional subsystems like \`SendGridProvider\` and test helpers like \`LiveServerTestCase\` relied on \`httpx\` as a third-party dependency. In v1.3.5:
+
+1. **SendGrid Mail Provider** (\`aquilia.mail.providers.sendgrid.SendGridProvider\`) uses native \`aquilia.http.AsyncHTTPClient\`.
+2. **\`LiveServerTestCase\`** (\`aquilia.testing.cases.LiveServerTestCase\`) documentation and usage examples use native \`aquilia.http.AsyncHTTPClient\`.
+3. **Dependency Clean-Up**: \`httpx\` has been removed from \`pyproject.toml\`, \`setup.py\`, \`aquilia.egg-info\`, and all extra dependency bundles (\`mail-sendgrid\`, \`testing\`, \`dev\`).
+
+---
+
+## 2. Changes in SendGrid Provider
+
+The \`SendGridProvider\` now initializes \`AsyncHTTPClient\` directly from \`aquilia.http\`:
+
+\`\`\`python
+from aquilia.http import AsyncHTTPClient
+
+class SendGridProvider:
+    async def initialize(self) -> None:
+        self._client = AsyncHTTPClient(
+            base_url=self.api_base_url,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "aquilia-mail/1.0",
+            },
+            timeout=self.timeout,
+        )
+\`\`\`
+
+Error handling consumes the async \`HTTPClientResponse\` API:
+
+\`\`\`python
+body = await response.json()
+\`\`\`
+
+---
+
+## 3. Backward Compatibility & \`aclose\` Alias
+
+To ensure smooth transition for any external callers expecting \`aclose()\`, \`aquilia.http.AsyncHTTPClient\` now provides an alias:
+
+\`\`\`python
+class AsyncHTTPClient:
+    async def close(self) -> None: ...
+
+    aclose = close
+\`\`\`
+
+Both \`await client.close()\` and \`await client.aclose()\` work seamlessly.
+
+---
+
+## 4. Dependencies Updated
+
+- \`mail-sendgrid\` extra: no longer installs \`httpx\`.
+- \`testing\` extra: no longer installs \`httpx\`.
+- \`dev\` extra: no longer installs \`httpx\`.
+`,
+    "idempotency.md": `# Idempotency & Distributed Deduplication — Aquilia v1.3.5
+
+\`Job.fingerprint\` existed since the task system shipped but nothing ever read it. As of v1.3.5 it is enforced at enqueue time, and on durable backends that enforcement is a real distributed lock: two processes racing to queue the same work produce one job, not two.
+
+---
+
+## Motivation
+
+The classic double-send. A user double-clicks, a retried HTTP request replays, a webhook is delivered twice, two web workers react to the same event — and the same background job is queued twice. Applications worked around this with their own Redis \`SETNX\` guards or a \`processed\` table, reimplementing per project what the framework already had the raw material for.
+
+\`Job.fingerprint\` was computed and stored. It simply had no readers.
+
+---
+
+## How It Works
+
+### The fingerprint
+
+A stable digest over \`func_ref\`, \`queue\`, \`args\`, and \`kwargs\` — two enqueue calls that would do identical work share a fingerprint:
+
+\`\`\`python
+job.fingerprint    # 12-hex-character digest
+\`\`\`
+
+It is computed from the JSON form when possible, so equal-but-not-identical values agree across processes: a tuple \`(1, 2)\` and a list \`[1, 2]\` produce the same fingerprint. Non-JSON values fall back to \`repr\`, which keeps the in-memory backend working with live objects.
+
+### The \`dedup\` parameter
+
+\`\`\`python
+await manager.enqueue(rebuild_index, dedup="allow")   # default — always enqueue
+await manager.enqueue(rebuild_index, dedup="skip")    # return the in-flight job's ID
+await manager.enqueue(rebuild_index, dedup="raise")   # raise TaskDuplicateFault
+\`\`\`
+
+| Mode | Behavior |
+|---|---|
+| \`"allow"\` | Always enqueue. Preserves historical behavior, so existing code is unaffected. |
+| \`"skip"\` | If identical work is already in flight, return that job's ID instead of enqueueing a second copy. |
+| \`"raise"\` | Raise \`TaskDuplicateFault\` instead. Use when a duplicate indicates a caller bug. |
+
+A reservation is held for \`dedup_ttl\` seconds (default \`3600.0\`) and released when the job reaches a terminal state.
+
+### Distributed enforcement
+
+The backend owns the reservation, so correctness under concurrency comes from the storage layer, not from application-level check-then-act:
+
+- **\`RedisBackend\`** — \`SET NX\` on the fingerprint key. Exactly one caller wins.
+- **\`SQLBackend\`** — \`INSERT\` into \`aquilia_task_locks\`, whose \`fingerprint\` column is the primary key. Two workers racing both attempt the insert and the database rejects exactly one.
+- **\`MemoryBackend\`** — an in-process map, correct within a single process.
+
+---
+
+## Examples
+
+### Collapsing a burst
+
+\`\`\`python
+# Ten requests arrive; one job runs.
+job_id = await tasks.enqueue(rebuild_search_index, dedup="skip")
+\`\`\`
+
+### Treating a duplicate as an error
+
+\`\`\`python
+from aquilia.tasks import TaskDuplicateFault
+
+try:
+    await tasks.enqueue(charge_card, order_id, dedup="raise")
+except TaskDuplicateFault:
+    return Response.json({"status": "already_processing"}, status=409)
+\`\`\`
+
+### Across processes
+
+\`\`\`python
+# Web worker A and web worker B, sharing one Redis or SQL backend
+a = await tasks.enqueue(send_invoice, order_id, dedup="skip")
+b = await tasks.enqueue(send_invoice, order_id, dedup="skip")
+assert a == b   # one job
+\`\`\`
+
+---
+
+## Before vs After
+
+\`\`\`python
+# Before v1.3.5 — hand-rolled guard in every application
+lock_key = f"job:invoice:{order_id}"
+if await redis.set(lock_key, "1", nx=True, ex=3600):
+    await tasks.enqueue(send_invoice, order_id)
+\`\`\`
+
+\`\`\`python
+# v1.3.5
+await tasks.enqueue(send_invoice, order_id, dedup="skip")
+\`\`\`
+
+The framework version is also correct in a case the hand-rolled one usually is not: the reservation is released when the job reaches a terminal state, so a failed job can be retried immediately instead of being blocked until the TTL expires.
+
+---
+
+## Edge Cases
+
+**Deduplication suppresses duplicate *enqueues*, not duplicate *execution*.** Distributed backends are at-least-once: a job whose worker stalls past its lease may be reclaimed and run twice. Task functions should still be idempotent. These are two different guarantees and \`dedup\` provides only the first.
+
+**Fingerprints include the queue.** The same function with the same arguments on two different queues is two different fingerprints, and both will be enqueued.
+
+**Argument order matters for positional arguments.** \`f(1, 2)\` and \`f(2, 1)\` are distinct. Keyword arguments are sorted, so \`f(a=1, b=2)\` and \`f(b=2, a=1)\` match.
+
+**Non-JSON arguments still deduplicate in-process.** The \`repr\` fallback means two live objects deduplicate only if their \`repr\` matches. On a persistent backend such arguments raise \`TaskSerializationFault\` before dedup is reached.
+
+**The default is unchanged.** Existing code that never passes \`dedup\` continues to enqueue every call. This is deliberate — silently collapsing jobs in an existing application would be a breaking behavioral change.
+
+---
+
+## Performance Implications
+
+\`dedup="allow"\` (the default) adds no work: no fingerprint reservation is attempted. \`"skip"\` and \`"raise"\` add one reservation operation per enqueue — a single \`SET NX\` on Redis, a single \`INSERT\` on SQL. In exchange, collapsed duplicates avoid an entire job execution.
+
+---
+
+## Compatibility
+
+Fully backward compatible. \`dedup\` is a new keyword-only parameter defaulting to \`"allow"\`, which is exactly the prior behavior. \`TaskDuplicateFault\` is a new fault raised only when explicitly requested via \`dedup="raise"\`.
+
+---
+
+## Related
+
+- [Distributed & Persistent Backends](distributed_tasks.md) — the coordination layer this builds on
+- [Workflows & DAGs](workflows.md)
+- [Migration Guide](migration.md)
+`,
+    "mail_queue.md": `# Mail Delivery Queue — Aquilia v1.3.5
+
+Outbound mail can now be delivered by background workers instead of inside the request handler. \`send_message()\` persists an envelope, schedules a delivery job, and returns — the SMTP conversation happens on a worker, with retries, backoff, and delayed sends managed by the task scheduler.
+
+This reuses Aquilia's existing task system. No second queue implementation was introduced.
+
+---
+
+## Motivation
+
+Sending mail inside a request handler ties the response time of a user-facing endpoint to a third party's SMTP latency. A slow provider makes signup slow; an unreachable provider makes signup fail. Retrying meant either blocking the request further or losing the message.
+
+---
+
+## Design Goals
+
+1. **Reuse the scheduler.** Retries, delayed delivery, persistence, and worker execution are the task system's job, not mail's.
+2. **Same API whether queued or not.** Enabling the queue is a configuration change; call sites are unchanged.
+3. **Survive the jump to distributed workers with no API change.** The delivery job had to be designed for a persistent backend from day one.
+4. **Never accept mail that cannot be sent.** Recording an envelope as queued when nothing can deliver it is worse than sending inline.
+
+---
+
+## Architecture
+
+\`\`\`
+send_message()
+  │
+  ├─ build envelope (validate, apply suppression, dedupe)
+  ├─ EnvelopeStore.save(envelope)          ← durable record
+  └─ enqueue "aquilia.mail.deliver"(envelope_id)
+                    │
+                    ▼
+             task worker (possibly another process)
+                    │
+                    ├─ EnvelopeStore.get(envelope_id)
+                    ├─ provider.send(...)  → SENT
+                    └─ on failure → schedule retry with backoff
+\`\`\`
+
+### \`EnvelopeStore\`
+
+The durable record of accepted mail. Two implementations ship:
+
+| Class | Durability |
+|---|---|
+| \`MemoryEnvelopeStore\` | In-process, bounded (\`max_envelopes\`, default 10,000). Default. |
+| \`SQLEnvelopeStore\` | Application database, table \`aquilia_mail_envelopes\`. |
+
+The interface covers \`save\`, \`get\`, \`list_by_status\`, \`find_by_digest\`, \`find_by_idempotency_key\`, \`cleanup\`, and \`stats\`.
+
+### The delivery task
+
+Delivery is a registered task named \`aquilia.mail.deliver\`, on queue \`mail\`.
+
+**It takes an envelope ID, not an envelope.** A live \`MailEnvelope\` cannot survive a persistent or distributed backend, which serializes jobs as JSON. The worker — which may be in another process entirely — reloads the envelope from the shared store. This is what lets mail delivery run on another machine without any API change.
+
+It is registered under a stable name rather than enqueued as a bare callable, so a worker in another process resolves it through the \`@task\` registry; a module-path reference would not survive a rename.
+
+Mail owns its own retry policy, so the job is enqueued with \`max_retries=0\` and the mail service schedules its own follow-up attempts with backoff.
+
+---
+
+## Configuration
+
+\`\`\`python
+# workspace.py
+
+# Inline delivery (default, unchanged)
+Integration.mail(default_from="noreply@example.com", providers=[...])
+
+# Background delivery
+Integration.mail(
+    default_from="noreply@example.com",
+    providers=[...],
+    queue_enabled=True,
+)
+
+# Background delivery with durable envelopes and suppression
+Integration.mail(
+    default_from="noreply@example.com",
+    providers=[...],
+    queue_enabled=True,
+    queue_persistent=True,
+)
+\`\`\`
+
+| Option | Default | Purpose |
+|---|---|---|
+| \`queue_enabled\` | \`False\` | Deliver via background tasks instead of inside the request |
+| \`queue_persistent\` | \`False\` | Keep envelopes and suppression records in the application database |
+| \`queue_dedupe_window_seconds\` | \`3600\` | Window in which an identical send is collapsed rather than sent twice |
+| \`queue_retention_days\` | \`30\` | How long delivered envelopes are retained |
+
+For an end-to-end durable path, pair \`queue_persistent=True\` with a durable task backend:
+
+\`\`\`python
+Integration.tasks(backend="redis", redis_url="redis://cache:6379/0")
+Integration.mail(queue_enabled=True, queue_persistent=True, ...)
+\`\`\`
+
+\`queue_persistent=True\` requires \`Integration.database(...)\`.
+
+---
+
+## Usage
+
+Call sites are identical whether the queue is on or off:
+
+\`\`\`python
+from aquilia.mail import EmailMessage
+
+envelope_id = await EmailMessage(
+    subject="Welcome",
+    body="Thanks for signing up",
+    to=user.email,
+).asend()
+\`\`\`
+
+With the queue enabled, \`asend()\` returns as soon as the envelope is stored — typically sub-millisecond — and delivery completes on a worker. The returned envelope ID is the handle for checking status:
+
+\`\`\`python
+envelope = await mail.store.get(envelope_id)
+envelope.status      # QUEUED → SENDING → SENT / FAILED / BOUNCED / CANCELLED
+envelope.attempts
+\`\`\`
+
+---
+
+## Send-Time Deduplication
+
+Independent of the task system's job-level deduplication, mail collapses duplicate *sends*:
+
+- An explicit \`idempotency_key\` on the message matches first.
+- Otherwise a content digest matches within \`queue_dedupe_window_seconds\`.
+
+This guards the classic double-send: a retried request or a double-clicked button producing two identical emails.
+
+---
+
+## Edge Cases
+
+**No task manager, queue enabled.** Delivery falls back to inline sending. Recording an envelope as queued when nothing can deliver it would silently drop mail. The fallback also applies when a manager exists but has not been started — enqueueing into a stopped manager would park the message forever.
+
+**Persistent stores with no database.** If \`queue_persistent=True\` but the database is unavailable, mail logs an error naming the durability that was lost and falls back to in-memory stores rather than aborting startup.
+
+**Every recipient suppressed.** The envelope is marked \`CANCELLED\` and no delivery job is scheduled. See [Bounce Handling & Suppression](bounces_suppression.md).
+
+**Missing envelope at delivery time.** A delivery job whose envelope has been cleaned up or cancelled logs a warning and is treated as success rather than retried forever — no amount of retrying will bring it back.
+
+**Attachments.** Attachment payloads live in envelope metadata as blobs keyed by digest, so an envelope reloaded on another worker still carries its attachments.
+
+---
+
+## Performance Implications
+
+Request-path cost drops from a full SMTP conversation (tens to hundreds of milliseconds, or a provider timeout on failure) to one store write plus one enqueue. Throughput of actual delivery becomes a function of worker count and provider rate limits rather than request concurrency.
+
+\`MemoryEnvelopeStore\` evicts oldest-first past \`max_envelopes\`; an evicted envelope's delivery job will find nothing and give up. Use \`queue_persistent=True\` for any deployment where that matters.
+
+---
+
+## Compatibility
+
+Fully backward compatible. \`queue_enabled\` defaults to \`False\`, so mail continues to send inline exactly as before unless explicitly enabled. \`EmailMessage\`, \`send_message()\`, and \`asend()\` signatures are unchanged. \`MailService.store\` and \`MailService.suppression\` are new attributes; passing explicit \`store=\` / \`suppression=\` to the constructor still overrides configuration.
+
+---
+
+## Related
+
+- [Bounce Handling & Suppression](bounces_suppression.md)
+- [Distributed & Persistent Backends](distributed_tasks.md)
+- [Mail Security & MIME](mail_security.md)
+- [Migration Guide](migration.md)
+`,
+    "mail_security.md": `# Mail Security, MIME & Templates — Aquilia v1.3.5
+
+The mail subsystem's message construction, signing, logging, and templating were consolidated and hardened. MIME assembly now lives in one place shared by every provider, DKIM signing is real, log output redacts personal data on request, and the ATS template engine gained a documented filter set with autoescaping on by default.
+
+---
+
+## Shared MIME Assembly
+
+Every provider previously built its own MIME message, which meant header handling, attachment encoding, and multipart structure drifted between SMTP, SES, SendGrid, and the file/console backends. \`aquilia/mail/mime.py\` is now the single implementation:
+
+\`\`\`python
+from aquilia.mail import build_mime_message, message_to_bytes, sign_dkim
+
+build_mime_message(envelope, *, extra_headers=None)   # -> MIMEMultipart
+message_to_bytes(msg, security=None)                  # -> bytes, DKIM-signed if configured
+sign_dkim(raw_message, security)                      # -> bytes
+\`\`\`
+
+\`build_mime_message()\` produces a \`multipart/mixed\` message with a generated \`Message-ID\` and Aquilia tracking headers — \`X-Aquilia-Envelope-ID\`, plus trace and tenant IDs when set. Attachment payloads are read from envelope metadata, so an envelope reloaded on another worker still carries its attachments. The \`extra_headers\` argument is merged last, letting a provider add its own header (an ESP configuration set, for example) without forking the builder.
+
+\`extract_domain(email)\` is also exported, used for per-domain rate limiting and DKIM domain defaulting.
+
+### Why it matters
+
+Bugs fixed in one provider now apply to all of them, and the \`X-Aquilia-Envelope-ID\` header is emitted consistently — which is what lets provider webhooks correlate a bounce back to the exact envelope. See [Bounce Handling & Suppression](bounces_suppression.md).
+
+---
+
+## DKIM Signing
+
+DKIM signing is applied at the byte level, immediately before transmission, so the signature covers exactly what the provider receives.
+
+\`\`\`python
+Integration.mail(
+    default_from="noreply@example.com",
+    providers=[...],
+    dkim_enabled=True,
+    dkim_domain="example.com",
+    dkim_selector="aquilia",
+)
+\`\`\`
+
+| Option | Default | Purpose |
+|---|---|---|
+| \`dkim_enabled\` | \`False\` | Sign outbound mail |
+| \`dkim_domain\` | \`None\` | Signing domain (\`d=\`). Required when enabled |
+| \`dkim_selector\` | \`"aquilia"\` | Selector (\`s=\`); must match your DNS TXT record |
+| \`dkim_private_key_path\` | \`None\` | Path to the PEM private key |
+| \`dkim_private_key_env\` | \`"AQUILIA_DKIM_PRIVATE_KEY"\` | Environment variable holding the PEM key |
+
+Signing requires the \`dkimpy\` package:
+
+\`\`\`bash
+pip install aquilia[mail-dkim]
+\`\`\`
+
+**DKIM failures raise at send time rather than shipping an unsigned message.** Silently sending unsigned mail would defeat the purpose — a receiving server treats a missing signature very differently from an invalid one, and an operator who enabled DKIM expects signed mail or an error.
+
+Because that failure is at send time, \`aq mail check\` now validates the configuration up front:
+
+\`\`\`
+$ aq mail check
+DKIM is enabled but dkim_domain is unset -- sends will fail
+DKIM is enabled but 'dkimpy' is not installed -- pip install aquilia[mail-dkim]
+\`\`\`
+
+---
+
+## TLS Enforcement
+
+\`require_tls\` defaults to \`True\`. SMTP delivery negotiates STARTTLS and aborts rather than transmitting credentials or message content in cleartext. Disable only for a local development relay.
+
+---
+
+## XOAUTH2 Authentication
+
+\`MailAuth.oauth2()\` supports SMTP providers that require bearer tokens (Gmail, Microsoft 365):
+
+\`\`\`python
+Integration.mail(
+    auth=MailAuth.oauth2(
+        client_id="...",
+        client_secret_env="MAIL_OAUTH_SECRET",
+        access_token_env="MAIL_OAUTH_TOKEN",
+        token_url="https://oauth2.googleapis.com/token",
+        scope="https://mail.google.com/",
+    ),
+    providers=[...],
+)
+\`\`\`
+
+Aquilia does not perform the token exchange. Supply a currently valid token — literally or through \`access_token_env\` — from whatever component owns the refresh cycle. \`token_url\`, \`scope\`, and \`refresh_token\` are recorded for that component's use. The token is presented to SMTP via the XOAUTH2 mechanism.
+
+---
+
+## PII Redaction in Logs
+
+Mail logs contain recipient addresses by nature. \`pii_redaction\` masks them:
+
+\`\`\`python
+Integration.mail(pii_redaction=True, ...)
+\`\`\`
+
+\`\`\`python
+from aquilia.mail import redact_email, redact_pii
+
+redact_email("alice@example.com")               # "a***e@example.com"
+redact_pii("contact alice@example.com", enabled=True)
+\`\`\`
+
+Local parts are masked while the domain is preserved, so logs remain useful for diagnosing a domain-wide delivery problem without recording individual identities. Off by default — enabling it reduces debuggability, which should be a deliberate choice.
+
+---
+
+## ATS Templates
+
+The mail template engine (\`<< expression >>\` syntax, distinct from the Jinja engine used for HTML views) gained a documented public API and filter set.
+
+\`\`\`python
+from aquilia.mail.template import configure, register_filter, render_string, render_template, FILTERS
+
+configure(template_dirs=["mail_templates"])
+render_string(template_text, context, *, autoescape=True)
+render_template(template_name, context, *, template_dirs=None, autoescape=None)
+register_filter(name, fn)
+\`\`\`
+
+### Autoescaping
+
+**Interpolated values are HTML-escaped by default.** A username containing \`<script>\` cannot inject markup into an HTML mail body.
+
+\`\`\`python
+render_string("<p><< name >></p>", {"name": "<script>alert(1)</script>"})
+# '<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>'
+\`\`\`
+
+Two escape hatches:
+
+- The \`safe\` filter, for a value that is known-good markup: \`<< body|safe >>\`
+- \`autoescape=False\`, for plain-text bodies and subject headers, where escaping would corrupt output (\`&amp;\` in a subject line)
+
+Subject rendering uses \`autoescape=False\` internally for exactly this reason.
+
+### Built-in filters
+
+\`currency\`, \`default\`, \`escape\`, \`join\`, \`length\`, \`lower\`, \`safe\`, \`title\`, \`trim\`, \`truncate\`, \`upper\`.
+
+\`\`\`
+<< total|currency("EUR") >>        →  EUR 12.50
+<< blurb|truncate(5) >>            →  abcde…
+<< tags|join(", ") >>
+<< nickname|default("friend") >>
+<< name|trim|title >>
+\`\`\`
+
+Filters compose left to right. Arguments must be literals — no expressions — so a template cannot execute arbitrary code.
+
+Register your own:
+
+\`\`\`python
+register_filter("shout", lambda v: f"{v}!!!")
+\`\`\`
+
+### Control flow is rejected, loudly
+
+Jinja-style control tags (\`[[% if %]]\`, \`[[% for %]]\`) are **not** supported and raise \`MailTemplateFault\` rather than being passed through. Shipping a raw \`[[% if %]]\` token to a recipient's inbox is worse than failing the render. Build conditional content in Python and pass the result in the context.
+
+### Error behavior
+
+- Unknown filter, malformed filter arguments, or a control-flow tag → \`MailTemplateFault\`
+- A missing context variable renders as empty rather than raising, so an optional field does not break a send
+- Dotted lookups work against dicts and objects: \`<< user.name >>\`
+
+---
+
+## Provider Changes
+
+All providers now build messages through the shared MIME layer:
+
+- **SMTP** — restructured around shared MIME assembly, byte-level DKIM signing, STARTTLS enforcement, and XOAUTH2 authentication.
+- **SES** — sends the fully assembled raw message, preserving custom headers and the DKIM signature.
+- **SendGrid** — consistent header handling and attachment encoding.
+- **Console / File** — render the same MIME structure as production providers, so what you inspect in development matches what ships.
+
+---
+
+## Compatibility
+
+Backward compatible. \`require_tls\` already defaulted to \`True\`. DKIM, PII redaction, and OAuth2 are opt-in. Template rendering already autoescaped; this release documents the behavior and the filter set rather than changing it. Provider configuration and \`EmailMessage\` signatures are unchanged.
+
+The one behavior worth calling out: with \`dkim_enabled=True\` and a broken configuration, sends now **fail** instead of shipping unsigned mail. Run \`aq mail check\` after enabling DKIM.
+
+---
+
+## Related
+
+- [Mail Delivery Queue](mail_queue.md)
+- [Bounce Handling & Suppression](bounces_suppression.md)
+- [CLI Changes](cli.md)
+- [Migration Guide](migration.md)
+`,
+    "migration.md": `# Migration Guide — Aquilia v1.3.5
+
+Aquilia v1.3.5 is a **backwards-compatible** feature release. No existing API was removed, renamed, or changed in signature. Every workspace, manifest, task, and mail configuration from 1.3.4 continues to work without modification.
+
+This guide covers upgrading, then the optional migrations that let you adopt the new capabilities.
+
+---
+
+## Upgrading
+
+\`\`\`bash
+pip install aquilia==1.3.5
+\`\`\`
+
+Optional extras for the new capabilities:
+
+\`\`\`bash
+pip install aquilia[redis]        # distributed task backend
+pip install aquilia[mail-dkim]    # DKIM signing for outbound mail
+\`\`\`
+
+Nothing else is required. If you change no configuration, v1.3.5 behaves exactly as v1.3.4 did:
+
+- Tasks run on \`MemoryBackend\`, single process.
+- Mail sends inline, inside the request.
+- No addresses are suppressed.
+- No deduplication is applied.
+
+---
+
+## Upgrade Checklist
+
+1. \`pip install aquilia==1.3.5\`
+2. Run your test suite — no changes expected.
+3. *(Optional)* Move tasks to a durable backend — see below.
+4. *(Optional)* Enable background mail delivery — see below.
+5. *(Optional)* Wire provider webhooks for bounce handling.
+6. If you use SendGrid or testing helpers, note that third-party \`httpx\` is no longer required as Aquilia uses native \`aquilia.http\`.
+7. If you use DKIM, run \`aq mail check\` and install \`aquilia[mail-dkim]\`.
+8. Remove any hand-rolled job deduplication in favour of \`dedup="skip"\`.
+9. Remove any workaround that parsed \`repr\`-form job results.
+
+---
+
+## Migration 1 — Durable, Distributed Tasks
+
+### Before
+
+\`\`\`python
+# workspace.py
+Integration.tasks(num_workers=4)
+\`\`\`
+
+Jobs lived in the web worker process and were lost on restart. Running two web workers meant two independent queues, so a periodic task fired twice.
+
+### After
+
+\`\`\`python
+# workspace.py
+Integration.tasks(
+    backend="redis",
+    redis_url="redis://cache:6379/0",
+    num_workers=8,
+    lease_seconds=120,
+)
+\`\`\`
+
+Or, with no new infrastructure:
+
+\`\`\`python
+Integration.tasks(backend="sql")   # requires Integration.database(...)
+\`\`\`
+
+### What you must check
+
+**Task arguments must be JSON-serializable.** On a durable backend, a non-serializable argument raises \`TaskSerializationFault\` at \`enqueue()\`. Audit your enqueue calls for ORM instances, file handles, and custom objects:
+
+\`\`\`python
+# Breaks on a durable backend
+await tasks.enqueue(send_welcome, user)          # ORM instance
+
+# Correct
+await tasks.enqueue(send_welcome, user.id)       # worker re-loads it
+\`\`\`
+
+**Every worker must import every task module.** Workers resolve jobs by registered name. A worker process that has not imported the module defining a task raises \`TaskResolutionFault\` for that job. Declaring tasks in your module manifests handles this automatically.
+
+**Task functions should be idempotent.** Distributed backends are at-least-once: a worker that stalls past its lease can have its job reclaimed and run twice.
+
+See [Distributed & Persistent Backends](distributed_tasks.md).
+
+---
+
+## Migration 2 — Replace Hand-Rolled Deduplication
+
+### Before
+
+\`\`\`python
+lock_key = f"job:invoice:{order_id}"
+if await redis.set(lock_key, "1", nx=True, ex=3600):
+    await tasks.enqueue(send_invoice, order_id)
+\`\`\`
+
+### After
+
+\`\`\`python
+await tasks.enqueue(send_invoice, order_id, dedup="skip")
+\`\`\`
+
+The framework version releases the reservation when the job reaches a terminal state, so a failed job can be retried immediately rather than being blocked until the TTL expires.
+
+Use \`dedup="raise"\` where a duplicate indicates a caller bug:
+
+\`\`\`python
+from aquilia.tasks import TaskDuplicateFault
+
+try:
+    await tasks.enqueue(charge_card, order_id, dedup="raise")
+except TaskDuplicateFault:
+    return Response.json({"status": "already_processing"}, status=409)
+\`\`\`
+
+The default remains \`"allow"\`, so nothing changes until you opt in.
+
+See [Idempotency & Deduplication](idempotency.md).
+
+---
+
+## Migration 3 — Replace Ad-Hoc Job Sequencing
+
+### Before
+
+\`\`\`python
+# One long-lived job orchestrating the rest — lost on restart,
+# and holding a worker slot while doing nothing
+@task(name="pipeline")
+async def pipeline(source):
+    rows = await extract(source)
+    cleaned = await clean(rows)
+    await load(cleaned)
+\`\`\`
+
+### After
+
+\`\`\`python
+from aquilia.tasks.workflow import chain
+
+await chain(
+    extract.s(source),
+    clean.s().with_parent_results(),
+    load.s().with_parent_results(),
+).run(tasks)
+\`\`\`
+
+Each step is an independent job with its own retry budget. The graph is durable the moment it is submitted, so a restart resumes rather than restarting from the top. A \`WAITING\` step occupies no worker slot.
+
+See [Workflows & DAGs](workflows.md).
+
+---
+
+## Migration 4 — Background Mail Delivery
+
+### Before
+
+\`\`\`python
+Integration.mail(default_from="noreply@example.com", providers=[...])
+\`\`\`
+
+\`asend()\` performed the SMTP conversation inside the request. Response time was tied to provider latency.
+
+### After
+
+\`\`\`python
+Integration.tasks(backend="redis", redis_url="redis://cache:6379/0")
+
+Integration.mail(
+    default_from="noreply@example.com",
+    providers=[...],
+    queue_enabled=True,
+    queue_persistent=True,
+)
+\`\`\`
+
+**Call sites do not change.** \`EmailMessage(...).asend()\` still returns an envelope ID; it now returns before delivery completes.
+
+### What you must check
+
+**Code that assumed mail was sent on return.** With the queue enabled, a returned envelope ID means *accepted*, not *delivered*. Poll status where that distinction matters:
+
+\`\`\`python
+envelope = await mail.store.get(envelope_id)
+envelope.status   # QUEUED → SENDING → SENT / FAILED / BOUNCED / CANCELLED
+\`\`\`
+
+**Tests asserting on a mail outbox.** Tests that send through a queued service must drive the task manager, or configure the mail service without \`queue_enabled\` for that test.
+
+**\`queue_persistent=True\` requires \`Integration.database(...)\`.** Without a reachable database, mail logs an error and falls back to in-memory stores.
+
+See [Mail Delivery Queue](mail_queue.md).
+
+---
+
+## Migration 5 — Bounce Handling
+
+New capability; there is nothing to migrate from. Add a webhook endpoint:
+
+\`\`\`python
+from aquilia import Controller, POST, RequestCtx, Response
+from aquilia.mail import parse_ses, process_webhook
+
+class MailWebhookController(Controller):
+    prefix = "/webhooks/mail"
+
+    @POST("/ses")
+    async def ses(self, ctx: RequestCtx):
+        events = parse_ses(await ctx.body(), verify_topic_arn=SES_TOPIC_ARN)
+        return Response.json(await process_webhook(
+            events,
+            suppression=self.mail.suppression,
+            store=self.mail.store,
+        ))
+\`\`\`
+
+Two things to get right:
+
+- **Verify signatures.** Pass \`verify_topic_arn\` (SES), \`public_key\` (SendGrid), or \`signing_key\` (Mailgun). An unverified endpoint lets anyone forge a bounce and suppress an arbitrary address.
+- **Exempt the path from CSRF.** Providers do not carry your CSRF token; signature verification is the authenticity check.
+
+If you already maintain a suppression list in your own tables, import it:
+
+\`\`\`python
+for row in await LegacySuppression.all():
+    await mail.suppression.suppress(row.email, reason=SuppressionReason.HARD_BOUNCE)
+\`\`\`
+
+See [Bounce Handling & Suppression](bounces_suppression.md).
+
+---
+
+## Migration 6 — Job Result Handling
+
+If you worked around results arriving as \`repr\` strings on a persistent backend, remove the workaround:
+
+\`\`\`python
+# Before — parsing the repr form back
+total = sum(int(r) for r in parent_results)
+
+# After — JSON-safe values round-trip intact
+total = sum(parent_results)
+\`\`\`
+
+Values that are not JSON-serializable still arrive as \`repr\` strings, which is unavoidable — return dicts, lists, and primitives from steps whose results are consumed downstream.
+
+See [Bug Fixes](bugfixes.md).
+
+---
+
+## Deprecated Features
+
+None. No API was deprecated in this release.
+
+## Removed Features
+
+None.
+
+## Breaking Changes
+
+None.
+
+The one behavior change worth noting is not an API break: with \`dkim_enabled=True\` and an incomplete configuration, sends now fail rather than shipping unsigned mail. Run \`aq mail check\` after enabling DKIM. See [CLI Changes](cli.md).
+
+---
+
+## Compatibility Notes
+
+| Area | Notes |
+|---|---|
+| Python | 3.10–3.13, unchanged |
+| Existing manifests | No changes required |
+| \`MemoryBackend\` | Behavior unchanged; still the default |
+| Inline mail | Behavior unchanged; still the default |
+| \`TaskManager.enqueue()\` | New keyword-only params, all defaulted to prior behavior |
+| \`MailService\` | New \`store\` / \`suppression\` attributes; constructor arguments still win |
+| Task result values | JSON-safe values now round-trip; previously \`repr\` on persistent backends |
+
+---
+
+## Known Issues
+
+- **Redis backend lacks automated test coverage** in this release; the SQL backend carries the durable-path integration tests. The Redis implementation is exercised manually and by the shared backend contract.
+- **Mailgun signature verification is opt-in.** Omitting \`signing_key\` parses without verification and logs a warning. Treat it as required in production.
+- **No built-in webhook route.** Applications wire \`parse_*\` and \`process_webhook\` into their own controller, so path, authentication, and CSRF policy stay under application control.
+- **Workflow steps whose parent failed remain \`WAITING\`** rather than being cancelled. They will not run; inspect them with \`failed_jobs()\`.
+
+---
+
+## Related
+
+- [Release Overview](README.md)
+- [Distributed & Persistent Backends](distributed_tasks.md)
+- [Workflows & DAGs](workflows.md)
+- [Idempotency & Deduplication](idempotency.md)
+- [Mail Delivery Queue](mail_queue.md)
+- [Bounce Handling & Suppression](bounces_suppression.md)
+- [Mail Security & MIME](mail_security.md)
+- [CLI Changes](cli.md)
+- [Bug Fixes](bugfixes.md)
+`,
+    "workflows.md": `# Workflows & DAGs — Aquilia v1.3.5
+
+Jobs can now declare dependencies on other jobs. Sequential chains, parallel groups, fan-in callbacks, and arbitrary directed acyclic graphs are all expressed through the same queue and the same workers — equivalent to Celery Canvas or BullMQ Flows.
+
+Previously there was no way to say "run B after A". Applications either awaited a job's completion inside another job (occupying a worker slot while doing nothing) or polled \`get_job()\` in application code.
+
+---
+
+## Motivation
+
+Real background work is rarely one isolated function:
+
+- An import pipeline extracts, transforms, then loads.
+- A report shards across N workers and merges the results.
+- A deploy runs migrations, then warms caches, then notifies.
+
+Without dependency support, each of these had to be orchestrated by a long-lived coroutine that survives for the whole pipeline — which loses everything on restart and does not distribute.
+
+---
+
+## Design Goals
+
+1. **The graph is durable the moment it is submitted.** Every job is created up front with its dependencies recorded, so the workflow survives a restart on a persistent backend.
+2. **No orchestrator process.** The backend releases dependent jobs as their dependencies complete. Nothing needs to stay resident.
+3. **Reuse the existing queue.** Workflows are ordinary jobs with a \`depends_on\` field, not a parallel execution system.
+4. **A failed step stops its branch.** Downstream jobs must not run on missing input.
+
+---
+
+## Architecture
+
+### \`Signature\`
+
+A task plus the arguments it will be called with, not yet enqueued — the same concept as Celery's signature, and named the same way.
+
+\`\`\`python
+from aquilia.tasks.workflow import Signature
+
+step = Signature(send_email, ("user@example.com",), {"subject": "Hi"})
+\`\`\`
+
+Or, more idiomatically, from a \`@task\` descriptor:
+
+\`\`\`python
+step = send_email.s("user@example.com", subject="Hi")
+\`\`\`
+
+\`with_parent_results()\` returns a copy that receives its dependencies' return values as a \`parent_results\` keyword at execution time:
+
+\`\`\`python
+merge.s().with_parent_results()   # merge(parent_results=[...])
+\`\`\`
+
+The marker stored in the job's kwargs is a plain string, replaced with real values by the worker at execution time. That keeps the job JSON-serializable and lets results be read after a restart.
+
+### \`Workflow\`
+
+The graph builder. \`add()\` returns an index used to declare dependencies:
+
+\`\`\`python
+from aquilia.tasks.workflow import Workflow
+
+wf = Workflow("nightly")
+extract = wf.add(extract_rows.s(source))
+clean   = wf.add(clean_rows.s(), depends_on=[extract])
+enrich  = wf.add(enrich_rows.s(), depends_on=[extract])
+wf.add(load_rows.s().with_parent_results(), depends_on=[clean, enrich])
+
+result = await wf.run(manager)
+\`\`\`
+
+\`run()\` validates the graph, enqueues every node with its dependencies already wired, and returns a \`WorkflowResult\`. Dependent jobs start in \`WAITING\` and are released by the backend as their dependencies complete.
+
+### \`WorkflowResult\`
+
+\`\`\`python
+await result.is_complete(manager)    # every terminal job reached a terminal state
+await result.results(manager)        # terminal jobs' return values, in declaration order
+await result.failed_jobs(manager)    # jobs that ended FAILED or DEAD
+\`\`\`
+
+\`is_complete()\` returns \`True\` for failure as well as success — use \`failed_jobs()\` to distinguish.
+
+---
+
+## Helpers
+
+### \`chain\` — sequential
+
+Each step waits for the previous one to complete successfully.
+
+\`\`\`python
+from aquilia.tasks.workflow import chain
+
+await chain(
+    extract.s(source),
+    transform.s().with_parent_results(),
+    load.s().with_parent_results(),
+).run(manager)
+\`\`\`
+
+### \`group\` — parallel
+
+Pure fan-out. Every step runs concurrently with no dependencies between them.
+
+\`\`\`python
+from aquilia.tasks.workflow import group
+
+await group([shard.s(n) for n in range(8)]).run(manager)
+\`\`\`
+
+### \`chord\` — parallel then fan-in
+
+A \`group\` header plus a callback that runs once every header job has completed, receiving their results.
+
+\`\`\`python
+from aquilia.tasks.workflow import chord
+
+await chord(
+    [shard.s(n) for n in range(8)],
+    merge.s().with_parent_results(),
+).run(manager)
+\`\`\`
+
+### Arbitrary DAGs
+
+\`chain\`, \`group\`, and \`chord\` are conveniences over \`Workflow.add(..., depends_on=[...])\`. Any acyclic shape — diamonds, multi-level fan-out/fan-in, mixed widths — is expressible directly.
+
+---
+
+## Validation
+
+Graph errors raise \`TaskWorkflowFault\` before anything is enqueued, so a malformed workflow never partially executes:
+
+- An empty workflow.
+- A cycle — detected by depth-first traversal with a path stack; the fault names the cycle.
+- A dependency index that does not exist.
+
+\`\`\`python
+wf = Workflow("bad")
+wf.add(step.s(), depends_on=[99])   # TaskWorkflowFault — unknown dependency
+\`\`\`
+
+---
+
+## Edge Cases
+
+**A failed dependency does not release its dependents.** If a step exhausts its retries, everything downstream stays \`WAITING\` rather than running on missing input. Inspect with \`failed_jobs()\`. These jobs are not automatically cancelled — a \`WAITING\` job whose parent is dead will not run and will not complete.
+
+**Result fidelity.** Dependency results arrive as the actual returned value when it is JSON-compatible. A non-JSON return value degrades to its \`repr\` on a persistent backend, because an arbitrary object cannot be reconstructed from JSON. Return dicts, lists, and primitives from steps whose results are consumed downstream.
+
+**Serialization applies to every step.** \`Workflow.run()\` enqueues through the normal path, so a step with non-serializable arguments raises \`TaskSerializationFault\` on a persistent backend — at submission, before any step runs.
+
+**Workflows do not span backends.** Every job in a workflow lives on the manager it was submitted to. To span processes, use a shared durable backend.
+
+**Ordering within a group is not guaranteed.** \`results()\` returns terminal values in *declaration* order, but execution order and completion order are arbitrary.
+
+---
+
+## Performance Implications
+
+Workflow submission is O(n) enqueues for n steps, performed up front. There is no polling process and no idle worker held open waiting for a dependency — a \`WAITING\` job occupies no worker slot. Dependency resolution is one lookup per dependency at release time.
+
+For very wide graphs (thousands of parallel steps), submission cost is dominated by the enqueue round trips; on \`RedisBackend\` these are pipelined by the backend.
+
+---
+
+## Compatibility
+
+Purely additive. \`Workflow\`, \`Signature\`, \`WorkflowResult\`, \`chain\`, \`group\`, and \`chord\` are new exports from \`aquilia.tasks\`. The \`depends_on\`, \`workflow_id\`, and \`initial_state\` parameters on \`TaskManager.enqueue()\` are new keyword-only arguments with defaults that preserve prior behavior. No existing API changed.
+
+---
+
+## Related
+
+- [Distributed & Persistent Backends](distributed_tasks.md) — required for workflows that span processes
+- [Idempotency & Deduplication](idempotency.md)
+- [Migration Guide](migration.md)
+`
+  },
   "1.3.4": {
     "README.md": `# Aquilia v1.3.4 Release Notes — "Structural Integrity & Controller Expansion"
 

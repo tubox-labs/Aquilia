@@ -73,7 +73,7 @@ registerDocEntities([
     id: 'testing.live_server_test_case',
     type: 'class',
     title: 'LiveServerTestCase',
-    description: 'Starts a genuine TCP Uvicorn server in a background task on a random port. Allows testing with standard HTTP clients (e.g. httpx, requests) and browser automation.',
+    description: 'Starts a genuine TCP Uvicorn server in a background task on a random port. Allows testing with standard HTTP clients (e.g. aquilia.http) and browser automation.',
     signature: 'class LiveServerTestCase(AquiliaTestCase):\n    host: str = "127.0.0.1"\n    port: int = 0',
     language: 'python',
     status: 'stable',

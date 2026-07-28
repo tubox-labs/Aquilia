@@ -118,13 +118,13 @@ export function InstallationPage() {
                 ['redis', 'redis[asyncio]', 'Redis cache, session, and socket adapter backends'],
                 ['mail', 'aiosmtplib', 'SMTP email provider support'],
                 ['mail-ses', 'aiobotocore', 'AWS SES email provider support'],
-                ['mail-sendgrid', 'httpx', 'SendGrid email provider support'],
+                ['mail-sendgrid', 'aquilia.http', 'SendGrid email provider support'],
                 ['server', 'gunicorn, uvicorn[standard]', 'Production web server (Gunicorn + Uvicorn workers)'],
                 ['postgres', 'asyncpg', 'Async PostgreSQL database driver support'],
                 ['otel', 'opentelemetry-api, opentelemetry-sdk, opentelemetry-exporter-otlp-proto-grpc, opentelemetry-instrumentation-asgi', 'OpenTelemetry distributed tracing support'],
                 ['full', 'aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template]', 'Convenience bundle with all standard features'],
                 ['all', 'aquilia[full]', 'Full installation with absolutely everything'],
-                ['testing', 'pytest, pytest-asyncio, pytest-cov, httpx', 'Testing utilities and coverage tools'],
+                ['testing', 'pytest, pytest-asyncio, pytest-cov', 'Testing utilities and coverage tools'],
                 ['dev', 'aquilia[testing], ruff, mypy, pre-commit', 'Development tools, linters, and checkers'],
               ].map(([extra, installs, when], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>

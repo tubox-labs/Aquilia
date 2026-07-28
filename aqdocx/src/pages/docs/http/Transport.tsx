@@ -58,7 +58,7 @@ export function HTTPTransport() {
           <div>
             <h3 className={`font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Zero External Dependencies</h3>
             <p className={`text-sm ${textMuted}`}>
-              Built entirely on Python&apos;s standard library (asyncio, ssl, gzip, zlib). No need for aiohttp, httpx, or other third-party HTTP clients.
+              Built entirely on Python&apos;s standard library (asyncio, ssl, gzip, zlib). No need for third-party HTTP clients.
             </p>
           </div>
           <div>

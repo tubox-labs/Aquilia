@@ -36,7 +36,7 @@ export function MailProviders() {
           {[
             { name: 'SMTPProvider', deps: 'aiosmtplib', desc: 'Standard SMTP relay client. Supports SSL/TLS encryption, credentials, and connection pools.' },
             { name: 'SESProvider', deps: 'aiobotocore', desc: 'AWS Simple Email Service integration. Interacts asynchronously via AWS IAM credentials.' },
-            { name: 'SendGridProvider', deps: 'httpx', desc: 'SendGrid Web API v3 client. Optimizes transmission speeds using HTTP request batching.' },
+            { name: 'SendGridProvider', deps: 'aquilia.http', desc: 'SendGrid Web API v3 client. Optimizes transmission speeds using HTTP request batching.' },
             { name: 'ConsoleProvider', deps: 'None', desc: 'Development fallback. Prints raw mail payloads to standard output stream (stdout).' },
             { name: 'FileProvider', deps: 'None', desc: 'Test and audit utility. Writes raw .eml envelopes to a local workspace folder.' }
           ].map((item, i) => (
@@ -59,13 +59,13 @@ export function MailProviders() {
           IMailProvider Custom Implementation
         </h2>
         <p className={`text-sm mb-6 ${textMuted}`}>
-          To write a custom provider (e.g., Postmark API), implement the <DocTerm id="mail.MailIntegration">IMailProvider</DocTerm> interface using `httpx` async clients, error handling structures, and status code maps:
+          To write a custom provider (e.g., Postmark API), implement the <DocTerm id="mail.MailIntegration">IMailProvider</DocTerm> interface using native <DocTerm id="http.AsyncHTTPClient">aquilia.http</DocTerm> async clients, error handling structures, and status code maps:
         </p>
         <CodeBlock
           language="python"
           filename="custom_postmark_provider.py"
           highlightLines={[7, 10, 20, 27, 34, 40]}
-        >{`import httpx
+        >{`from aquilia.http import AsyncHTTPClient
 from aquilia.mail.providers import IMailProvider, ProviderResult, ProviderResultStatus
 from aquilia.mail import MailEnvelope
 
@@ -80,7 +80,7 @@ class PostmarkMailProvider(IMailProvider):
 
     async def initialize(self) -> None:
         # Open a persistent connection pool with server credentials
-        self.client = httpx.AsyncClient(
+        self.client = AsyncHTTPClient(
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/json",
@@ -101,16 +101,17 @@ class PostmarkMailProvider(IMailProvider):
             response = await self.client.post("https://api.postmarkapp.com/email", json=payload)
             
             if response.status_code == 200:
-                data = response.json()
+                data = await response.json()
                 return ProviderResult(
                     status=ProviderResultStatus.SUCCESS,
                     provider_message_id=data.get("MessageID")
                 )
             elif response.status_code == 422:
                 # Permanent failure (e.g. invalid recipient address format)
+                err_text = await response.text()
                 return ProviderResult(
                     status=ProviderResultStatus.PERMANENT_FAILURE,
-                    error_message=response.text
+                    error_message=err_text
                 )
             elif response.status_code == 429:
                 # Rate limited, request retry backoff duration
@@ -119,9 +120,10 @@ class PostmarkMailProvider(IMailProvider):
                     retry_after=float(response.headers.get("Retry-After", 60))
                 )
             else:
+                err_text = await response.text()
                 return ProviderResult(
                     status=ProviderResultStatus.TRANSIENT_FAILURE,
-                    error_message=f"HTTP Error {response.status_code}: {response.text}"
+                    error_message=f"HTTP Error {response.status_code}: {err_text}"
                 )
         except Exception as e:
             # Handle socket/timeout exceptions as transient retry attempts
@@ -139,7 +141,7 @@ class PostmarkMailProvider(IMailProvider):
 
     async def shutdown(self) -> None:
         if self.client:
-            await self.client.aclose()`}</CodeBlock>
+            await self.client.close()`}</CodeBlock>
       </section>
 
       {/* Provider Configuration */}
