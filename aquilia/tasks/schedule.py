@@ -76,32 +76,60 @@ class CronSchedule:
         │ ┌─────────── hour (0-23)
         │ │ ┌─────────── day of month (1-31)
         │ │ │ ┌─────────── month (1-12)
-        │ │ │ │ ┌─────────── day of week (0-6, 0=Sunday)
+        │ │ │ │ ┌─────────── day of week (0-7, 0 and 7 = Sunday)
         │ │ │ │ │
         * * * * *
 
-    Created via the ``cron()`` helper.
+    Day-of-week follows the standard cron convention (``0``/``7`` = Sunday),
+    not Python's :meth:`datetime.weekday` (``0`` = Monday).  ``cron()``
+    normalises parsed values to ``0=Sunday`` before storing them in
+    ``_dow``, and :meth:`matches` compares against ``isoweekday() % 7``.
+
+    Created via the :func:`cron` helper — the parsed field tuples are
+    populated there and should not be constructed by hand.
+
+    Attributes:
+        expression: The original 5-field cron string, kept for display.
+        _minute: Matching minutes; empty tuple means "every minute".
+        _hour: Matching hours; empty tuple means "every hour".
+        _dom: Matching days of month; empty tuple means "every day".
+        _month: Matching months; empty tuple means "every month".
+        _dow: Matching days of week (0=Sunday); empty means "every day".
+
+    Examples::
+
+        schedule = cron("30 2 * * 1")     # Monday 02:30 UTC
+        schedule.matches(datetime(2026, 7, 27, 2, 30, tzinfo=timezone.utc))
+        # → True (2026-07-27 is a Monday)
     """
 
     expression: str
-    _minute: tuple = field(default=(), repr=False)
-    _hour: tuple = field(default=(), repr=False)
-    _dom: tuple = field(default=(), repr=False)
-    _month: tuple = field(default=(), repr=False)
-    _dow: tuple = field(default=(), repr=False)
+    _minute: tuple[int, ...] = field(default=(), repr=False)
+    _hour: tuple[int, ...] = field(default=(), repr=False)
+    _dom: tuple[int, ...] = field(default=(), repr=False)
+    _month: tuple[int, ...] = field(default=(), repr=False)
+    _dow: tuple[int, ...] = field(default=(), repr=False)
 
     @property
     def human_readable(self) -> str:
+        """Human-friendly representation of the cron expression."""
         return f"cron({self.expression})"
 
     def matches(self, dt: datetime) -> bool:
-        """Check if a datetime matches this cron expression."""
+        """
+        Check if a datetime matches this cron expression.
+
+        Day-of-week uses the standard cron convention (``0``/``7`` = Sunday),
+        which differs from :meth:`datetime.weekday` (``0`` = Monday).  Parsed
+        DOW values are normalised to ``0=Sunday`` at parse time, so the
+        comparison here uses ``isoweekday() % 7`` (Sunday → 0, Monday → 1).
+        """
         return (
             (not self._minute or dt.minute in self._minute)
             and (not self._hour or dt.hour in self._hour)
             and (not self._dom or dt.day in self._dom)
             and (not self._month or dt.month in self._month)
-            and (not self._dow or dt.weekday() in self._dow)
+            and (not self._dow or (dt.isoweekday() % 7) in self._dow)
         )
 
     def next_run(self, last_run: datetime | None = None) -> datetime:
@@ -162,7 +190,7 @@ def every(
         IntervalSchedule instance.
 
     Raises:
-        ValueError: If total interval is ≤ 0.
+        TaskScheduleFault: If the total interval is ≤ 0.
     """
     total = seconds + minutes * 60 + hours * 3600 + days * 86400
     if total <= 0:
@@ -177,12 +205,17 @@ def cron(expression: str) -> CronSchedule:
     Supports standard 5-field cron syntax with ``*``, ranges
     (``1-5``), lists (``1,3,5``), and steps (``*/5``).
 
+    Day-of-week follows the standard cron convention: ``0`` **and** ``7``
+    both mean Sunday, ``1`` means Monday.  This matches ``cron(8)``,
+    Celery Beat and Quartz — not Python's :meth:`datetime.weekday`.
+
     Examples::
 
         cron("*/5 * * * *")     # Every 5 minutes
         cron("0 * * * *")       # Every hour at :00
         cron("0 0 * * *")       # Daily at midnight
         cron("30 2 * * 1")      # Monday at 02:30
+        cron("0 0 * * 0")       # Sunday at midnight
         cron("0 */6 * * *")     # Every 6 hours
 
     Args:
@@ -192,7 +225,8 @@ def cron(expression: str) -> CronSchedule:
         CronSchedule instance.
 
     Raises:
-        ValueError: If expression is malformed.
+        TaskScheduleFault: If the expression is malformed or a field value
+            falls outside its allowed range.
     """
     parts = expression.strip().split()
     if len(parts) != 5:
@@ -201,16 +235,19 @@ def cron(expression: str) -> CronSchedule:
         )
 
     ranges = [
-        (0, 59),  # minute
-        (0, 23),  # hour
-        (1, 31),  # day of month
-        (1, 12),  # month
-        (0, 6),  # day of week (0=Monday in Python, adjust)
+        (0, 59, "minute"),
+        (0, 23, "hour"),
+        (1, 31, "day-of-month"),
+        (1, 12, "month"),
+        (0, 7, "day-of-week"),  # 0 and 7 both mean Sunday (cron convention)
     ]
 
     parsed = []
-    for field_str, (lo, hi) in zip(parts, ranges, strict=False):
-        parsed.append(_parse_cron_field(field_str, lo, hi))
+    for field_str, (lo, hi, label) in zip(parts, ranges, strict=False):
+        parsed.append(_parse_cron_field(field_str, lo, hi, label, expression))
+
+    # Normalise day-of-week to 0=Sunday..6=Saturday (7 → 0)
+    dow = tuple(sorted({v % 7 for v in parsed[4]}))
 
     return CronSchedule(
         expression=expression,
@@ -218,37 +255,75 @@ def cron(expression: str) -> CronSchedule:
         _hour=parsed[1],
         _dom=parsed[2],
         _month=parsed[3],
-        _dow=parsed[4],
+        _dow=dow,
     )
 
 
-def _parse_cron_field(field_str: str, lo: int, hi: int) -> tuple:
-    """Parse a single cron field into a tuple of matching values."""
+def _parse_cron_field(
+    field_str: str,
+    lo: int,
+    hi: int,
+    label: str = "field",
+    expression: str = "",
+) -> tuple[int, ...]:
+    """
+    Parse a single cron field into a tuple of matching values.
+
+    Args:
+        field_str: Raw field text (``*``, ``5``, ``1-5``, ``*/5``, ``1,3,5``).
+        lo: Lowest legal value for this field.
+        hi: Highest legal value for this field.
+        label: Human-readable field name, used in fault messages.
+        expression: Full cron expression, used in fault messages.
+
+    Returns:
+        Sorted tuple of matching values, or an empty tuple for ``*``
+        (meaning "match every value").
+
+    Raises:
+        TaskScheduleFault: On non-integer tokens, a non-positive step, or
+            any value outside ``[lo, hi]``.
+    """
     if field_str == "*":
         return ()  # Empty = match all
 
-    values = set()
+    def _int(token: str) -> int:
+        try:
+            return int(token)
+        except ValueError:
+            raise TaskScheduleFault(f"Invalid {label} value {token!r} in cron expression {expression!r}") from None
+
+    values: set[int] = set()
 
     for part in field_str.split(","):
         if "/" in part:
             # Step: */5 or 1-30/5
             base, step_str = part.split("/", 1)
-            step = int(step_str)
+            step = _int(step_str)
+            if step <= 0:
+                raise TaskScheduleFault(f"Cron {label} step must be > 0, got {step} in {expression!r}")
             if base == "*":
                 start, end = lo, hi
             elif "-" in base:
-                start, end = map(int, base.split("-", 1))
+                start_str, end_str = base.split("-", 1)
+                start, end = _int(start_str), _int(end_str)
             else:
-                start, end = int(base), hi
+                start, end = _int(base), hi
             values.update(range(start, end + 1, step))
 
         elif "-" in part:
             # Range: 1-5
-            start, end = map(int, part.split("-", 1))
+            start_str, end_str = part.split("-", 1)
+            start, end = _int(start_str), _int(end_str)
             values.update(range(start, end + 1))
 
         else:
-            # Single value
-            values.add(int(part))
+            values.add(_int(part))
+
+    out_of_range = sorted(v for v in values if v < lo or v > hi)
+    if out_of_range:
+        raise TaskScheduleFault(
+            f"Cron {label} value(s) {out_of_range} outside allowed range {lo}-{hi} in {expression!r}"
+        )
 
     return tuple(sorted(values))

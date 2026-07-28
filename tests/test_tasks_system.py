@@ -46,7 +46,9 @@ class TestJobState:
     def test_state_count(self):
         from aquilia.tasks.job import JobState
 
-        assert len(JobState) == 8
+        # 8 original states + WAITING (workflow dependency gating)
+        assert len(JobState) == 9
+        assert JobState.WAITING.value == "waiting"
 
     def test_state_is_str_enum(self):
         from aquilia.tasks.job import JobState
@@ -110,7 +112,7 @@ class TestJobResult:
         r = JobResult(success=True, value="hello", duration_ms=10.1234)
         d = r.to_dict()
         assert d["success"] is True
-        assert d["value"] == "'hello'"  # repr of string
+        assert d["value"] == "hello"  # JSON-safe values survive round-trip
         assert d["duration_ms"] == 10.12  # rounded
         assert d["error"] is None
 

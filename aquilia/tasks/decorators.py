@@ -119,6 +119,39 @@ class _TaskDescriptor:
         """
         return await self.delay(*args, **kwargs)
 
+    def s(self, *args, **kwargs):
+        """
+        Build a :class:`~aquilia.tasks.workflow.Signature` for this task.
+
+        A signature captures the call without dispatching it, so workflows can
+        wire dependencies between steps before anything is enqueued.  Named
+        ``s()`` to match Celery, where the same concept has the same name.
+
+        Args:
+            *args: Positional arguments for the eventual call.
+            **kwargs: Keyword arguments for the eventual call.
+
+        Returns:
+            A :class:`~aquilia.tasks.workflow.Signature`.
+
+        Examples::
+
+            from aquilia.tasks import chain
+
+            await chain(
+                fetch_data.s(source="api"),
+                transform.s().with_parent_results(),
+            ).run(manager)
+
+        See Also:
+            :func:`aquilia.tasks.workflow.chain`,
+            :func:`aquilia.tasks.workflow.group`,
+            :func:`aquilia.tasks.workflow.chord`.
+        """
+        from .workflow import Signature
+
+        return Signature(self, args, kwargs)
+
     def bind(self, manager) -> None:
         """Bind a TaskManager instance for .delay()/.send() dispatch."""
         self._manager = manager

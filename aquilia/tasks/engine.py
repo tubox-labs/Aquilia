@@ -8,8 +8,12 @@ TaskManager is the central coordinator:
 - Provides monitoring/stats APIs
 
 Backends:
-- MemoryBackend: In-process priority queue (default, no dependencies)
-- Can be extended with Redis, PostgreSQL, etc.
+- :class:`MemoryBackend` — in-process priority queue, the only backend
+  shipped with Aquilia.  Jobs do not survive a process restart.
+- :class:`TaskBackend` — ABC for custom persistent or distributed
+  backends (Redis, PostgreSQL, …).  None ship in-tree; a backend that
+  persists jobs must also choose a safe serialization format, since
+  ``Job.args``/``Job.kwargs`` hold live Python objects today.
 """
 
 from __future__ import annotations
@@ -27,10 +31,14 @@ from heapq import heappop, heappush
 from typing import Any
 
 from .decorators import _TaskDescriptor, get_task
-from .faults import TaskEnqueueFault, TaskResolutionFault
+from .faults import TaskDuplicateFault, TaskEnqueueFault, TaskResolutionFault
 from .job import Job, JobResult, JobState, Priority
 
 logger = logging.getLogger("aquilia.tasks")
+
+#: Sentinel a workflow stores in kwargs, swapped for real dependency results
+#: at execution time.  Kept in sync with :mod:`aquilia.tasks.workflow`.
+_PARENT_RESULTS_MARKER = "__aquilia_parent_results__"
 
 
 # ============================================================================
@@ -39,7 +47,44 @@ logger = logging.getLogger("aquilia.tasks")
 
 
 class TaskBackend(ABC):
-    """Abstract backend for job storage and retrieval."""
+    """
+    Storage and retrieval contract for background jobs.
+
+    A backend owns the queue: it decides which job a worker gets next, holds
+    job state, and — for distributed backends — coordinates ownership so two
+    workers never run the same job concurrently.
+
+    Implementing a backend:
+        The abstract methods below are the minimum.  The *capability* methods
+        that follow (leases, deduplication, dependency gating) ship with
+        working single-process defaults, so a backend written against an
+        earlier version of Aquilia keeps functioning unchanged — it simply
+        reports the newer capabilities as unavailable.
+
+    Capability flags:
+        :attr:`is_distributed` and :attr:`is_persistent` let the manager and
+        the admin dashboard describe honestly what guarantees are in force,
+        rather than implying durability the store cannot provide.
+
+    Delivery semantics:
+        Distributed backends provide **at-least-once** delivery.  A worker
+        claims a job under a time-bounded lease and renews it by heartbeat;
+        if the worker dies the lease lapses and another worker reclaims the
+        job.  A job may therefore run twice if a worker stalls past its lease
+        and then recovers, so task functions should be idempotent.  Use
+        ``dedup`` on :meth:`TaskManager.enqueue` to suppress duplicate
+        *enqueues*; that is a distinct guarantee from duplicate *execution*.
+
+    See Also:
+        :class:`MemoryBackend`, :class:`~aquilia.tasks.backends.RedisBackend`,
+        :class:`~aquilia.tasks.backends.SQLBackend`.
+    """
+
+    #: Whether jobs are visible to workers in other processes or machines.
+    is_distributed: bool = False
+
+    #: Whether jobs survive a process restart.
+    is_persistent: bool = False
 
     @abstractmethod
     async def push(self, job: Job) -> None:
@@ -92,6 +137,150 @@ class TaskBackend(ABC):
     async def flush(self, queue: str | None = None) -> int:
         """Remove all jobs (optionally in a specific queue). Returns count removed."""
 
+    # ── Lifecycle (optional) ────────────────────────────────────────
+
+    async def initialize(self) -> None:
+        """
+        Prepare the backend for use — connect, create schema, warm pools.
+
+        Called once by :meth:`TaskManager.start`.  The default is a no-op so
+        in-memory backends need not implement it.
+        """
+        return None
+
+    async def shutdown(self) -> None:
+        """
+        Release backend resources.  Called by :meth:`TaskManager.stop`.
+
+        The default is a no-op.  Implementations must tolerate being called
+        without a preceding :meth:`initialize`.
+        """
+        return None
+
+    # ── Leases (optional; required for safe distribution) ───────────
+
+    async def heartbeat(self, job: Job, lease_seconds: float) -> bool:
+        """
+        Extend the lease on a job this worker is executing.
+
+        Long-running jobs must renew their lease or another worker will
+        assume the holder died and reclaim the job — producing exactly the
+        duplicate execution leases exist to prevent.
+
+        Args:
+            job: The job currently being executed.
+            lease_seconds: New lease duration measured from now.
+
+        Returns:
+            ``True`` if the lease was extended.  ``False`` means this worker
+            no longer owns the job (its lease already lapsed and another
+            worker took over), and the caller should abandon the work.
+
+        Notes:
+            The default implementation returns ``True`` unconditionally:
+            without cross-process visibility there is no competing owner, so
+            the lease is trivially still held.
+        """
+        return True
+
+    async def reclaim_expired(self, *, limit: int = 100) -> int:
+        """
+        Return jobs whose lease lapsed to the runnable pool.
+
+        This is what makes a crashed worker recoverable rather than a source
+        of silently lost jobs.
+
+        Args:
+            limit: Maximum number of jobs to reclaim in one pass.
+
+        Returns:
+            Number of jobs re-queued.  The default returns ``0`` — an
+            in-process backend loses its jobs on crash regardless, so there
+            is nothing to reclaim.
+        """
+        return 0
+
+    # ── Idempotency (optional) ──────────────────────────────────────
+
+    async def reserve_fingerprint(self, fingerprint: str, job_id: str, ttl: float) -> str | None:
+        """
+        Claim a content fingerprint so duplicate work is not enqueued twice.
+
+        Args:
+            fingerprint: Content digest from :attr:`Job.fingerprint`.
+            job_id: Job attempting the reservation.
+            ttl: Seconds the reservation is held, bounding how long a crashed
+                producer can block later enqueues of the same work.
+
+        Returns:
+            ``None`` when the reservation succeeded, otherwise the ID of the
+            job already holding it.
+
+        Notes:
+            The default returns ``None`` (always succeeds), so backends that
+            cannot offer atomic reservation never *silently* suppress work —
+            they fall back to the historical allow-everything behaviour.
+        """
+        return None
+
+    async def release_fingerprint(self, fingerprint: str, job_id: str) -> None:
+        """
+        Release a fingerprint reservation once the job reaches a terminal state.
+
+        Args:
+            fingerprint: The reserved digest.
+            job_id: Job that holds the reservation.  Implementations must
+                verify ownership so a late release cannot free a reservation
+                a *different* job has since taken.
+        """
+        return None
+
+    # ── Workflows (optional) ────────────────────────────────────────
+
+    async def are_dependencies_satisfied(self, job: Job) -> bool:
+        """
+        Whether every job in ``job.depends_on`` has completed successfully.
+
+        Args:
+            job: Job awaiting its dependencies.
+
+        Returns:
+            ``True`` when the job may proceed.  A job with no dependencies is
+            always satisfied.
+
+        Notes:
+            A dependency that reached a terminal *failure* state never becomes
+            satisfied, so dependents stay ``WAITING`` and are surfaced by
+            :meth:`fail_orphaned_dependents` rather than running on incomplete
+            input.
+        """
+        if not job.depends_on:
+            return True
+        for dep_id in job.depends_on:
+            dep = await self.get(dep_id)
+            if dep is None or dep.state is not JobState.COMPLETED:
+                return False
+        return True
+
+    async def get_dependency_results(self, job: Job) -> list[Any]:
+        """
+        Collect the results of a job's dependencies, in declaration order.
+
+        Enables the fan-in half of a workflow: a chord's callback receives
+        what the parallel group produced.
+
+        Args:
+            job: Job whose dependency results are needed.
+
+        Returns:
+            One entry per dependency; ``None`` where a result is unavailable.
+        """
+        results: list[Any] = []
+        for dep_id in job.depends_on:
+            dep = await self.get(dep_id)
+            results.append(dep.result.value if dep and dep.result else None)
+        return results
+
 
 # ============================================================================
 # In-Memory Backend
@@ -104,17 +293,47 @@ class MemoryBackend(TaskBackend):
 
     Uses a heap per queue for O(log n) push/pop.
     Stores all jobs in a dict for O(1) lookup.
-    Thread-safe via asyncio locks.
+    Concurrency-safe via an ``asyncio.Lock`` (single-event-loop only —
+    this backend is not safe to share across threads or processes).
 
     Suitable for single-process deployments, development, and testing.
+    Jobs live only in memory: a restart loses every queued job.  For
+    durability or multi-process execution use
+    :class:`~aquilia.tasks.backends.RedisBackend` or
+    :class:`~aquilia.tasks.backends.SQLBackend`, which expose the same
+    interface.
+
+    Workflow support:
+        Dependency gating is honoured — a job whose ``depends_on`` set is
+        unsatisfied is skipped by :meth:`pop` and left queued, so chains and
+        DAGs work identically here and in the distributed backends.
+
+    Idempotency:
+        Fingerprint reservation is process-local.  It correctly suppresses
+        duplicate enqueues within this process, which is the only scope that
+        exists for an in-memory queue.
+
+    Args:
+        dead_letter_max: Maximum number of dead-lettered jobs retained for
+            inspection.  Oldest entries are evicted first.
+
+    Examples::
+
+        backend = MemoryBackend(dead_letter_max=5000)
+        manager = TaskManager(backend=backend)
     """
 
-    def __init__(self):
+    is_distributed = False
+    is_persistent = False
+
+    def __init__(self, *, dead_letter_max: int = 1000) -> None:
         self._jobs: dict[str, Job] = {}
         self._queues: dict[str, list] = defaultdict(list)  # heap per queue
         self._counter = 0  # Tie-breaker for heap stability
         self._lock = asyncio.Lock()
-        self._dead_letter: deque[Job] = deque(maxlen=1000)
+        self.dead_letter_max = dead_letter_max
+        self._dead_letter: deque[Job] = deque(maxlen=dead_letter_max)
+        self._fingerprints: dict[str, str] = {}  # fingerprint → job_id
 
     async def push(self, job: Job) -> None:
         async with self._lock:
@@ -126,33 +345,74 @@ class MemoryBackend(TaskBackend):
             )
 
     async def pop(self, queue: str = "default") -> Job | None:
+        """
+        Return the highest-priority job in ``queue`` that is ready to run.
+
+        Jobs are skipped over, not blocked on, when they are not yet due
+        (``scheduled_at`` in the future) or still waiting on workflow
+        dependencies.  Skipped entries are pushed back after the scan, so a
+        delayed or blocked high-priority job never starves ready lower-priority
+        work behind it.
+
+        Complexity: O(k log n) where ``k`` is the number of entries scanned.
+        """
+        deferred: list[tuple] = []
+        found: Job | None = None
+
         async with self._lock:
             heap = self._queues.get(queue, [])
             now = datetime.now(timezone.utc)
+            blocked: list[tuple] = []
             while heap:
-                priority_val, counter, job_id = heappop(heap)
+                entry = heappop(heap)
+                _priority_val, _counter, job_id = entry
                 job = self._jobs.get(job_id)
-                if job is None:
+                if job is None or job.is_terminal:
                     continue
-                if job.is_terminal:
-                    continue
-                # Check scheduled time
                 if job.scheduled_at and now < job.scheduled_at:
-                    # Push back — not ready yet
-                    heappush(heap, (priority_val, counter, job_id))
-                    return None
-                if job.state in (JobState.PENDING, JobState.RETRYING, JobState.SCHEDULED):
-                    return job
-            return None
+                    deferred.append(entry)
+                    continue
+                if job.state in (JobState.PENDING, JobState.RETRYING, JobState.SCHEDULED, JobState.WAITING):
+                    if job.depends_on:
+                        blocked.append((entry, job))
+                        continue
+                    found = job
+                    break
+            for entry in deferred:
+                heappush(heap, entry)
+
+        # Dependency checks re-enter get(); done outside the lock to keep the
+        # critical section free of nested acquisition.
+        if found is None:
+            for entry, job in blocked:
+                if found is None and await self.are_dependencies_satisfied(job):
+                    found = job
+                    continue
+                async with self._lock:
+                    heappush(self._queues[job.queue], entry)
+        else:
+            async with self._lock:
+                for entry, job in blocked:
+                    heappush(self._queues[job.queue], entry)
+
+        return found
 
     async def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
 
     async def update(self, job: Job) -> None:
+        """
+        Persist job state.
+
+        A job that has reached a terminal state releases its fingerprint
+        reservation, so identical work can be scheduled again later.
+        """
         async with self._lock:
             self._jobs[job.id] = job
             if job.state == JobState.DEAD:
                 self._dead_letter.append(job)
+        if job.is_terminal and job.dedup_key:
+            await self.release_fingerprint(job.dedup_key, job.id)
 
     async def list_jobs(
         self,
@@ -323,11 +583,48 @@ class MemoryBackend(TaskBackend):
             for jid in to_remove:
                 del self._jobs[jid]
             self._queues.pop(queue, None)
+            self._fingerprints = {fp: jid for fp, jid in self._fingerprints.items() if jid not in set(to_remove)}
             return len(to_remove)
         count = len(self._jobs)
         self._jobs.clear()
         self._queues.clear()
+        self._fingerprints.clear()
         return count
+
+    # ── Idempotency ─────────────────────────────────────────────────
+
+    async def reserve_fingerprint(self, fingerprint: str, job_id: str, ttl: float) -> str | None:
+        """
+        Claim a fingerprint within this process.
+
+        A reservation held by a job that has since reached a terminal state is
+        treated as stale and taken over, so a completed job never blocks the
+        same work from being scheduled again.
+
+        Args:
+            fingerprint: Content digest to claim.
+            job_id: Job making the claim.
+            ttl: Accepted for interface parity; in-process reservations are
+                released deterministically on completion rather than expiring.
+
+        Returns:
+            ``None`` when the claim succeeded, otherwise the ID of the live
+            job already holding it.
+        """
+        async with self._lock:
+            holder_id = self._fingerprints.get(fingerprint)
+            if holder_id and holder_id != job_id:
+                holder = self._jobs.get(holder_id)
+                if holder is not None and not holder.is_terminal:
+                    return holder_id
+            self._fingerprints[fingerprint] = job_id
+            return None
+
+    async def release_fingerprint(self, fingerprint: str, job_id: str) -> None:
+        """Release a reservation, but only if ``job_id`` still owns it."""
+        async with self._lock:
+            if self._fingerprints.get(fingerprint) == job_id:
+                del self._fingerprints[fingerprint]
 
 
 # ============================================================================
@@ -340,22 +637,65 @@ class TaskManager:
     Central task coordinator.
 
     Manages job lifecycle:
-    1. Accept task via enqueue()
-    2. Store in backend
-    3. Workers pull from backend via pop()
+    1. Accept task via :meth:`enqueue`
+    2. Store in the backend
+    3. Workers pull from the backend via ``pop()``
     4. Execute and update state
-    5. Handle retries on failure
+    5. Handle retries on failure, dead-letter on exhaustion
     6. Provide monitoring APIs
 
-    Usage::
+    Lifecycle:
+        :meth:`start` spawns ``num_workers`` worker tasks plus a cleanup loop
+        and a periodic scheduler; :meth:`stop` cancels them under a bounded
+        wait.  Both are idempotent, and a stopped manager can restart.
+
+    Async-safety:
+        All state lives on one event loop.  Concurrent workers are serialised
+        by the backend's own lock, so a job is never handed out twice.
+
+    Args:
+        backend: Job store; defaults to a fresh :class:`MemoryBackend`.
+        num_workers: Worker loops to spawn on :meth:`start`.  Zero is valid
+            and useful for tests that drive :meth:`drain_once` by hand.
+        default_queue: Queue used when a job names none.
+        cleanup_interval: Seconds between terminal-job cleanup passes.
+        cleanup_max_age: Age after which a terminal job is discarded.
+        scheduler_tick: Seconds between periodic-schedule evaluations.
+        default_timeout: Per-job execution timeout for callables that carry
+            no ``@task`` timeout of their own.
+        default_max_retries: Retry budget for plain callables.
+        default_retry_delay: First retry delay, in seconds.
+        default_retry_backoff: Multiplier applied per retry attempt.
+        default_retry_max_delay: Ceiling on the computed retry delay.
+        lease_seconds: How long a claimed job stays owned before another
+            worker may reclaim it.  Only meaningful on distributed backends.
+        heartbeat_interval: How often a running job renews its lease.  Must be
+            well under ``lease_seconds`` or long jobs will be reclaimed while
+            still running.
+        reclaim_interval: How often to sweep for jobs abandoned by dead
+            workers.  No-op on in-memory backends, which have nothing to
+            reclaim after a crash.
+        dedup_ttl: How long a fingerprint reservation is held, bounding how
+            long a crashed producer can block identical work.
+
+    Attributes:
+        backend: The active :class:`TaskBackend`.
+        is_running: Whether background loops are live.
+
+    Examples::
 
         manager = TaskManager()
-        await manager.start()  # Start background workers
+        await manager.start()
 
-        job_id = await manager.enqueue(my_task, arg1, arg2, kwarg1="val")
+        job_id = await manager.enqueue(my_task, arg1, kwarg1="val")
         status = await manager.get_job(job_id)
 
         await manager.stop()
+
+        # Deterministic, worker-free execution (tests)
+        manager = TaskManager(num_workers=0)
+        await manager.enqueue(my_task)
+        job = await manager.drain_once("test")
     """
 
     def __init__(
@@ -367,6 +707,15 @@ class TaskManager:
         cleanup_interval: float = 300.0,  # 5 minutes
         cleanup_max_age: float = 3600.0,  # 1 hour
         scheduler_tick: float = 15.0,  # Scheduler poll interval in seconds
+        default_timeout: float = 300.0,
+        default_max_retries: int = 3,
+        default_retry_delay: float = 1.0,
+        default_retry_backoff: float = 2.0,
+        default_retry_max_delay: float = 300.0,
+        lease_seconds: float = 300.0,
+        heartbeat_interval: float = 30.0,
+        reclaim_interval: float = 60.0,
+        dedup_ttl: float = 3600.0,
     ):
         self.backend = backend or MemoryBackend()
         self.num_workers = num_workers
@@ -374,10 +723,20 @@ class TaskManager:
         self.cleanup_interval = cleanup_interval
         self.cleanup_max_age = cleanup_max_age
         self.scheduler_tick = scheduler_tick
+        self.default_timeout = default_timeout
+        self.default_max_retries = default_max_retries
+        self.default_retry_delay = default_retry_delay
+        self.default_retry_backoff = default_retry_backoff
+        self.default_retry_max_delay = default_retry_max_delay
+        self.lease_seconds = lease_seconds
+        self.heartbeat_interval = heartbeat_interval
+        self.reclaim_interval = reclaim_interval
+        self.dedup_ttl = dedup_ttl
 
         self._workers: list[asyncio.Task] = []
         self._cleanup_task: asyncio.Task | None = None
         self._scheduler_task: asyncio.Task | None = None
+        self._reclaim_task: asyncio.Task | None = None
         self._running = False
         self._queues: set[str] = {default_queue}
 
@@ -400,9 +759,18 @@ class TaskManager:
     # ========================================================================
 
     async def start(self) -> None:
-        """Start worker tasks, cleanup loop, and scheduler loop."""
+        """
+        Start the backend, worker loops, cleanup, scheduler, and lease reclaim.
+
+        The backend is initialised first so a misconfigured Redis or database
+        fails at startup rather than on the first enqueue.
+
+        Raises:
+            TaskBackendFault: If the backend cannot be initialised.
+        """
         if self._running:
             return
+        await self.backend.initialize()
         self._running = True
         self._started_at = datetime.now(timezone.utc)
 
@@ -429,32 +797,85 @@ class TaskManager:
             name="aquilia-task-scheduler",
         )
 
+        # Reclaim jobs abandoned by crashed workers. Only distributed backends
+        # can lose jobs this way; in-memory ones lose everything on crash and
+        # have nothing to recover.
+        if self.backend.is_distributed:
+            # A shared queue may already hold work in queues this process has
+            # never named, so adopt them before the first poll.
+            with contextlib.suppress(Exception):
+                self._queues.update(await self.backend.get_queue_stats())
+            self._reclaim_task = asyncio.create_task(
+                self._reclaim_loop(),
+                name="aquilia-task-reclaim",
+            )
+
     async def stop(self, timeout: float = 10.0) -> None:
-        """Gracefully stop all workers."""
+        """
+        Gracefully stop workers, cleanup loop, and scheduler.
+
+        Every background task is cancelled, then awaited under a single
+        bounded ``asyncio.wait_for``.  If a job function swallows
+        ``CancelledError`` (e.g. it is blocked in CPU-bound work), the wait
+        expires and shutdown proceeds anyway rather than hanging forever;
+        the stuck task is left detached and a warning is logged.
+
+        Args:
+            timeout: Maximum seconds to wait for tasks to unwind.  Values
+                ≤ 0 skip waiting entirely.
+
+        Side effects:
+            Clears the worker list and drops references to the cleanup and
+            scheduler tasks, so :meth:`start` can be called again.
+        """
         self._running = False
 
-        # Cancel workers
-        for w in self._workers:
-            w.cancel()
+        pending = [*self._workers]
         if self._cleanup_task:
-            self._cleanup_task.cancel()
+            pending.append(self._cleanup_task)
         if self._scheduler_task:
-            self._scheduler_task.cancel()
+            pending.append(self._scheduler_task)
+        if self._reclaim_task:
+            pending.append(self._reclaim_task)
 
-        # Wait for workers to finish
-        await asyncio.gather(*self._workers, return_exceptions=True)
-        if self._cleanup_task:
-            await asyncio.gather(self._cleanup_task, return_exceptions=True)
-        if self._scheduler_task:
-            await asyncio.gather(self._scheduler_task, return_exceptions=True)
+        for t in pending:
+            t.cancel()
+
+        if pending and timeout > 0:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*pending, return_exceptions=True),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                stuck = [t.get_name() for t in pending if not t.done()]
+                logger.warning(
+                    "TaskManager.stop timed out after %.1fs; %d task(s) still running: %s",
+                    timeout,
+                    len(stuck),
+                    ", ".join(stuck),
+                )
 
         self._workers.clear()
         self._cleanup_task = None
         self._scheduler_task = None
+        self._reclaim_task = None
+        await self.backend.shutdown()
 
     @property
     def is_running(self) -> bool:
+        """Whether background loops are live."""
         return self._running
+
+    @property
+    def is_distributed(self) -> bool:
+        """Whether the configured backend spans processes/machines."""
+        return self.backend.is_distributed
+
+    @property
+    def is_persistent(self) -> bool:
+        """Whether queued jobs survive a process restart."""
+        return self.backend.is_persistent
 
     # ========================================================================
     # Enqueue API
@@ -471,25 +892,77 @@ class TaskManager:
         timeout: float | None = None,
         tags: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
+        job_id: str | None = None,
+        depends_on: list[str] | None = None,
+        workflow_id: str | None = None,
+        initial_state: JobState | None = None,
+        dedup: str = "allow",
         **kwargs,
     ) -> str:
         """
         Enqueue a task for background execution.
 
+        Precedence for every tunable is: explicit argument, then the
+        ``@task`` decorator's value, then this manager's configured default.
+        That ordering is what makes ``Integration.tasks(default_timeout=...)``
+        actually reach a plain callable enqueued without a decorator.
+
         Args:
-            func: Async callable or @task-decorated function
-            *args: Positional arguments
-            queue: Queue name (overrides decorator default)
-            priority: Priority level (overrides decorator default)
-            delay: Delay execution by N seconds
-            max_retries: Max retries (overrides decorator default)
-            timeout: Execution timeout (overrides decorator default)
-            tags: Metadata tags
-            metadata: Extra metadata dict
-            **kwargs: Keyword arguments
+            func: Async callable or ``@task``-decorated descriptor.
+            *args: Positional arguments passed to the callable.
+            queue: Queue name override.
+            priority: Priority override.
+            delay: Delay execution by N seconds (job starts ``SCHEDULED``).
+            max_retries: Retry-budget override.
+            timeout: Execution-timeout override, in seconds.
+            tags: Metadata tags.
+            metadata: Extra metadata dict stored on the job.
+            job_id: Pre-assigned ID.  Workflows use this to wire dependencies
+                before any job exists.
+            depends_on: Job IDs that must complete before this job may run.
+            workflow_id: Groups jobs belonging to one workflow.
+            initial_state: Override the starting state; workflows pass
+                ``JobState.WAITING`` for dependent steps.
+            dedup: Duplicate-enqueue policy, matched on
+                :attr:`Job.fingerprint`:
+
+                - ``"allow"`` (default) — always enqueue.  Preserves the
+                  historical behaviour, so existing code is unaffected.
+                - ``"skip"`` — if identical work is already in flight, return
+                  that job's ID instead of enqueueing a second copy.
+                - ``"raise"`` — raise :class:`TaskDuplicateFault` instead.
+
+            **kwargs: Keyword arguments passed to the callable.
 
         Returns:
-            Job ID string
+            The new job's ID — or, under ``dedup="skip"``, the ID of the
+            already-queued job doing the same work.
+
+        Raises:
+            TaskEnqueueFault: If ``func`` is neither callable nor a task
+                descriptor.
+            TaskDuplicateFault: Under ``dedup="raise"`` when identical work is
+                already in flight.
+            TaskSerializationFault: On a persistent backend, if the arguments
+                cannot be represented as JSON.
+
+        Side effects:
+            Registers the queue name so workers begin polling it, and emits
+            an inspector span on the ``TASKS`` lane when a trace is active.
+
+        Notes:
+            Deduplication suppresses duplicate *enqueues*.  It is not a
+            guarantee against duplicate *execution*: distributed backends are
+            at-least-once, so a job whose worker stalls past its lease may run
+            twice.  Task functions should still be idempotent.
+
+        Examples::
+
+            job_id = await manager.enqueue(send_email, to="a@b.co")
+            job_id = await manager.enqueue(cleanup, delay=60, priority=Priority.LOW)
+
+            # Collapse a burst of identical requests into one job
+            await manager.enqueue(rebuild_index, dedup="skip")
         """
         # Extract defaults from @task decorator if available
         if isinstance(func, _TaskDescriptor):
@@ -505,8 +978,8 @@ class TaskManager:
             func_ref = f"{func.__module__}:{func.__qualname__}"
             _queue = queue or self.default_queue
             _priority = priority if priority is not None else Priority.NORMAL
-            _max_retries = max_retries if max_retries is not None else 3
-            _timeout = timeout if timeout is not None else 300.0
+            _max_retries = max_retries if max_retries is not None else self.default_max_retries
+            _timeout = timeout if timeout is not None else self.default_timeout
             _tags = tags or []
             actual_func = func
         else:
@@ -527,6 +1000,15 @@ class TaskManager:
         except ImportError:
             pass
 
+        is_descriptor = isinstance(func, _TaskDescriptor)
+
+        if depends_on:
+            state = initial_state or JobState.WAITING
+        elif delay:
+            state = initial_state or JobState.SCHEDULED
+        else:
+            state = initial_state or JobState.PENDING
+
         job = Job(
             name=getattr(func, "task_name", func_ref.split(":")[-1] if ":" in func_ref else func_ref),
             queue=_queue,
@@ -534,17 +1016,45 @@ class TaskManager:
             func_ref=func_ref,
             args=args,
             kwargs=kwargs,
-            state=JobState.SCHEDULED if delay else JobState.PENDING,
+            state=state,
             max_retries=_max_retries,
-            retry_delay=getattr(func, "retry_delay", 1.0) if isinstance(func, _TaskDescriptor) else 1.0,
-            retry_backoff=getattr(func, "retry_backoff", 2.0) if isinstance(func, _TaskDescriptor) else 2.0,
-            retry_max_delay=getattr(func, "retry_max_delay", 300.0) if isinstance(func, _TaskDescriptor) else 300.0,
+            retry_delay=(
+                getattr(func, "retry_delay", self.default_retry_delay) if is_descriptor else self.default_retry_delay
+            ),
+            retry_backoff=(
+                getattr(func, "retry_backoff", self.default_retry_backoff)
+                if is_descriptor
+                else self.default_retry_backoff
+            ),
+            retry_max_delay=(
+                getattr(func, "retry_max_delay", self.default_retry_max_delay)
+                if is_descriptor
+                else self.default_retry_max_delay
+            ),
             timeout=_timeout,
             scheduled_at=datetime.now(timezone.utc) + timedelta(seconds=delay) if delay else None,
+            depends_on=list(depends_on or []),
+            workflow_id=workflow_id,
             metadata=metadata or {},
             tags=_tags,
             _func=actual_func,
         )
+        if job_id:
+            job.id = job_id
+
+        if dedup != "allow":
+            fingerprint = job.fingerprint
+            holder = await self.backend.reserve_fingerprint(fingerprint, job.id, self.dedup_ttl)
+            if holder is not None and holder != job.id:
+                if dedup == "raise":
+                    raise TaskDuplicateFault(fingerprint, holder)
+                logger.debug(
+                    "Skipping duplicate enqueue of %s; job %s already in flight",
+                    job.name,
+                    holder,
+                )
+                return holder
+            job.dedup_key = fingerprint
 
         await self.backend.push(job)
         self._total_enqueued += 1
@@ -658,22 +1168,50 @@ class TaskManager:
     # Worker Loop
     # ========================================================================
 
+    async def drain_once(self, worker_name: str = "worker") -> Job | None:
+        """
+        Pop and execute at most one ready job across all known queues.
+
+        This is the single unit of work shared by :meth:`_worker_loop` and
+        :class:`aquilia.tasks.worker.Worker`, so polling, queue iteration,
+        and execution semantics live in exactly one place.  It is also the
+        supported hook for driving a manager deterministically from tests
+        without starting background workers.
+
+        Args:
+            worker_name: Label recorded in log lines for this execution.
+
+        Returns:
+            The executed :class:`Job` (already in its post-run state:
+            ``COMPLETED``, ``RETRYING``, or ``DEAD``), or ``None`` when no
+            queue had a runnable job.
+
+        Notes:
+            Job failures are handled internally by :meth:`_handle_failure`
+            and do **not** propagate — inspect the returned job's ``state``
+            to detect them.
+
+        Examples::
+
+            manager = TaskManager()
+            await manager.enqueue(my_task)
+            job = await manager.drain_once("test")
+            assert job.state is JobState.COMPLETED
+        """
+        for queue in list(self._queues):
+            job = await self.backend.pop(queue)
+            if job:
+                await self._execute_job(job, worker_name)
+                return job
+        return None
+
     async def _worker_loop(self, worker_name: str) -> None:
-        """Main worker loop — polls backend for jobs and executes them."""
+        """Main worker loop — polls the backend for jobs and executes them."""
         while self._running:
             try:
-                job = None
-                # Try each known queue
-                for queue in list(self._queues):
-                    job = await self.backend.pop(queue)
-                    if job:
-                        break
-
+                job = await self.drain_once(worker_name)
                 if job is None:
                     await asyncio.sleep(0.1)  # Idle polling interval
-                    continue
-
-                await self._execute_job(job, worker_name)
 
             except asyncio.CancelledError:
                 break
@@ -682,10 +1220,25 @@ class TaskManager:
                 await asyncio.sleep(1.0)
 
     async def _execute_job(self, job: Job, worker_name: str) -> None:
-        """Execute a single job with timeout, retry, and result tracking."""
+        """
+        Execute one job with timeout, lease renewal, retry, and result tracking.
+
+        A heartbeat task runs alongside the job on distributed backends,
+        renewing the lease so a long-running job is not reclaimed and executed
+        a second time elsewhere.
+
+        Workflow steps declared with ``with_parent_results()`` have their
+        dependencies' return values substituted into ``parent_results`` here,
+        at execution time — the values are read from the backend rather than
+        captured at enqueue time, so they are correct even after a restart.
+        """
         job.state = JobState.RUNNING
         job.started_at = datetime.now(timezone.utc)
         await self.backend.update(job)
+
+        heartbeat: asyncio.Task | None = None
+        if self.backend.is_distributed:
+            heartbeat = asyncio.create_task(self._heartbeat_loop(job), name=f"aquilia-heartbeat-{job.id}")
 
         start_time = time.monotonic()
         try:
@@ -699,9 +1252,13 @@ class TaskManager:
                 else:
                     raise TaskResolutionFault(job.func_ref)
 
+            call_kwargs = dict(job.kwargs)
+            if call_kwargs.get("parent_results") == _PARENT_RESULTS_MARKER:
+                call_kwargs["parent_results"] = await self.backend.get_dependency_results(job)
+
             # Execute with timeout
             result = await asyncio.wait_for(
-                func(*job.args, **job.kwargs),
+                func(*job.args, **call_kwargs),
                 timeout=job.timeout,
             )
 
@@ -743,6 +1300,55 @@ class TaskManager:
                 traceback_str=tb_mod.format_exc(),
                 elapsed=elapsed,
             )
+
+        finally:
+            if heartbeat is not None:
+                heartbeat.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await heartbeat
+
+    async def _heartbeat_loop(self, job: Job) -> None:
+        """
+        Renew a running job's lease until the job finishes.
+
+        Stops early if the backend reports ownership was lost — at that point
+        another worker has already reclaimed the job, and continuing to renew
+        would only mask the duplicate execution.
+        """
+        while True:
+            try:
+                await asyncio.sleep(self.heartbeat_interval)
+                if not await self.backend.heartbeat(job, self.lease_seconds):
+                    logger.warning(
+                        "Lost lease on job %s while executing; another worker has reclaimed it",
+                        job.id,
+                    )
+                    return
+            except asyncio.CancelledError:
+                return
+            except Exception as e:  # pragma: no cover - heartbeat is best-effort
+                logger.warning("Heartbeat error for job %s: %s", job.id, e)
+                return
+
+    async def _reclaim_loop(self) -> None:
+        """
+        Periodically return jobs abandoned by crashed workers to the queue.
+
+        Also refreshes the polled queue set from the backend: on a shared
+        queue another process can create a queue this one never named, and a
+        worker only polls queues it knows about.
+        """
+        while self._running:
+            try:
+                await asyncio.sleep(self.reclaim_interval)
+                reclaimed = await self.backend.reclaim_expired()
+                if reclaimed:
+                    logger.info("Reclaimed %d job(s) from expired leases", reclaimed)
+                self._queues.update(await self.backend.get_queue_stats())
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Reclaim loop error: %s", e)
 
     async def _handle_failure(
         self,
@@ -824,12 +1430,18 @@ class TaskManager:
         on task descriptors so they can dispatch jobs without a direct
         reference to the TaskManager instance.
 
+        Each descriptor's queue is also registered for polling.  A
+        consumer-only process never calls :meth:`enqueue`, so without this
+        it would poll only ``default_queue`` and silently ignore work another
+        process queued elsewhere.
+
         Also logs periodic tasks that will be managed by the scheduler.
         """
         from .decorators import get_periodic_tasks, get_registered_tasks
 
         for _name, descriptor in get_registered_tasks().items():
             descriptor.bind(self)
+            self._queues.add(descriptor.queue)
 
         get_periodic_tasks()
 
