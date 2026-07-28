@@ -151,7 +151,7 @@ _init_default_rules()
 
 
 class DiscoveryCache:
-    """Maintains file metadata hashes to avoid redundant AST parsing using SURP format."""
+    """Maintains file metadata hashes to avoid redundant AST parsing using JSON format."""
 
     def __init__(self, cache_file: Path):
         self.cache_file = cache_file
@@ -161,9 +161,9 @@ class DiscoveryCache:
     def load(self) -> None:
         if self.cache_file.exists():
             try:
-                import surp as surp_backend
+                import json
 
-                self._data = surp_backend.decode_from_file(str(self.cache_file)) or {}
+                self._data = json.loads(self.cache_file.read_text(encoding="utf-8")) or {}
             except Exception:
                 self._data = {}
         else:
@@ -172,9 +172,9 @@ class DiscoveryCache:
     def save(self) -> None:
         try:
             self.cache_file.parent.mkdir(parents=True, exist_ok=True)
-            import surp as surp_backend
+            import json
 
-            surp_backend.encode_to_file(self._data, str(self.cache_file))
+            self.cache_file.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
         except Exception as e:
             logger.warning(f"Failed to save discovery cache: {e}")
 
@@ -846,7 +846,7 @@ class AutoDiscoveryEngine:
         result.files_scanned = len(files)
 
         # Initialize discovery cache
-        cache_file = self.modules_dir.parent / ".aquilia" / "discovery_cache.surp"
+        cache_file = self.modules_dir.parent / ".aquilia" / "discovery_cache.json"
         cache = DiscoveryCache(cache_file)
 
         for file_path in files:

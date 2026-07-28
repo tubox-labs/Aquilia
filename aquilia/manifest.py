@@ -721,7 +721,7 @@ class TemplateConfig:
         enabled: If `True` (default), enables template rendering for this module.
         search_paths: List of directory paths (relative to module root) containing templates.
         precompile: If `True`, compiles all templates at application boot time for faster response.
-        cache: Caching backend. Must be `"memory"`, `"surp"`, or `"none"`.
+        cache: Caching backend. Must be `"memory"`, `"json"`, or `"none"`.
         sandbox: If `True` (default), uses a secure sandboxed Jinja environment to prevent arbitrary code execution.
         context_processors: List of dotted path strings to callables returning template global context.
 
@@ -738,7 +738,7 @@ class TemplateConfig:
     enabled: bool = True
     search_paths: list[str] = field(default_factory=list)
     precompile: bool = False
-    cache: str = "memory"  # "memory", "surp", "none"
+    cache: str = "memory"  # "memory", "json", "none"
     sandbox: bool = True
     context_processors: list[str] = field(default_factory=list)
 

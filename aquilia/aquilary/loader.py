@@ -125,7 +125,7 @@ class ManifestLoader:
             elif isinstance(source, str):
                 path = Path(source)
 
-                if path.suffix in (".yaml", ".yml", ".json", ".surp"):
+                if path.suffix in (".yaml", ".yml", ".json"):
                     # DSL file
                     resolved.append(
                         ManifestSource(
@@ -406,7 +406,7 @@ class ManifestLoader:
 
     def _load_from_dsl_file(self, path: Path) -> Any:
         """
-        Load manifest from DSL file (YAML/JSON/Surp).
+        Load manifest from DSL file (YAML/JSON).
 
         Args:
             path: Path to DSL file
@@ -416,14 +416,7 @@ class ManifestLoader:
         """
         import json
 
-        if path.suffix == ".surp":
-            try:
-                import surp as surp_backend
-
-                data = surp_backend.decode(path.read_bytes())
-            except ImportError:
-                raise ImportError("Surp package required for .surp manifests. Install with: pip install surp")
-        elif path.suffix == ".json":
+        if path.suffix == ".json":
             data = json.loads(path.read_text(encoding="utf-8"))
         elif path.suffix in (".yaml", ".yml"):
             try:
@@ -519,7 +512,7 @@ class ManifestLoader:
                 )
 
         # DSL manifests
-        for pattern in ["manifest.yaml", "manifest.yml", "manifest.json", "manifest.surp"]:
+        for pattern in ["manifest.yaml", "manifest.yml", "manifest.json"]:
             for path in directory.glob(pattern):
                 sources.append(
                     ManifestSource(

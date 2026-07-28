@@ -1352,7 +1352,7 @@ def render_provider_page(
             env_vars_by_service=provider_data.get("env_vars_by_service", {}),
             credential_status=provider_data.get("credential_status", "unconfigured"),
             credential_cipher=provider_data.get("credential_cipher", "—"),
-            surp_version=provider_data.get("surp_version", "—"),
+            storage_format=provider_data.get("storage_format", "JSON"),
             token_age=provider_data.get("token_age", "—"),
             token_expired=provider_data.get("token_expired", True),
             owner_name=provider_data.get("owner_name", "—"),

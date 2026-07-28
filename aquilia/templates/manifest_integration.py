@@ -8,7 +8,7 @@ Features:
 - Auto-discover templates/ directories in modules
 - Read templates: section from manifest files
 - Configure loader search paths from manifest
-- Compile templates as part of surp artifact generation
+- Compile templates as part of json artifact generation
 """
 
 import json
@@ -35,7 +35,7 @@ class TemplateManifestConfig:
             - ./templates
             - ./themes/default
           precompile: true
-          cache: surp
+          cache: json
     """
 
     def __init__(self, manifest_data: dict[str, Any]):
@@ -247,23 +247,23 @@ def get_cache_strategy(manifest_path: Path) -> str:
         manifest_path: Path to module.aq
 
     Returns:
-        Cache strategy: "memory", "surp", "redis", "none"
+        Cache strategy: "memory", "json", "redis", "none"
     """
     config = TemplateManifestConfig.from_file(manifest_path)
     return config.cache_type
 
 
 # ============================================================================
-# Integration with Surp Artifacts
+# Integration with JSON Artifacts
 # ============================================================================
 
 
 def generate_template_manifest(template_dirs: list[Path], output_path: Path) -> None:
     """
-    Generate template manifest for surp artifacts.
+    Generate template manifest for json artifacts.
 
     Creates templates.json with metadata about all templates
-    for inclusion in surp artifact.
+    for inclusion in json artifact.
 
     Args:
         template_dirs: List of template directories

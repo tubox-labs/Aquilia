@@ -2,7 +2,7 @@
 Template CLI - Command-line interface for template management.
 
 Provides commands:
-- aq templates compile: Compile templates to surp artifacts
+- aq templates compile: Compile templates to json artifacts
 - aq templates lint: Lint templates for errors
 - aq templates inspect: Inspect template metadata
 - aq templates clear-cache: Clear bytecode cache
@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from .bytecode_cache import InMemoryBytecodeCache, SurpBytecodeCache
+from .bytecode_cache import InMemoryBytecodeCache, JSONBytecodeCache
 from .engine import TemplateEngine
 from .loader import TemplateLoader
 from .manager import TemplateManager
@@ -40,7 +40,7 @@ def create_template_engine_from_config(
 
     # Create bytecode cache
     if mode == "prod":
-        bytecode_cache = SurpBytecodeCache(cache_dir=cache_dir)
+        bytecode_cache = JSONBytecodeCache(cache_dir=cache_dir)
     else:
         # Use in-memory cache for dev
         bytecode_cache = InMemoryBytecodeCache()
@@ -55,12 +55,12 @@ def create_template_engine_from_config(
 
 async def cmd_compile(
     template_dirs: list[str] | None = None,
-    output: str = "artifacts/templates.surp",
+    output: str = "artifacts/templates.json",
     mode: str = "prod",
     verbose: bool = False,
 ):
     """
-    Compile all templates to surp artifact.
+    Compile all templates to json artifact.
 
     Args:
         template_dirs: Template directories to compile
@@ -242,7 +242,7 @@ async def cmd_clear_cache(
     """
     try:
         # Clear bytecode cache
-        bytecode_cache = SurpBytecodeCache(cache_dir=cache_dir)
+        bytecode_cache = JSONBytecodeCache(cache_dir=cache_dir)
 
         if template_name:
             bytecode_cache.invalidate(template_name)
@@ -304,7 +304,7 @@ def _discover_template_dirs() -> list[str]:
 def compile_command(args):
     """Entry point for `aq templates compile`."""
     template_dirs = args.get("dirs")
-    output = args.get("output", "artifacts/templates.surp")
+    output = args.get("output", "artifacts/templates.json")
     mode = args.get("mode", "prod")
     verbose = args.get("verbose", False)
 

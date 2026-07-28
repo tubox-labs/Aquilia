@@ -615,26 +615,19 @@ def _compute_checksum(snapshot: dict[str, Any]) -> str:
 
 
 def save_snapshot(snapshot: dict[str, Any], path: Path) -> None:
-    """Write snapshot to file in SURP binary format, falling back to JSON if surp is not installed."""
+    """Write snapshot to file in JSON format."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        import surp as surp_backend
-
-        surp_backend.encode_to_file(snapshot, str(path))
-    except ImportError:
-        path.write_text(json.dumps(snapshot, sort_keys=True, default=str), encoding="utf-8")
+    path.write_text(json.dumps(snapshot, indent=2, sort_keys=True, default=str), encoding="utf-8")
 
 
 def load_snapshot(path: Path) -> dict[str, Any] | None:
-    """Load snapshot from file in SURP binary format."""
+    """Load snapshot from file in JSON format."""
     path = Path(path)
     if not path.exists():
         return None
     try:
-        import surp as surp_backend
-
-        return cast(dict[str, Any] | None, surp_backend.decode_from_file(str(path)))
+        return cast(dict[str, Any] | None, json.loads(path.read_text(encoding="utf-8")))
     except (OSError, Exception) as exc:
         logger.warning(f"Failed to load snapshot {path}: {exc}")
         return None

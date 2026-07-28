@@ -26,7 +26,6 @@ _BINARY_SUFFIXES = {
     ".so",
     ".sqlite",
     ".sqlite3",
-    ".surp",
     ".webp",
     ".zip",
 }

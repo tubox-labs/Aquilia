@@ -1753,7 +1753,7 @@ def i18n():
 @click.option(
     "--format",
     "-f",
-    type=click.Choice(["json", "yaml", "surp"]),
+    type=click.Choice(["json", "yaml"]),
     default="json",
     help="Translation file format",
 )
@@ -1768,7 +1768,6 @@ def i18n_init(ctx, locales: str, directory: str, format: str):
       aq i18n init
       aq i18n init --locales en,fr,de,ja
       aq i18n init --directory translations --format yaml
-      aq i18n init --format surp
     """
     from .commands.i18n import cmd_i18n_init
 
@@ -1875,9 +1874,7 @@ def i18n_coverage(ctx):
 @click.pass_context
 def i18n_compile(ctx, directory: str, output: str | None):
     """
-    Compile JSON locale files to SURP format.
-
-    Produces `.surp` catalogs for faster startup and lookup.
+    Validate and compile JSON locale files.
 
     Examples:
       aq i18n compile
@@ -1915,16 +1912,16 @@ def db():
 @click.option(
     "--format",
     "fmt",
-    type=click.Choice(["python", "surp"]),
-    default="surp",
-    help="Migration file format -- surp (binary, default) or python",
+    type=click.Choice(["python", "json"]),
+    default="json",
+    help="Migration file format -- json (default) or python",
 )
 @click.pass_context
 def db_makemigrations(ctx, app: str | None, migrations_dir: str, dsl: bool, fmt: str):
     """
     Generate migration files from Python Model definitions.
 
-    Uses SURP binary format by default for compact, efficient migration
+    Uses JSON format by default for compact, efficient migration
     storage.  Pass ``--format=python`` for human-readable DSL files.
 
     Examples:

@@ -51,21 +51,12 @@ def cmd_i18n_init(
     Creates:
     - ``locales/`` directory
     - Locale subdirectories for each specified locale
-    - Starter ``messages.json`` (or ``.surp`` if format is ``"surp"`` and available)
+    - Starter ``messages.json``
     """
     locale_list = [l.strip() for l in (locales or "en").split(",")]
     base_dir = Path(directory)
 
-    # Resolve format — SURP preferred if available
-    actual_format = format
-    if format == "surp":
-        try:
-            import surp  # noqa: F401
-
-            actual_format = "surp"
-        except ImportError:
-            click.echo(click.style("  ⚠  surp library not installed — falling back to JSON", fg="yellow"))
-            actual_format = "json"
+    actual_format = format if format in ("json", "yaml") else "json"
 
     click.echo(click.style("Initializing i18n...", fg="cyan", bold=True))
     click.echo(f"  Directory:  {base_dir}")
@@ -176,27 +167,6 @@ def cmd_i18n_init(
                 json.dumps(content, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
-        elif actual_format == "surp":
-            import hashlib as _hashlib
-            from datetime import datetime as _dt
-            from datetime import timezone as _tz
-
-            import surp as _surp
-
-            # Write with SURP envelope
-            canonical = json.dumps(content, sort_keys=True, separators=(",", ":"))
-            fingerprint = f"sha256:{_hashlib.sha256(canonical.encode()).hexdigest()}"
-            envelope = {
-                "__format__": "surp",
-                "schema_version": "1.0",
-                "artifact_type": "i18n_catalog",
-                "locale": locale,
-                "namespace": "messages",
-                "fingerprint": fingerprint,
-                "created_at": _dt.now(_tz.utc).isoformat(),
-                "translations": content,
-            }
-            _surp.encode_to_file(envelope, str(messages_file))
         elif actual_format == "yaml":
             try:
                 import yaml
@@ -496,37 +466,26 @@ def cmd_i18n_compile(
     verbose: bool = False,
 ) -> None:
     """
-    Compile JSON translation files to SURP binary format.
-
-    SURP files load significantly faster than JSON at startup.
-    The compiled ``.surp`` files are placed alongside the source
-    ``.json`` files unless an output directory is specified.
+    Validate and compile translation files for JSON catalog loading.
 
     Args:
         directory: Source locales directory
-        output: Output directory for .surp files (None = same as source)
+        output: Output directory (None = same as source)
         verbose: Show detailed output
     """
-    try:
-        import surp  # noqa: F401
-    except ImportError:
-        click.echo(click.style("❌ surp library is not installed.", fg="red"))
-        click.echo("  Install with: pip install surp")
-        return
+    from aquilia.i18n.catalog import JSONCatalog
 
-    from aquilia.i18n.catalog import SurpCatalog
-
-    click.echo(click.style("Compiling i18n catalogs to SURP format...", fg="cyan", bold=True))
+    click.echo(click.style("Compiling i18n catalogs...", fg="cyan", bold=True))
     click.echo(f"  Source:  {directory}")
     if output:
         click.echo(f"  Output:  {output}")
     click.echo()
 
-    catalog = SurpCatalog([directory], auto_compile=False)
-    compiled = catalog.compile(directory=output)
+    catalog = JSONCatalog([directory])
+    compiled = len(catalog.locales())
 
     if compiled > 0:
         click.echo()
-        click.echo(click.style(f"✅ Compiled {compiled} file(s) to SURP format.", fg="green"))
+        click.echo(click.style(f"✅ Processed {compiled} locale catalog(s).", fg="green"))
     else:
-        click.echo(click.style("No JSON files found to compile.", fg="yellow"))
+        click.echo(click.style("No locale files found.", fg="yellow"))

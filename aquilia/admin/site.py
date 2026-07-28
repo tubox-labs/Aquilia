@@ -624,7 +624,7 @@ class AdminSite:
 
         self._initialized = True
 
-        # Restore audit history from SURP file (server startup only)
+        # Restore audit history from JSON file (server startup only)
         self.audit_log.start()
 
     def register_admin(self, model_cls: type[Model], admin: ModelAdmin) -> None:
@@ -1674,7 +1674,7 @@ class AdminSite:
             "env_vars_by_service": {},
             "credential_status": "unconfigured",
             "credential_cipher": "—",
-            "surp_version": "—",
+            "storage_format": "JSON",
             "token_age": "—",
             "token_expired": True,
             "owner_name": "—",
@@ -1750,7 +1750,7 @@ class AdminSite:
                     else ("inactive" if is_configured else "unconfigured")
                 )
                 data["credential_cipher"] = status.get("cipher_suite", "AES-256-GCM")
-                data["surp_version"] = f"v{status.get('surp_version', 2)}"
+                data["storage_format"] = status.get("storage_format", "JSON")
                 age_hours = status.get("token_age_hours")
                 data["token_age"] = f"{age_hours}h" if age_hours is not None else "—"
                 data["token_expired"] = is_expired
@@ -6767,78 +6767,6 @@ class AdminSite:
             escaped = re.sub(
                 r"([\{\}\[\]])",
                 r'<span class="op">\1</span>',
-                escaped,
-            )
-
-            line_num = f'<span class="code-line-num">{i}</span>'
-            result_lines.append(f"{line_num}{escaped}")
-
-        return "\n".join(result_lines)
-
-    @staticmethod
-    def _highlight_surp(source: str) -> str:
-        """Apply syntax highlighting to Surp format data."""
-        import html as html_mod
-        import re
-
-        lines = source.split("\n")
-        result_lines = []
-
-        for i, line in enumerate(lines, 1):
-            escaped = html_mod.escape(line)
-
-            # Comments (# or //)
-            escaped = re.sub(
-                r"(#.*?)$",
-                r'<span class="cmt">\1</span>',
-                escaped,
-            )
-            escaped = re.sub(
-                r"(//.*?)$",
-                r'<span class="cmt">\1</span>',
-                escaped,
-            )
-
-            # Section headers [SectionName]
-            escaped = re.sub(
-                r"^(\s*)(\[[\w\.\-]+\])",
-                r'\1<span class="cls">\2</span>',
-                escaped,
-            )
-
-            # Keys (before = or :)
-            escaped = re.sub(
-                r"^(\s*)([\w\.\-]+)\s*(=|:)",
-                r'\1<span class="kw">\2</span> \3',
-                escaped,
-            )
-
-            # Strings
-            escaped = re.sub(
-                r"(&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;)",
-                r'<span class="str">\1</span>',
-                escaped,
-            )
-
-            # Numbers
-            escaped = re.sub(
-                r"\b(\d+\.?\d*)\b",
-                r'<span class="num">\1</span>',
-                escaped,
-            )
-
-            # Booleans
-            escaped = re.sub(
-                r"\b(true|false|yes|no|null|none)\b",
-                r'<span class="kw">\1</span>',
-                escaped,
-                flags=re.IGNORECASE,
-            )
-
-            # Hex values (common in Surp binary dumps)
-            escaped = re.sub(
-                r"\b(0x[0-9a-fA-F]+)\b",
-                r'<span class="num">\1</span>',
                 escaped,
             )
 

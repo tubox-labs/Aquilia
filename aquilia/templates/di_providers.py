@@ -24,7 +24,7 @@ from aquilia.di.decorators import factory, service
 from .bytecode_cache import (
     BytecodeCache,
     InMemoryBytecodeCache,
-    SurpBytecodeCache,
+    JSONBytecodeCache,
 )
 from .engine import TemplateEngine
 from .loader import TemplateLoader
@@ -99,7 +99,7 @@ class BytecodeCacheProvider:
     def provide(self) -> BytecodeCache:
         """
         Provide bytecode cache based on config:
-        - templates.cache: "memory", "surp", "redis", "none"
+        - templates.cache: "memory", "json", "redis", "none"
         """
         if not self.config:
             return InMemoryBytecodeCache(max_size=100)
@@ -110,9 +110,9 @@ class BytecodeCacheProvider:
             max_size = self.config.get("templates.cache_size", 100)
             return InMemoryBytecodeCache(max_size=max_size)
 
-        elif cache_type == "surp":
-            # Surp bytecode cache for persistent compilation
-            return SurpBytecodeCache()
+        elif cache_type == "json":
+            # JSON bytecode cache for persistent compilation
+            return JSONBytecodeCache()
 
         elif cache_type == "none":
             # No caching (development mode)
@@ -328,7 +328,7 @@ def create_production_engine(
 ) -> TemplateEngine:
     """
     Factory for production template engine:
-    - Surp bytecode cache (persistent)
+    - JSON bytecode cache (persistent)
     - Strict sandbox
     - Optimized for performance
     """

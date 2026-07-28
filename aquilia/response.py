@@ -63,28 +63,9 @@ except ImportError:
     BROTLI_AVAILABLE = False
 
 # Native async file I/O
-from .filesystem import stream_read as _fs_stream_read
-
-# Import Surp binary serializer
-try:
-    import surp as _surp_mod
-
-    _HAS_SURP = True
-except ImportError:
-    _surp_mod = None  # type: ignore[assignment]
-    _HAS_SURP = False
-
 # Import Aquilia components
 from .faults import Fault, FaultDomain, Severity
-
-# SURP media type constants
-SURP_MEDIA_TYPE = "application/x-surp"
-
-
-def has_surp() -> bool:
-    """Return ``True`` if the ``surp`` library is importable."""
-    return _HAS_SURP
-
+from .filesystem import stream_read as _fs_stream_read
 
 logger = logging.getLogger("aquilia.response")
 
@@ -99,19 +80,6 @@ def _json_default_serializer(o):
     if hasattr(o, "isoformat"):
         return o.isoformat()
     return str(o)
-
-
-def _surp_compatible(obj: Any) -> Any:
-    """Normalize common Python containers to Surp-supported shapes."""
-    if isinstance(obj, dict):
-        return {str(key): _surp_compatible(value) for key, value in obj.items()}
-    if isinstance(obj, Mapping):
-        return {str(key): _surp_compatible(value) for key, value in obj.items()}
-    if isinstance(obj, tuple):
-        return [_surp_compatible(value) for value in obj]
-    if isinstance(obj, list):
-        return [_surp_compatible(value) for value in obj]
-    return obj
 
 
 # ============================================================================
@@ -641,75 +609,6 @@ class Response:
         )
 
     @classmethod
-    def surp(
-        cls,
-        obj: Any,
-        status: int = 200,
-        *,
-        headers: Mapping[str, str] | None = None,
-        compression: str | None = None,
-        dedup: bool = True,
-        **kwargs,
-    ) -> Response:
-        """
-        Create a SURP binary response.
-
-        Serialises ``obj`` into Surp wire format and returns a ``Response`` with
-        ``Content-Type: application/x-surp``.
-
-        Falls back to JSON automatically when the ``surp`` library
-        is not installed.
-
-        Args:
-            obj: Python object to serialise (dict, list, str, int, …)
-            status: HTTP status code.
-            headers: Additional response headers.
-            compression: Optional block compression
-                         (``"lz4"``, ``"zstd"``, ``"snappy"``
-                         or ``None`` for no compression).
-            dedup: Enable string deduplication (default ``True``).
-            **kwargs: Forwarded to ``Response.__init__``.
-
-        Returns:
-            Response with SURP binary body.
-
-        Example::
-
-            @GET("/users")
-            async def list_users(self, ctx):
-                return Response.surp({"users": users})
-        """
-        if not _HAS_SURP:
-            # Graceful degradation — fall back to JSON
-            return cls.json(obj, status=status, headers=headers, **kwargs)
-
-        try:
-            if compression is not None and compression.lower() not in {"none", "lz4", "zstd", "snappy"}:
-                compression = None
-            content = _surp_mod.dumps(
-                _surp_compatible(obj),
-                compression=compression,
-                dedup=dedup,
-                sort_keys=False,
-            )
-        except Exception as exc:
-            logger.warning("SURP encode failed (%s); falling back to JSON", exc)
-            return cls.json(obj, status=status, headers=headers, **kwargs)
-
-        merged_headers: dict[str, str] = dict(headers or {})
-        merged_headers.setdefault("content-length", str(len(content)))
-        # Signal the wire format version for proxies / CDNs
-        merged_headers.setdefault("x-surp-version", "1")
-
-        return cls(
-            content=content,
-            status=status,
-            headers=merged_headers,
-            media_type=SURP_MEDIA_TYPE,
-            **kwargs,
-        )
-
-    @classmethod
     def negotiated(
         cls,
         obj: Any,
@@ -721,15 +620,6 @@ class Response:
     ) -> Response:
         """Create a response with automatic content negotiation.
 
-        Inspects the ``Accept`` header on *request* and returns
-        either a SURP or JSON response.
-
-        Resolution order:
-        1. If the handler is decorated with ``@requires_surp`` and
-           the client accepts SURP → SURP.
-        2. If ``request.prefers_surp()`` → SURP.
-        3. Otherwise → JSON.
-
         Args:
             obj: Python object to serialise.
             request: The incoming :class:`~aquilia.request.Request`.
@@ -738,31 +628,8 @@ class Response:
             **kwargs: Forwarded to the underlying factory.
 
         Returns:
-            Response in the negotiated format.
-
-        Example::
-
-            @GET("/users")
-            async def list_users(self, ctx):
-                return Response.negotiated(users, ctx.request)
+            Response in JSON format.
         """
-        use_surp = False
-
-        if _HAS_SURP:
-            # Check handler-level preference (stored in state by router)
-            handler = None
-            if hasattr(request, "state") and isinstance(request.state, dict):
-                handler = request.state.get("matched_handler")
-            if handler and getattr(handler, "__surp_response__", False):
-                if hasattr(request, "accepts_surp") and request.accepts_surp():
-                    use_surp = True
-
-            # Check client preference
-            if not use_surp and hasattr(request, "prefers_surp"):
-                use_surp = request.prefers_surp()
-
-        if use_surp:
-            return cls.surp(obj, status=status, headers=headers, **kwargs)
         return cls.json(obj, status=status, headers=headers, **kwargs)
 
     @classmethod
@@ -2000,34 +1867,6 @@ def not_modified_response(etag: str | None = None) -> Response:
     return response
 
 
-# ============================================================================
-# SURP Decorator
-# ============================================================================
-
-
-def requires_surp(func: Callable) -> Callable:
-    """Mark a handler as preferring SURP binary responses.
-
-    When combined with :meth:`Response.negotiated`, responses will be
-    encoded as SURP when the client includes a SURP media type in
-    its ``Accept`` header.
-
-    The decorator simply sets ``func.__surp_response__ = True`` — it
-    does **not** alter control flow or enforce SURP.  If the client
-    does not accept SURP (or the library is unavailable), JSON is
-    returned transparently.
-
-    Example::
-
-        @requires_surp
-        @GET("/metrics")
-        async def metrics(self, ctx):
-            return Response.negotiated(data, ctx.request)
-    """
-    func.__surp_response__ = True  # type: ignore[attr-defined]
-    return func
-
-
 __all__ = [
     "Response",
     "BackgroundTask",
@@ -2055,8 +1894,4 @@ __all__ = [
     "generate_etag_from_file",
     "check_not_modified",
     "not_modified_response",
-    # SURP support
-    "SURP_MEDIA_TYPE",
-    "has_surp",
-    "requires_surp",
 ]

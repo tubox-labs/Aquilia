@@ -300,7 +300,7 @@ def cmd_makemigrations(
     migrations_dir: str = "migrations",
     verbose: bool = False,
     use_dsl: bool = True,
-    migration_format: str = "surp",
+    migration_format: str = "json",
 ) -> list[Path]:
     """
     Generate migration files from Python Model definitions.
@@ -310,7 +310,7 @@ def cmd_makemigrations(
     raw-SQL migration generator.
 
     Args:
-        migration_format: "surp" (default) for SURP binary format,
+        migration_format: "json" (default) for JSON format,
                           "python" for human-readable DSL files.
 
     Returns:
@@ -343,8 +343,7 @@ def cmd_makemigrations(
             click.echo(click.style("No model changes detected.", fg="yellow"))
             return []
 
-        # SURP snapshot is now saved by default within generate_dsl_migration
-        # No need to write a separate JSON snapshot
+        # JSON snapshot is now saved by default within generate_dsl_migration
 
         model_names = ", ".join(m.__name__ for m in models)
         click.echo(
@@ -353,7 +352,7 @@ def cmd_makemigrations(
                 fg="green",
             )
         )
-        snap_path = Path(migrations_dir) / "schema_snapshot.surp"
+        snap_path = Path(migrations_dir) / "schema_snapshot.json"
         click.echo(
             click.style(
                 f"  Schema snapshot: {snap_path}",
@@ -1379,7 +1378,7 @@ def cmd_diff(
                     return False
                 target_snapshot = create_snapshot(models)
             else:
-                snap_path = Path(migrations_dir) / "schema_snapshot.surp"
+                snap_path = Path(migrations_dir) / "schema_snapshot.json"
                 if not snap_path.exists():
                     click.secho(f"No schema snapshot file found at {snap_path}.", fg="yellow")
                     return False

@@ -5,8 +5,8 @@ Every admin action (create, update, delete, bulk action, login, logout)
 is recorded in an append-only audit log. Uses Aquilia Auth's AuditTrail
 when available, with a standalone in-memory fallback.
 
-Persists entries to a `.surp` file in the workspace's `.aquilia/`
-directory when SURP is available, enabling history to survive restarts.
+Persists entries to a `.json` file in the workspace's `.aquilia/`
+directory, enabling history to survive restarts.
 
 Audit entries are immutable and include:
 - Who: identity ID, username, role
@@ -160,7 +160,7 @@ class AdminAuditEntry:
         )
 
 
-# ── SURP File Storage ──────────────────────────────────────────────
+# ── JSON File Storage ──────────────────────────────────────────────
 
 
 def _resolve_workspace_root() -> Path | None:
@@ -176,71 +176,59 @@ def _resolve_workspace_root() -> Path | None:
     return cwd  # fallback to CWD
 
 
-def _get_surp_audit_path() -> Path:
-    """Return the path to the SURP audit file at ``workspace/.aquilia/audit.surp``."""
+def _get_json_audit_path() -> Path:
+    """Return the path to the JSON audit file at ``workspace/.aquilia/audit.json``."""
     root = _resolve_workspace_root()
     if root is None:
         root = Path(os.getcwd())
     aquilia_dir = root / ".aquilia"
     aquilia_dir.mkdir(parents=True, exist_ok=True)
-    return aquilia_dir / "audit.surp"
+    return aquilia_dir / "audit.json"
 
 
-class SurpAuditStore:
+class JSONAuditStore:
     """
-    Thin persistence layer that stores/loads audit entries using the SURP
-    binary format.  Falls back to no-op if ``surp`` is not installed.
-
-    Surp does not expose an append primitive, so the store persists a
-    Surp-encoded list and rewrites it atomically on each audit event.
+    Thin persistence layer that stores/loads audit entries using JSON format.
     """
 
-    def __init__(self) -> None:
-        self._surp = None  # lazy-imported
-        self._available: bool | None = None
-        self._path: Path | None = None
-
-    def _probe(self) -> bool:
-        """Try to import surp once; cache the result."""
-        if self._available is not None:
-            return self._available
-        try:
-            import surp  # type: ignore[import-untyped]
-
-            self._surp = surp
-            self._path = _get_surp_audit_path()
-            self._available = True
-        except Exception:
-            self._available = False
-        return self._available  # type: ignore[return-value]
+    def __init__(self, path: Path | None = None) -> None:
+        if path is not None:
+            self._path: Path | None = Path(path)
+        elif "AQUILIA_AUDIT_PATH" in os.environ:
+            self._path = Path(os.environ["AQUILIA_AUDIT_PATH"])
+        else:
+            self._path = _get_json_audit_path()
 
     # ── Write ────────────────────────────────────────────────────
 
     def persist(self, entry: AdminAuditEntry) -> None:
-        """Append a single audit entry to the .surp file."""
-        if not self._probe() or self._path is None:
+        """Append a single audit entry to the .json file."""
+        if self._path is None:
             return
         with contextlib.suppress(Exception):
             raw: list[dict[str, Any]] = []
-            if self._path is not None and self._path.exists():
-                existing = self._surp.decode_from_file(str(self._path))
-                if isinstance(existing, dict):
-                    raw = [existing]
-                elif isinstance(existing, list):
-                    raw = [item for item in existing if isinstance(item, dict)]
+            if self._path.exists():
+                text = self._path.read_text(encoding="utf-8")
+                if text:
+                    existing = json.loads(text)
+                    if isinstance(existing, dict):
+                        raw = [existing]
+                    elif isinstance(existing, list):
+                        raw = [item for item in existing if isinstance(item, dict)]
             raw.append(entry.to_dict())
-            self._surp.encode_to_file(raw, str(self._path))
+            self._path.write_text(json.dumps(raw, indent=2, default=str), encoding="utf-8")
 
     # ── Read ─────────────────────────────────────────────────────
 
     def load_all(self) -> list[AdminAuditEntry]:
-        """Load all persisted entries from the .surp file."""
-        if not self._probe() or self._path is None or not self._path.exists():
+        """Load all persisted entries from the .json file."""
+        if self._path is None or not self._path.exists():
             return []
         try:
-            raw = self._surp.decode_from_file(str(self._path))
-            if raw is None:
+            text = self._path.read_text(encoding="utf-8")
+            if not text:
                 return []
+            raw = json.loads(text)
             if isinstance(raw, dict):
                 raw = [raw]
             if not isinstance(raw, list):
@@ -269,13 +257,15 @@ class SurpAuditStore:
     # ── Maintenance ──────────────────────────────────────────────
 
     def clear(self) -> None:
-        """Remove the .surp audit file."""
-        if self._path and self._path.exists():
+        """Remove the .json audit file."""
+        if self._path is not None and self._path.exists():
             with contextlib.suppress(Exception):
                 self._path.unlink()
 
     def truncate(self, keep: int = 10_000) -> None:
         """Keep only the *keep* most recent entries."""
+        if self._path is None:
+            return
         entries = self.load_all()
         if len(entries) <= keep:
             return
@@ -292,7 +282,7 @@ class AdminAuditLog:
     Thread-safe, append-only log with configurable retention.
     Integrates with Aquilia Auth's AuditTrail when available.
 
-    Persists entries to a ``.surp`` file via :class:`SurpAuditStore`
+    Persists entries to a ``.json`` file via :class:`JSONAuditStore`
     so audit history survives server restarts.
     """
 
@@ -302,21 +292,21 @@ class AdminAuditLog:
         self._counter = 0
         # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
-        # SURP file persistence (opt-in)
+        # JSON file persistence (opt-in)
         self._persist = persist
-        self._surp_store = SurpAuditStore() if persist else None
+        self._json_store = JSONAuditStore() if persist else None
         # Hydrate in-memory cache from persisted file
         self._hydrated = not persist  # skip hydration when not persisting
 
     def _hydrate(self) -> None:
-        """Load persisted entries from the SURP file into memory (once)."""
+        """Load persisted entries from the JSON file into memory (once)."""
         if self._hydrated:
             return
         self._hydrated = True
-        if self._surp_store is None:
+        if self._json_store is None:
             return
         try:
-            persisted = self._surp_store.load_all()
+            persisted = self._json_store.load_all()
             if persisted:
                 # Merge: persisted entries first, then any already in memory
                 existing_ids = {e.id for e in self._entries}
@@ -402,9 +392,9 @@ class AdminAuditLog:
 
         self._entries.append(entry)
 
-        # Persist to SURP file
-        if self._surp_store is not None:
-            self._surp_store.persist(entry)
+        # Persist to JSON file
+        if self._json_store is not None:
+            self._json_store.persist(entry)
 
         # Enforce retention limit (FIFO eviction)
         if len(self._entries) > self._max_entries:
@@ -425,7 +415,7 @@ class AdminAuditLog:
         Query audit entries with optional filtering.
 
         Returns entries in reverse chronological order.
-        Hydrates from the SURP file on the first call.
+        Hydrates from the JSON file on the first call.
         """
         self._hydrate()
         filtered = self._entries
@@ -467,8 +457,8 @@ class AdminAuditLog:
         count = len(self._entries)
         self._entries.clear()
         self._counter = 0
-        if self._surp_store is not None:
-            self._surp_store.clear()
+        if self._json_store is not None:
+            self._json_store.clear()
         return count
 
     def get_history_for_record(
@@ -496,7 +486,7 @@ class ModelBackedAuditLog:
     in-memory AdminAuditLog when the ORM table is unavailable (e.g. before
     migrations have been run).
 
-    Also persists entries to a SURP file in the workspace's ``.aquilia/``
+    Also persists entries to a JSON file in the workspace's ``.aquilia/``
     directory for durable audit history that survives restarts even without
     a database.
 
@@ -506,14 +496,14 @@ class ModelBackedAuditLog:
 
     def __init__(self, fallback_max: int = 2_000):
         # persist=False for the fallback: ModelBackedAuditLog manages its own
-        # SURP store directly rather than through the fallback's hydration.
+        # JSON store directly rather than through the fallback's hydration.
         self._fallback = AdminAuditLog(max_entries=fallback_max, persist=False)
         self._db_available: bool | None = None  # None = not yet probed
         # Admin config reference -- set by AdminSite after config is parsed
         self._admin_config: Any = None
-        # SURP file persistence (independent of fallback)
-        self._surp_store = SurpAuditStore()
-        # Tracks whether in-memory fallback has been hydrated from SURP file.
+        # JSON file persistence (independent of fallback)
+        self._json_store = JSONAuditStore()
+        # Tracks whether in-memory fallback has been hydrated from JSON file.
         # Set to True by default; call start() to enable hydration from file.
         self._hydrated = True
 
@@ -549,7 +539,7 @@ class ModelBackedAuditLog:
 
     def start(self) -> None:
         """
-        Enable SURP hydration and load persisted entries.
+        Enable JSON hydration and load persisted entries.
 
         Called by ``AdminSite.initialize()`` so that audit history is
         restored from disk on server startup.  Not called during tests
@@ -606,8 +596,8 @@ class ModelBackedAuditLog:
         if mem_entry.id.startswith("audit_skip_"):
             return mem_entry
 
-        # Persist to SURP file (best-effort)
-        self._surp_store.persist(mem_entry)
+        # Persist to JSON file (best-effort)
+        self._json_store.persist(mem_entry)
 
         # Fire-and-forget async DB write
         action_str = action.value if hasattr(action, "value") else str(action)
@@ -724,12 +714,12 @@ class ModelBackedAuditLog:
         )  # type: ignore[return-value]
 
     def _hydrate(self) -> None:
-        """Load persisted SURP entries into the in-memory fallback (once)."""
+        """Load persisted JSON entries into the in-memory fallback (once)."""
         if self._hydrated:
             return
         self._hydrated = True
         try:
-            persisted = self._surp_store.load_all()
+            persisted = self._json_store.load_all()
             if persisted:
                 existing_ids = {e.id for e in self._fallback._entries}
                 for entry in persisted:
@@ -753,7 +743,7 @@ class ModelBackedAuditLog:
     ) -> list[AdminAuditEntry]:
         """
         Synchronous get_entries -- returns in-memory entries only.
-        Hydrates from the SURP file on the first call.
+        Hydrates from the JSON file on the first call.
         Use get_entries_async() when in an async context to also
         include DB-persisted entries.
         """
@@ -799,8 +789,8 @@ class ModelBackedAuditLog:
         return self._fallback.count(action=action, model_name=model_name)
 
     def clear(self) -> int:
-        """Clear in-memory fallback entries and SURP file. DB entries are retained."""
-        self._surp_store.clear()
+        """Clear in-memory fallback entries and JSON file. DB entries are retained."""
+        self._json_store.clear()
         self._hydrated = False
         return self._fallback.clear()
 
@@ -812,7 +802,7 @@ class ModelBackedAuditLog:
         """
         Return all audit entries for a specific model + pk.
 
-        Searches both the in-memory log and the SURP file directly,
+        Searches both the in-memory log and the JSON file directly,
         merging and deduplicating by entry id.  Returns newest-first.
         """
         # In-memory results (with hydration)
@@ -820,8 +810,8 @@ class ModelBackedAuditLog:
         mem = self._fallback.get_entries(model_name=model_name, limit=10_000)
         mem_filtered = [e for e in mem if str(e.record_pk or "") == str(record_pk)]
 
-        # SURP file direct lookup (catches entries not yet in memory)
-        file_entries = self._surp_store.load_for_record(model_name, record_pk)
+        # JSON file direct lookup (catches entries not yet in memory)
+        file_entries = self._json_store.load_for_record(model_name, record_pk)
 
         # Merge, dedup by id, sort newest-first
         seen: set = set()

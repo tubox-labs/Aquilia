@@ -1,7 +1,7 @@
 """
 WebSocket Compiler - Compile-time metadata extraction
 
-Extracts WebSocket controller metadata and generates artifacts/ws.surp.
+Extracts WebSocket controller metadata and generates artifacts/ws.json.
 Integrated with `aq compile` command.
 """
 
@@ -49,7 +49,7 @@ class SocketCompiler:
     Compiler for WebSocket controllers.
 
     Extracts metadata without executing controller code.
-    Generates artifacts/ws.surp for runtime and tooling.
+    Generates artifacts/ws.json for runtime and tooling.
     """
 
     def __init__(self):
@@ -170,7 +170,7 @@ class SocketCompiler:
 
     def generate_artifacts(self, output_path: Path):
         """
-        Generate artifacts/ws.surp.
+        Generate artifacts/ws.json.
 
         Args:
             output_path: Output file path
@@ -206,13 +206,8 @@ class SocketCompiler:
         }
 
         # Write to file
-        if output_path.suffix == ".surp":
-            import surp
-
-            output_path.write_bytes(surp.encode(artifact))
-        else:
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(artifact, f, indent=2)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(artifact, f, indent=2)
 
     def validate(self) -> list[str]:
         """
@@ -279,7 +274,7 @@ def compile_socket_controllers(
         )
 
     # Generate artifacts
-    artifact_path = output_dir / "ws.surp"
+    artifact_path = output_dir / "ws.json"
     compiler.generate_artifacts(artifact_path)
 
     return artifact_path

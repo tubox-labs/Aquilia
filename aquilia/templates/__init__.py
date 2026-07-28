@@ -2,7 +2,7 @@
 AquilaTemplates - First-class Jinja2-based template rendering for Aquilia.
 
 Production-ready, async-capable template system with:
-- Manifest-driven compilation and surp artifacts
+- Manifest-driven compilation and json artifacts
 - DI-friendly Controller integration
 - Sandboxed execution with security by default
 - Fast precompilation, bytecode cache, streaming
@@ -36,7 +36,7 @@ from .auth_integration import (
 from .bytecode_cache import (
     BytecodeCache,
     InMemoryBytecodeCache,
-    SurpBytecodeCache,
+    JSONBytecodeCache,
 )
 from .context import TemplateContext, create_template_context
 from .di_providers import (
@@ -78,7 +78,7 @@ __all__ = [
     # Cache
     "BytecodeCache",
     "InMemoryBytecodeCache",
-    "SurpBytecodeCache",
+    "JSONBytecodeCache",
     # Manager
     "TemplateManager",
     "TemplateLintIssue",

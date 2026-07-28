@@ -48,12 +48,11 @@ from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .catalog import (
     FileCatalog,
+    JSONCatalog,
     MemoryCatalog,
     MergedCatalog,
     NamespacedCatalog,
-    SurpCatalog,
     TranslationCatalog,
-    has_surp,
 )
 from .di_integration import (
     register_i18n_providers,
@@ -130,10 +129,9 @@ __all__ = [
     "TranslationCatalog",
     "MemoryCatalog",
     "FileCatalog",
-    "SurpCatalog",
+    "JSONCatalog",
     "NamespacedCatalog",
     "MergedCatalog",
-    "has_surp",
     # Plural rules
     "PluralCategory",
     "PluralRule",

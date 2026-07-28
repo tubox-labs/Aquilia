@@ -82,25 +82,6 @@ try:
 except ImportError:
     MULTIPART_AVAILABLE = False
 
-# Import Surp binary serializer
-try:
-    import surp as _surp_mod
-
-    _HAS_SURP = True
-except ImportError:
-    _surp_mod = None  # type: ignore[assignment]
-    _HAS_SURP = False
-
-# SURP media type constants
-SURP_MEDIA_TYPE = "application/x-surp"
-SURP_MEDIA_TYPES = frozenset(
-    {
-        "application/x-surp",
-        "application/surp",
-        "application/vnd.surp",
-    }
-)
-
 # Type vars
 T = TypeVar("T")
 ModelT_co = TypeVar("ModelT_co", covariant=True)
@@ -174,28 +155,6 @@ class InvalidJSON(RequestFault):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
-class InvalidSurp(RequestFault):
-    """Invalid SURP binary payload (400)."""
-
-    code = "INVALID_SURP"
-    message = "Invalid SURP payload"
-
-    def __init__(self, message: str | None = None, **metadata):
-        super().__init__(code=self.code, message=message or self.message, metadata=metadata)
-
-
-class SurpUnavailable(RequestFault):
-    """SURP library not installed (500-level)."""
-
-    code = "SURP_UNAVAILABLE"
-    message = "SURP serializer not available"
-    severity = Severity.ERROR
-    public = False
-
-    def __init__(self, message: str | None = None, **metadata):
-        super().__init__(code=self.code, message=message or self.message, severity=self.severity, metadata=metadata)
-
-
 class InvalidHeader(RequestFault):
     """Invalid header format (400)."""
 
@@ -263,7 +222,6 @@ class Request:
         "_body",
         "_body_consumed",
         "_json",
-        "_surp",
         "_form_data",
         "_query_params",
         "_headers",
@@ -320,7 +278,6 @@ class Request:
         self._body: bytes | None = None
         self._body_consumed = False
         self._json: Any | None = None
-        self._surp: Any | None = None
         self._form_data: FormData | None = None
         self._query_params: MultiDict | None = None
         self._headers: Headers | None = None
@@ -613,19 +570,6 @@ class Request:
                 )
         return False
 
-    def is_surp(self) -> bool:
-        """Check if request content type is SURP binary.
-
-        Surp v1 does not expose a stable file-level magic prefix, so
-        HTTP auto-detection is intentionally based on Content-Type.
-        """
-        ct = self.content_type()
-        if ct:
-            parsed = ParsedContentType.parse(ct)
-            if parsed and parsed.media_type in SURP_MEDIA_TYPES:
-                return True
-        return False
-
     def accepts(self, *media_types: str) -> bool:
         """
         Check if client accepts any of the given media types.
@@ -643,74 +587,12 @@ class Request:
 
         return any(media_type.lower() in accept_lower or "*/*" in accept_lower for media_type in media_types)
 
-    def accepts_surp(self) -> bool:
-        """Check if the client accepts SURP binary responses.
-
-        Returns ``True`` when any recognised SURP media type appears
-        in the ``Accept`` header **or** the wildcard ``*/*`` is present.
-        """
-        return self.accepts(*SURP_MEDIA_TYPES)
-
-    def prefers_surp(self) -> bool:
-        """Check if the client prefers SURP over JSON.
-
-        Parses quality values from the ``Accept`` header.  Returns
-        ``True`` only when an explicit SURP media type appears with a
-        quality factor strictly greater than ``application/json``.
-
-        If SURP is absent from the header, always returns ``False``.
-
-        Example Accept headers::
-
-            application/x-surp;q=1.0, application/json;q=0.9  →  True
-            application/json, application/x-surp;q=0.5        →  False
-            application/x-surp                                →  True
-            */*                                                →  False
-        """
-        accept = self.header("accept", "")
-        if not accept:
-            return False
-
-        surp_q = 0.0
-        json_q = 0.0
-        surp_found = False
-
-        for part in accept.split(","):
-            part = part.strip()
-            if not part:
-                continue
-
-            # Split media type from parameters
-            segments = part.split(";")
-            media = segments[0].strip().lower()
-
-            # Extract quality factor
-            q = 1.0
-            for param in segments[1:]:
-                param = param.strip()
-                if param.startswith("q="):
-                    try:
-                        q = float(param[2:])
-                    except ValueError:
-                        q = 0.0
-
-            if media in SURP_MEDIA_TYPES:
-                surp_q = max(surp_q, q)
-                surp_found = True
-            elif media == "application/json":
-                json_q = max(json_q, q)
-
-        return surp_found and surp_q > json_q
-
     def best_response_format(self) -> str:
-        """Negotiate the best response format between SURP and JSON.
+        """Negotiate the best response format.
 
         Returns:
-            ``"surp"`` when the client explicitly prefers SURP and
-            the library is available, otherwise ``"json"``.
+            Always ``"json"``.
         """
-        if _HAS_SURP and self.prefers_surp():
-            return "surp"
         return "json"
 
     # ========================================================================
@@ -966,96 +848,13 @@ class Request:
 
         return self._json
 
-    async def surp(
-        self,
-        model: type[T] | None = None,
-        *,
-        strict: bool = True,
-    ) -> Any | T:
-        """
-        Parse request body as SURP binary format.
-
-        Provides an API symmetrical to :meth:`json` — read the body,
-        decode via the ``surp`` library, optionally validate against
-        a model (Pydantic, dataclass, plain callable).
-
-        Args:
-            model: Optional model class for validation
-            strict: Passed to ``surp.loads`` for decoder validation.
-
-        Returns:
-            Decoded Python object (dict / list / scalar) or validated
-            model instance.
-
-        Raises:
-            SurpUnavailable: If the ``surp`` library is not installed.
-            InvalidSurp: If the payload is malformed.
-            PayloadTooLarge: If body exceeds ``json_max_size`` (shared
-                             limit with JSON).
-            BadRequest: If model validation fails.
-
-        Example::
-
-            @POST("/ingest")
-            async def ingest(self, ctx):
-                data = await ctx.request.surp()
-                # data is a regular Python dict/list
-        """
-        if not _HAS_SURP:
-            raise SurpUnavailable(
-                "The 'surp' library is required to parse SURP payloads. Install with: pip install surp"
-            )
-
-        if self._surp is not None:
-            if model:
-                return self._validate_json_model(self._surp, model)
-            return self._surp
-
-        # Read body with shared size limit
-        body_bytes = await self.body()
-
-        if len(body_bytes) > self.json_max_size:
-            raise PayloadTooLarge(
-                "SURP payload exceeds maximum size",
-                max_allowed=self.json_max_size,
-                actual=len(body_bytes),
-            )
-
-        if not body_bytes:
-            raise InvalidSurp("Empty SURP payload")
-
-        # Decode
-        try:
-            self._surp = _surp_mod.loads(
-                body_bytes,
-                strict=strict,
-                max_depth=self.json_max_depth,
-            )
-        except Exception as e:
-            raise InvalidSurp(
-                f"SURP decode failed: {e}",
-                error_type=type(e).__name__,
-            )
-
-        if model:
-            return self._validate_json_model(self._surp, model)
-        return self._surp
-
     async def data(
         self,
         model: type[T] | None = None,
         *,
         strict: bool = True,
     ) -> Any | T:
-        """Parse request body as JSON **or** SURP, auto-detected.
-
-        Uses Content-Type to decide:
-
-        * ``application/x-surp`` → :meth:`surp`
-        * Everything else → :meth:`json`
-
-        This is the recommended single entry-point when your API
-        accepts both formats.
+        """Parse request body as JSON data.
 
         Args:
             model: Optional model class for validation.
@@ -1064,8 +863,6 @@ class Request:
         Returns:
             Decoded Python object or validated model instance.
         """
-        if self.is_surp():
-            return await self.surp(model=model, strict=strict)
         return await self.json(model=model, strict=strict)
 
     def _check_json_depth(self, obj: Any, max_depth: int, current_depth: int = 0) -> bool:

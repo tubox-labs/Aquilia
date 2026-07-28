@@ -379,7 +379,7 @@ class ColumnDef:
         Produces the same shape consumed by ``schema_snapshot.py`` and
         ``from_snapshot`` below. Only non-default/non-empty attributes are
         included (e.g. ``"unique"`` is omitted entirely when ``False``) to
-        keep snapshot JSON/SURP files compact.
+        keep snapshot JSON files compact.
 
         Returns:
             A dict with keys among ``name``, ``type``, ``primary_key``,

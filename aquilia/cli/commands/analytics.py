@@ -211,25 +211,18 @@ class DiscoveryAnalytics:
             return "complex"
 
     def _cache_analysis(self, analysis: dict) -> None:
-        """Cache analysis results as Surp binary."""
+        """Cache analysis results as JSON."""
         try:
-            import surp as surp_backend
-
-            cache_file = self.cache_dir / "analysis.surp"
-            cache_file.write_bytes(surp_backend.encode(analysis))
-        except ImportError:
             cache_file = self.cache_dir / "analysis.json"
             with open(cache_file, "w", encoding="utf-8") as f:
                 json.dump(analysis, f, indent=2, default=str)
+        except Exception:
+            pass
 
     def get_cached_analysis(self, max_age_seconds: int = 3600) -> dict | None:
         """Get cached analysis if fresh."""
-        # Try Surp first, then JSON fallback
-        surp_file = self.cache_dir / "analysis.surp"
-        json_file = self.cache_dir / "analysis.json"
-
-        cache_file = surp_file if surp_file.exists() else (json_file if json_file.exists() else None)
-        if not cache_file:
+        cache_file = self.cache_dir / "analysis.json"
+        if not cache_file.exists():
             return None
 
         file_age = (datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime)).total_seconds()
@@ -237,13 +230,8 @@ class DiscoveryAnalytics:
             return None
 
         try:
-            if cache_file.suffix == ".surp":
-                import surp as surp_backend
-
-                return surp_backend.decode(cache_file.read_bytes())
-            else:
-                with open(cache_file, encoding="utf-8") as f:
-                    return json.load(f)
+            with open(cache_file, encoding="utf-8") as f:
+                return json.load(f)
         except Exception:
             return None
 

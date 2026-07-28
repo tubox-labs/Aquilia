@@ -2,7 +2,7 @@
 Template Manager - Compilation, linting, and manifest integration.
 
 Provides:
-- Template compilation to surp artifacts
+- Template compilation to json artifacts
 - Template linting and validation
 - Manifest-driven template discovery
 - DI integration
@@ -125,15 +125,15 @@ class TemplateManager:
 
     async def compile_all(self, output_path: str | None = None) -> dict[str, Any]:
         """
-        Compile all templates to surp artifact.
+        Compile all templates to json artifact.
 
         Args:
-            output_path: Output file path (default: artifacts/templates.surp)
+            output_path: Output file path (default: artifacts/templates.json)
 
         Returns:
             Compilation result with fingerprint, count, and metadata
         """
-        output_path = output_path or "artifacts/templates.surp"
+        output_path = output_path or "artifacts/templates.json"
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -183,9 +183,9 @@ class TemplateManager:
         # Compute fingerprint
         fingerprint = self._compute_fingerprint(templates_metadata)
 
-        # Build surp envelope
+        # Build json envelope
         envelope = {
-            "__format__": "surp",
+            "__format__": "json",
             "schema_version": "1.0",
             "artifact_type": "templates",
             "fingerprint": fingerprint,

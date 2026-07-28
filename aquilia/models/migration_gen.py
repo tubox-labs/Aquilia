@@ -94,9 +94,9 @@ def generate_dsl_migration(
     mdir = Path(migrations_dir)
     mdir.mkdir(parents=True, exist_ok=True)
 
-    snap_path = Path(snapshot_path) if snapshot_path else mdir / "schema_snapshot.surp"
+    snap_path = Path(snapshot_path) if snapshot_path else mdir / "schema_snapshot.json"
 
-    # Load old snapshot from SURP binary
+    # Load old snapshot from JSON format
     old_snapshot = None
     if snap_path.exists():
         old_snapshot = load_snapshot(snap_path)
@@ -136,7 +136,7 @@ def generate_dsl_migration(
     filepath = mdir / filename
     filepath.write_text(content, encoding="utf-8")
 
-    # Save new snapshot in SURP binary format
+    # Save new snapshot in JSON format
     save_snapshot(new_snapshot, snap_path)
 
     return filepath

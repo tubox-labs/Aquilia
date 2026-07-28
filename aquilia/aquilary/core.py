@@ -269,14 +269,8 @@ class AquilaryRegistry:
         }
 
         out = Path(path)
-        # Write as Surp binary if available, otherwise JSON
-        try:
-            import surp as surp_backend
-
-            out = out.with_suffix(".surp") if out.suffix != ".surp" else out
-            out.write_bytes(surp_backend.encode(frozen))
-        except ImportError:
-            out.write_text(json.dumps(frozen, indent=2, sort_keys=True), encoding="utf-8")
+        out = out.with_suffix(".json") if out.suffix != ".json" else out
+        out.write_text(json.dumps(frozen, indent=2, sort_keys=True), encoding="utf-8")
 
 
 class Aquilary:
@@ -471,39 +465,12 @@ class Aquilary:
         config: Any,
         mode: RegistryMode,
     ) -> AquilaryRegistry:
-        """Load registry from frozen manifest file (.surp or .json)."""
+        """Load registry from frozen manifest file (.json)."""
+        import json
         from pathlib import Path
 
         manifest_path = Path(path)
-
-        # Try Surp binary first, then JSON fallback
-        if manifest_path.suffix == ".surp" or manifest_path.with_suffix(".surp").exists():
-            surp_path = manifest_path if manifest_path.suffix == ".surp" else manifest_path.with_suffix(".surp")
-            try:
-                import surp as surp_backend
-
-                data = surp_backend.decode(surp_path.read_bytes())
-            except ImportError:
-                # surp package not installed — fall through to JSON
-                import json
-
-                data = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except Exception as _surp_err:
-                # BUG FIX (audit §3.5): surp is installed but decode failed.
-                # Previously this silently fell through to a JSON path that may
-                # not exist, hiding the real error.  Now log + re-raise so the
-                # operator sees the actual decode failure.
-                logger.error(
-                    "Failed to decode frozen manifest .surp at '%s': %s — "
-                    "ensure the file was written by the same version of Aquilia.",
-                    surp_path,
-                    _surp_err,
-                )
-                raise
-        else:
-            import json
-
-            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
 
         # Reconstruct app contexts from frozen data
         app_contexts = []

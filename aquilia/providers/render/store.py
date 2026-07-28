@@ -9,7 +9,7 @@ Storage layout::
     <workspace>/.aquilia/
         providers/
             render/
-                credentials.surp   ← AES-256-GCM encrypted + HMAC signed
+                credentials.json   ← AES-256-GCM encrypted + HMAC signed
                 config.json         ← non-sensitive settings (region, owner)
                 audit.log           ← credential access audit trail
 
@@ -336,7 +336,7 @@ class RenderCredentialStore:
 
     def __init__(self, store_dir: Path | None = None, *, ttl: int = _DEFAULT_TTL):
         self._dir = store_dir or _resolve_workspace_store_dir()
-        self._creds_file = self._dir / "credentials.surp"
+        self._creds_file = self._dir / "credentials.json"
         self._config_file = self._dir / "config.json"
         self._ttl = ttl
         self._audit = _AuditLogger(self._dir / "audit.log")
@@ -438,18 +438,23 @@ class RenderCredentialStore:
 
         Automatically detects legacy and current credential blob formats.
         """
-        if not self._creds_file.exists():
-            return None
+        target_file = self._creds_file
+        if not target_file.exists():
+            fallback = self._dir / "credentials.surp"
+            if fallback.exists():
+                target_file = fallback
+            else:
+                return None
 
         self._audit.log("load_start")
 
         try:
-            blob = self._creds_file.read_bytes()
+            blob = target_file.read_bytes()
         except (OSError, PermissionError) as e:
             self._audit.log("load_error", details=f"read_failed: {e}")
             raise ProviderCredentialFault(
                 f"Cannot read credentials: {e}",
-                path=str(self._creds_file),
+                path=str(target_file),
             ) from e
 
         if len(blob) < 5 or blob[:4] != _SURP_MAGIC:
@@ -742,7 +747,7 @@ class RenderCredentialStore:
             "owner_name": config.get("owner_name"),
             "default_region": config.get("default_region", "oregon"),
             "stored_at": config.get("stored_at"),
-            "surp_version": config.get("surp_version", 1),
+            "storage_format": "JSON",
             "cipher_suite": config.get("cipher_suite"),
             "ttl": config.get("ttl", 0),
             "expired": self.is_expired(),

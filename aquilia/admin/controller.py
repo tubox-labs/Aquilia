@@ -1696,7 +1696,7 @@ class AdminController(Controller):
 
         history_entries = []
         if self.site.audit_log:
-            # Use dedicated method that searches both memory and SURP file
+            # Use dedicated method that searches both memory and JSON file
             if hasattr(self.site.audit_log, "get_history_for_record"):
                 raw_entries = self.site.audit_log.get_history_for_record(model, str(pk))
             else:
