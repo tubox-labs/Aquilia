@@ -36,7 +36,7 @@ export function CLIWebSocketCommands() {
       <section id="ws-inspect" className={sectionClass}>
         <h2 className={h2Class}><DocTerm id="cli.ws_inspect">aq ws inspect</DocTerm></h2>
         <p className={pClass}>
-          Dumps the compiled SocketController routing table and message channels compiled within your <code className="text-aquilia-500 font-mono">ws.surp</code> artifacts bundle.
+          Dumps the compiled SocketController routing table and message channels compiled within your <code className="text-aquilia-500 font-mono">ws.json</code> artifacts bundle.
         </p>
         <CodeBlock language="bash" filename="Terminal">aq ws inspect --artifacts-dir=artifacts</CodeBlock>
       </section>

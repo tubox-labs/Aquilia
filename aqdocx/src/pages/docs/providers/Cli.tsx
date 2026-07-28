@@ -96,7 +96,7 @@ echo $RENDER_TOKEN | aq provider login render --token -`}
           </h3>
           <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             Erases stored credentials. To prevent recovery of secret key remnants on SSD controllers, the command 
-            overwrites the local <code>credentials.surp</code> file with random bytes before deletion.
+            overwrites the local <code>credentials.json</code> file with random bytes before deletion.
           </p>
           <CodeBlock
             language="bash"

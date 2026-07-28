@@ -47,7 +47,7 @@ export function ResponsePage() {
             {/* Step 2: Content Negotiation / Molding */}
             <rect x="180" y="70" width="140" height="60" rx="10" fill={isDark ? '#18181B' : '#F4F4F5'} stroke="#10B981" strokeWidth="2" />
             <text x="250" y="95" textAnchor="middle" fill={isDark ? '#F3F4F6' : '#111827'} fontSize="12" fontWeight="bold">Content Negotiation</text>
-            <text x="250" y="115" textAnchor="middle" fill={isDark ? '#A1A1AA' : '#71717A'} fontSize="10">JSON / XML / SURP molding</text>
+            <text x="250" y="115" textAnchor="middle" fill={isDark ? '#A1A1AA' : '#71717A'} fontSize="10">JSON / XML molding</text>
 
             <path d="M320 100 H360" stroke="#71717A" strokeWidth="2" markerEnd="url(#arrow)" />
 
@@ -142,14 +142,11 @@ Response.redirect("/new-location", status=307)`}</CodeBlock>
         </div>
 
         <div className="space-y-4">
-          <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Binary & Content Negotiation (SURP)</h3>
+          <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Content Negotiation (JSON)</h3>
           <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Aquilia supports the SURP binary format. <code className="text-aquilia-500">Response.negotiated()</code> automatically parses quality factors from the client's <code className="text-aquilia-500">Accept</code> header to choose between SURP and JSON:
+            Aquilia standardizes on JSON. <code className="text-aquilia-500">Response.negotiated()</code> automatically parses quality factors from the client's <code className="text-aquilia-500">Accept</code> header to format JSON responses:
           </p>
-          <CodeBlock language="python" filename="surp_factories.py">{`# Explicit SURP Response (falls back to JSON if surp is missing)
-Response.surp({"nodes": [...]}, status=200, compression="lz4")
-
-# Content-negotiated Response
+          <CodeBlock language="python" filename="negotiated_factories.py">{`# Content-negotiated JSON Response
 Response.negotiated({"payload": data}, ctx.request)`}</CodeBlock>
         </div>
 

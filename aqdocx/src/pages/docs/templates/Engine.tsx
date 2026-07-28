@@ -229,10 +229,10 @@ async def report_stream(self, ctx: RequestCtx):
           </div>
           <div className="pl-4 border-l-2 border-aquilia-500/20">
             <h4 className={`text-sm font-semibold mb-1 font-mono ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              SurpBytecodeCache
+              JSONBytecodeCache
             </h4>
             <p className={`text-xs ${textMuted}`}>
-              Compiles templates into a single compressed `.surp` archive. HMAC signatures verify the bytecode integrity on startup to prevent local file tampering.
+              Compiles templates into a single compressed `.json` archive. HMAC signatures verify the bytecode integrity on startup to prevent local file tampering.
             </p>
           </div>
         </div>

@@ -16,7 +16,7 @@ export function I18nConfiguration() {
     ['available_locales', 'list[str]', 'Allowed locale list for resolver and service checks.'],
     ['fallback_locale', 'str', 'Global fallback locale for lookup misses.'],
     ['catalog_dirs', 'list[str]', 'One or more locale roots (for example locales, modules/*/locales).'],
-    ['catalog_format', 'str', 'Catalog preference: surp, json, or yaml metadata path.'],
+    ['catalog_format', 'str', 'Catalog preference: json or yaml metadata path.'],
     ['missing_key_strategy', 'str', 'return_key, return_empty, return_default, raise, or log_and_key.'],
     ['resolver_order', 'list[str]', 'Ordered resolver names: query, cookie, header, path, session.'],
     ['cookie_name', 'str', 'Cookie key for CookieLocaleResolver.'],
@@ -28,7 +28,7 @@ export function I18nConfiguration() {
 
   const defaults: Array<[string, string, string, string, string]> = [
     ['enabled', 'False', 'True', 'True', 'True'],
-    ['catalog_format', 'surp', 'json', 'surp', 'json'],
+    ['catalog_format', 'json', 'json', 'json', 'json'],
     ['resolver_order', 'query,cookie,header', 'query,cookie,header', 'query,cookie,header', 'query,cookie,header'],
   ]
 
@@ -42,7 +42,6 @@ export function I18nConfiguration() {
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
             i18n Configuration
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${textMuted}`}>
@@ -67,9 +66,9 @@ workspace = (
             available_locales=["en", "fr", "de", "ja"],
             fallback_locale="en",
             catalog_dirs=["locales"],
-            catalog_format="surp",
+            catalog_format="json",
         )
-    )
+    )`}
 
     # Typed integration object
     .integrate(

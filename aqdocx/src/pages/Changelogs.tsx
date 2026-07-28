@@ -54,10 +54,18 @@ const staticChangelogs: ChangelogEntry[] = [
         title: 'Changed',
         type: 'changed',
         items: [
+          'Standardized serialization across the entire framework on JSON (.json artifacts, JSONBytecodeCache, JSONCatalog, JSONAuditStore, schema_snapshot.json, credentials.json, ws.json, discovery_cache.json).',
           'backend="redis" builds a functional Redis backend instead of logging a warning and falling back.',
           'JobResult.to_dict() preserves JSON-safe primitive types instead of forcing repr() on everything.',
           'Mail providers share a single unified MIME builder (aquilia.mail.mime).',
           'aq mail check validates DKIM domain and dkimpy dependency availability.'
+        ]
+      },
+      {
+        title: 'Removed',
+        type: 'removed',
+        items: [
+          'Removed surp binary serialization format and optional surp dependency across the framework (SurpCatalog, SurpBytecodeCache, SurpAuditStore, requires_surp decorator, InvalidSurp, SurpUnavailable).'
         ]
       },
       {

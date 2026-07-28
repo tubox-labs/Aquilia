@@ -434,31 +434,37 @@ aq i18n coverage
 
 ### `aq i18n compile`
 
-Compile JSON locale files to SURP format.
+Compile JSON locale files.
 
 ```bash
 aq i18n compile [--directory VALUE] [--output VALUE]
 ```
 
-| Kind | Name | Flags | Required | Default |
-| --- | --- | --- | --- | --- |
-| Option | `directory` | `--directory` | False | `locales` |
-| Option | `output` | `--output` | False | `` |
+### Options
 
-### `aq db makemigrations`
+| Option | Parameter | Flag | Required | Default | Description |
+| --- | --- | --- | --- | --- | --- |
+| `--directory` | `directory` | `--directory` | False | `locales` | Source locales directory |
+| `--output` | `output` | `--output` | False | `None` | Output directory for compiled catalogs |
+
+---
+
+## `aq db makemigrations`
 
 Generate migration files from Python Model definitions.
 
 ```bash
-aq db makemigrations [--app VALUE] [--migrations-dir VALUE] [--dsl VALUE] [--format VALUE]
+aq db makemigrations [--app VALUE] [--migrations-dir VALUE] [--dsl/--no-dsl] [--format VALUE]
 ```
 
-| Kind | Name | Flags | Required | Default |
-| --- | --- | --- | --- | --- |
-| Option | `app` | `--app` | False | `` |
-| Option | `migrations_dir` | `--migrations-dir` | False | `migrations` |
-| Option | `dsl` | `--dsl, --no-dsl` | False | `True` |
-| Option | `fmt` | `--format` | False | `surp` |
+### Options
+
+| Option | Parameter | Flag | Required | Default | Description |
+| --- | --- | --- | --- | --- | --- |
+| `--app` | `app` | `--app` | False | `None` | Restrict to specific module/app |
+| `--migrations-dir` | `migrations_dir` | `--migrations-dir` | False | `migrations` | Migrations directory |
+| `--dsl` | `dsl` | `--dsl` / `--no-dsl` | False | `True` | Use new DSL format |
+| `--format` | `fmt` | `--format` | False | `json` | Migration file format |
 
 ### `aq db migrate`
 

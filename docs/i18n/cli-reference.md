@@ -15,7 +15,7 @@ The following mounted commands map to this subsystem.
 | `aq i18n inspect` | `aq i18n inspect` | Display current i18n configuration as JSON. |
 | `aq i18n extract` | `aq i18n extract [--source-dirs VALUE] [--output VALUE] [--no-merge]` | Extract translation keys from source files. |
 | `aq i18n coverage` | `aq i18n coverage` | Show translation coverage per locale. |
-| `aq i18n compile` | `aq i18n compile [--directory VALUE] [--output VALUE]` | Compile JSON locale files to SURP format. |
+| `aq i18n compile` | `aq i18n compile [--directory VALUE] [--output VALUE]` | Compile JSON locale files. |
 
 ## Detailed Commands
 

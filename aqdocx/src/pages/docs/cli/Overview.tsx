@@ -45,7 +45,7 @@ export function CLIOverview() {
             },
             {
               title: 'Artifacts over runtime magic',
-              desc: 'By compiling manifests into static .surp files, the CLI catches errors and conflicts before application boot, eliminating runtime dependency surprises.'
+              desc: 'By compiling manifests into static .json files, the CLI catches errors and conflicts before application boot, eliminating runtime dependency surprises.'
             },
             {
               title: 'CLI as primary UX',
@@ -133,7 +133,7 @@ export function CLIOverview() {
             {
               to: '/docs/cli/artifacts',
               title: 'Artifact Management',
-              desc: 'Create, sign, inspect, and verify binary .surp bundle packages for production deployments.'
+              desc: 'Create, sign, inspect, and verify binary .json bundle packages for production deployments.'
             },
             {
               to: '/docs/cli/subsystems',

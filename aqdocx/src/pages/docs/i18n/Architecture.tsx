@@ -13,7 +13,7 @@ export function I18nArchitecture() {
   const components: Array<[string, string, string]> = [
     ['Locale model', 'aquilia/i18n/locale.py', 'BCP 47 parsing, normalization, fallback chain, and negotiation.'],
     ['Plural rules', 'aquilia/i18n/plural.py', 'CLDR category selection for language-specific plural logic.'],
-    ['Catalogs', 'aquilia/i18n/catalog.py', 'Memory, file, SURP, namespaced, and merged translation backends.'],
+    ['Catalogs', 'aquilia/i18n/catalog.py', 'Memory, file, JSON, namespaced, and merged translation backends.'],
     ['Formatter', 'aquilia/i18n/formatter.py', 'Message interpolation plus number/date/currency/percent helpers.'],
     ['Service', 'aquilia/i18n/service.py', 'Translation API, fallback chain, missing-key strategy, and catalog build.'],
     ['Middleware', 'aquilia/i18n/middleware.py', 'Resolver chain execution and request state injection.'],

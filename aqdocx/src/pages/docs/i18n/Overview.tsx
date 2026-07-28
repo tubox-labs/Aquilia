@@ -18,7 +18,7 @@ export function I18nOverview() {
     },
     {
       title: 'Catalog backends',
-      desc: 'MemoryCatalog, FileCatalog, and SurpCatalog with namespace and merged layering support.',
+      desc: 'MemoryCatalog, FileCatalog, and JSONCatalog with namespace and merged layering support.',
     },
     {
       title: 'Formatting and plurals',
@@ -54,7 +54,7 @@ export function I18nOverview() {
     {
       title: 'CLI Reference',
       path: '/docs/i18n/cli',
-      text: 'Detailed command behavior for initialization, extraction, coverage, and SURP compilation.',
+      text: 'Detailed command behavior for initialization, extraction, coverage, and catalog compilation.',
     },
     {
       title: 'Edge Cases',

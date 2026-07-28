@@ -77,7 +77,7 @@ workspace = (
       "./custom_themes"
     ],
     "precompile": true,
-    "cache": "surp"
+    "cache": "json"
   }
 }`}</CodeBlock>
         </div>
@@ -101,9 +101,9 @@ workspace = (
               desc: 'Namespace-aware loader. Supports relative paths, package resources, and cross-module referencing formats (@module/path).'
             },
             {
-              name: 'SurpBytecodeCache',
-              id: 'templates.SurpBytecodeCache',
-              desc: 'Production-ready cache compiled into frozen .surp bytecode artifacts. Utilizes HMAC hashes for tampering detection.'
+              name: 'JSONBytecodeCache',
+              id: 'templates.JSONBytecodeCache',
+              desc: 'Production-ready cache compiled into frozen .json bytecode artifacts. Utilizes HMAC hashes for tampering detection.'
             },
             {
               name: 'TemplateSandbox',

@@ -97,7 +97,6 @@ export function RequestPage() {
         "_body",
         "_body_consumed",
         "_json",
-        "_surp",
         "_form_data",
         "_query_params",
         "_headers",
@@ -131,7 +130,6 @@ export function RequestPage() {
                 { cls: 'UnsupportedMediaType', code: 'UNSUPPORTED_MEDIA_TYPE', status: '415', desc: 'Content-Type header mismatch.' },
                 { cls: 'ClientDisconnect', code: 'CLIENT_DISCONNECT', status: '499', desc: 'Client aborted connection during processing.' },
                 { cls: 'InvalidJSON', code: 'INVALID_JSON', status: '400', desc: 'JSON parsing failure or nesting depth exceeded.' },
-                { cls: 'InvalidSurp', code: 'INVALID_SURP', status: '400', desc: 'SURP deserialization failure.' },
                 { cls: 'InvalidHeader', code: 'INVALID_HEADER', status: '400', desc: 'Malformed or injection-suspicious headers.' },
                 { cls: 'MultipartParseError', code: 'MULTIPART_PARSE_ERROR', status: '400', desc: 'python-multipart parser failure.' }
               ].map((row, i) => (
@@ -247,11 +245,11 @@ header = await request.readexactly(1024)`}</CodeBlock>
         </div>
       </section>
 
-      {/* JSON & SURP Parsing */}
+      {/* JSON Input Validation */}
       <section className="space-y-4">
-        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>JSON & SURP Input Validation</h2>
+        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>JSON Input Validation</h2>
         <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className="text-aquilia-500">json()</code> and <code className="text-aquilia-500">surp()</code> methods parse the request body and support direct model validation:
+          The <code className="text-aquilia-500">json()</code> method parses the request body and supports direct model validation:
         </p>
         <CodeBlock language="python" filename="json_parsing.py">{`# Parse JSON as dict/list
 data = await request.json()

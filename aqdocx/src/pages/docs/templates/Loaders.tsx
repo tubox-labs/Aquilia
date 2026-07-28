@@ -122,8 +122,8 @@ manifest_loader = create_manifest_aware_loader(scan_manifests=True)`}</CodeBlock
 
 manager = TemplateManager(engine=engine, loader=loader)
 
-# 1. Compile all templates to a .surp bytecode archive (Atomic write with HMAC signature)
-await manager.compile_all(output_path="artifacts/templates.surp")
+# 1. Compile all templates to a .json bytecode archive (Atomic write with HMAC signature)
+await manager.compile_all(output_path="artifacts/templates.json")
 
 # 2. Run template linter (identifies syntax errors, undefined variables, disallowed filters)
 issues = await manager.lint_all(strict_undefined=True)

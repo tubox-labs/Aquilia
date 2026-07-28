@@ -72,7 +72,7 @@ aq artifact list --kind=routes --tag=env=prod`}</CodeBlock>
       <section id="artifact-inspect" className={sectionClass}>
         <h2 className={h2Class}>aq artifact inspect</h2>
         <p className={pClass}>
-          Dumps raw metadata, digital signatures, and target files compiled within the designated `.surp` archive.
+          Dumps raw metadata, digital signatures, and target files compiled within the designated `.json` archive.
         </p>
         <CodeBlock language="bash" filename="Terminal">aq artifact inspect package-id-abc</CodeBlock>
       </section>

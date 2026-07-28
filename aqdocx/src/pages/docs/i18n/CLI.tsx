@@ -15,7 +15,7 @@ export function I18nCLI() {
     ['aq i18n inspect', 'Print effective i18n config JSON.'],
     ['aq i18n extract', 'Extract translation keys from Python and template sources.'],
     ['aq i18n coverage', 'Compute locale coverage against default locale key set.'],
-    ['aq i18n compile', 'Compile JSON catalogs to SURP artifacts for faster runtime loading.'],
+    ['aq i18n compile', 'Compile JSON catalogs to compiled JSON artifacts for faster runtime loading.'],
   ]
 
   return (
@@ -28,12 +28,11 @@ export function I18nCLI() {
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
             i18n CLI Reference
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${textMuted}`}>
           The <code className="text-aquilia-500">aq i18n</code> command group covers catalog initialization, validation, extraction, coverage measurement,
-          and SURP compilation. Commands are registered in the CLI entrypoint and implemented in
+          and catalog compilation. Commands are registered in the CLI entrypoint and implemented in
           <code className="text-aquilia-500">aquilia/cli/commands/i18n.py</code>.
         </p>
       </div>

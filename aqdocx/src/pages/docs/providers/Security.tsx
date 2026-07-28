@@ -41,7 +41,7 @@ export function SecurityPage() {
           Cryptographic Protection Model
         </h2>
         <p className={`mb-8 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The credential store implements a defense-in-depth model, securing Render tokens (stored in the <code>credentials.surp</code> binary file) 
+          The credential store implements a defense-in-depth model, securing Render tokens (stored in the <code>credentials.json</code> binary file) 
           through a series of cryptographic boundaries:
         </p>
 
@@ -122,7 +122,7 @@ export function SecurityPage() {
           code={`.aquilia/
 └── providers/
     └── render/
-        ├── credentials.surp   # Encrypted token & signing signatures (0o600 permissions)
+        ├── credentials.json   # Encrypted token & signing signatures (0o600 permissions)
         ├── config.json         # Non-sensitive workspace metadata (owner name, default region)
         └── audit.log           # File log tracking read, write, and verify events`}
         />
@@ -135,7 +135,7 @@ export function SecurityPage() {
           Binary Envelope Format
         </h2>
         <p className={`mb-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>credentials.surp</code> file follows a structured binary layout, verified strictly on read:
+          The <code>credentials.json</code> file follows a structured binary layout, verified strictly on read:
         </p>
 
         <div className="overflow-x-auto">

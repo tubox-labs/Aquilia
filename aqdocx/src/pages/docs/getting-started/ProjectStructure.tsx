@@ -234,13 +234,13 @@ AQ_DATABASE__URL=sqlite:///db.sqlite3`}
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
-                ['discovery_cache.surp', 'AST discovery cache mapping file hashes to avoid redundant scans'],
-                ['audit.surp', 'Binary SURP format admin audit log logging all administrator actions'],
+                ['discovery_cache.json', 'AST discovery cache mapping file hashes to avoid redundant scans'],
+                ['audit.json', 'JSON format admin audit log logging all administrator actions'],
                 ['admin/profile/', 'Directory containing profile avatar images uploaded via the admin portal'],
                 ['mcp/index.json', 'Local MCP server knowledge index containing codebase schemas'],
                 ['mcp/server.pid', 'Process ID file of the active Model Context Protocol daemon'],
                 ['mcp/server.log', 'Execution log file containing output of the active MCP daemon'],
-                ['providers/render/credentials.surp', 'AES-256-GCM encrypted Render deployment API tokens'],
+                ['providers/render/credentials.json', 'AES-256-GCM encrypted Render deployment API tokens'],
                 ['providers/render/config.json', 'Non-sensitive Render deployment settings (region, owner name, TTL)'],
                 ['providers/render/audit.log', 'Render credential access audit trail'],
               ].map(([file, contents], i) => (
@@ -286,7 +286,7 @@ AQ_DATABASE__URL=sqlite:///db.sqlite3`}
                 { cmd: 'aq db makemigrations', id: 'cli.db_makemigrations', gen: 'Scans ORM models and generates numbered database migration files' },
                 { cmd: 'aq db migrate', id: 'cli.db_migrate', gen: 'Applies pending schema migrations to the configured SQLite/PostgreSQL database' },
                 { cmd: 'aq deploy all', id: 'cli.deploy', gen: 'Generates deployment templates: Dockerfile, docker-compose.yml, Kubernetes manifests, and Render configuration' },
-                { cmd: 'aq freeze', id: 'cli.freeze', gen: 'Generates frozen.surp manifest integrity snapshot, disabling auto-discovery' },
+                { cmd: 'aq freeze', id: 'cli.freeze', gen: 'Generates frozen.json manifest integrity snapshot, disabling auto-discovery' },
               ].map(({ cmd, id, gen }, i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className="px-4 py-2 text-xs">
