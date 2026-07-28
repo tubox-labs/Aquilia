@@ -144,6 +144,69 @@ async def cleanup_old_jobs() -> dict:
     return {"cleaned": True}
 ```
 
+### Durable and Distributed Backends
+
+`memory` (default) is single-process and loses queued work on restart. `redis` and `sql` persist jobs and coordinate multiple worker processes or machines over a lease: a worker claims a job for `lease_seconds`, and a peer reclaims it if the lease expires without a heartbeat, so a crashed worker's job is retried rather than lost.
+
+```python
+Integration.tasks(backend="redis", redis_url="redis://cache:6379/0", num_workers=8)
+Integration.tasks(backend="sql", sql_table="aquilia_jobs")   # uses the app's own database
+```
+
+Because jobs cross a process boundary, arguments and return values must be JSON-serializable, and tasks must be registered with `@task` on every worker so a consumer process can resolve them by name. Non-serializable arguments raise `TaskSerializationFault` at enqueue time rather than failing silently in another process.
+
+### Idempotency
+
+Passing `dedup` enforces the job fingerprint (task name, queue, arguments) so concurrent producers cannot enqueue the same work twice. Default behavior is unchanged.
+
+```python
+await tasks.enqueue(send_invoice, order_id, dedup="skip")   # returns the existing job id
+await tasks.enqueue(send_invoice, order_id, dedup="raise")  # raises TaskDuplicateFault
+```
+
+### Workflows
+
+`chain`, `group`, and `chord` compose jobs through the same queue, and `Workflow.add(..., depends_on=[...])` builds an arbitrary DAG. `with_parent_results()` injects completed dependency results into the child as a `parent_results` argument.
+
+```python
+from aquilia.tasks.workflow import Signature, chain, chord
+
+await chain(Signature(extract, (src,)), Signature(load).with_parent_results()).run(tasks)
+await chord([Signature(shard, (n,)) for n in range(4)], Signature(merge).with_parent_results()).run(tasks)
+```
+
+`run()` returns a handle with `is_complete()`, `results()`, and `failed_jobs()`. A failed dependency cancels its downstream jobs instead of running them on missing input.
+
+### Mail Delivery Queue
+
+With queue enabled, mail returns immediately after persisting envelope; background task does actual delivery, with retries and delayed sends handled by scheduler. Jobs carry only envelope id, so delivery works under distributed backend.
+
+```python
+Integration.mail(
+    default_from="noreply@example.com",
+    providers=[{"type": "ses", "region": "us-east-1"}],
+    queue_enabled=True,
+    queue_persistent=True,
+)
+```
+
+`queue_persistent=True` stores envelopes and suppression records in the application database instead of memory.
+
+### Bounces and Suppression
+
+`parse_ses`, `parse_sendgrid`, and `parse_mailgun` normalize provider webhooks (verifying signatures where the provider supports it); `process_webhook` applies them, suppressing hard bounces and complaints permanently and soft bounces for a TTL. Suppressed recipients are skipped on later sends.
+
+```python
+from aquilia.mail import parse_ses, process_webhook
+
+@POST("/webhooks/ses")
+async def ses_webhook(self, ctx: RequestCtx):
+    events = parse_ses(await ctx.body(), verify_topic_arn=TOPIC_ARN)
+    return Response.json(await process_webhook(events, suppression=self.mail.suppression, store=self.mail.store))
+```
+
+Templates rendered for mail autoescape by default through the sandboxed Jinja environment; use `|safe` for deliberately raw blocks.
+
 ## Testing
 
 Use `aquilia.testing` for `TestClient`, `TestServer`, base test cases, config overrides, DI mocks, effect mocks, mail outbox helpers, and request factories. The CLI command `aq test` sets `AQUILIA_ENV=test` and delegates to pytest with Aquilia-aware defaults.

@@ -110,6 +110,11 @@ mail-sendgrid = [
     "httpx>=0.27.0",
 ]
 
+# DKIM signing for outbound mail (aquilia.mail.mime.sign_dkim)
+mail-dkim = [
+    "dkimpy>=1.1.0",
+]
+
 # Production server (Gunicorn + Uvicorn workers)
 server = [
     "gunicorn>=22.0.0",
@@ -133,7 +138,7 @@ otel = [
 # ---- Convenience bundles ----------------------------------------------------
 
 full = [
-    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template,surp]",
+    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,mail-dkim,server,postgres,otel,template,surp]",
 ]
 
 # Testing & development
