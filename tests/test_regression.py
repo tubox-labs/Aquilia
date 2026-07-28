@@ -19,13 +19,6 @@ from unittest.mock import patch
 
 import pytest
 
-try:
-    import surp as _surp_probe  # noqa: F401
-
-    _HAS_SURP = True
-except ImportError:
-    _HAS_SURP = False
-
 # ════════════════════════════════════════════════════════════════════════
 # MODULE 1: TRACE REMOVAL — Verify trace is completely gone
 # ════════════════════════════════════════════════════════════════════════
