@@ -42,14 +42,17 @@ All of it is backward compatible. Change no configuration and v1.3.5 behaves exa
    - Real DKIM signing at the byte level
    - XOAUTH2 authentication, TLS enforcement, PII redaction
    - ATS template filters and autoescaping
-7. [CLI Changes](cli.md)
+7. [Native HTTP Client & Dependency Cleanup](http_native.md)
+   - Zero third-party HTTP client dependencies (`httpx` removed)
+   - `SendGridProvider` and `LiveServerTestCase` updated to `aquilia.http`
+8. [CLI Changes](cli.md)
    - `aq mail check` validates DKIM configuration
-8. [Bug Fixes](bugfixes.md)
+9. [Bug Fixes](bugfixes.md)
    - Mail delivery task unresolvable across processes (CRITICAL)
    - Consumer-only workers polled nothing (CRITICAL)
    - Job results degraded to `repr` strings on persistent backends
    - `queue.persistent` had no configuration surface
-9. [Migration Guide](migration.md)
+10. [Migration Guide](migration.md)
    - Upgrade checklist, per-feature migrations, compatibility notes, known issues
 
 ---

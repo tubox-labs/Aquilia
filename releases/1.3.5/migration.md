@@ -35,9 +35,10 @@ Nothing else is required. If you change no configuration, v1.3.5 behaves exactly
 3. *(Optional)* Move tasks to a durable backend — see below.
 4. *(Optional)* Enable background mail delivery — see below.
 5. *(Optional)* Wire provider webhooks for bounce handling.
-6. If you use DKIM, run `aq mail check` and install `aquilia[mail-dkim]`.
-7. Remove any hand-rolled job deduplication in favour of `dedup="skip"`.
-8. Remove any workaround that parsed `repr`-form job results.
+6. If you use SendGrid or testing helpers, note that third-party `httpx` is no longer required as Aquilia uses native `aquilia.http`.
+7. If you use DKIM, run `aq mail check` and install `aquilia[mail-dkim]`.
+8. Remove any hand-rolled job deduplication in favour of `dedup="skip"`.
+9. Remove any workaround that parsed `repr`-form job results.
 
 ---
 

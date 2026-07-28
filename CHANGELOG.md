@@ -62,11 +62,16 @@ Full notes: [`releases/1.3.5/`](releases/1.3.5/README.md)
 - **Documented ATS public API** — `configure(template_dirs)`, `render_string(text, context, *, autoescape=True)`, `render_template(name, context, *, template_dirs=None, autoescape=None)`, `register_filter(name, fn)`, and the `FILTERS` registry.
 - **Built-in filters** — `currency`, `default`, `escape`, `join`, `length`, `lower`, `safe`, `title`, `trim`, `truncate`, `upper`. Filters compose left to right; arguments must be literals, so a template cannot execute arbitrary code.
 
+#### HTTP Client — Zero External Dependencies
+- **`AsyncHTTPClient.aclose` method alias** — added `aclose = close` on `aquilia.http.AsyncHTTPClient` for compatibility with async context managers and explicit close callers.
+
 ### Changed
 
 - **`backend="redis"` now builds a real backend.** Previously it logged a warning ("not implemented") and silently fell back to `MemoryBackend`. Only an unknown backend name or an unreachable service falls back now, and both log a message naming the durability that was lost.
 - **`JobResult.to_dict()` preserves JSON-safe values.** Previously every value was serialized as `repr(value)`, so a workflow fan-in on a persistent backend received `'4'` instead of `4`. Non-serializable values still fall back to `repr`.
 - **Mail providers share one MIME implementation.** SMTP, SES, SendGrid, console, and file backends no longer each build their own message, so header handling, attachment encoding, and tracking headers cannot drift between them.
+- **SendGrid Mail Provider adopts native `aquilia.http`.** Replaced `httpx.AsyncClient` with native `aquilia.http.AsyncHTTPClient` and async `HTTPClientResponse` parsing across `SendGridProvider`.
+- **Testing & Documentation adopt native `aquilia.http`.** Replaced all `httpx` imports across `LiveServerTestCase`, docstrings, and `aqdocx` release examples with native `aquilia.http`.
 - **`aq mail check` validates DKIM configuration** — reports a missing `dkim_domain` and a missing `dkimpy` install. DKIM failures raise at send time rather than shipping unsigned mail, so this check surfaces the misconfiguration before the first real send.
 - **DKIM misconfiguration now fails the send.** With `dkim_enabled=True` and an incomplete configuration, sends raise instead of silently shipping an unsigned message. Not an API break, but a behavior change for anyone who had DKIM half-configured.
 
@@ -108,7 +113,7 @@ Nothing was deprecated in this release.
 
 ### Removed
 
-Nothing was removed in this release.
+- **Third-party `httpx` dependency removed.** Entirely removed `httpx` from `pyproject.toml`, `setup.py`, `aquilia.egg-info`, and extra dependency bundles (`mail-sendgrid`, `testing`, `dev`). Framework core and optional mail/testing modules now operate with zero third-party HTTP client dependencies.
 
 ## [1.3.4] — 2026-07-24 — "Structural Integrity"
 

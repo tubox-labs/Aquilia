@@ -21,7 +21,7 @@ Core dependencies from `pyproject.toml` are `click`, `uvicorn`, `jinja2`, `marku
 | `redis` | `redis[asyncio]` for cache/socket backends |
 | `mail` | `aiosmtplib` |
 | `mail-ses` | `aiobotocore` |
-| `mail-sendgrid` | `httpx` |
+| `mail-sendgrid` | (native `aquilia.http`) |
 | `server` | `gunicorn`, `uvicorn[standard]` |
 | `mlops` | `numpy` |
 | `mlops-onnx` | `onnxruntime`, `onnx` |
@@ -29,7 +29,7 @@ Core dependencies from `pyproject.toml` are `click`, `uvicorn`, `jinja2`, `marku
 | `mlops-s3` | `boto3` |
 | `mlops-bento` | `bentoml` |
 | `mlops-explain` | `shap`, `lime` |
-| `testing` | `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx` |
+| `testing` | `pytest`, `pytest-asyncio`, `pytest-cov` |
 | `dev` | `aquilia[testing]`, `ruff`, `mypy`, `pre-commit` |
 
 `templates`, `db`, and `files` are compatibility aliases in `pyproject.toml`; Jinja2 is core, database support is native, and native filesystem support lives in `aquilia.filesystem`.
