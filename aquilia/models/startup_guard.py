@@ -64,6 +64,7 @@ def check_db_ready(
     migrations_dir: str | Path = "migrations",
     *,
     auto_migrate: bool | None = None,
+    auto_create: bool | None = None,
 ) -> bool:
     """
     Check if the database is ready for the application to start.
@@ -73,13 +74,15 @@ def check_db_ready(
 
     Rules:
     1. If AQUILIA_AUTO_MIGRATE=1 (or auto_migrate=True), skip checks.
-    2. For SQLite: if the DB file does not exist, warn and return False.
-    3. If there are unapplied migrations, warn and return False.
+    2. If auto_create=True and no migrations exist, allow initial table creation.
+    3. For SQLite: if the DB file does not exist, warn and return False.
+    4. If there are unapplied migrations, warn and return False.
 
     Args:
         db_url: Database connection URL
         migrations_dir: Path to migrations directory
         auto_migrate: Override for AQUILIA_AUTO_MIGRATE env var
+        auto_create: Override for database auto_create setting
 
     Returns:
         True if the database is ready, False otherwise.
@@ -93,8 +96,13 @@ def check_db_ready(
     if auto_migrate:
         return True
 
+    mdir = Path(migrations_dir)
+    has_migrations = mdir.exists() and any(mdir.glob("*.py"))
+
     # Check 1: Does the database file exist?
     if not check_db_exists(db_url):
+        if auto_create and not has_migrations:
+            return True
         _warn_not_ready(
             "Database file does not exist",
             db_url=db_url,
@@ -103,8 +111,7 @@ def check_db_ready(
         return False
 
     # Check 2: Are all migrations applied?
-    mdir = Path(migrations_dir)
-    if mdir.exists() and any(mdir.glob("*.py")) and not check_migrations_applied(db_url, migrations_dir):
+    if has_migrations and not check_migrations_applied(db_url, migrations_dir):
         _warn_not_ready(
             "Unapplied migrations detected",
             db_url=db_url,

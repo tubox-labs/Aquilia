@@ -3685,6 +3685,7 @@ class AquiliaServer:
                     db_url=db_url,
                     migrations_dir=migrations_dir,
                     auto_migrate=auto_migrate,
+                    auto_create=auto_create,
                 )
                 if not db_ready:
                     # Check if there are any migration files in migrations_dir
