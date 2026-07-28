@@ -236,21 +236,21 @@ class TestJsonBackend:
         assert decoded["list"] == [1, "two", 3.0, True, None]
 
     def test_encode_empty_structures(self):
-        import surp as backend
+        import json as backend
 
-        assert backend.decode(backend.encode({})) == {}
-        assert backend.decode(backend.encode([])) == []
-        assert backend.decode(backend.encode("")) == ""
+        assert backend.loads(backend.dumps({})) == {}
+        assert backend.loads(backend.dumps([])) == []
+        assert backend.loads(backend.dumps("")) == ""
 
     def test_encode_large_payload(self):
-        """Surp should handle reasonably large payloads."""
-        import surp as backend
+        """JSON should handle reasonably large payloads."""
+        import json as backend
 
         data = {
             "routes": [{"path": f"/api/resource/{i}", "method": "GET", "handler": f"handler_{i}"} for i in range(500)]
         }
-        encoded = backend.encode(data)
-        decoded = backend.decode(encoded)
+        encoded = backend.dumps(data)
+        decoded = backend.loads(encoded)
         assert len(decoded["routes"]) == 500
         assert decoded["routes"][499]["path"] == "/api/resource/499"
 
