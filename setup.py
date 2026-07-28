@@ -31,8 +31,6 @@ CORE_DEPS = [
     "uvicorn>=0.30.0",
     "jinja2>=3.1.0",
     "markupsafe>=2.1.0",
-    # Surp serializer — used for manifest compilation and runtime evaluation
-    "surp",
 ]
 
 # ---------------------------------------------------------------------------

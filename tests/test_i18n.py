@@ -780,12 +780,12 @@ class TestFileCatalog:
         assert cat.get("messages.welcome", "en") == "Welcome!"
 
 
-class TestSurpCatalog:
-    """SurpCatalog SURP binary format backend."""
+class TestJSONCatalog:
+    """JSONCatalog format backend."""
 
     @pytest.fixture
     def locale_dir(self, tmp_path):
-        """Create locale dir with JSON files for SURP testing."""
+        """Create locale dir with JSON files for testing."""
         en_dir = tmp_path / "locales" / "en"
         en_dir.mkdir(parents=True)
         (en_dir / "messages.json").write_text(
@@ -812,139 +812,40 @@ class TestSurpCatalog:
 
         return tmp_path / "locales"
 
-    def test_has_surp(self):
-        pytest.importorskip("surp")
-
-        from aquilia.i18n.catalog import has_surp
-
-        # Should be True since surp is installed
-        assert has_surp() is True
-
     def test_load_from_json(self, locale_dir):
-        from aquilia.i18n.catalog import SurpCatalog
+        from aquilia.i18n.catalog import JSONCatalog
 
-        cat = SurpCatalog([locale_dir], auto_compile=False)
+        cat = JSONCatalog([locale_dir])
         assert cat.get("messages.welcome", "en") == "Welcome!"
 
-    def test_auto_compile(self, locale_dir):
-        pytest.importorskip("surp")
-
-        from aquilia.i18n.catalog import SurpCatalog
-
-        cat = SurpCatalog([locale_dir], auto_compile=True)
-        cat.load()
-        # After auto-compile, .surp files should exist
-        surp_file = locale_dir / "en" / "messages.surp"
-        assert surp_file.exists()
-
-    def test_load_from_surp(self, locale_dir):
-        pytest.importorskip("surp")
-
-        from aquilia.i18n.catalog import SurpCatalog
-
-        # First compile
-        cat1 = SurpCatalog([locale_dir], auto_compile=True)
-        cat1.load()
-
-        # Remove JSON files
-        (locale_dir / "en" / "messages.json").unlink()
-        (locale_dir / "fr" / "messages.json").unlink()
-
-        # Load from SURP only
-        cat2 = SurpCatalog([locale_dir], auto_compile=False)
-        assert cat2.get("messages.welcome", "en") == "Welcome!"
-
-    def test_compile_method(self, locale_dir):
-        pytest.importorskip("surp")
-
-        from aquilia.i18n.catalog import SurpCatalog
-
-        cat = SurpCatalog([locale_dir], auto_compile=False)
-        count = cat.compile()
-        assert count == 2  # en/messages.json + fr/messages.json
-
     def test_locales(self, locale_dir):
-        from aquilia.i18n.catalog import SurpCatalog
+        from aquilia.i18n.catalog import JSONCatalog
 
-        cat = SurpCatalog([locale_dir])
+        cat = JSONCatalog([locale_dir])
         assert "en" in cat.locales()
         assert "fr" in cat.locales()
 
     def test_keys(self, locale_dir):
-        from aquilia.i18n.catalog import SurpCatalog
+        from aquilia.i18n.catalog import JSONCatalog
 
-        cat = SurpCatalog([locale_dir])
+        cat = JSONCatalog([locale_dir])
         keys = cat.keys("en")
         assert "messages.welcome" in keys
         assert "messages.greeting" in keys
 
     def test_has(self, locale_dir):
-        from aquilia.i18n.catalog import SurpCatalog
+        from aquilia.i18n.catalog import JSONCatalog
 
-        cat = SurpCatalog([locale_dir])
+        cat = JSONCatalog([locale_dir])
         assert cat.has("messages.welcome", "en")
         assert not cat.has("messages.welcome", "de")
 
-    def test_plural_via_surp(self, locale_dir):
-        from aquilia.i18n.catalog import SurpCatalog
-
-        cat = SurpCatalog([locale_dir], auto_compile=True)
-        assert cat.get_plural("messages.items", "en", "one") == "{count} item"
-        assert cat.get_plural("messages.items", "en", "other") == "{count} items"
-
-    def test_surp_prefers_surp_over_json(self, locale_dir):
-        """When both .surp and .json exist, prefer .surp."""
-        from aquilia.i18n.catalog import SurpCatalog
-
-        # First load compiles to .surp from JSON
-        cat1 = SurpCatalog([locale_dir], auto_compile=True)
-        cat1.load()
-
-        # Modify the JSON (but .surp still has old content)
-        import time
-
-        time.sleep(0.05)  # Ensure different mtime
-        (locale_dir / "en" / "messages.json").write_text(
-            json.dumps(
-                {
-                    "welcome": "JSON Updated!",
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        # Load again — should auto-recompile since JSON is newer
-        cat2 = SurpCatalog([locale_dir], auto_compile=True)
-        cat2.load()
-        assert cat2.get("messages.welcome", "en") == "JSON Updated!"
-
     def test_nonexistent_dir(self):
-        from aquilia.i18n.catalog import SurpCatalog
+        from aquilia.i18n.catalog import JSONCatalog
 
-        cat = SurpCatalog([Path("/nonexistent")], auto_compile=False)
+        cat = JSONCatalog([Path("/nonexistent")])
         cat.load()
         assert cat.locales() == set()
-
-    def test_envelope_integrity(self, locale_dir):
-        """Validate SURP envelope structure."""
-        surp = pytest.importorskip("surp")
-
-        from aquilia.i18n.catalog import SurpCatalog
-
-        cat = SurpCatalog([locale_dir], auto_compile=True)
-        cat.load()
-
-        surp_file = locale_dir / "en" / "messages.surp"
-        data = surp.decode_from_file(str(surp_file))
-        assert data["__format__"] == "surp"
-        assert data["schema_version"] == "1.0"
-        assert data["artifact_type"] == "i18n_catalog"
-        assert data["locale"] == "en"
-        assert data["namespace"] == "messages"
-        assert "fingerprint" in data
-        assert data["fingerprint"].startswith("sha256:")
-        assert "translations" in data
-        assert data["translations"]["welcome"] == "Welcome!"
 
 
 class TestNamespacedCatalog:
@@ -1327,7 +1228,7 @@ class TestI18nConfig:
 
         cfg = I18nConfig()
         assert cfg.default_locale == "en"
-        assert cfg.catalog_format == "surp"
+        assert cfg.catalog_format == "json"
         assert cfg.enabled is True
 
     def test_from_dict(self):
@@ -1513,10 +1414,10 @@ class TestCreateI18nService:
 
 
 class TestServiceBuildCatalog:
-    """Service._build_catalog with SURP format."""
+    """Service._build_catalog with JSON format."""
 
-    def test_build_surp_catalog(self, tmp_path):
-        from aquilia.i18n.catalog import SurpCatalog
+    def test_build_default_json_catalog(self, tmp_path):
+        from aquilia.i18n.catalog import JSONCatalog
         from aquilia.i18n.service import I18nConfig, I18nService
 
         locale_dir = tmp_path / "locales" / "en"
@@ -1525,10 +1426,10 @@ class TestServiceBuildCatalog:
 
         cfg = I18nConfig(
             catalog_dirs=[str(tmp_path / "locales")],
-            catalog_format="surp",
+            catalog_format="json",
         )
         svc = I18nService(cfg)
-        assert isinstance(svc.catalog, SurpCatalog)
+        assert isinstance(svc.catalog, JSONCatalog)
         assert svc.t("messages.hello") == "Hello!"
 
     def test_build_json_catalog(self, tmp_path):
@@ -2779,10 +2680,9 @@ class TestModuleExports:
             "TranslationCatalog",
             "MemoryCatalog",
             "FileCatalog",
-            "SurpCatalog",
+            "JSONCatalog",
             "NamespacedCatalog",
             "MergedCatalog",
-            "has_surp",
             "PluralCategory",
             "PluralRule",
             "get_plural_rule",
@@ -2823,13 +2723,3 @@ class TestModuleExports:
         for name in expected:
             assert hasattr(i18n, name), f"Missing export: {name}"
             assert name in i18n.__all__, f"Not in __all__: {name}"
-
-    def test_surp_catalog_importable(self):
-        from aquilia.i18n import SurpCatalog
-
-        assert SurpCatalog is not None
-
-    def test_has_surp_importable(self):
-        from aquilia.i18n import has_surp
-
-        assert callable(has_surp)

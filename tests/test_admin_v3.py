@@ -840,16 +840,15 @@ class TestMigrationFormat:
         """save_snapshot + load_snapshot should roundtrip data via SURP."""
         pytest.importorskip("surp")
 
-        import os
         import tempfile
 
         from aquilia.models.schema_snapshot import load_snapshot, save_snapshot
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            surp_path = os.path.join(tmpdir, "test.surp")
+            json_path = Path(tmpdir) / "snapshot.json"
             snapshot = {"version": 1, "models": {"User": {"table": "users"}}, "checksum": "abc"}
-            save_snapshot(snapshot, surp_path)
-            loaded = load_snapshot(surp_path)
+            save_snapshot(snapshot, json_path)
+            loaded = load_snapshot(json_path)
             assert loaded is not None
             assert loaded["version"] == 1
             assert "User" in loaded["models"]
@@ -858,46 +857,37 @@ class TestMigrationFormat:
     def test_load_snapshot_nonexistent_returns_none(self):
         from aquilia.models.schema_snapshot import load_snapshot
 
-        result = load_snapshot("/nonexistent/path/snapshot.surp")
+        result = load_snapshot("/nonexistent/path/snapshot.json")
         assert result is None
 
-    def test_migration_gen_default_path_is_surp(self):
-        """generate_dsl_migration should use .surp extension by default."""
+    def test_migration_gen_default_path_is_json(self):
+        """generate_dsl_migration should use .json extension by default."""
         import inspect
 
         from aquilia.models.migration_gen import generate_dsl_migration
 
         source = inspect.getsource(generate_dsl_migration)
-        assert "schema_snapshot.surp" in source
+        assert "schema_snapshot.json" in source
 
-    def test_json_fallback_in_save(self):
-        """save_snapshot should fall back to JSON when surp is not installed."""
+    def test_json_in_save(self):
+        """save_snapshot should write JSON format."""
         import inspect
 
         from aquilia.models.schema_snapshot import save_snapshot
 
         source = inspect.getsource(save_snapshot)
-        assert "json.dumps" in source, "save_snapshot should fall back to JSON when surp is unavailable"
+        assert "json.dumps" in source
 
-    def test_no_json_fallback_in_load(self):
-        """load_snapshot should not contain JSON fallback logic."""
-        import inspect
-
-        from aquilia.models.schema_snapshot import load_snapshot
-
-        source = inspect.getsource(load_snapshot)
-        assert "json.loads" not in source, "load_snapshot should not fall back to JSON"
-
-    def test_usessurp(self):
-        """Both save and load should use surp."""
+    def test_uses_json(self):
+        """Both save and load should use JSON."""
         import inspect
 
         from aquilia.models.schema_snapshot import load_snapshot, save_snapshot
 
         save_src = inspect.getsource(save_snapshot)
         load_src = inspect.getsource(load_snapshot)
-        assert "surp" in save_src
-        assert "surp" in load_src
+        assert "json" in save_src
+        assert "json" in load_src
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -4132,11 +4122,6 @@ class TestSyntaxHighlighting:
 
         assert hasattr(AdminSite, "_highlight_json")
 
-    def test_highlight_surp_method_exists(self):
-        from aquilia.admin.site import AdminSite
-
-        assert hasattr(AdminSite, "_highlight_surp")
-
     def test_json_highlights_keys(self):
         from aquilia.admin.site import AdminSite
 
@@ -4188,48 +4173,6 @@ class TestSyntaxHighlighting:
         result = AdminSite._highlight_json(src)
         lines = result.split("\n")
         assert len(lines) == 5
-
-    def test_surp_highlights_sections(self):
-        from aquilia.admin.site import AdminSite
-
-        result = AdminSite._highlight_surp("[Database]\nhost = localhost")
-        assert 'class="cls"' in result
-
-    def test_surp_highlights_keys(self):
-        from aquilia.admin.site import AdminSite
-
-        result = AdminSite._highlight_surp("host = localhost")
-        assert 'class="kw"' in result
-
-    def test_surp_highlights_comments(self):
-        from aquilia.admin.site import AdminSite
-
-        result = AdminSite._highlight_surp("# this is a comment")
-        assert 'class="cmt"' in result
-
-    def test_surp_highlights_booleans(self):
-        from aquilia.admin.site import AdminSite
-
-        result = AdminSite._highlight_surp("enabled = true")
-        assert 'class="kw"' in result
-
-    def test_surp_highlights_numbers(self):
-        from aquilia.admin.site import AdminSite
-
-        result = AdminSite._highlight_surp("port = 5432")
-        assert 'class="num"' in result
-
-    def test_surp_highlights_hex(self):
-        from aquilia.admin.site import AdminSite
-
-        result = AdminSite._highlight_surp("addr = 0xFF00AA")
-        assert 'class="num"' in result
-
-    def test_surp_has_line_numbers(self):
-        from aquilia.admin.site import AdminSite
-
-        result = AdminSite._highlight_surp("[Server]\nport = 8080")
-        assert 'class="code-line-num"' in result
 
 
 class TestDashboardThemeToggle:

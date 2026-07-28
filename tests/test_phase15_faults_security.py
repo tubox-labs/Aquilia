@@ -554,23 +554,23 @@ class TestPickleRemoval:
     """Verify pickle.load is no longer used in bytecode cache or manager."""
 
     def test_bytecode_cache_no_pickle_load(self):
-        """SurpBytecodeCache._load uses JSON+HMAC, not pickle."""
+        """JSONBytecodeCache._load uses JSON+HMAC, not pickle."""
         import inspect
 
-        from aquilia.templates.bytecode_cache import SurpBytecodeCache
+        from aquilia.templates.bytecode_cache import JSONBytecodeCache
 
-        source = inspect.getsource(SurpBytecodeCache._load)
+        source = inspect.getsource(JSONBytecodeCache._load)
         assert "pickle.load" not in source
         assert "json.loads" in source
         assert "hmac" in source.lower()
 
     def test_bytecode_cache_no_pickle_dump(self):
-        """SurpBytecodeCache._save uses JSON+HMAC, not pickle."""
+        """JSONBytecodeCache._save uses JSON+HMAC, not pickle."""
         import inspect
 
-        from aquilia.templates.bytecode_cache import SurpBytecodeCache
+        from aquilia.templates.bytecode_cache import JSONBytecodeCache
 
-        source = inspect.getsource(SurpBytecodeCache._save)
+        source = inspect.getsource(JSONBytecodeCache._save)
         assert "pickle.dump" not in source
         assert "json.dumps" in source
 
@@ -598,11 +598,11 @@ class TestBytecodeHMACIntegrity:
     """Verify HMAC integrity check on bytecode cache load."""
 
     def test_save_and_load_roundtrip(self, tmp_path):
-        from aquilia.templates.bytecode_cache import SurpBytecodeCache
+        from aquilia.templates.bytecode_cache import JSONBytecodeCache
 
-        cache = SurpBytecodeCache(
+        cache = JSONBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.surp",
+            filename="templates.bytecode.json",
             secret_key="test-secret-key",
         )
         # Manually add data
@@ -612,20 +612,20 @@ class TestBytecodeHMACIntegrity:
         cache._save()
 
         # Reload
-        cache2 = SurpBytecodeCache(
+        cache2 = JSONBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.surp",
+            filename="templates.bytecode.json",
             secret_key="test-secret-key",
         )
         assert "test_template" in cache2._cache
         assert cache2._cache["test_template"] == b"bytecode_content_here"
 
     def test_tampered_file_rejected(self, tmp_path):
-        from aquilia.templates.bytecode_cache import SurpBytecodeCache
+        from aquilia.templates.bytecode_cache import JSONBytecodeCache
 
-        cache = SurpBytecodeCache(
+        cache = JSONBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.surp",
+            filename="templates.bytecode.json",
             secret_key="test-secret-key",
         )
         cache._cache["tpl"] = b"code"
@@ -633,7 +633,7 @@ class TestBytecodeHMACIntegrity:
         cache._save()
 
         # Tamper with file
-        cache_file = tmp_path / "test.surp"
+        cache_file = tmp_path / "templates.bytecode.json"
         raw = cache_file.read_bytes()
         # Replace one byte in payload (after HMAC line)
         tampered = raw[:65] + b"X" + raw[66:]
@@ -642,9 +642,9 @@ class TestBytecodeHMACIntegrity:
         # Reload — should reject silently
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            cache2 = SurpBytecodeCache(
+            cache2 = JSONBytecodeCache(
                 cache_dir=str(tmp_path),
-                filename="test.surp",
+                filename="templates.bytecode.json",
                 secret_key="test-secret-key",
             )
             # Should have emitted a warning about integrity check
@@ -654,11 +654,11 @@ class TestBytecodeHMACIntegrity:
             assert len(cache2._cache) == 0
 
     def test_wrong_secret_rejected(self, tmp_path):
-        from aquilia.templates.bytecode_cache import SurpBytecodeCache
+        from aquilia.templates.bytecode_cache import JSONBytecodeCache
 
-        cache = SurpBytecodeCache(
+        cache = JSONBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.surp",
+            filename="templates.bytecode.json",
             secret_key="correct-key",
         )
         cache._cache["tpl"] = b"code"
@@ -668,9 +668,9 @@ class TestBytecodeHMACIntegrity:
         # Load with wrong key
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            cache2 = SurpBytecodeCache(
+            cache2 = JSONBytecodeCache(
                 cache_dir=str(tmp_path),
-                filename="test.surp",
+                filename="templates.bytecode.json",
                 secret_key="wrong-key",
             )
             integrity_warnings = [x for x in w if "integrity" in str(x.message).lower()]
@@ -678,33 +678,33 @@ class TestBytecodeHMACIntegrity:
             assert len(cache2._cache) == 0
 
     def test_missing_file_no_error(self, tmp_path):
-        from aquilia.templates.bytecode_cache import SurpBytecodeCache
+        from aquilia.templates.bytecode_cache import JSONBytecodeCache
 
-        cache = SurpBytecodeCache(
+        cache = JSONBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="nonexistent.surp",
+            filename="nonexistent.json",
             secret_key="key",
         )
         assert len(cache._cache) == 0
 
     def test_cache_file_format_is_hmac_newline_json(self, tmp_path):
-        from aquilia.templates.bytecode_cache import SurpBytecodeCache
+        from aquilia.templates.bytecode_cache import JSONBytecodeCache
 
-        cache = SurpBytecodeCache(
+        cache = JSONBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.surp",
+            filename="templates.bytecode.json",
             secret_key="my-key",
         )
         cache._cache["tpl"] = b"\x00\x01\x02"
         cache._metadata["tpl"] = {"source_hash": "abc"}
         cache._save()
 
-        raw = (tmp_path / "test.surp").read_bytes()
+        raw = (tmp_path / "templates.bytecode.json").read_bytes()
         # First 64 chars are hex HMAC
         assert raw[64:65] == b"\n"
         # After newline is valid JSON
         payload = json.loads(raw[65:])
-        assert payload["__format__"] == "surp"
+        assert payload["__format__"] == "json"
         assert payload["schema_version"] == "1.1"
 
 

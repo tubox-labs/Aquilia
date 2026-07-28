@@ -1363,7 +1363,7 @@ class TestCredentialStore:
         assert len(blob[18 : 18 + _SALT_SIZE]) == _SALT_SIZE
 
     def test_credentials_path_property(self, store, store_dir):
-        assert store.credentials_path == store_dir / "credentials.surp"
+        assert store.credentials_path == store_dir / "credentials.json"
 
     def test_config_path_property(self, store, store_dir):
         assert store.config_path == store_dir / "config.json"
@@ -3027,7 +3027,7 @@ class TestEnhancedSecurity:
     def test_store_status_v2_fields(self, store):
         store.save("rnd_status_v2", owner_name="team")
         s = store.status()
-        assert s["surp_version"] == 2
+        assert s["storage_format"] == "JSON"
         assert s["cipher_suite"] in (1, 3)
         assert s["ttl"] == 0
         assert s["expired"] is False

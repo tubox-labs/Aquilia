@@ -1,7 +1,5 @@
 import time
 
-import pytest
-
 from aquilia.discovery.engine import (
     ASTClassifier,
     AutoDiscoveryEngine,
@@ -14,9 +12,7 @@ from aquilia.manifest import ComponentKind
 
 def test_discovery_caching(tmp_path):
     """Test that file discovery caches scan results and detects changes correctly."""
-    pytest.importorskip("surp")
-
-    cache_file = tmp_path / "cache.surp"
+    cache_file = tmp_path / "cache.json"
     cache = DiscoveryCache(cache_file)
 
     test_file = tmp_path / "service.py"

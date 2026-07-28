@@ -143,8 +143,8 @@ class TestTraceRemoval:
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestAquilarySurpMigration:
-    """Test that aquilary core uses Surp for freeze/from_frozen."""
+class TestAquilaryJSONMigration:
+    """Test that aquilary core uses JSON for freeze/from_frozen."""
 
     def test_aquilary_core_importable(self):
         from aquilia.aquilary.core import Aquilary, AquilaryRegistry
@@ -152,61 +152,38 @@ class TestAquilarySurpMigration:
         assert Aquilary is not None
         assert AquilaryRegistry is not None
 
-    def test_freeze_writes_surp_format(self):
-        """AquilaryRegistry.export_manifest() should write .surp binary when Surp is available."""
+    def test_freeze_writes_json_format(self):
+        """AquilaryRegistry.export_manifest() should write .json format."""
         import inspect
 
         from aquilia.aquilary.core import AquilaryRegistry
 
-        # The freeze/export method is export_manifest on AquilaryRegistry
         assert hasattr(AquilaryRegistry, "export_manifest"), "AquilaryRegistry should have an export_manifest() method"
         source = inspect.getsource(AquilaryRegistry.export_manifest)
-        assert "surp" in source.lower(), "export_manifest() should reference Surp encoding"
+        assert "json" in source.lower(), "export_manifest() should reference JSON encoding"
 
-    def test_from_frozen_reads_surp_format(self):
-        """Aquilary._from_frozen_manifest() should read .surp binary."""
+    def test_from_frozen_reads_json_format(self):
+        """Aquilary._from_frozen_manifest() should read .json."""
         import inspect
 
         from aquilia.aquilary.core import Aquilary
 
-        # _from_frozen_manifest is a classmethod on Aquilary, not AquilaryRegistry
         assert hasattr(Aquilary, "_from_frozen_manifest"), "Aquilary should have a _from_frozen_manifest() classmethod"
         source = inspect.getsource(Aquilary._from_frozen_manifest)
-        assert "surp" in source.lower(), "_from_frozen_manifest() should reference Surp decoding"
-        assert "json" in source.lower(), "_from_frozen_manifest() should have JSON fallback"
+        assert "json" in source.lower(), "_from_frozen_manifest() should reference JSON decoding"
 
 
-class TestAquilaryLoaderSurp:
-    """Test that the manifest loader supports .surp files."""
+class TestAquilaryLoaderJSON:
+    """Test that the manifest loader supports .json files."""
 
-    def test_loader_supports_surp_extension(self):
-        """ManifestLoader should accept .surp files in its loading logic."""
+    def test_loader_supports_json_extension(self):
+        """ManifestLoader should accept .json files in its loading logic."""
         import inspect
 
         from aquilia.aquilary.loader import ManifestLoader
 
-        # Check the full class source for .surp support
         source = inspect.getsource(ManifestLoader)
-        assert ".surp" in source, "ManifestLoader should support .surp extension"
-
-    def test_loader_load_dsl_supports_surp(self):
-        """_load_from_dsl_file should decode .surp files."""
-        import inspect
-
-        from aquilia.aquilary.loader import ManifestLoader
-
-        source = inspect.getsource(ManifestLoader._load_from_dsl_file)
-        assert ".surp" in source, "_load_from_dsl_file should handle .surp format"
-
-    def test_loader_directory_scan_includes_surp(self):
-        """Directory scanning should look for manifest.surp."""
-        import inspect
-
-        from aquilia.aquilary.loader import ManifestLoader
-
-        # Check the full class source for manifest.surp file discovery
-        source = inspect.getsource(ManifestLoader)
-        assert "manifest.surp" in source or ".surp" in source, "ManifestLoader should discover manifest.surp files"
+        assert ".json" in source, "ManifestLoader should support .json extension"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -214,34 +191,30 @@ class TestAquilaryLoaderSurp:
 # ════════════════════════════════════════════════════════════════════════
 
 
-@pytest.mark.skipif(not _HAS_SURP, reason="surp is not installed (optional dependency)")
-class TestSurpBackend:
-    """Test the low-level Surp binary encoder/decoder."""
+class TestJsonBackend:
+    """Test standard JSON encoding/decoding."""
 
-    def test_surp_available(self):
-        """Surp must be installed."""
-        try:
-            import surp
+    def test_json_available(self):
+        """JSON is standard library."""
+        import json
 
-            return
-        except ImportError:
-            pytest.fail("surp is not installed")
+        assert json is not None
 
     def test_encode_decode_dict(self):
-        import surp as backend
+        import json
 
         data = {"a": 1, "b": "hello", "c": [1, 2, 3]}
-        assert backend.decode(backend.encode(data)) == data
+        assert json.loads(json.dumps(data)) == data
 
     def test_encode_decode_nested(self):
-        import surp as backend
+        import json
 
         data = {"level1": {"level2": {"level3": [{"value": i} for i in range(10)]}}}
-        assert backend.decode(backend.encode(data)) == data
+        assert json.loads(json.dumps(data)) == data
 
     def test_encode_decode_types(self):
-        """Test encoding of all supported types."""
-        import surp as backend
+        """Test encoding of supported JSON types."""
+        import json
 
         data = {
             "int": 42,
@@ -253,7 +226,7 @@ class TestSurpBackend:
             "list": [1, "two", 3.0, True, None],
             "nested_dict": {"key": "val"},
         }
-        decoded = backend.decode(backend.encode(data))
+        decoded = json.loads(json.dumps(data))
         assert decoded["int"] == 42
         assert abs(decoded["float"] - 3.14) < 0.001
         assert decoded["str"] == "hello world"
@@ -503,11 +476,11 @@ class TestDeploymentGenerator:
 
 
 # ════════════════════════════════════════════════════════════════════════
-# MODULE 8: ANALYTICS — Cache Dir & Surp Format
+# MODULE 8: ANALYTICS — Cache Dir & JSON Format
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestAnalyticsSurp:
+class TestAnalyticsJSON:
     """Test analytics cache directory and format changes."""
 
     def test_analytics_cache_dir_is_build_cache(self):
@@ -520,24 +493,23 @@ class TestAnalyticsSurp:
         assert ".aquilia" not in source, "Analytics init still references .aquilia directory"
         assert "build" in source, "Analytics init should use build/.cache directory"
 
-    def test_analytics_cache_writes_surp(self):
-        """_cache_analysis should write Surp binary format."""
+    def test_analytics_cache_writes_json(self):
+        """_cache_analysis should write JSON format."""
         import inspect
 
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
 
         source = inspect.getsource(DiscoveryAnalytics._cache_analysis)
-        assert "surp" in source.lower(), "_cache_analysis should write Surp format"
+        assert "json" in source.lower(), "_cache_analysis should write JSON format"
 
-    def test_analytics_cache_reads_surp(self):
-        """get_cached_analysis should read Surp binary format."""
+    def test_analytics_cache_reads_json(self):
+        """get_cached_analysis should read JSON format."""
         import inspect
 
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
 
         source = inspect.getsource(DiscoveryAnalytics.get_cached_analysis)
-        assert "surp" in source.lower(), "get_cached_analysis should read Surp format"
-        assert "json" in source.lower(), "get_cached_analysis should have JSON fallback"
+        assert "json" in source.lower(), "get_cached_analysis should read JSON format"
 
 
 # ════════════════════════════════════════════════════════════════════════
