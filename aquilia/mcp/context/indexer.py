@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -74,15 +73,47 @@ def build_index(root: Path) -> KnowledgeIndex:
 
 
 def save_index(index: KnowledgeIndex, path: Path) -> None:
+    """Persist the knowledge index via ArtifactStore backend (atomic write)."""
+    from aquilia.artifacts.backends.json_file import JSONFileBackend
+    from aquilia.artifacts.canonical import bare_fingerprint
+    from aquilia.artifacts.envelope import ArtifactEnvelope
+
     path = path.expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(index.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+
+    payload = index.to_dict()
+    fp = bare_fingerprint(payload, exclude_keys=frozenset())
+    envelope = ArtifactEnvelope.build(
+        artifact_type="mcp_knowledge_index",
+        key="main",
+        schema_version="1.0",
+        payload=payload,
+        fingerprint=fp,
+    )
+    JSONFileBackend().write_sync(path, envelope.to_dict())
 
 
 def load_index(path: Path) -> KnowledgeIndex:
+    """Load knowledge index via ArtifactStore backend."""
+    from aquilia.artifacts.backends.json_file import JSONFileBackend
+    from aquilia.artifacts.envelope import ArtifactEnvelope
+
     try:
-        data = json.loads(path.expanduser().read_text(encoding="utf-8"))
+        path = path.expanduser().resolve()
+        raw = JSONFileBackend().read_sync(path)
+        if raw is None:
+            raise MCPIndexFault(f"MCP index not found at '{path}'.")
+
+        # Support new ArtifactEnvelope format and legacy plain dict
+        if raw.get("format") == "aquilia-artifact":
+            envelope = ArtifactEnvelope.from_dict(raw)
+            data = envelope.payload
+        else:
+            data = raw  # Legacy: plain KnowledgeIndex dict
+
         return KnowledgeIndex.from_dict(data)
+    except MCPIndexFault:
+        raise
     except Exception as exc:
         raise MCPIndexFault(f"Could not load MCP index: {exc}") from exc
 

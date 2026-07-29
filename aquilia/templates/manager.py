@@ -128,12 +128,15 @@ class TemplateManager:
         Compile all templates to json artifact.
 
         Args:
-            output_path: Output file path (default: artifacts/templates.json)
+            output_path: Output file path (default: .aquilia/artifacts/templates.json)
 
         Returns:
             Compilation result with fingerprint, count, and metadata
         """
-        output_path = output_path or "artifacts/templates.json"
+        if output_path is None:
+            from aquilia.artifacts.cache_root import resolve_artifact_root
+
+            output_path = str(resolve_artifact_root() / "templates.json")
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 

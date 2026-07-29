@@ -156,27 +156,74 @@ class DiscoveryCache:
     def __init__(self, cache_file: Path):
         self.cache_file = cache_file
         self._data: dict[str, dict] = {}
+        from aquilia.artifacts.backends.json_file import JSONFileBackend
+
+        self._backend = JSONFileBackend()
         self.load()
 
     def load(self) -> None:
-        if self.cache_file.exists():
-            try:
-                import json
-
-                self._data = json.loads(self.cache_file.read_text(encoding="utf-8")) or {}
-            except Exception:
+        """Load discovery cache via ArtifactStore backend."""
+        try:
+            raw = self._backend.read_sync(self.cache_file)
+            if raw is None:
                 self._data = {}
-        else:
+                return
+
+            # Support both ArtifactEnvelope format and legacy bare dict
+            if raw.get("format") == "aquilia-artifact" or raw.get("schema_version"):
+                # New envelope format — payload holds entries
+                from aquilia.artifacts.envelope import ArtifactEnvelope
+
+                try:
+                    envelope = ArtifactEnvelope.from_dict(raw)
+                    entries = envelope.payload.get("entries", {})
+                except Exception:
+                    # Legacy versioned envelope without full ArtifactEnvelope structure
+                    entries = raw.get("entries", raw)
+            else:
+                entries = raw  # Legacy: bare dict of file entries
+
+            # Prune entries for files that no longer exist on disk
+            pruned_count = 0
+            self._data = {}
+            for file_path, meta in entries.items():
+                if Path(file_path).exists():
+                    self._data[file_path] = meta
+                else:
+                    pruned_count += 1
+
+            if pruned_count > 0:
+                logger.debug(
+                    "Discovery cache: pruned %d entries for deleted/renamed files",
+                    pruned_count,
+                )
+
+        except Exception as exc:
+            logger.warning(
+                "Failed to load discovery cache from %s: %s. Starting with empty cache.",
+                self.cache_file,
+                exc,
+            )
             self._data = {}
 
     def save(self) -> None:
+        """Atomically persist discovery cache via ArtifactStore backend."""
         try:
-            self.cache_file.parent.mkdir(parents=True, exist_ok=True)
-            import json
+            from aquilia.artifacts.canonical import bare_fingerprint
+            from aquilia.artifacts.envelope import ArtifactEnvelope
 
-            self.cache_file.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
+            payload = {"entries": self._data}
+            fp = bare_fingerprint(payload, exclude_keys=frozenset())
+            envelope = ArtifactEnvelope.build(
+                artifact_type="discovery_cache",
+                key="main",
+                schema_version="1.0",
+                payload=payload,
+                fingerprint=fp,
+            )
+            self._backend.write_sync(self.cache_file, envelope.to_dict())
         except Exception as e:
-            logger.warning(f"Failed to save discovery cache: {e}")
+            logger.warning("Failed to save discovery cache: %s", e)
 
     def get(self, file_path: str) -> dict | None:
         return self._data.get(file_path)

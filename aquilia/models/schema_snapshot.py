@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from .migration_dsl import (
     _SENTINEL,
@@ -615,21 +615,59 @@ def _compute_checksum(snapshot: dict[str, Any]) -> str:
 
 
 def save_snapshot(snapshot: dict[str, Any], path: Path) -> None:
-    """Write snapshot to file in JSON format."""
+    """Write snapshot to file atomically via ArtifactStore backend (JSONFileBackend)."""
+    from aquilia.artifacts.backends.json_file import JSONFileBackend
+    from aquilia.artifacts.canonical import bare_fingerprint
+    from aquilia.artifacts.envelope import ArtifactEnvelope
+
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(snapshot, indent=2, sort_keys=True, default=str), encoding="utf-8")
+
+    fp = bare_fingerprint(snapshot, exclude_keys=frozenset({"checksum"}))
+    envelope = ArtifactEnvelope.build(
+        artifact_type="schema_snapshot", key="main", schema_version="1.0", payload=snapshot, fingerprint=fp
+    )
+    JSONFileBackend().write_sync(path, envelope.to_dict())
 
 
 def load_snapshot(path: Path) -> dict[str, Any] | None:
-    """Load snapshot from file in JSON format."""
+    """Load and verify snapshot from file."""
+    from aquilia.artifacts.backends.json_file import JSONFileBackend
+    from aquilia.artifacts.envelope import ArtifactEnvelope
+
     path = Path(path)
     if not path.exists():
         return None
     try:
-        return cast(dict[str, Any] | None, json.loads(path.read_text(encoding="utf-8")))
+        raw = JSONFileBackend().read_sync(path)
+        if raw is None:
+            return None
+
+        if isinstance(raw, dict) and raw.get("format") == "aquilia-artifact":
+            envelope = ArtifactEnvelope.from_dict(raw)
+            data = envelope.payload
+        else:
+            data = raw
+
+        if not isinstance(data, dict):
+            return None
+
+        # Verify checksum on load (fixes write-but-never-verify pattern, §5.2)
+        stored_checksum = data.get("checksum")
+        if stored_checksum:
+            expected = _compute_checksum(data)
+            if expected != stored_checksum:
+                logger.warning(
+                    "Schema snapshot at %s has checksum mismatch "
+                    "(stored=%r, computed=%r). "
+                    "The file may be corrupt; proceeding with caution.",
+                    path,
+                    stored_checksum,
+                    expected,
+                )
+        return data
     except (OSError, Exception) as exc:
-        logger.warning(f"Failed to load snapshot {path}: {exc}")
+        logger.warning("Failed to load snapshot %s: %s", path, exc)
         return None
 
 

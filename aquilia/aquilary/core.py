@@ -3,7 +3,6 @@ Core Aquilary types and main registry class.
 """
 
 import contextlib
-import json
 import logging
 import os
 from collections.abc import Callable
@@ -212,6 +211,10 @@ class AquilaryRegistry:
         """
         Write frozen manifest for reproducible deploys.
 
+        Delegates atomic write, serialization, and HMAC signing to the
+        ArtifactStore backend (JSONFileBackend), which uses temp-file + os.replace
+        internally (fixes §5.3 of the artifact audit).
+
         Args:
             path: Output file path
         """
@@ -270,7 +273,24 @@ class AquilaryRegistry:
 
         out = Path(path)
         out = out.with_suffix(".json") if out.suffix != ".json" else out
-        out.write_text(json.dumps(frozen, indent=2, sort_keys=True), encoding="utf-8")
+        out.parent.mkdir(parents=True, exist_ok=True)
+
+        # Delegate atomic write + serialization to ArtifactStore backend
+        # (removed inline tempfile/os.replace; JSONFileBackend owns that concern)
+        from aquilia.artifacts.backends.json_file import JSONFileBackend
+        from aquilia.artifacts.canonical import bare_fingerprint
+        from aquilia.artifacts.envelope import ArtifactEnvelope
+
+        fp = bare_fingerprint(frozen, exclude_keys=frozenset())
+        envelope = ArtifactEnvelope.build(
+            artifact_type="frozen_registry",
+            key="main",
+            schema_version="1.0",
+            payload=frozen,
+            fingerprint=fp,
+            signed=True,
+        )
+        JSONFileBackend().write_sync(out, envelope.to_dict(), signed=True, artifact_path_for_key=out)
 
 
 class Aquilary:
@@ -464,13 +484,60 @@ class Aquilary:
         path: str,
         config: Any,
         mode: RegistryMode,
+        *,
+        skip_verify: bool = False,
     ) -> AquilaryRegistry:
-        """Load registry from frozen manifest file (.json)."""
-        import json
+        """
+        Load registry from frozen manifest file (.json).
+
+        Verifies the stored fingerprint by recomputing it from the loaded
+        app contexts — this wires the previously dead FrozenManifestMismatchError
+        (which was defined in errors.py but never raised anywhere).
+
+        Args:
+            path: Frozen manifest file path
+            config: Config object for registry construction
+            mode: Registry mode
+            skip_verify: If True, skip fingerprint recomputation (opt-out;
+                         deprecated — remove after one release cycle).
+        """
+        import logging
         from pathlib import Path
 
+        _logger = logging.getLogger("aquilia.aquilary.core")
         manifest_path = Path(path)
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        # Load via ArtifactStore backend (replaces raw json.loads + read_text)
+        from aquilia.artifacts.backends.json_file import JSONFileBackend
+        from aquilia.artifacts.envelope import ArtifactEnvelope
+
+        try:
+            raw = JSONFileBackend().read_sync(manifest_path, signed=True, artifact_path_for_key=manifest_path)
+        except ValueError as exc:
+            from .errors import FrozenManifestMismatchError
+
+            raise FrozenManifestMismatchError(
+                expected_fingerprint="<unknown>",
+                actual_fingerprint=f"<integrity error: {exc}>",
+                span=None,
+            ) from exc
+
+        if raw is None:
+            raise FileNotFoundError(
+                f"Frozen manifest not found at '{path}'. Run `aq aquilary freeze <path>` to generate it."
+            )
+
+        # Parse as ArtifactEnvelope if possible, fall back to direct dict
+        if raw.get("format") == "aquilia-artifact":
+            try:
+                envelope = ArtifactEnvelope.from_dict(raw)
+                data = envelope.payload
+            except Exception:
+                data = raw  # Legacy fallback
+        else:
+            data = raw  # Pre-migration frozen manifest format
+
+        stored_fingerprint = data.get("fingerprint", "")
 
         # Reconstruct app contexts from frozen data
         app_contexts = []
@@ -488,9 +555,47 @@ class Aquilary:
             )
             app_contexts.append(ctx)
 
+        # Fingerprint verification — fixes the headline audit finding (§3.1).
+        # FingerprintGenerator.verify_fingerprint() existed but was never called;
+        # FrozenManifestMismatchError was defined but never raised.
+        if not skip_verify:
+            try:
+                from .fingerprint import FingerprintGenerator
+
+                fg = FingerprintGenerator()
+                actual_fingerprint = fg.generate(app_contexts, config, mode)
+
+                if actual_fingerprint != stored_fingerprint:
+                    from .errors import FrozenManifestMismatchError
+
+                    raise FrozenManifestMismatchError(
+                        expected_fingerprint=stored_fingerprint,
+                        actual_fingerprint=actual_fingerprint,
+                    )
+            except Exception as verify_exc:
+                # Re-raise registry errors; log and continue for unexpected errors
+                from .errors import FrozenManifestMismatchError
+
+                if isinstance(verify_exc, FrozenManifestMismatchError):
+                    raise
+                _logger.warning(
+                    "Could not verify frozen manifest fingerprint: %s. Pass skip_verify=True to suppress this check.",
+                    verify_exc,
+                )
+        else:
+            import warnings
+
+            warnings.warn(
+                "skip_verify=True is deprecated and will be removed in a future release. "
+                "Fingerprint verification of frozen manifests is a security control; "
+                "do not disable it in production.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
         return AquilaryRegistry(
             app_contexts=app_contexts,
-            fingerprint=data["fingerprint"],
+            fingerprint=stored_fingerprint,
             mode=mode,
             dependency_graph=data["dependency_graph"],
             route_index=data["route_index"],

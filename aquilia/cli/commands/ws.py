@@ -484,7 +484,9 @@ def main():
 
     # inspect
     inspect_parser = subparsers.add_parser("inspect", help="Inspect compiled WebSocket namespaces")
-    inspect_parser.add_argument("--artifacts-dir", default="artifacts", help="Artifacts directory")
+    inspect_parser.add_argument(
+        "--artifacts-dir", default=None, help="Artifacts directory (default: .aquilia/artifacts)"
+    )
 
     # broadcast
     broadcast_parser = subparsers.add_parser("broadcast", help="Broadcast message")
@@ -507,7 +509,7 @@ def main():
     gen_parser = subparsers.add_parser("gen-client", help="Generate client SDK")
     gen_parser.add_argument("--lang", default="ts", help="Language (ts)")
     gen_parser.add_argument("--out", required=True, help="Output file")
-    gen_parser.add_argument("--artifacts-dir", default="artifacts", help="Artifacts directory")
+    gen_parser.add_argument("--artifacts-dir", default=None, help="Artifacts directory (default: .aquilia/artifacts)")
 
     args = parser.parse_args()
     args_dict = vars(args)

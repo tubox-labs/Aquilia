@@ -134,10 +134,14 @@ def generate_dsl_migration(
 
     filename = f"{rev}_{slug}.py"
     filepath = mdir / filename
-    filepath.write_text(content, encoding="utf-8")
 
-    # Save new snapshot in JSON format
+    # TWO-PHASE WRITE FIX: save snapshot FIRST, then write migration file.
+    # If the process dies between these two writes, a stale-but-present
+    # snapshot is a strictly safer failure mode than a migration file
+    # with no matching snapshot update (which would generate duplicate
+    # migrations on the next run). Fixes §3.6 / §5.3 of the artifact audit.
     save_snapshot(new_snapshot, snap_path)
+    filepath.write_text(content, encoding="utf-8")
 
     return filepath
 

@@ -8,7 +8,6 @@ Integrated with `aq compile` command.
 from __future__ import annotations
 
 import inspect
-import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -175,39 +174,52 @@ class SocketCompiler:
         Args:
             output_path: Output file path
         """
+        from aquilia.artifacts.backends.json_file import JSONFileBackend
+        from aquilia.artifacts.canonical import bare_fingerprint
+        from aquilia.artifacts.envelope import ArtifactEnvelope
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Build artifact structure
-        artifact = {
+        # Build payload — pure data, no persistence logic
+        controllers_data = [
+            {
+                "class_name": c.class_name,
+                "module_path": c.module_path,
+                "namespace": c.namespace,
+                "path_pattern": c.path_pattern,
+                "events": [
+                    {
+                        "event": e.event,
+                        "handler_name": e.handler_name,
+                        "schema": e.schema,
+                        "ack": e.ack,
+                        "handler_type": e.handler_type,
+                    }
+                    for e in c.events
+                ],
+                "guards": c.guards,
+                "config": c.config,
+            }
+            for c in self.controllers
+        ]
+
+        payload = {
             "version": "1.0.0",
             "type": "websockets",
-            "controllers": [
-                {
-                    "class_name": c.class_name,
-                    "module_path": c.module_path,
-                    "namespace": c.namespace,
-                    "path_pattern": c.path_pattern,
-                    "events": [
-                        {
-                            "event": e.event,
-                            "handler_name": e.handler_name,
-                            "schema": e.schema,
-                            "ack": e.ack,
-                            "handler_type": e.handler_type,
-                        }
-                        for e in c.events
-                    ],
-                    "guards": c.guards,
-                    "config": c.config,
-                }
-                for c in self.controllers
-            ],
+            "controllers": controllers_data,
             "namespaces": self.namespaces,
         }
 
-        # Write to file
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(artifact, f, indent=2)
+        # Delegate fingerprinting + atomic write to artifact infrastructure
+        fp = bare_fingerprint(payload, exclude_keys=frozenset())
+        envelope = ArtifactEnvelope.build(
+            artifact_type="ws_metadata",
+            key="main",
+            schema_version="1.0",
+            payload=payload,
+            fingerprint=fp,
+        )
+        JSONFileBackend().write_sync(output_path, envelope.to_dict())
 
     def validate(self) -> list[str]:
         """

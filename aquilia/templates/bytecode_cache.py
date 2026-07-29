@@ -10,10 +10,8 @@ Supports:
 import base64
 import contextlib
 import hashlib
-import hmac
 import json
 import os
-import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -103,12 +101,12 @@ class JSONBytecodeCache(BytecodeCache):
     JSON artifact-backed bytecode cache.
 
     Stores compiled templates in artifacts/templates.bytecode.json
-    with fingerprinting and atomic writes.
+    with fingerprinting and atomic writes via the ArtifactStore backend.
 
     Envelope format:
     {
-        "__format__": "json",
-        "schema_version": "1.0",
+        "format": "aquilia-artifact",
+        "schema_version": "1.1",
         "artifact_type": "template_bytecode",
         "fingerprint": "sha256:...",
         "created_at": "2026-01-26T...",
@@ -136,16 +134,21 @@ class JSONBytecodeCache(BytecodeCache):
 
     def __init__(
         self,
-        cache_dir: str = "artifacts",
+        cache_dir: str | None = None,
         filename: str = "templates.bytecode.json",
         secret_key: str | None = None,
     ):
+        # Resolve canonical artifact root if not explicitly specified.
+        # Default: <project>/.aquilia/artifacts (never the legacy "artifacts/" dir).
+        if cache_dir is None:
+            from aquilia.artifacts.cache_root import resolve_artifact_root
+
+            cache_dir = str(resolve_artifact_root())
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_file = self.cache_dir / filename
 
         # HMAC secret for integrity verification
-        # Falls back to a machine-local key derived from cache path
         self._secret_key = (
             secret_key
             or os.environ.get("AQUILIA_CACHE_SECRET")
@@ -156,6 +159,11 @@ class JSONBytecodeCache(BytecodeCache):
         self._cache: dict[str, bytes] = {}
         self._metadata: dict[str, dict] = {}
         self._dirty = False
+
+        # Backend — delegates all serialization + atomic IO
+        from aquilia.artifacts.backends.json_file import JSONFileBackend
+
+        self._backend = JSONFileBackend()
 
         # Load existing cache
         self._load()
@@ -201,51 +209,31 @@ class JSONBytecodeCache(BytecodeCache):
             self._dirty = False
 
     def _load(self) -> None:
-        """Load cache from disk with HMAC integrity verification."""
-        if not self.cache_file.exists():
-            return
-
+        """Load cache from disk via ArtifactStore backend (with HMAC verification)."""
         try:
-            raw = self.cache_file.read_bytes()
-
-            # Split HMAC signature from payload
-            # Format: <64-char hex HMAC>\n<JSON payload>
-            newline_pos = raw.find(b"\n")
-            if newline_pos < 0 or newline_pos != 64:
-                warnings.warn(
-                    f"Bytecode cache {self.cache_file} has invalid format, ignoring",
-                    stacklevel=2,
-                )
-                return
-
-            stored_mac = raw[:newline_pos]
-            payload_bytes = raw[newline_pos + 1 :]
-
-            # Verify HMAC
-            expected_mac = (
-                hmac.new(
-                    self._secret_key.encode(),
-                    payload_bytes,
-                    hashlib.sha256,
-                )
-                .hexdigest()
-                .encode()
+            raw = self._backend.read_sync(
+                self.cache_file,
+                signed=True,
+                artifact_path_for_key=self.cache_file,
+                secret_key=self._secret_key,
             )
-
-            if not hmac.compare_digest(stored_mac, expected_mac):
-                warnings.warn(
-                    f"Bytecode cache {self.cache_file} failed integrity check, ignoring",
-                    stacklevel=2,
-                )
+            if raw is None:
                 return
 
-            data = json.loads(payload_bytes)
+            # Parse envelope — support ArtifactEnvelope format and legacy format
+            from aquilia.artifacts.envelope import ArtifactEnvelope
 
-            # Validate envelope
-            if not isinstance(data, dict) or data.get("__format__") != "json":
-                return
-
-            payload = data.get("payload", {})
+            if raw.get("format") == "aquilia-artifact":
+                try:
+                    envelope = ArtifactEnvelope.from_dict(raw)
+                    payload = envelope.payload
+                except Exception:
+                    payload = raw.get("payload", {})
+            else:
+                # Legacy format: __format__ == "json" with payload key
+                if not isinstance(raw, dict) or raw.get("__format__") not in ("json", None):
+                    return
+                payload = raw.get("payload", {})
 
             # Load bytecode (base64 → bytes)
             bytecode_data = payload.get("bytecode", {})
@@ -261,50 +249,36 @@ class JSONBytecodeCache(BytecodeCache):
             pass
 
     def _save(self) -> None:
-        """Save cache to disk with HMAC integrity signature."""
-        # Compute fingerprint
-        fingerprint = self._compute_fingerprint()
+        """Save cache to disk via ArtifactStore backend (atomic write + HMAC signing)."""
+        from aquilia.artifacts.envelope import ArtifactEnvelope
 
-        # Build envelope — bytecode encoded as base64 for JSON safety
-        bytecode_encoded = {}
-        for key, raw_bytes in self._cache.items():
-            bytecode_encoded[key] = base64.b64encode(raw_bytes).decode("ascii")
+        # Build payload — bytecode encoded as base64 for JSON safety
+        bytecode_encoded = {key: base64.b64encode(raw_bytes).decode("ascii") for key, raw_bytes in self._cache.items()}
 
-        envelope = {
-            "__format__": "json",
-            "schema_version": "1.1",
-            "artifact_type": "template_bytecode",
-            "fingerprint": fingerprint,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "payload": {
-                "bytecode": bytecode_encoded,
-                "metadata": self._metadata.copy(),
-            },
+        payload = {
+            "bytecode": bytecode_encoded,
+            "metadata": self._metadata.copy(),
         }
 
-        # Serialize to JSON
-        payload_bytes = json.dumps(envelope, separators=(",", ":"), sort_keys=True).encode()
-
-        # Compute HMAC
-        mac = (
-            hmac.new(
-                self._secret_key.encode(),
-                payload_bytes,
-                hashlib.sha256,
-            )
-            .hexdigest()
-            .encode()
+        fingerprint = self._compute_fingerprint()
+        envelope = ArtifactEnvelope.build(
+            artifact_type="template_bytecode",
+            key="main",
+            schema_version="1.1",
+            payload=payload,
+            fingerprint=fingerprint,
+            signed=True,
         )
 
-        # Atomic write: <HMAC>\n<JSON>
-        temp_file = self.cache_file.with_suffix(".tmp")
-        try:
-            temp_file.write_bytes(mac + b"\n" + payload_bytes)
-            temp_file.replace(self.cache_file)
-        except Exception:
-            if temp_file.exists():
-                temp_file.unlink()
-            raise
+        # Delegate atomic write + HMAC signing to backend
+        # (removed inline hmac/json/tempfile/os.replace duplication)
+        self._backend.write_sync(
+            self.cache_file,
+            envelope.to_dict(),
+            signed=True,
+            artifact_path_for_key=self.cache_file,
+            secret_key=self._secret_key,
+        )
 
     def _compute_fingerprint(self) -> str:
         """Compute cache fingerprint."""

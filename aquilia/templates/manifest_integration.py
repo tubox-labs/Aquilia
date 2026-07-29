@@ -269,29 +269,47 @@ def generate_template_manifest(template_dirs: list[Path], output_path: Path) -> 
         template_dirs: List of template directories
         output_path: Path to write templates.json
     """
-    manifest = {
+    from datetime import datetime, timezone
+
+    from aquilia.artifacts.backends.json_file import JSONFileBackend
+    from aquilia.artifacts.canonical import bare_fingerprint
+    from aquilia.artifacts.envelope import ArtifactEnvelope
+
+    manifest: dict = {
         "version": "1.0",
-        "generated_at": None,  # Will be filled by caller
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "search_paths": [str(p) for p in template_dirs],
         "templates": {},
     }
 
-    # Scan all templates
+    # Scan all templates (.html, .jinja, .j2, .txt)
     for template_dir in template_dirs:
-        for template_file in template_dir.rglob("*.html"):
-            rel_path = template_file.relative_to(template_dir)
-            template_name = str(rel_path)
+        for ext in ("*.html", "*.jinja", "*.j2", "*.txt"):
+            for template_file in template_dir.rglob(ext):
+                rel_path = template_file.relative_to(template_dir)
+                template_name = str(rel_path)
+                stat = template_file.stat()
 
-            manifest["templates"][template_name] = {
-                "path": str(template_file),
-                "size": template_file.stat().st_size,
-                "mtime": template_file.stat().st_mtime,
-            }
+                manifest["templates"][template_name] = {
+                    "path": str(template_file),
+                    "size": stat.st_size,
+                    "mtime": stat.st_mtime,
+                }
 
-    # Write manifest
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2)
+    # Delegate fingerprinting + atomic write to artifact infrastructure
+    # (removed inline hashlib/json/tempfile/os.replace duplication)
+    fp = bare_fingerprint(
+        {k: v for k, v in manifest.items() if k != "generated_at"},
+        exclude_keys=frozenset(),
+    )
+    envelope = ArtifactEnvelope.build(
+        artifact_type="template_manifest",
+        key="main",
+        schema_version="1.0",
+        payload=manifest,
+        fingerprint=fp,
+    )
+    JSONFileBackend().write_sync(output_path, envelope.to_dict())
 
 
 # ============================================================================

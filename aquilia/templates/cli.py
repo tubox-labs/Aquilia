@@ -21,20 +21,26 @@ from .security import SandboxPolicy
 
 
 def create_template_engine_from_config(
-    template_dirs: list[str], cache_dir: str = "artifacts", sandbox: bool = True, mode: str = "prod"
+    template_dirs: list[str], cache_dir: str | None = None, sandbox: bool = True, mode: str = "prod"
 ) -> TemplateEngine:
     """
     Create template engine from configuration.
 
     Args:
         template_dirs: List of template directories
-        cache_dir: Cache directory for bytecode
+        cache_dir: Cache directory for bytecode (default: .aquilia/artifacts)
         sandbox: Enable sandbox
         mode: Mode (dev/prod)
 
     Returns:
         Configured TemplateEngine
     """
+    # Resolve canonical artifact root (default: .aquilia/artifacts)
+    if cache_dir is None:
+        from aquilia.artifacts.cache_root import resolve_artifact_root
+
+        cache_dir = str(resolve_artifact_root())
+
     # Create loader
     loader = TemplateLoader(search_paths=template_dirs)
 
@@ -55,7 +61,7 @@ def create_template_engine_from_config(
 
 async def cmd_compile(
     template_dirs: list[str] | None = None,
-    output: str = "artifacts/templates.json",
+    output: str | None = None,
     mode: str = "prod",
     verbose: bool = False,
 ):
@@ -229,7 +235,7 @@ async def cmd_inspect(template_name: str, template_dirs: list[str] | None = None
 
 
 async def cmd_clear_cache(
-    template_name: str | None = None, cache_dir: str = "artifacts", all_caches: bool = False, verbose: bool = False
+    template_name: str | None = None, cache_dir: str | None = None, all_caches: bool = False, verbose: bool = False
 ):
     """
     Clear template cache.
@@ -304,7 +310,11 @@ def _discover_template_dirs() -> list[str]:
 def compile_command(args):
     """Entry point for `aq templates compile`."""
     template_dirs = args.get("dirs")
-    output = args.get("output", "artifacts/templates.json")
+    output = args.get("output")
+    if not output:
+        from aquilia.artifacts.cache_root import resolve_artifact_root
+
+        output = str(resolve_artifact_root() / "templates.json")
     mode = args.get("mode", "prod")
     verbose = args.get("verbose", False)
 
@@ -337,7 +347,11 @@ def inspect_command(args):
 def clear_cache_command(args):
     """Entry point for `aq templates clear-cache`."""
     template_name = args.get("template")
-    cache_dir = args.get("cache_dir", "artifacts")
+    cache_dir = args.get("cache_dir", None)
+    if cache_dir is None:
+        from aquilia.artifacts.cache_root import resolve_artifact_root
+
+        cache_dir = str(resolve_artifact_root())
     all_caches = args.get("all", False)
     verbose = args.get("verbose", False)
 
