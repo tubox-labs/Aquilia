@@ -31,12 +31,17 @@ export function ContractsFaults() {
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Fault Taxonomy</h2>
         <div className="space-y-3">
           {[
+            { code: 'BP000', name: 'ContractFault', desc: 'Base fault for every Contract error — catch this to handle them uniformly', severity: 'ERROR' },
             { code: 'BP100', name: 'CastFault', desc: 'Type coercion failed — raw value could not be converted to expected Python type', severity: 'ERROR' },
-            { code: 'BP200', name: 'SealFault', desc: 'Validation failed — one or more fields did not pass seal constraints', severity: 'WARN' },
-            { code: 'BP210', name: 'MissingSealFault', desc: 'Required field was missing from input data', severity: 'WARN' },
+            { code: 'BP200', name: 'SealFault', desc: 'Validation failed — one or more fields did not pass seal constraints', severity: 'ERROR' },
+            { code: 'BP201', name: 'ContractAsyncMismatchFault', desc: 'Contract has async wards but was validated with the synchronous is_sealed()', severity: 'ERROR' },
             { code: 'BP300', name: 'ImprintFault', desc: 'Failed to write validated data to Model instance', severity: 'ERROR' },
-            { code: 'BP400', name: 'LensCycleFault', desc: 'Circular reference detected in Contract Lens chain', severity: 'ERROR' },
-            { code: 'BP500', name: 'SchemaFault', desc: 'Error generating JSON Schema for this Contract', severity: 'WARN' },
+            { code: 'BP400', name: 'ProjectionFault', desc: 'Named projection does not exist, or its field list is invalid', severity: 'ERROR' },
+            { code: 'BP500', name: 'LensDepthFault', desc: 'Outbound Lens serialization exceeded its configured depth limit', severity: 'ERROR' },
+            { code: 'BP501', name: 'LensCycleFault', desc: 'Circular reference detected in Contract Lens chain', severity: 'ERROR' },
+            { code: 'BP502', name: 'NestingDepthFault', desc: 'Inbound nested-Contract validation exceeded MAX_NESTING_DEPTH (32)', severity: 'ERROR' },
+            { code: 'BP503', name: 'LensUnresolvedFault', desc: 'Lens(many=True) received an un-awaited related manager — prefetch it or use to_dict_async()', severity: 'ERROR' },
+            { code: 'BP600', name: 'StubGenerationFault', desc: 'aq contracts stubs could not generate a stub for a module', severity: 'WARN' },
           ].map((item, i) => (
             <div key={i} className={boxClass}>
               <div className="flex items-center gap-3">

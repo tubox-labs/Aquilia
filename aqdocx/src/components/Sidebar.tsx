@@ -233,6 +233,8 @@ export const sections: SidebarSection[] = [
           { label: 'Projections', path: '/docs/contracts/projections' },
           { label: 'Lenses', path: '/docs/contracts/lenses' },
           { label: 'Seals (Validation)', path: '/docs/contracts/seals' },
+          { label: 'Async Pipeline', path: '/docs/contracts/async-pipeline' },
+          { label: 'Validation Control', path: '/docs/contracts/validation-control' },
           { label: 'Annotations', path: '/docs/contracts/annotations' },
           { label: 'Integration', path: '/docs/contracts/integration' },
           { label: 'Schemas', path: '/docs/contracts/schemas' },

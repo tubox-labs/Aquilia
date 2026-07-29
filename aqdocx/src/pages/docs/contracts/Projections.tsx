@@ -110,7 +110,7 @@ class ProductContract(Contract):
             <tbody className={isDark ? 'divide-y divide-white/5' : 'divide-y divide-gray-100'}>
               {[
                 { name: '"__all__"', desc: 'Include all declared fields — no filtering applied' },
-                { name: '"__minimal__"', desc: 'Convention for the smallest useful subset (ID + key identifiers)' },
+                { name: '"__minimal__"', desc: 'Primary-key facets plus every read_only facet. Declaring it explicitly as a field list overrides that default.' },
                 { name: '["-field"]', desc: 'Exclusion syntax — include all fields EXCEPT the prefixed ones' },
                 { name: '["field1", "field2"]', desc: 'Explicit inclusion — only these fields' },
               ].map((row, i) => (
@@ -122,9 +122,16 @@ class ProductContract(Contract):
             </tbody>
           </table>
         </div>
+        <div className={`mt-6 p-4 rounded-lg border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <strong className={isDark ? 'text-amber-400' : 'text-amber-700'}>Changed in v1.3.5.</strong> An undeclared <code>&quot;__minimal__&quot;</code>{' '}
+            previously stored an empty placeholder that nothing resolved. Because an empty set is falsy, the per-field filter passed <em>every</em>{' '}
+            field — so a projection declared specifically to minimize exposed data returned all of them, including fields intended to stay private.
+            It now resolves to primary-key facets plus every <code>read_only</code> facet. An empty projection renders <code>{'{}'}</code> rather
+            than falling through to &quot;all fields&quot;. Verify the new field set matches what your projection was meant to expose.
+          </p>
+        </div>
       </section>
-
-      {/* Using Projections */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Using Projections</h2>
         <CodeBlock language="python" filename="usage.py">{`product = await Product.objects.get(id=1)

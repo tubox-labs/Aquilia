@@ -1,6 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { NextSteps } from '../../../components/NextSteps'
+import { Link } from 'react-router-dom'
 import { Stethoscope } from 'lucide-react'
 
 export function CLISubsystemCommands() {
@@ -59,6 +60,38 @@ aq cache clear --pattern="products:*"`}</CodeBlock>
         </ul>
         <CodeBlock language="bash" filename="Terminal">{`# Send a diagnostic test email
 aq mail send --to=admin@my-domain.com --subject="Test" --body="OK"`}</CodeBlock>
+      </section>
+
+      {/* Contracts Subsystem */}
+      <section id="contracts-subsystem" className={sectionClass}>
+        <h2 className={h2Class}>aq contracts</h2>
+        <p className={pClass}>
+          Developer tooling for the Contracts subsystem. Added in v1.3.5.
+        </p>
+        <ul className={listClass}>
+          <li className={itemClass}><strong>aq contracts stubs:</strong> Emits <code className="text-aquilia-500">.pyi</code> type stubs next to each named module, so <code className="text-aquilia-500">mypy</code> and <code className="text-aquilia-500">pyright</code> can see Contract fields. A Contract builds its fields at class-body evaluation and serves them through <code className="text-aquilia-500">__getattr__</code>, both invisible to a static analyser.</li>
+        </ul>
+        <CodeBlock language="bash" filename="Terminal">{`# Write myapp/contracts.pyi
+aq contracts stubs myapp.contracts
+
+# Several modules at once
+aq contracts stubs myapp.users.contracts myapp.orders.contracts
+
+# CI gate: exit non-zero if a stub is missing or stale
+aq contracts stubs myapp.contracts --check`}</CodeBlock>
+        <p className={pClass}>
+          Flags: <code className="text-aquilia-500">--check</code> reports staleness without writing; <code className="text-aquilia-500">--path</code> sets the directory
+          prepended to <code className="text-aquilia-500">sys.path</code> before importing (default: current directory).
+        </p>
+        <p className={pClass}>
+          Commit the generated stubs and keep them honest with <code className="text-aquilia-500">--check</code> in CI. Generation is deterministic,
+          so regenerating unchanged input is a byte-identical no-op and the check cannot fail at random. Anything that cannot be typed faithfully
+          is emitted as <code className="text-aquilia-500">Any</code> and named in the output, so a lost annotation is reported rather than silently
+          weakening the module&apos;s types.
+        </p>
+        <p className={pClass}>
+          See <Link to="/docs/contracts/overview" className="text-aquilia-500 hover:underline">Contracts</Link> for the field types each facet produces.
+        </p>
       </section>
 
       {/* i18n Translations Subsystem */}

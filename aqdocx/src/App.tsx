@@ -128,6 +128,8 @@ import { ContractsFacets } from './pages/docs/contracts/Facets'
 import { ContractsProjections } from './pages/docs/contracts/Projections'
 import { ContractsLenses } from './pages/docs/contracts/Lenses'
 import { ContractsSeals } from './pages/docs/contracts/Seals'
+import { ContractsAsyncPipeline } from './pages/docs/contracts/AsyncPipeline'
+import { ContractsValidationControl } from './pages/docs/contracts/ValidationControl'
 import { ContractsAnnotations } from './pages/docs/contracts/Annotations'
 import { ContractsIntegration } from './pages/docs/contracts/Integration'
 import { ContractsSchemas } from './pages/docs/contracts/Schemas'
@@ -483,6 +485,8 @@ export default function App() {
           <Route path="contracts/projections" element={<ContractsProjections />} />
           <Route path="contracts/lenses" element={<ContractsLenses />} />
           <Route path="contracts/seals" element={<ContractsSeals />} />
+          <Route path="contracts/async-pipeline" element={<ContractsAsyncPipeline />} />
+          <Route path="contracts/validation-control" element={<ContractsValidationControl />} />
           <Route path="contracts/annotations" element={<ContractsAnnotations />} />
           <Route path="contracts/integration" element={<ContractsIntegration />} />
           <Route path="contracts/schemas" element={<ContractsSchemas />} />

@@ -41,6 +41,7 @@ export function CLICommands() {
             { cmd: 'aq inspect', desc: 'Inspect the dependency graph', usage: 'aq inspect --format=svg', details: 'Outputs DI graph, route table, or middleware stack. Formats: text, json, svg, dot.' },
             { cmd: 'aq migrate', desc: 'Run database migrations', usage: 'aq migrate --target=latest', details: 'Applies pending migrations. Options: --target, --dry-run, --show-sql, --rollback.' },
             { cmd: 'aq makemigrations', desc: 'Generate migrations from model changes', usage: 'aq makemigrations --name="add_email_field"', details: 'Diffs current models against migration state and generates migration files.' },
+            { cmd: 'aq contracts stubs', desc: 'Emit .pyi stubs for Contract modules', usage: 'aq contracts stubs myapp.contracts --check', details: 'Writes a .pyi next to each named module so mypy and pyright see Contract fields, which are otherwise invisible because they are built at class-body evaluation and served through __getattr__. Options: --check (fail on a missing or stale stub), --path (import root). Added in v1.3.5.' },
           ].map((c, i) => (
             <div key={i} className={box}>
               <div className="flex items-center gap-3 mb-2">

@@ -2,13 +2,13 @@ export const localReleases: Record<string, Record<string, string>> = {
   "1.3.5": {
     "README.md": `# Aquilia v1.3.5 Release Notes — "Distributed Tide"
 
-Aquilia v1.3.5 makes the background task system genuinely distributed and durable, and turns the mail subsystem into a production-grade delivery pipeline.
+Aquilia v1.3.5 makes the background task system genuinely distributed and durable, turns the mail subsystem into a production-grade delivery pipeline, and closes a silent validation bypass in Contracts.
 
-Before this release, background tasks ran in a single process on an in-memory queue — jobs were lost on restart, a second web worker meant a second independent queue, and \`backend="redis"\` was accepted by configuration and then silently ignored. Mail was sent inline inside the request handler, with no bounce handling and no suppression list.
+Before this release, background tasks ran in a single process on an in-memory queue — jobs were lost on restart, a second web worker meant a second independent queue, and \`backend="redis"\` was accepted by configuration and then silently ignored. Mail was sent inline inside the request handler, with no bounce handling and no suppression list. And a nested Contract's \`@ward\` methods never ran at all: a validation rule declared on a nested Contract enforced nothing.
 
-This release closes both gaps: jobs now execute across multiple worker processes and multiple machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; and mail is delivered by background workers with provider webhook processing and automatic suppression of bounced and complaining recipients.
+This release closes all three gaps: jobs now execute across multiple worker processes and multiple machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; mail is delivered by background workers with provider webhook processing and automatic suppression of bounced and complaining recipients; and nested Contract validation runs the child's full pipeline.
 
-All of it is backward compatible. Change no configuration and v1.3.5 behaves exactly as v1.3.4 did.
+The tasks and mail work is entirely backward compatible. The Contracts audit ships four deliberate behavioral corrections — each one replacing incorrect behavior — listed under [Breaking Changes](#breaking-changes).
 
 ---
 
@@ -47,15 +47,32 @@ All of it is backward compatible. Change no configuration and v1.3.5 behaves exa
 7. [Native HTTP Client & Dependency Cleanup](http_native.md)
    - Zero third-party HTTP client dependencies (\`httpx\` removed)
    - \`SendGridProvider\` and \`LiveServerTestCase\` updated to \`aquilia.http\`
-8. [CLI Changes](cli.md)
-   - \`aq mail check\` validates DKIM configuration
-9. [Bug Fixes](bugfixes.md)
-   - Mail delivery task unresolvable across processes (CRITICAL)
-   - Consumer-only workers polled nothing (CRITICAL)
-   - Job results degraded to \`repr\` strings on persistent backends
-   - \`queue.persistent\` had no configuration surface
-10. [Migration Guide](migration.md)
-   - Upgrade checklist, per-feature migrations, compatibility notes, known issues
+8. [Contracts — Nested Validation Pipeline](contracts_pipeline.md)
+   - Nested Contracts never ran their wards or \`validate()\` hook (CRITICAL)
+   - \`list[Contract]\` annotations bypassed the nested pipeline (CRITICAL)
+   - \`has_async_wards\` consulted only the top-level class
+   - \`to_dict_async()\` / \`to_dict_many_async()\` / \`Lens.mold_async()\`
+   - \`LensUnresolvedFault\` replaces a silent empty list
+   - Input adapters for dataclasses, attrs, and \`TypedDict\`
+9. [Contracts — Validation Control & Typing](contracts_validation.md)
+   - \`@ward(order=..., when=..., groups=...)\`, \`Spec.fail_fast\`
+   - \`Spec.frozen\`, \`Contract.__eq__\`, \`copy()\` / \`copy_async()\`
+   - \`BytesFacet\`, \`PathFacet\`, \`SecretFacet\`, \`MACAddressFacet\`
+   - \`Contract.from_env()\` and \`Contract.from_cli()\`
+   - Localized validation messages via \`contract_message()\`
+10. [Contracts — Stub Generation & Deprecations](contracts_tooling.md)
+    - \`aq contracts stubs\` — \`.pyi\` emission for \`mypy\` and \`pyright\`
+    - \`seal_*\` / \`async_seal_*\` prefix convention deprecated
+11. [CLI Changes](cli.md)
+    - \`aq mail check\` validates DKIM configuration
+    - \`aq contracts stubs\` generates Contract type stubs
+12. [Bug Fixes](bugfixes.md)
+    - Mail delivery task unresolvable across processes (CRITICAL)
+    - Consumer-only workers polled nothing (CRITICAL)
+    - Job results degraded to \`repr\` strings on persistent backends
+    - \`queue.persistent\` had no configuration surface
+13. [Migration Guide](migration.md)
+    - Upgrade checklist, per-feature migrations, compatibility notes, known issues
 
 ---
 
@@ -129,6 +146,40 @@ await process_webhook(events, suppression=mail.suppression, store=mail.store)
 
 A hard bounce or spam complaint removes the address from every future send, protecting sender reputation without application code.
 
+### Nested Contract rules are enforced
+
+\`\`\`python
+class LineItem(Contract):
+    qty = IntFacet()
+
+    @ward
+    def qty_positive(self, data):
+        if data["qty"] < 1:
+            self.reject("qty", "Must be at least 1")
+
+class Order(Contract):
+    items: list[LineItem] = None
+
+Order(data={"items": [{"qty": 0}]}).is_sealed()
+# v1.3.4: True — the ward never ran
+# v1.3.5: False, errors = {"items": {"0": {"qty": ["Must be at least 1"]}}}
+\`\`\`
+
+A nested Contract was validated *structurally only*, so every \`@ward\` and every \`validate()\` override on it was silently skipped. See [Nested Validation Pipeline](contracts_pipeline.md).
+
+### Contract fields visible to type checkers
+
+\`\`\`bash
+aq contracts stubs myapp.contracts        # writes myapp/contracts.pyi
+aq contracts stubs myapp.contracts --check  # CI freshness gate
+\`\`\`
+
+\`\`\`python
+reveal_type(contract.total)    # decimal.Decimal — was Any
+\`\`\`
+
+A portable \`.pyi\` every type checker consumes with no plugin. See [Stub Generation](contracts_tooling.md).
+
 ---
 
 ## What's New
@@ -150,6 +201,15 @@ A hard bounce or spam complaint removes the address from every future send, prot
 | \`redact_email\` / \`redact_pii\` | PII redaction for mail logs |
 | \`MailAuth.oauth2(...)\` | XOAUTH2 bearer-token SMTP authentication |
 | \`aquilia[mail-dkim]\` | New optional extra for DKIM signing |
+| \`aq contracts stubs\` | \`.pyi\` stub emission so \`mypy\`/\`pyright\` see Contract fields |
+| \`Contract.to_dict_async()\` / \`to_dict_many_async()\` | Async serialization that awaits ORM relations |
+| \`@ward(order=..., when=..., groups=...)\` | Validator ordering, conditional rules, and validation groups |
+| \`Spec.frozen\` / \`Spec.fail_fast\` | Immutable validated data; stop at the first ward error |
+| \`Contract.copy()\` / \`copy_async()\` | Derive an updated Contract, re-validating by default |
+| \`Contract.from_env()\` / \`from_cli()\` | Build a Contract from environment variables or CLI arguments |
+| \`BytesFacet\`, \`PathFacet\`, \`SecretFacet\`, \`MACAddressFacet\` | Strongly-typed primitives that previously fell through to \`TextFacet\` |
+| \`aquilia.contracts.messages\` | Localized validation messages via the i18n catalog |
+| \`NestingDepthFault\`, \`LensUnresolvedFault\`, \`StubGenerationFault\` | New structured Contract faults |
 
 ---
 
@@ -179,6 +239,10 @@ A hard bounce or spam complaint removes the address from every future send, prot
 - \`aq mail check\` catches DKIM misconfiguration before the first send fails.
 - Structured faults name the failure precisely — \`TaskSerializationFault\` reports which argument, \`TaskWorkflowFault\` names the cycle.
 - The \`aquilia.tasks\` package docstring no longer claims distributed backends and workflows are unimplemented.
+- **Contract fields are visible to type checkers.** \`aq contracts stubs\` emits a \`.pyi\` so \`contract.total\` resolves to \`decimal.Decimal\` rather than \`Any\`, and a field typo fails CI instead of production.
+- **Validation rules carry their own metadata.** Ordering, conditions, and groups live on \`@ward\` rather than inside ward bodies, so a rule's applicability is inspectable.
+- **Configuration validates like request data.** \`Contract.from_env()\` runs environment variables through the same facets, so a bad \`PORT\` fails at startup with a field error instead of at first use with a \`ValueError\`.
+- **Validation messages localize.** Every built-in message resolves through the i18n catalog's \`contracts.\` namespace, with no change for applications that do not configure i18n.
 
 ---
 
@@ -204,18 +268,51 @@ A hard bounce or spam complaint removes the address from every future send, prot
 | \`Job.fingerprint\` computed but never read | Tasks | Enforced at enqueue via \`dedup\`. |
 | \`MailSuppressedFault\` unreachable | Mail | Now part of a working suppression path. |
 | Stale package docstring | Tasks | No longer lists shipped features as "deliberately absent". |
+| Nested Contracts never ran wards or \`validate()\` | Contracts | Nested validation runs the child's full pipeline via \`run_nested_contract()\`. |
+| \`list[Contract]\` annotations bypassed nested validation | Contracts | Detection looks through container facets, so both spellings route identically. |
+| \`has_async_wards\` missed nested async wards | Contracts | Walks the facet tree, memoized, with cycle detection. |
+| \`Lens(many=True)\` returned \`[]\` for unresolved relations | Contracts | Raises \`LensUnresolvedFault\` instead of shipping wrong data. |
+| No async serialization path existed | Contracts | \`to_dict_async()\`, \`to_dict_many_async()\`, \`Lens.mold_async()\`. |
+| Non-mapping input reported every field as missing | Contracts | Reports \`{"__all__": ["Expected an object, got str"]}\`. |
+| \`IntFacet\` silently truncated \`3.9\` to \`3\` | Contracts | Fractional floats rejected; integral ones still accepted. |
+| \`bytes\` fields were non-functional end to end | Contracts | \`bytes\` annotations route to the new \`BytesFacet\`. |
+| \`"__minimal__"\` projection exposed every field | Contracts | Resolves to primary-key plus \`read_only\` facets. |
+| Nesting-depth guard unreachable from the real path | Contracts | Depth threaded through \`Sigil.validate()\`; structured error. |
+| Depth counter was global mutable state | Contracts | Replaced with a \`contextvars.ContextVar\`. |
+| \`@computed\` ran against an uninitialized instance | Contracts | The live Contract instance is threaded in explicitly. |
+| \`validate()\` ran up to three times per row in bulk paths | Contracts | Single shared \`_seal_row()\` / \`_seal_row_async()\`. |
+| Top-level async wards bypassed groups and ordering | Contracts | \`is_sealed_async()\` uses the shared ward phase. |
+
+Contract fixes are detailed in [Nested Validation Pipeline](contracts_pipeline.md) and [Validation Control & Typing](contracts_validation.md).
 
 ---
 
 ## Breaking Changes
 
-None. See [Migration Guide](migration.md).
+The tasks, mail, and HTTP work introduces no breaking changes.
+
+The Contracts audit ships **four deliberate behavioral corrections**. Each replaces behavior that was incorrect, so the change is the fix rather than a side effect of it:
+
+| Change | Previously | Now | Who is affected |
+|---|---|---|---|
+| Nested Contract rules are enforced | A nested \`@ward\` or \`validate()\` override never ran | Runs, and rejects | Anyone whose nested Contracts declare rules. Payloads previously accepted may now be rejected. |
+| \`Lens(many=True)\` unresolved relation | Returned \`[]\`, indistinguishable from "no rows" | Raises \`LensUnresolvedFault\` | Anyone serializing a to-many Lens without prefetching. Prefetch, materialize, or use \`to_dict_async()\`. |
+| Malformed body error shape | Per-field "This field is required" | \`{"__all__": ["Expected an object, got str"]}\` | Clients parsing a 422 body that assume every key is a field name. |
+| \`IntFacet\` fractional input | \`3.9\` silently became \`3\` | Rejected | Anyone relying on silent truncation. \`3.0\` is still accepted. |
+
+\`"__minimal__"\` projections also return a restricted field set now; the previous output — every field — was never correct.
+
+See the [Migration Guide](migration.md) for the review steps.
 
 ---
 
 ## Deprecated / Removed
 
-Nothing was deprecated or removed in this release.
+**Deprecated:** the \`seal_*\` / \`async_seal_*\` Contract validator naming convention. Deprecated in 1.3.0, removed in 2.0.0. Declaring such a method now emits a \`DeprecationWarning\` naming its exact replacement decorator. Behavior is unchanged in 1.x — these methods continue to run exactly as before.
+
+Migration is mechanical: decorate the method with \`@ward\` (or \`@ward(mode="async")\`); the body does not change. Find every affected method with \`python -W error::DeprecationWarning -c "import myapp.contracts"\`. Full guide in [Stub Generation & Deprecations](contracts_tooling.md#deprecated-the-seal_--async_seal_-prefix-convention).
+
+**Removed:** the third-party \`httpx\` dependency. See [Native HTTP Client](http_native.md).
 
 ---
 
@@ -257,7 +354,18 @@ Details and workarounds in the [Migration Guide](migration.md#known-issues).
 
 \`tests/test_audit_tasks_mail.py\` covers the mail provider, DKIM, MIME, redaction, and rate-limiting paths.
 
-Full suite: 7,189 passing.
+The Contracts audit adds 217 tests across six files (\`BP-SEC-014\` … \`BP-SEC-037\`):
+
+| File | Covers |
+|---|---|
+| \`test_contract_audit_regressions.py\` | First-pass fixes: projections, depth guard, thread isolation, bulk-path \`validate()\` |
+| \`test_contract_nested_pipeline.py\` | Nested wards, \`list[Contract]\` routing, async serialization, input adapters |
+| \`test_contract_typing_features.py\` | New facets, equality, copy, frozen Contracts |
+| \`test_contract_validation_control.py\` | Ward ordering/conditions/groups, fail-fast, i18n messages, \`from_env\`/\`from_cli\` |
+| \`test_contract_stubs.py\` | Facet Python types, module stubs, the \`--check\` staleness gate |
+| \`test_contract_ward_deprecation.py\` | \`seal_*\` warning content, and that legacy validators still run |
+
+Full suite: 7,403 passing.
 
 ---
 
@@ -602,11 +710,102 @@ The \`aquilia.tasks\` package docstring listed "Persistent or distributed backen
 - [Distributed & Persistent Backends](distributed_tasks.md)
 - [Workflows & DAGs](workflows.md)
 - [Mail Delivery Queue](mail_queue.md)
+- [Contracts — Nested Validation Pipeline](contracts_pipeline.md) — Contract subsystem fixes in this release
 - [Migration Guide](migration.md)
 `,
     "cli.md": `# CLI Changes — Aquilia v1.3.5
 
-No commands were added, removed, or renamed in this release. One existing command gained new validation.
+One command group was added (\`aq contracts\`). One existing command gained new validation. Nothing was removed or renamed.
+
+---
+
+## New: \`aq contracts stubs\`
+
+Emits \`.pyi\` type stubs so \`mypy\` and \`pyright\` can see Contract fields.
+
+### Why
+
+A Contract builds its fields at class-body evaluation time and serves them through \`__getattr__\`. Neither is visible to a static analyser, so \`contract.email\` was \`Any\` at best and an attribute error under \`--strict\` at worst. For a team with a type-checking gate in CI, this was the single largest adoption barrier.
+
+A generated \`.pyi\` is a portable artifact: every type checker consumes it with no plugin, no configuration, and no version coupling.
+
+### Usage
+
+\`\`\`bash
+aq contracts stubs MODULES... [--check] [--path DIR]
+\`\`\`
+
+| Flag | Purpose |
+|---|---|
+| \`--check\` | Do not write. Exit non-zero if any stub is missing or out of date. |
+| \`--path DIR\` | Directory prepended to \`sys.path\` before importing. Default: current directory. |
+
+### Examples
+
+\`\`\`bash
+# Write myapp/contracts.pyi
+aq contracts stubs myapp.contracts
+
+# Several modules at once
+aq contracts stubs myapp.users.contracts myapp.orders.contracts
+
+# CI freshness gate
+aq contracts stubs myapp.contracts --check
+\`\`\`
+
+### Output
+
+Success:
+
+\`\`\`
+$ aq contracts stubs myapp.contracts
+  ✔ myapp.contracts: wrote /app/myapp/contracts.pyi
+      2 contract(s): AddressContract, OrderContract
+\`\`\`
+
+Anything that could not be typed faithfully is emitted as \`Any\` and named, so a lost annotation is reported rather than silently weakening the module's types:
+
+\`\`\`
+  ✔ myapp.contracts: wrote /app/myapp/contracts.pyi
+      2 contract(s): AddressContract, OrderContract
+      REGISTRY: module-level value emitted as Any
+\`\`\`
+
+\`--check\` on a stale or missing stub exits \`1\` and prints the fix:
+
+\`\`\`
+$ aq contracts stubs myapp.contracts --check
+  ✘ myapp.contracts: contracts.pyi is missing or out of date
+      2 contract(s): AddressContract, OrderContract
+
+  Stubs are out of date. Regenerate with:
+      aq contracts stubs myapp.contracts
+\`\`\`
+
+A module that fails to import, or that has no source file, exits \`1\` with the reason.
+
+### Recommended workflow
+
+Commit the generated stubs, then gate on freshness:
+
+\`\`\`bash
+# Once, after declaring or changing Contracts
+aq contracts stubs myapp.contracts
+git add myapp/contracts.pyi
+\`\`\`
+
+\`\`\`yaml
+# .github/workflows/ci.yml
+- name: Check Contract stubs are current
+  run: aq contracts stubs myapp.contracts --check
+
+- name: Type check
+  run: mypy myapp/
+\`\`\`
+
+Generation is deterministic — regenerating unchanged input is a byte-identical no-op, so \`--check\` cannot fail at random.
+
+Full details in [Stub Generation & Deprecations](contracts_tooling.md).
 
 ---
 
@@ -660,8 +859,1152 @@ Background task workers are not started by a dedicated CLI command; a worker pro
 
 ## Related
 
+- [Contracts — Stub Generation & Deprecations](contracts_tooling.md)
 - [Mail Security & MIME](mail_security.md)
 - [Migration Guide](migration.md)
+`,
+    "contracts_pipeline.md": `# Contracts — Nested Validation Pipeline — Aquilia v1.3.5
+
+A deep audit of \`aquilia/contracts/\` found that a nested Contract's business rules never ran. \`Sigil.validate()\` recursed into the child's *structural* pass only — it validated field types and required-ness, then returned. Every \`@ward\` method and every object-level \`validate()\` override declared on a nested Contract was silently skipped.
+
+This is the most severe defect fixed in this release. A nested Contract expressing an authorization check or a cross-field invariant enforced nothing, and the payload was accepted.
+
+---
+
+## 1. Nested Contracts never ran their wards or \`validate()\` hook
+
+**Severity:** Critical — silent validation bypass.
+
+### Previous behavior
+
+\`\`\`python
+from aquilia.contracts import Contract, ward
+from aquilia.contracts.facets import IntFacet
+
+class LineItem(Contract):
+    qty = IntFacet()
+
+    @ward
+    def qty_positive(self, data):
+        if data["qty"] < 1:
+            self.reject("qty", "Must be at least 1")
+
+class Order(Contract):
+    items: list[LineItem] = None
+
+order = Order(data={"items": [{"qty": 0}]})
+order.is_sealed()   # True  ← the ward never ran
+order.errors        # {}
+\`\`\`
+
+\`qty=0\` is structurally a valid integer, so the structural pass accepted it. The rule that says it is *business*-invalid never executed.
+
+### Root cause
+
+\`Sigil.validate()\` recursed directly into the child's compiled schema:
+
+\`\`\`python
+sub_errors, sub_validated = nested_cls._sigil.validate(raw, ...)
+\`\`\`
+
+A \`Sigil\` is the compiled *structural* representation of a Contract — field specs, types, required-ness. It has no knowledge of ward methods, which live on the Contract class and are invoked by \`Contract.is_sealed()\`. Because the nested Contract was never instantiated, \`is_sealed()\` was never called on it, so neither the ward phase nor the \`validate()\` hook ran.
+
+This was not limited to async wards as originally reported. Synchronous wards were dead too.
+
+### New behavior
+
+Nested validation runs the child's full pipeline through a single shared helper, \`run_nested_contract()\`:
+
+\`\`\`python
+order = Order(data={"items": [{"qty": 0}]})
+order.is_sealed()   # False
+order.errors        # {"items": {"0": {"qty": ["Must be at least 1"]}}}
+\`\`\`
+
+Errors are reported at the failing field's path. For a to-many relation the row index is preserved rather than flattened away, so a client can point at the offending item.
+
+\`\`\`python
+order = Order(data={"items": [{"qty": 5}, {"qty": 0}]})
+order.errors
+# {"items": {"1": {"qty": ["Must be at least 1"]}}}
+\`\`\`
+
+### User impact
+
+**This is a behavioral change.** Payloads that previously passed validation may now be rejected — correctly. If a nested Contract in your application declares a \`@ward\` or overrides \`validate()\`, that rule is now enforced for the first time.
+
+Before upgrading, review nested Contracts for rules that were silently inert. A rule written against an assumption that no longer holds will now start rejecting traffic.
+
+---
+
+## 2. \`list[Contract]\` annotations bypassed the nested pipeline
+
+**Severity:** Critical — the fix above did not reach the most common spelling.
+
+### Previous behavior
+
+A to-many nested relation has two spellings that mean the same thing to a reader:
+
+\`\`\`python
+# Spelling A — explicit facet
+items = NestedContractFacet(LineItem, many=True)
+
+# Spelling B — type annotation
+items: list[LineItem] = None
+\`\`\`
+
+They build *different facets*. Spelling A builds a \`NestedContractFacet\` with \`many=True\`. Spelling B builds a \`ListFacet\` whose \`child\` is a \`NestedContractFacet\`.
+
+Nested detection matched only \`NestedContractFacet\`, so spelling B was classified as an ordinary list of values. It ran structural validation alone — meaning the nested-pipeline fix in section 1 did not apply to it, and \`has_async_wards\` reported \`False\` for a Contract whose children declared async wards.
+
+\`\`\`python
+class Order(Contract):
+    items: list[LineItem] = None       # ← annotated spelling
+
+Order(data={}).has_async_wards          # False, even when LineItem has async wards
+\`\`\`
+
+Because \`has_async_wards\` gates which entry point the framework uses, reporting \`False\` sent callers down the synchronous path — where the async ward was skipped silently rather than raising \`ContractAsyncMismatchFault\`.
+
+### Root cause
+
+\`build_sigil()\` set \`is_nested_contract\` with a direct type check:
+
+\`\`\`python
+is_nested = isinstance(facet, (NestedContractFacet, LazyContractFacet))
+\`\`\`
+
+A \`ListFacet\` wrapping a nested facet is not an instance of either, so the flag was \`False\` and every downstream consumer — validation routing, async-ward detection, JSON Schema generation — treated the field as a plain list.
+
+### New behavior
+
+Detection now looks through container facets. Both spellings route identically:
+
+\`\`\`python
+class Order(Contract):
+    items: list[LineItem] = None
+
+order = Order(data={"items": [{"qty": 0}]})
+order.is_sealed()   # False
+order.errors        # {"items": {"0": {"qty": ["Must be at least 1"]}}}
+\`\`\`
+
+Async wards are detected through the list, so the sync entry point raises rather than skipping:
+
+\`\`\`python
+Order(data={}).has_async_wards          # True
+Order(data={"items": [...]}).is_sealed()  # raises ContractAsyncMismatchFault
+await Order(data={"items": [...]}).is_sealed_async()   # correct
+\`\`\`
+
+JSON Schema also improves, because an annotated list of Contracts is now emitted as an array of \`$ref\` rather than an untyped array:
+
+\`\`\`python
+Order._sigil.to_json_schema()["properties"]["items"]
+# {"type": "array", "items": {"$ref": "#/$defs/LineItem"}}
+\`\`\`
+
+Two functions carry this:
+
+| Function | Purpose |
+|---|---|
+| \`is_nested_facet(facet)\` | Whether a facet wraps a nested Contract, **without resolving it**. Used at class-body evaluation time, where a forward reference usually names the Contract currently being built. |
+| \`resolve_nested(facet)\` | Returns \`(contract_cls, is_many)\`, looking through container facets. Returns \`(None, False)\` for an unresolvable forward reference rather than raising. |
+
+\`get_nested_contract_cls()\` remains, now delegating to \`resolve_nested()\`, so existing callers are unaffected.
+
+### User impact
+
+The same behavioral change as section 1, now applying to the annotated spelling. Since \`items: list[LineItem]\` is the idiomatic form, most applications are affected by this fix rather than by section 1 alone.
+
+---
+
+## 3. \`has_async_wards\` consulted only the top-level class
+
+**Severity:** High — silent skip instead of a clear error.
+
+### Previous behavior
+
+\`\`\`python
+class Child(Contract):
+    sku = TextFacet()
+
+    @ward(mode="async")
+    async def in_stock(self, data):
+        if not await lookup(data["sku"]):
+            self.reject("sku", "Out of stock")
+
+class Parent(Contract):
+    child: Child = None
+
+Parent(data={}).has_async_wards   # False
+\`\`\`
+
+The property checked \`self._ward_methods\` — the wards declared on *this* class. A Contract whose nested child declared an async ward reported \`False\`, so callers took the synchronous path and the ward never ran. The intended failure mode was a loud \`ContractAsyncMismatchFault\`; the actual behavior was a silent skip.
+
+### New behavior
+
+The property walks the facet tree:
+
+\`\`\`python
+Parent(data={}).has_async_wards   # True
+\`\`\`
+
+Implementation notes that matter for correctness:
+
+- **Memoized per class** (\`_async_wards_deep_cache\`) so the walk costs nothing after the first call. Contract classes are compiled once at import, so the answer cannot change at runtime.
+- **Cycle detection** via a \`_seen\` set of class IDs, so a self-referential Contract (\`Node\` containing \`list[Node]\`) terminates.
+- **Incomplete answers are never cached.** If the walk hits an unresolved forward reference or truncates at a cycle, the result is returned but not memoized — caching \`False\` from a truncated walk would permanently disable async detection for that class.
+
+### User impact
+
+A Contract with async wards nested beneath it now correctly requires \`is_sealed_async()\`. Code that called \`is_sealed()\` and appeared to work was not running the ward at all; it now raises \`ContractAsyncMismatchFault\` naming the problem.
+
+---
+
+## 4. No async serialization path existed
+
+**Severity:** High — an async ORM with a sync-only serializer.
+
+### Previous behavior
+
+Aquilia's ORM relations are async, but every serialization entry point was synchronous. An un-awaited \`RelatedManager\` reaching \`Lens.mold()\` could only raise — there was no path that awaited it.
+
+\`\`\`python
+order = await Order.objects.get(pk=1)
+OrderContract(instance=order).to_dict()
+# LensUnresolvedFault — and no async alternative existed
+\`\`\`
+
+The only workaround was to prefetch every relation before serializing.
+
+### New behavior
+
+Three async entry points, mirroring the sync ones:
+
+\`\`\`python
+# Single instance
+data = await OrderContract.to_dict_async(order)
+
+# Collection
+rows = await OrderContract.to_dict_many_async(orders)
+\`\`\`
+
+\`Lens.mold_async()\` awaits the relation, so prefetching becomes an optimization rather than a requirement:
+
+\`\`\`python
+class OrderContract(Contract):
+    items = Lens(ItemContract, many=True)
+
+order = await Order.objects.get(pk=1)          # items not prefetched
+data = await OrderContract.to_dict_async(order)  # awaits order.items
+\`\`\`
+
+The synchronous path still raises \`LensUnresolvedFault\` — see section 5.
+
+### Design: one field loop, two drivers
+
+Sync and async serialization share a single field-molding generator, \`_mold_steps()\`, which yields \`(facet, raw_value)\` pairs for a driver to resolve:
+
+\`\`\`python
+# Sync driver
+for facet, raw in self._mold_steps(...):
+    result[name] = facet.mold(raw)
+
+# Async driver
+for facet, raw in self._mold_steps(...):
+    result[name] = await facet.mold_async(raw)
+\`\`\`
+
+The field-selection logic — projections, \`write_only\` exclusion, computed fields, source resolution — exists once. A copy-paste async variant would drift from its sync twin at the first bug fix applied to only one of them.
+
+### Performance
+
+\`to_dict_async()\` awaits relations sequentially, one relation at a time. It is not slower than the sync path for prefetched data — awaiting an already-materialized list is close to free. For un-prefetched relations it issues one query per relation, so **prefetching remains the right choice on hot paths**; the async path exists so that forgetting to prefetch degrades performance rather than raising.
+
+---
+
+## 5. \`Lens(many=True)\` silently returned \`[]\` for unresolved relations
+
+**Severity:** High — silent wrong data shipped to clients.
+
+### Previous behavior
+
+\`\`\`python
+order = await Order.objects.get(pk=1)   # items NOT prefetched
+OrderContract(instance=order).data
+# {"items": []}   ← indistinguishable from "this order has no items"
+\`\`\`
+
+An un-awaited \`RelatedManager\` produced an empty list with no error. A client could not tell the difference between an order with no line items and an order whose line items failed to load.
+
+### New behavior
+
+\`\`\`python
+OrderContract(instance=order).data
+# LensUnresolvedFault (BP503): naming the field and the fix
+\`\`\`
+
+Three ways to resolve it:
+
+\`\`\`python
+# 1. Prefetch (best for hot paths)
+order = await Order.objects.prefetch_related("items").get(pk=1)
+OrderContract(instance=order).data
+
+# 2. Materialize explicitly
+order.items = await order.items.all()
+OrderContract(instance=order).data
+
+# 3. Use the async serializer, which awaits for you
+await OrderContract.to_dict_async(order)
+\`\`\`
+
+### User impact
+
+**This is a behavioral change.** Code relying on the silent empty-list fallback now raises. That fallback produced incorrect API responses — an empty relation and a failed-to-load relation are different facts, and conflating them ships wrong data without any signal.
+
+---
+
+## 6. Non-mapping input reported every field as missing
+
+**Severity:** Medium — a misdiagnosis that cost debugging time.
+
+### Previous behavior
+
+A scalar or list request body was coerced to \`{}\`:
+
+\`\`\`python
+UserContract(data="not an object").errors
+# {"name": ["This field is required"],
+#  "email": ["This field is required"],
+#  "age": ["This field is required"]}
+\`\`\`
+
+The real problem — the body was a string, not an object — was invisible. Developers chased missing fields that were never missing.
+
+### New behavior
+
+\`\`\`python
+UserContract(data="not an object").errors
+# {"__all__": ["Expected an object, got str"]}
+\`\`\`
+
+### User impact
+
+**This is a behavioral change** in error *shape*, not in accept/reject. A malformed body previously produced per-field errors and now produces a single \`__all__\` entry. Clients that parse the 422 body and assume every key is a field name should treat \`__all__\` as a document-level error.
+
+The same correction applies to the bulk paths:
+
+\`\`\`python
+UserContract.seal_many(["not a row"])[0].errors
+# {"__all__": ["Expected an object, got str"]}
+\`\`\`
+
+---
+
+## 7. Top-level async wards bypassed group and ordering semantics
+
+**Severity:** Medium — inconsistent behavior between entry points.
+
+### Previous behavior
+
+\`is_sealed_async()\` ran async wards through its own inline loop rather than the shared ward phase. The result: \`order\`, \`when\`, \`groups\`, and \`Spec.fail_fast\` applied on the bulk paths (\`seal_many\`, \`seal_stream\`) but not on the single-item async path.
+
+\`\`\`python
+class Checkout(Contract):
+    @ward(groups=("checkout",), mode="async")
+    async def payment_valid(self, data): ...
+
+await Checkout(data=...).is_sealed_async()   # ran the ward regardless of groups
+\`\`\`
+
+### Root cause
+
+Duplicated logic. \`_run_ward_phase_async()\` already existed and implemented all four features; \`is_sealed_async()\` predated it and kept its own copy.
+
+### New behavior
+
+The duplicate loop is gone. \`is_sealed_async()\` calls \`_run_ward_phase_async()\`, so every entry point applies identical semantics:
+
+\`\`\`python
+await Checkout(data=...).is_sealed_async()                      # grouped ward skipped
+await Checkout(data=...).is_sealed_async(groups="checkout")     # grouped ward runs
+\`\`\`
+
+---
+
+## Input adapters: dataclasses, attrs, and TypedDict
+
+Contracts now accept dataclass instances, attrs classes, and \`TypedDict\` values as input, at every level:
+
+\`\`\`python
+from dataclasses import dataclass
+
+@dataclass
+class LineItemDTO:
+    qty: int
+
+class Order(Contract):
+    items: list[LineItem] = None
+
+Order(data={"items": [LineItemDTO(qty=3)]}).is_sealed()   # True
+\`\`\`
+
+Adaptation happens at a single point (\`sigil.adapt_input\`) that feeds the *existing* cast/seal pipeline. There is no parallel validation path for dataclass input, so a dataclass and the equivalent dict validate identically.
+
+Adaptation is **shallow by design**. A dataclass field holding another dataclass is handled by the nested-Contract branch, not by recursive adaptation — the nested Contract knows the target shape, and a blind deep walk would convert values the target facet expects to receive intact.
+
+---
+
+## Depth guard correctness
+
+Two related fixes to the recursion guard:
+
+### The guard was unreachable from the real validation path
+
+\`MAX_NESTING_DEPTH = 32\` was enforced in \`NestedContractFacet.cast()\`. The primary path (\`Contract(data=...).is_sealed()\`) never called \`cast()\` — it recursed through the Sigil — so the guard and its tests were unreachable from ordinary request validation. A few kilobytes of deeply nested JSON against any endpoint accepting a self-referential Contract raised an uncaught \`RecursionError\` inside the request coroutine.
+
+Depth is now threaded through \`Sigil.validate()\` and yields a structured error:
+
+\`\`\`python
+Node(data=deeply_nested).errors
+# {"child": ["Nested Contract depth exceeds maximum of 32"]}
+\`\`\`
+
+\`MAX_NESTING_DEPTH\` moved to \`aquilia/contracts/exceptions.py\` so the Sigil and facet layers cannot disagree about the limit.
+
+### The depth counter was global mutable state
+
+\`NestedContractFacet._current_nesting_depth\` was a plain class attribute mutated with \`+=\`/\`-=\` — shared across every instance, every Contract class, and every thread, despite a source comment claiming thread-locality. Concurrent validation could both reject shallow payloads spuriously *and* undercount deep ones, defeating the guard exactly when it mattered.
+
+It is now a \`contextvars.ContextVar\`, correct for threads and asyncio tasks alike, covered by a 20-thread concurrency test.
+
+---
+
+## Related pages
+
+- [Contracts — Validation Control & Typing](contracts_validation.md) — ward ordering, groups, new facets, i18n messages
+- [Contracts — Stub Generation & Deprecations](contracts_tooling.md) — \`aq contracts stubs\`, \`seal_*\` deprecation
+- [Migration Guide](migration.md) — upgrade checklist and behavioral-change review
+- [Bug Fixes](bugfixes.md) — task and mail subsystem fixes in this release
+`,
+    "contracts_tooling.md": `# Contracts — Stub Generation & Deprecations — Aquilia v1.3.5
+
+Two developer-experience changes: a new \`aq contracts stubs\` command that makes Contract fields visible to \`mypy\` and \`pyright\`, and a formal deprecation of the \`seal_*\` / \`async_seal_*\` validator naming convention.
+
+---
+
+## \`aq contracts stubs\` — static typing support
+
+### Motivation
+
+A Contract resolves its fields at class-body evaluation time and serves them through \`__getattr__\`. Both are invisible to a static analyser:
+
+\`\`\`python
+class UserContract(Contract):
+    email = TextFacet()
+    age = IntFacet()
+
+contract = UserContract(data=payload)
+contract.is_sealed()
+reveal_type(contract.email)   # Any — the type checker sees nothing
+contract.emial                # typo: no error until runtime
+\`\`\`
+
+For a team running \`mypy --strict\` or \`pyright\` in CI, this was the single largest adoption barrier. Every Contract access was an untyped hole, and a field typo survived review to fail in production.
+
+### Design goals
+
+Two approaches were considered:
+
+| Approach | Trade-off |
+|---|---|
+| A \`mypy\` plugin | Deep integration, but bespoke per type checker. \`pyright\` users get nothing. Plugin APIs are unstable across releases. |
+| **Generated \`.pyi\` stubs** | A portable artifact every type checker consumes with no plugin, no configuration, and no version coupling. Checked into the repository like any other generated file. |
+
+Stubs won. The output is inspectable, diffable in review, and works identically under \`mypy\`, \`pyright\`, and any editor's language server.
+
+### Usage
+
+\`\`\`bash
+# Write myapp/contracts.pyi
+aq contracts stubs myapp.contracts
+
+# Several modules at once
+aq contracts stubs myapp.users.contracts myapp.orders.contracts
+
+# CI gate: fail if a stub is missing or stale
+aq contracts stubs myapp.contracts --check
+\`\`\`
+
+| Flag | Purpose |
+|---|---|
+| \`--check\` | Do not write. Exit non-zero if any stub is missing or out of date. |
+| \`--path\` | Directory prepended to \`sys.path\` before importing. Default: current directory. |
+
+### Example output
+
+Given:
+
+\`\`\`python
+# myapp/contracts.py
+from __future__ import annotations
+
+import enum
+
+from aquilia.contracts import Contract
+from aquilia.contracts.facets import ChoiceFacet, DecimalFacet, IntFacet, ListFacet, TextFacet
+
+
+class Colour(enum.Enum):
+    RED = "red"
+    BLUE = "blue"
+
+
+class AddressContract(Contract):
+    city = TextFacet()
+    zip = TextFacet(allow_null=True)
+
+
+class OrderContract(Contract):
+    id = IntFacet()
+    total = DecimalFacet()
+    tags = ListFacet(child=TextFacet())
+    status = ChoiceFacet(choices=["new", "paid"])
+
+    async def refresh(self, count: int) -> str: ...
+\`\`\`
+
+\`aq contracts stubs myapp.contracts\` produces:
+
+\`\`\`python
+# myapp/contracts.pyi
+# Generated by \`aq contracts stubs\`. Do not edit by hand.
+# Regenerate after changing the Contract declarations in the paired module.
+
+from typing import Any, Literal
+import enum
+from aquilia.contracts import Contract
+from aquilia.contracts.facets import ChoiceFacet, DecimalFacet, IntFacet, ListFacet, TextFacet
+import aquilia.contracts.core
+import decimal
+
+class Colour(enum.Enum):
+    RED = 'red'
+    BLUE = 'blue'
+
+class AddressContract(aquilia.contracts.core.Contract):
+    city: str
+    zip: str | None
+
+class OrderContract(aquilia.contracts.core.Contract):
+    id: int
+    total: decimal.Decimal
+    tags: list[str]
+    status: Literal['new', 'paid']
+    async def refresh(self, count: int) -> str: ...
+\`\`\`
+
+Now the type checker sees the fields:
+
+\`\`\`python
+reveal_type(contract.total)    # decimal.Decimal
+reveal_type(contract.tags)     # list[str]
+reveal_type(contract.status)   # Literal['new'] | Literal['paid']
+\`\`\`
+
+### How it works
+
+Stubs are generated **at runtime, after \`ContractMeta\` has compiled the class** — that is what makes the facets inspectable. A purely static generator would have to re-implement annotation resolution and would drift from the real one.
+
+Each facet reports the Python type it *produces*, through a \`python_type()\` method:
+
+\`\`\`python
+IntFacet().python_type()                         # "int"
+DecimalFacet().python_type()                     # "decimal.Decimal"
+ListFacet(child=TextFacet()).python_type()       # "list[str]"
+ChoiceFacet(choices=["a", "b"]).python_type()    # "Literal['a', 'b']"
+\`\`\`
+
+Facets are the source of truth rather than a parallel mapping table in the generator, so a new facet declares its own type and stub generation picks it up with no second edit.
+
+**The type is the post-cast type, not the wire type.** \`IntFacet\` accepts the string \`"42"\` on the wire but yields \`int\`, and the stub says \`int\` — that is what a caller reading \`contract.qty\` actually receives.
+
+Notable resolutions:
+
+| Facet | Emitted type | Reason |
+|---|---|---|
+| \`SecretFacet\` | \`Secret\` | \`cast()\` wraps the value. Promising \`str\` would let \`contract.password.lower()\` type-check and fail at runtime. |
+| \`PathFacet\` | \`pathlib.PurePosixPath\` | The validated value, not the input string. |
+| \`Lens(...)\` | \`dict[str, Any]\` | A Lens molds to a dict. Naming the Contract would let \`order.customer.is_sealed()\` type-check against a dict. |
+| Nested Contract | \`dict[str, Any]\` | Same reason — the validated payload is a mapping. |
+| \`EnumFacet(Colour)\` | \`myapp.enums.Colour\` | Fully qualified, so the import is derivable from the name. |
+
+**Nullability is widened.** A facet accepting \`None\` — via \`allow_null\`, or by defaulting to it — is annotated optional:
+
+\`\`\`python
+zip = TextFacet(allow_null=True)     # → zip: str | None
+\`\`\`
+
+Omitting \`| None\` would be worse than emitting no stub at all: it tells the type checker a guard is unnecessary at exactly the points one is required.
+
+### Limitations
+
+**A \`.pyi\` replaces its module for the type checker — it does not augment it.** The generator therefore reproduces the whole module surface, not only its Contracts: import statements are replayed from the source AST, and module-level classes, functions, and constants are emitted with their runtime signatures.
+
+Anything that cannot be rendered faithfully is emitted as \`Any\` and reported:
+
+\`\`\`
+  ✔ myapp.contracts: wrote /app/myapp/contracts.pyi
+      2 contract(s): AddressContract, OrderContract
+      REGISTRY: module-level value emitted as Any
+\`\`\`
+
+A lost annotation is named rather than silently weakening the module's types.
+
+Other limits:
+
+- The module must be importable. Import side effects run during generation.
+- A module with no \`__file__\` — a namespace package, or a synthetic module — raises \`StubGenerationFault\` (\`BP600\`), since there is nowhere a stub could sit.
+- Facets that declare no narrower type emit \`Any\` and appear in the degraded list.
+
+### CI workflow
+
+Commit the generated stubs, then gate on freshness:
+
+\`\`\`yaml
+- name: Check Contract stubs are current
+  run: aq contracts stubs myapp.contracts myapp.orders.contracts --check
+\`\`\`
+
+\`--check\` exits non-zero when a stub is missing or stale, and prints the command to regenerate:
+
+\`\`\`
+  ✘ myapp.contracts: contracts.pyi is missing or out of date
+      2 contract(s): AddressContract, OrderContract
+
+  Stubs are out of date. Regenerate with:
+      aq contracts stubs myapp.contracts
+\`\`\`
+
+Generation is deterministic — regenerating unchanged input is a byte-identical no-op, so \`--check\` cannot fail at random.
+
+### Python API
+
+The CLI is a thin wrapper; the same functions are importable:
+
+\`\`\`python
+from aquilia.contracts import generate_module_stub, write_module_stub
+import myapp.contracts
+
+report = write_module_stub(myapp.contracts)
+report.path         # PosixPath('/app/myapp/contracts.pyi')
+report.contracts    # ('AddressContract', 'OrderContract')
+report.degraded     # () — members emitted as Any
+report.is_current   # True
+
+# Build without touching the filesystem
+report = write_module_stub(myapp.contracts, dry_run=True)
+\`\`\`
+
+---
+
+## Deprecated: the \`seal_*\` / \`async_seal_*\` prefix convention
+
+**Deprecated in 1.3.0 — removed in 2.0.0.**
+
+Before the \`@ward\` decorator existed, a method was registered as a cross-field validator purely because its name began with \`seal_\` or \`async_seal_\`. Declaring one now emits a \`DeprecationWarning\` at class-body evaluation:
+
+\`\`\`
+DeprecationWarning: OrderContract.seal_total is registered as a validator by the
+deprecated seal_*/async_seal_* prefix convention (deprecated in Aquilia 1.3.0,
+removed in 2.0.0). Decorate it with @ward instead — the method body does not need
+to change, and you may then rename it freely. After 2.0.0, OrderContract.seal_total
+will be treated as an ordinary method and will silently stop validating.
+\`\`\`
+
+**Behavior is unchanged in 1.x.** These methods continue to run exactly as before; only the warning is new. Deprecating the convention must not disarm it — a rule that stopped firing in a feature release would ship the exact bug the deprecation warns about.
+
+### Why the convention is going away
+
+Each of these has cost real debugging time:
+
+- **A rename silently disables validation.** Renaming \`seal_total\` to \`check_total\` during a routine cleanup removes the rule with no error, no warning, and no failing test unless one happens to cover that exact rule. The Contract keeps reporting success on payloads it should reject.
+- **A name collision silently creates one.** A helper legitimately named \`seal_envelope\` is executed as a validator on every request, its return value discarded and any exception it raises turned into a user-facing field error.
+- **Async mode was inferred, not declared.** Mode came from \`inspect.iscoroutinefunction\`, so a validator awaiting the database while written as a sync \`def\` registered as sync — the coroutine was created, never awaited, and the check never ran.
+- **No room to grow.** Ordering, conditions, and validation groups have nowhere to live in a naming convention. \`@ward\` carries them as metadata. See [Validation Control](contracts_validation.md#ward-ordering-conditions-and-groups).
+
+### Migration
+
+Mechanical — decorate the method. The body does not change.
+
+\`\`\`python
+# Before (deprecated)
+class OrderContract(Contract):
+    def seal_total(self, data):
+        if data["total"] < 0:
+            self.reject("total", "Must not be negative")
+
+    async def async_seal_stock(self, data):
+        if not await in_stock(data["sku"]):
+            self.reject("sku", "Out of stock")
+
+# After
+class OrderContract(Contract):
+    @ward
+    def total_not_negative(self, data):          # rename is now safe
+        if data["total"] < 0:
+            self.reject("total", "Must not be negative")
+
+    @ward(mode="async")
+    async def stock_available(self, data):
+        if not await in_stock(data["sku"]):
+            self.reject("sku", "Out of stock")
+\`\`\`
+
+Two things change beyond the decorator: \`mode="async"\` becomes explicit rather than inferred, and the methods can be renamed to describe the rule rather than to satisfy the scanner.
+
+Adding \`@ward\` without renaming is a valid intermediate step — the decorator is the registration, so the name becomes irrelevant and the warning goes quiet:
+
+\`\`\`python
+@ward
+def seal_total(self, data): ...    # no warning; rename later at leisure
+\`\`\`
+
+### Finding every affected method
+
+Promote the warning to an error and import your Contract modules:
+
+\`\`\`bash
+python -W error::DeprecationWarning -c "import myapp.contracts"
+\`\`\`
+
+Or fail the test suite on it:
+
+\`\`\`toml
+[tool.pytest.ini_options]
+filterwarnings = ["error::DeprecationWarning"]
+\`\`\`
+
+Both report each legacy method with its class name, its exact replacement decorator, and the file and line that declared it. Because registration happens at class-body evaluation, **importing the module is enough** — no request needs to run.
+
+### Version constants
+
+The deprecation timeline is programmatically available:
+
+\`\`\`python
+from aquilia.contracts.ward import (
+    DEPRECATED_PREFIX_SINCE,       # "1.3.0"
+    DEPRECATED_PREFIX_REMOVED_IN,  # "2.0.0"
+)
+\`\`\`
+
+---
+
+## Related pages
+
+- [Contracts — Validation Control & Typing](contracts_validation.md) — \`@ward\` ordering, conditions, and groups
+- [Contracts — Nested Validation Pipeline](contracts_pipeline.md) — nested wards, async serialization
+- [CLI Changes](cli.md) — all CLI changes in this release
+- [Migration Guide](migration.md) — upgrade checklist
+`,
+    "contracts_validation.md": `# Contracts — Validation Control & Typing — Aquilia v1.3.5
+
+The second half of the Contracts audit closed the gaps between what a Contract could express and what real validation needs: rule ordering, conditional rules, validation groups, fail-fast, frozen Contracts, and the strongly-typed primitives that previously fell through to a permissive \`TextFacet\`.
+
+Everything here is additive. A Contract that declares none of it behaves exactly as it did in v1.3.4.
+
+---
+
+## Ward ordering, conditions, and groups
+
+### Motivation
+
+\`@ward\` had exactly one knob: \`mode\`. Real validation needs three more, and without them each was hand-rolled inside ward bodies where it could not be inspected, reordered, or reused.
+
+| Need | Previous workaround |
+|---|---|
+| Run a cheap check before an expensive one | Rely on definition order and hope nobody reorders the methods |
+| A rule that applies only to some payloads | \`if\` at the top of the ward body |
+| Different rules for different operations | A separate Contract subclass per operation |
+
+### \`order\` — deterministic sequencing
+
+\`\`\`python
+class OrderContract(Contract):
+    @ward(order=-10)
+    def total_not_negative(self, data):
+        if data["total"] < 0:
+            self.reject("total", "Must not be negative")
+
+    @ward(order=0)          # default
+    async def payment_authorized(self, data):
+        ...                  # expensive: hits the payment provider
+\`\`\`
+
+Lower runs first. Wards sharing an \`order\` keep definition order — the sort is stable, so a Contract that sets no \`order\` behaves exactly as before.
+
+Use it when one ward's rejection makes another's work redundant or misleading: there is no point authorizing payment on a negative total.
+
+### \`when\` — conditional rules
+
+\`\`\`python
+class OrderContract(Contract):
+    @ward(when=lambda data: data["kind"] == "physical")
+    def needs_shipping_address(self, data):
+        if not data.get("shipping_address"):
+            self.reject("shipping_address", "Required for physical orders")
+\`\`\`
+
+The predicate receives the validated data. Moving the condition into metadata means the rule's applicability is inspectable rather than buried in the body.
+
+**Edge case — a predicate that raises is treated as "does not apply."** The predicate is a routing decision, not a validation rule. A broken predicate must not manufacture a field error attributed to the ward it was gating, because that error would name the wrong field and the wrong cause.
+
+### \`groups\` — per-operation rule sets
+
+\`\`\`python
+class UserContract(Contract):
+    @ward(groups=("registration",))
+    def password_strength(self, data):
+        ...
+
+    @ward(groups=("admin",))
+    def role_assignable(self, data):
+        ...
+
+    @ward
+    def email_wellformed(self, data):    # no groups — always runs
+        ...
+\`\`\`
+
+Select groups per validation pass:
+
+\`\`\`python
+contract.is_sealed(groups="registration")
+contract.is_sealed(groups=["registration", "admin"])
+await contract.is_sealed_async(groups="checkout")
+\`\`\`
+
+**An ungrouped ward always runs.** It expresses an invariant that holds regardless of which group the caller asked for — an email must be well-formed whether or not this is a registration. Grouping an invariant would silently disable it for every pass that did not name its group.
+
+Groups propagate to nested Contracts, so a group selected at the top level applies through the whole tree.
+
+### \`Spec.fail_fast\`
+
+\`\`\`python
+class OrderContract(Contract):
+    class Spec:
+        fail_fast = True
+
+    @ward
+    def first(self, data): ...
+    @ward
+    def second(self, data): ...    # never runs if \`first\` rejected
+\`\`\`
+
+Stops at the first ward error instead of accumulating all of them. Default is \`False\`, unchanged — accumulating every error is the right default for a form, where a user should see all problems at once. \`fail_fast\` suits pipelines where a later rule's output would be noise once an earlier one has failed.
+
+Applies to the ward phase only; structural field validation always accumulates.
+
+---
+
+## Frozen Contracts, equality, and copy
+
+### \`Spec.frozen\`
+
+\`\`\`python
+class ConfigContract(Contract):
+    port = IntFacet()
+
+    class Spec:
+        frozen = True
+
+config = ConfigContract(data={"port": 8000})
+config.is_sealed()
+config.validated_data["port"] = 9000     # TypeError
+\`\`\`
+
+**Motivation:** \`is_sealed()\` returning \`True\` is a guarantee that the data satisfied every rule. That guarantee expires the moment a caller assigns to a field. Freezing makes the guarantee durable for the lifetime of the object.
+
+### \`Contract.__eq__\`
+
+\`\`\`python
+a = UserContract(data={"name": "Ada"})
+b = UserContract(data={"name": "Ada"})
+a.is_sealed(); b.is_sealed()
+a == b     # True
+\`\`\`
+
+Two Contracts are equal when they are the same class and carry the same validated data. Unvalidated Contracts compare on their raw input, so a comparison before sealing is still meaningful rather than degrading to identity.
+
+**Contracts remain unhashable:**
+
+\`\`\`python
+hash(a)
+# TypeError: UserContract is unhashable (its validated data is mutable)
+\`\`\`
+
+This is deliberate. Defining \`__eq__\` without \`__hash__\` would make Python set \`__hash__ = None\` silently; an explicit \`__hash__\` that raises names the reason instead. Validated data is mutable by default, so a hash computed at insertion time would go stale and the object would become unfindable in its own dict.
+
+### \`copy(update=...)\`
+
+\`\`\`python
+updated = contract.copy(update={"name": "Grace"})
+\`\`\`
+
+Derives a new Contract with fields replaced. Keys absent from \`update\` carry over.
+
+**Re-validates by default.** An override can violate a constraint the original satisfied, and skipping validation would produce a Contract whose \`validated_data\` never passed the rules it claims to enforce:
+
+\`\`\`python
+contract.copy(update={"age": -5})
+# SealFault — the override is validated, not trusted
+\`\`\`
+
+Defer validation when building a payload in stages:
+
+\`\`\`python
+draft = contract.copy(update={"name": "Grace"}, validate=False)
+final = draft.copy(update={"email": "g@example.com"})    # validates here
+\`\`\`
+
+For Contracts with async wards, use \`copy_async()\`:
+
+\`\`\`python
+updated = await contract.copy_async(update={"sku": "ABC"})
+\`\`\`
+
+\`copy()\` on a Contract with async wards raises \`ContractAsyncMismatchFault\` rather than silently skipping them.
+
+---
+
+## New facets
+
+Four types previously fell through to a permissive \`TextFacet\` or had no facet at all.
+
+### \`BytesFacet\`
+
+Binary data over a JSON transport.
+
+\`\`\`python
+class UploadContract(Contract):
+    payload = BytesFacet()                    # base64 (default)
+    checksum = BytesFacet(encoding="hex")
+
+UploadContract(data={"payload": "aGVsbG8=", "checksum": "68656c6c6f"})
+# validated_data: {"payload": b"hello", "checksum": b"hello"}
+\`\`\`
+
+**Bug fixed:** \`bytes\` annotations previously mapped to \`TextFacet\`, whose cast whitelist *rejects real \`bytes\`*. A \`payload: bytes\` field rejected every genuine value while accepting plain strings — non-functional end to end. \`bytes\` annotations now route to \`BytesFacet\`.
+
+Size constraints apply to the **decoded** length, which is what matters for storage and memory:
+
+\`\`\`python
+thumbnail = BytesFacet(max_length=64 * 1024)
+\`\`\`
+
+Always bound \`max_length\` on a client-facing binary field. Base64 expands roughly 33%, so a modest request body still decodes to a large allocation — an unbounded field is a memory-exhaustion vector.
+
+JSON Schema emits \`{"type": "string", "format": "byte"}\`.
+
+### \`PathFacet\`
+
+Filesystem paths, validated as \`pathlib.PurePosixPath\`.
+
+\`\`\`python
+class UploadContract(Contract):
+    destination = PathFacet()
+
+UploadContract(data={"destination": "reports/q3.pdf"})
+# validated_data: {"destination": PurePosixPath('reports/q3.pdf')}
+\`\`\`
+
+**Security defaults reject the two ways a client-supplied path escapes its root:**
+
+| Input | Result | Why |
+|---|---|---|
+| \`/etc/passwd\` | \`Path must be relative\` | \`Path("/root") / "/etc/passwd"\` resolves to \`/etc/passwd\`, discarding the root |
+| \`../../etc/passwd\` | \`Path may not contain '..' segments\` | Traversal out of the intended directory |
+| \`a\\x00b\` | \`Path may not contain null bytes\` | Truncates at the OS layer, so a name passing an extension check can open a different file |
+
+Null bytes are rejected unconditionally. The other two relax only for paths that never originate from a request:
+
+\`\`\`python
+destination = PathFacet(must_be_relative=False, allow_traversal=True)
+\`\`\`
+
+Windows separators are normalized before the \`..\` check, so a backslash cannot smuggle a segment past it on a POSIX server.
+
+Values are \`PurePosixPath\` so a payload validates identically regardless of server platform. Convert with \`Path(value)\` at the point of filesystem access.
+
+### \`SecretFacet\` and \`Secret\`
+
+Sensitive strings that never appear in output or tracebacks.
+
+\`\`\`python
+class LoginContract(Contract):
+    password = SecretFacet(min_length=8)
+
+contract = LoginContract(data={"password": "hunter2hunter2"})
+contract.is_sealed()
+
+repr(contract.validated_data["password"])       # "Secret('**********')"
+str(contract.validated_data["password"])        # "**********"
+contract.validated_data["password"].reveal()    # "hunter2hunter2"
+\`\`\`
+
+\`write_only\` by default, so the field is accepted inbound and omitted from every serialized representation.
+
+**Equality is constant-time** (\`hmac.compare_digest\`), so comparing a submitted value against a stored one does not leak the shared-prefix length through timing:
+
+\`\`\`python
+if contract.validated_data["password"] == stored_secret:   # constant-time
+    ...
+\`\`\`
+
+**Security scope:** masking defends against *accidental* disclosure — log lines, exception reports, debug pages. It is not a substitute for hashing or encryption at rest. Call \`.reveal()\` only at the point of use.
+
+JSON Schema emits \`{"type": "string", "format": "password", "writeOnly": true}\`.
+
+### \`MACAddressFacet\`
+
+\`\`\`python
+class DeviceContract(Contract):
+    mac = MACAddressFacet()
+\`\`\`
+
+Accepts colon, dash, and Cisco notations, normalizing to lowercase colon-separated form:
+
+| Input | Validated value |
+|---|---|
+| \`AA:BB:CC:DD:EE:FF\` | \`aa:bb:cc:dd:ee:ff\` |
+| \`aa-bb-cc-dd-ee-ff\` | \`aa:bb:cc:dd:ee:ff\` |
+| \`aabb.ccdd.eeff\` | \`aa:bb:cc:dd:ee:ff\` |
+
+Normalizing at validation means downstream comparisons and database lookups do not each reimplement it.
+
+### Annotation routing
+
+These types now resolve to the right facet from a plain annotation:
+
+\`\`\`python
+import ipaddress, pathlib
+from aquilia.contracts.facets import Secret
+
+class DeviceContract(Contract):
+    address: ipaddress.IPv4Address    # IPFacet
+    config_path: pathlib.Path         # PathFacet
+    api_key: Secret                   # SecretFacet
+\`\`\`
+
+---
+
+## \`IntFacet\` no longer truncates silently
+
+### Previous behavior
+
+\`\`\`python
+class QuantityContract(Contract):
+    qty = IntFacet()
+
+QuantityContract(data={"qty": 3.9}).validated_data["qty"]   # 3   ← silently truncated
+QuantityContract(data={"qty": "3.9"}).errors                # rejected
+\`\`\`
+
+The same logical input behaved differently depending on its wire type. A JSON body with \`3.9\` was accepted and quietly became \`3\`; the string \`"3.9"\` was correctly rejected.
+
+### New behavior
+
+\`\`\`python
+QuantityContract(data={"qty": 3.9}).errors
+# {"qty": ["Expected integer, got non-integer number 3.9"]}
+
+QuantityContract(data={"qty": 3.0}).is_sealed()   # True — integral float still accepted
+\`\`\`
+
+\`NaN\` and \`Infinity\` are rejected explicitly.
+
+**This is a behavioral change.** Payloads previously accepted with silent truncation now fail validation. Silent truncation of a quantity, a price in cents, or a page offset is a data-integrity bug that surfaces far from its cause.
+
+---
+
+## Alternate data sources
+
+### \`Contract.from_env()\`
+
+\`\`\`python
+class SettingsContract(Contract):
+    port = IntFacet(default=8000)
+    database_url = TextFacet()
+
+settings = SettingsContract.from_env(prefix="APP_")
+# reads APP_PORT and APP_DATABASE_URL
+\`\`\`
+
+Field names map to upper-case variable names. Absent variables are **omitted rather than set empty**, so each field's \`default\` and \`required\` rules decide the outcome exactly as they would for a JSON body.
+
+Every value arrives as a string; normal facet casting turns \`"8000"\` into an \`int\`. Configuration therefore gets the same validation as request data instead of a parallel parsing path.
+
+**Validates by default** — configuration errors should surface at startup, not at first use. Pass \`seal=False\` to defer.
+
+### \`Contract.from_cli()\`
+
+\`\`\`python
+class ImportContract(Contract):
+    source = TextFacet()
+    dry_run = BoolFacet(default=False)
+    tags = ListFacet(child=TextFacet(), required=False)
+
+options = ImportContract.from_cli(["--source", "data.csv", "--dry-run",
+                                   "--tags", "a", "--tags", "b"])
+# {"source": "data.csv", "dry_run": True, "tags": ["a", "b"]}
+\`\`\`
+
+Parses \`--flag value\`, \`--flag=value\`, and bare \`--flag\` (boolean). Dashes map to underscores, so \`--database-url\` fills \`database_url\`. A repeated flag collects into a list for a \`ListFacet\` to validate.
+
+**Limitations, deliberately:** a small parser for feeding a Contract, not a replacement for the \`aq\` CLI's Click layer. Unknown flags are ignored so a Contract can read the subset of arguments it cares about from a larger command line. No short flags, no subcommands, no \`--\` terminator.
+
+---
+
+## Localized validation messages
+
+Every built-in validation message now resolves through \`contract_message()\`:
+
+\`\`\`python
+from aquilia.contracts.messages import contract_message
+
+contract_message("min_length", min=5)
+# "Must be at least 5 characters"
+\`\`\`
+
+Resolution order:
+
+1. The active i18n catalog's \`contracts.\` namespace, if an i18n service is bound to the request.
+2. The built-in English default, with ICU-style \`{name}\` parameter substitution.
+
+\`\`\`yaml
+# locales/fr/messages.yaml
+contracts:
+  required: "Ce champ est obligatoire"
+  min_length: "Doit contenir au moins {min} caractères"
+\`\`\`
+
+The service and locale are read from \`contextvars\`, so a request's locale applies to validation errors raised anywhere in its call tree without threading a locale parameter through every facet.
+
+**Applications without i18n configured see byte-identical messages** to v1.3.4.
+
+**Resolution never raises.** A missing key, a malformed template, or a broken i18n service falls back to the built-in text. Failing to render the message for a rejected payload would turn a 422 into a 500 — the client would lose the validation errors entirely because of a translation problem.
+
+33 message keys ship: field presence, type, length, numeric range, collection size, choice, format (email/URL/slug/IP/MAC/UUID), and path safety.
+
+---
+
+## Related pages
+
+- [Contracts — Nested Validation Pipeline](contracts_pipeline.md) — the nested-pipeline and async serialization fixes
+- [Contracts — Stub Generation & Deprecations](contracts_tooling.md) — \`aq contracts stubs\`, \`seal_*\` deprecation
+- [Migration Guide](migration.md) — upgrade checklist and behavioral-change review
 `,
     "distributed_tasks.md": `# Distributed & Persistent Task Backends — Aquilia v1.3.5
 
@@ -1430,9 +2773,9 @@ The one behavior worth calling out: with \`dkim_enabled=True\` and a broken conf
 `,
     "migration.md": `# Migration Guide — Aquilia v1.3.5
 
-Aquilia v1.3.5 is a **backwards-compatible** feature release. No existing API was removed, renamed, or changed in signature. Every workspace, manifest, task, and mail configuration from 1.3.4 continues to work without modification.
+Aquilia v1.3.5 is a feature release with **no API removals or signature changes**. Every workspace, manifest, task, and mail configuration from 1.3.4 continues to work without modification.
 
-This guide covers upgrading, then the optional migrations that let you adopt the new capabilities.
+The tasks, mail, and HTTP work is fully backward compatible. The **Contracts audit ships four behavioral corrections** — each replacing behavior that was incorrect — which require a review pass if your application uses nested Contracts, to-many Lenses, or integer fields fed by JSON. Those are covered first, since they are the only part of this release that can change how existing code behaves.
 
 ---
 
@@ -1449,26 +2792,226 @@ pip install aquilia[redis]        # distributed task backend
 pip install aquilia[mail-dkim]    # DKIM signing for outbound mail
 \`\`\`
 
-Nothing else is required. If you change no configuration, v1.3.5 behaves exactly as v1.3.4 did:
+For tasks and mail, nothing else is required. If you change no configuration, those subsystems behave exactly as in v1.3.4:
 
 - Tasks run on \`MemoryBackend\`, single process.
 - Mail sends inline, inside the request.
 - No addresses are suppressed.
 - No deduplication is applied.
 
+Contracts require a review pass — see [Migration 0](#migration-0--contracts-behavioral-review) below.
+
 ---
 
 ## Upgrade Checklist
 
 1. \`pip install aquilia==1.3.5\`
-2. Run your test suite — no changes expected.
-3. *(Optional)* Move tasks to a durable backend — see below.
-4. *(Optional)* Enable background mail delivery — see below.
-5. *(Optional)* Wire provider webhooks for bounce handling.
-6. If you use SendGrid or testing helpers, note that third-party \`httpx\` is no longer required as Aquilia uses native \`aquilia.http\`.
-7. If you use DKIM, run \`aq mail check\` and install \`aquilia[mail-dkim]\`.
-8. Remove any hand-rolled job deduplication in favour of \`dedup="skip"\`.
-9. Remove any workaround that parsed \`repr\`-form job results.
+2. **Review Contract behavioral changes — see [Migration 0](#migration-0--contracts-behavioral-review).**
+3. Run your test suite. Expect failures only where a nested Contract rule was previously inert, or a to-many Lens was serialized without prefetching.
+4. *(Optional)* Generate Contract type stubs: \`aq contracts stubs myapp.contracts\`.
+5. *(Optional)* Migrate \`seal_*\` validators to \`@ward\` — see [Migration 7](#migration-7--seal_-validators-to-ward).
+6. *(Optional)* Move tasks to a durable backend — see below.
+7. *(Optional)* Enable background mail delivery — see below.
+8. *(Optional)* Wire provider webhooks for bounce handling.
+9. If you use SendGrid or testing helpers, note that third-party \`httpx\` is no longer required as Aquilia uses native \`aquilia.http\`.
+10. If you use DKIM, run \`aq mail check\` and install \`aquilia[mail-dkim]\`.
+11. Remove any hand-rolled job deduplication in favour of \`dedup="skip"\`.
+12. Remove any workaround that parsed \`repr\`-form job results.
+
+---
+
+## Migration 0 — Contracts Behavioral Review
+
+**Required if your application uses Contracts.** Four corrections can change whether an existing payload is accepted.
+
+### 0.1 — Nested Contract rules are now enforced
+
+**What changed.** A nested Contract was validated structurally only. Every \`@ward\` method and every \`validate()\` override declared on a nested Contract was silently skipped. They now run.
+
+**Why.** \`Sigil.validate()\` recursed into the child's compiled schema rather than instantiating the child Contract, so the ward phase was never reached. A nested Contract expressing an authorization check enforced nothing.
+
+**How to check.** Find nested Contracts that declare rules:
+
+\`\`\`bash
+# Contracts referenced by another Contract's field, that declare a ward
+grep -rn "@ward\\|def validate(self" --include="*.py" myapp/
+\`\`\`
+
+For each, confirm the rule is one you actually want enforced. A rule written years ago against an assumption that no longer holds will now start rejecting live traffic.
+
+\`\`\`python
+class LineItem(Contract):
+    qty = IntFacet()
+
+    @ward
+    def qty_positive(self, data):
+        if data["qty"] < 1:
+            self.reject("qty", "Must be at least 1")
+
+class Order(Contract):
+    items: list[LineItem] = None
+
+# v1.3.4: True  (the ward never ran)
+# v1.3.5: False, errors = {"items": {"0": {"qty": ["Must be at least 1"]}}}
+Order(data={"items": [{"qty": 0}]}).is_sealed()
+\`\`\`
+
+**Also affected: async wards.** A Contract whose *nested* child declares \`@ward(mode="async")\` now correctly reports \`has_async_wards is True\`, so calling \`is_sealed()\` raises \`ContractAsyncMismatchFault\` instead of skipping the ward. Switch those call sites to \`is_sealed_async()\`.
+
+Details: [Nested Validation Pipeline](contracts_pipeline.md).
+
+### 0.2 — \`Lens(many=True)\` raises on an unresolved relation
+
+**What changed.** An un-awaited related manager produced an empty list. It now raises \`LensUnresolvedFault\` (\`BP503\`).
+
+**Why.** \`[]\` is indistinguishable from "this record genuinely has no related rows", so the previous behavior shipped wrong data to clients with no signal.
+
+**How to fix.** Three options:
+
+\`\`\`python
+# 1. Prefetch — best for hot paths
+order = await Order.objects.prefetch_related("items").get(pk=1)
+OrderContract(instance=order).data
+
+# 2. Materialize explicitly
+order.items = await order.items.all()
+OrderContract(instance=order).data
+
+# 3. Use the new async serializer, which awaits for you
+await OrderContract.to_dict_async(order)
+\`\`\`
+
+### 0.3 — Malformed-body error shape changed
+
+**What changed.** A scalar or list request body previously produced a "This field is required" error per field. It now produces one document-level error.
+
+\`\`\`python
+# v1.3.4
+UserContract(data="not an object").errors
+# {"name": ["This field is required"], "email": ["This field is required"]}
+
+# v1.3.5
+UserContract(data="not an object").errors
+# {"__all__": ["Expected an object, got str"]}
+\`\`\`
+
+**Who is affected.** Clients that parse a 422 response body and assume every key is a field name. Treat \`__all__\` as a document-level error and render it separately from field errors.
+
+### 0.4 — \`IntFacet\` rejects fractional input
+
+**What changed.** \`3.9\` was silently truncated to \`3\`. It is now rejected. \`3.0\` is still accepted.
+
+**Why.** \`int(3.9)\` returned \`3\` while the string \`"3.9"\` was correctly rejected — the same logical input behaved differently depending on wire type. Silent truncation of a quantity or a price in cents is a data-integrity bug that surfaces far from its cause.
+
+**How to fix.** If a client legitimately sends fractional values you intend to round, do it explicitly before validation, or use \`FloatFacet\`/\`DecimalFacet\` and round in your handler.
+
+### 0.5 — \`"__minimal__"\` projections return fewer fields
+
+**What changed.** \`"__minimal__"\` stored an empty placeholder that no code resolved. Because an empty set is falsy, the per-field filter passed *every* field. It now resolves to primary-key facets plus every \`read_only\` facet.
+
+**Who is affected.** Anyone using \`"__minimal__"\`. The previous output — all fields, including ones deliberately kept private — was never correct. Verify the new field set matches what the projection was meant to expose.
+
+---
+
+## Migration 7 — \`seal_*\` Validators to \`@ward\`
+
+**Optional in 1.x. Required before 2.0.0.**
+
+Methods named \`seal_*\` or \`async_seal_*\` still register as validators and still run, but now emit a \`DeprecationWarning\`.
+
+### Find every affected method
+
+\`\`\`bash
+python -W error::DeprecationWarning -c "import myapp.contracts"
+\`\`\`
+
+Or fail the test suite on it:
+
+\`\`\`toml
+[tool.pytest.ini_options]
+filterwarnings = ["error::DeprecationWarning"]
+\`\`\`
+
+Registration happens at class-body evaluation, so importing the module is enough — no request needs to run.
+
+### Before
+
+\`\`\`python
+class OrderContract(Contract):
+    def seal_total(self, data):
+        if data["total"] < 0:
+            self.reject("total", "Must not be negative")
+
+    async def async_seal_stock(self, data):
+        if not await in_stock(data["sku"]):
+            self.reject("sku", "Out of stock")
+\`\`\`
+
+The name was the registration. Renaming \`seal_total\` during a cleanup removed the rule with no error and no failing test.
+
+### After
+
+\`\`\`python
+class OrderContract(Contract):
+    @ward
+    def total_not_negative(self, data):          # rename is now safe
+        if data["total"] < 0:
+            self.reject("total", "Must not be negative")
+
+    @ward(mode="async")
+    async def stock_available(self, data):
+        if not await in_stock(data["sku"]):
+            self.reject("sku", "Out of stock")
+\`\`\`
+
+Two things change beyond the decorator: \`mode="async"\` becomes explicit rather than inferred from \`iscoroutinefunction\`, and methods can be renamed to describe the rule.
+
+**Intermediate step:** adding \`@ward\` without renaming silences the warning immediately, since the decorator is the registration and the name becomes irrelevant.
+
+\`\`\`python
+@ward
+def seal_total(self, data): ...    # no warning; rename later
+\`\`\`
+
+Details: [Stub Generation & Deprecations](contracts_tooling.md#deprecated-the-seal_--async_seal_-prefix-convention).
+
+---
+
+## Migration 8 — Adopt Contract Type Stubs
+
+**Optional.** Makes Contract fields visible to \`mypy\` and \`pyright\`.
+
+### Before
+
+\`\`\`python
+contract = UserContract(data=payload)
+contract.is_sealed()
+reveal_type(contract.email)   # Any
+contract.emial                # typo survives review
+\`\`\`
+
+### After
+
+\`\`\`bash
+aq contracts stubs myapp.contracts
+git add myapp/contracts.pyi
+\`\`\`
+
+\`\`\`python
+reveal_type(contract.email)   # str
+contract.emial                # error: "UserContract" has no attribute "emial"
+\`\`\`
+
+### Keeping stubs honest
+
+\`\`\`yaml
+- name: Check Contract stubs are current
+  run: aq contracts stubs myapp.contracts --check
+\`\`\`
+
+\`--check\` exits non-zero on a missing or stale stub and prints the regeneration command. Generation is deterministic, so it cannot fail at random.
+
+Details: [Stub Generation & Deprecations](contracts_tooling.md).
 
 ---
 
@@ -1687,17 +3230,35 @@ See [Bug Fixes](bugfixes.md).
 
 ## Deprecated Features
 
-None. No API was deprecated in this release.
+**The \`seal_*\` / \`async_seal_*\` Contract validator naming convention.** Deprecated in 1.3.0, removed in 2.0.0.
+
+Behavior is unchanged in 1.x — these methods continue to register and run exactly as before. Declaring one now emits a \`DeprecationWarning\` naming its exact replacement decorator. Migration is mechanical; see [Migration 7](#migration-7--seal_-validators-to-ward).
+
+Nothing else was deprecated.
 
 ## Removed Features
 
-None.
+The third-party \`httpx\` dependency was removed in favour of the native \`aquilia.http\` client. No public API changed. See [Native HTTP Client](http_native.md).
 
 ## Breaking Changes
 
-None.
+The tasks, mail, and HTTP work introduces no breaking changes.
 
-The one behavior change worth noting is not an API break: with \`dkim_enabled=True\` and an incomplete configuration, sends now fail rather than shipping unsigned mail. Run \`aq mail check\` after enabling DKIM. See [CLI Changes](cli.md).
+**Contracts ships four behavioral corrections**, each replacing behavior that was incorrect:
+
+| Change | Previously | Now | Action |
+|---|---|---|---|
+| Nested Contract rules enforced | Nested \`@ward\` / \`validate()\` never ran | Runs, and rejects | Review nested Contracts — see [0.1](#01--nested-contract-rules-are-now-enforced) |
+| \`Lens(many=True)\` unresolved | Returned \`[]\` | Raises \`LensUnresolvedFault\` | Prefetch, materialize, or use \`to_dict_async()\` — see [0.2](#02--lensmanytrue-raises-on-an-unresolved-relation) |
+| Malformed-body errors | Per-field "required" | \`{"__all__": [...]}\` | Update clients that parse 422 bodies — see [0.3](#03--malformed-body-error-shape-changed) |
+| \`IntFacet\` fractional input | \`3.9\` became \`3\` | Rejected | Round explicitly, or use \`FloatFacet\` — see [0.4](#04--intfacet-rejects-fractional-input) |
+
+\`"__minimal__"\` projections also return a restricted field set now; the previous output was never correct. See [0.5](#05--__minimal__-projections-return-fewer-fields).
+
+Two further behavior changes worth noting, neither an API break:
+
+- With \`dkim_enabled=True\` and an incomplete configuration, sends now fail rather than shipping unsigned mail. Run \`aq mail check\` after enabling DKIM. See [CLI Changes](cli.md).
+- A Contract with async wards *nested* beneath it now correctly raises \`ContractAsyncMismatchFault\` from \`is_sealed()\`. Previously it reported no async wards and skipped them silently.
 
 ---
 
@@ -1712,6 +3273,12 @@ The one behavior change worth noting is not an API break: with \`dkim_enabled=Tr
 | \`TaskManager.enqueue()\` | New keyword-only params, all defaulted to prior behavior |
 | \`MailService\` | New \`store\` / \`suppression\` attributes; constructor arguments still win |
 | Task result values | JSON-safe values now round-trip; previously \`repr\` on persistent backends |
+| \`Contract\` public API | No signature changes. \`is_sealed()\` / \`is_sealed_async()\` gained an optional keyword-only \`groups\` parameter, defaulting to prior behavior. |
+| \`@ward\` | \`order\`, \`when\`, and \`groups\` are optional; a bare \`@ward\` behaves exactly as before |
+| \`Spec\` | \`frozen\` and \`fail_fast\` both default to \`False\` — prior behavior |
+| Validation messages | Byte-identical unless an i18n catalog defines the \`contracts.\` namespace |
+| \`get_nested_contract_cls()\` | Still present, now delegating to \`resolve_nested()\` |
+| Contract \`.pyi\` stubs | Entirely opt-in; not generating them changes nothing |
 
 ---
 
@@ -1721,6 +3288,9 @@ The one behavior change worth noting is not an API break: with \`dkim_enabled=Tr
 - **Mailgun signature verification is opt-in.** Omitting \`signing_key\` parses without verification and logs a warning. Treat it as required in production.
 - **No built-in webhook route.** Applications wire \`parse_*\` and \`process_webhook\` into their own controller, so path, authentication, and CSRF policy stay under application control.
 - **Workflow steps whose parent failed remain \`WAITING\`** rather than being cancelled. They will not run; inspect them with \`failed_jobs()\`.
+- **Generic Contracts (\`Contract[T]\`) are not supported.** \`Contract.__class_getitem__\` already means *projection* (\`UserContract["public"]\`), so type parameterization needs an API decision: dispatch on argument type (backward compatible, but one syntax with two meanings), or move projections to an explicit method (cleaner, but breaks every existing subscript call site). \`typing.Self\`, \`Protocol\`, and \`NewType\` resolution are blocked behind the same decision. Deferred rather than guessed.
+- **\`.pyi\` stubs replace their module for the type checker.** The generator reproduces the whole module surface, not only its Contracts. Anything it cannot render faithfully is emitted as \`Any\` and named in the command output.
+- **\`to_dict_async()\` awaits relations sequentially.** Prefetching remains the right choice on hot paths; the async path exists so a missing prefetch degrades performance rather than raising.
 
 ---
 
@@ -1733,8 +3303,58 @@ The one behavior change worth noting is not an API break: with \`dkim_enabled=Tr
 - [Mail Delivery Queue](mail_queue.md)
 - [Bounce Handling & Suppression](bounces_suppression.md)
 - [Mail Security & MIME](mail_security.md)
+- [Contracts — Nested Validation Pipeline](contracts_pipeline.md)
+- [Contracts — Validation Control & Typing](contracts_validation.md)
+- [Contracts — Stub Generation & Deprecations](contracts_tooling.md)
 - [CLI Changes](cli.md)
 - [Bug Fixes](bugfixes.md)
+`,
+    "surp_to_json_migration.md": `# SURP Binary Format Removal & JSON Standardization (v1.3.5)
+
+## Overview
+
+In Aquilia v1.3.5, the legacy \`surp\` binary serialization format and library dependency have been completely removed across the entire framework in favor of native, standardized \`json\` format (\`.json\` artifacts, \`JSONBytecodeCache\`, \`JSONCatalog\`, \`JSONAuditStore\`, \`schema_snapshot.json\`, \`credentials.json\`, \`ws.json\`, \`discovery_cache.json\`).
+
+---
+
+## Key Changes
+
+1. **HTTP Core Layer**:
+   - \`Request\` no longer has \`is_surp()\`, \`accepts_surp()\`, \`prefers_surp()\`, or \`surp()\` methods. \`request.data()\` returns \`request.json()\`.
+   - \`Response\` no longer has \`Response.surp()\` or \`@requires_surp\` decorator. \`Response.negotiated()\` defaults to JSON encoding.
+   - Removed \`InvalidSurp\` and \`SurpUnavailable\` fault classes.
+
+2. **Internationalization (i18n)**:
+   - \`SurpCatalog\` and \`has_surp()\` removed.
+   - \`JSONCatalog\` is the default file catalog backend.
+   - Default \`catalog_format\` in \`I18nConfig\` is \`"json"\`.
+
+3. **Template Engine**:
+   - \`SurpBytecodeCache\` renamed to \`JSONBytecodeCache\`.
+   - Template compilation artifacts default to \`artifacts/templates.json\` with envelope \`"__format__": "json"\`.
+
+4. **Aquilary & Auto-Discovery**:
+   - Manifest exports and imports use \`.json\` format (\`frozen.json\`).
+   - Discovery cache stored at \`.aquilia/discovery_cache.json\`.
+
+5. **Models & Database**:
+   - Migration DSL snapshots use \`schema_snapshot.json\`.
+   - Migration CLI commands default \`--format\` option to \`"json"\`.
+
+6. **Admin Audit Trail & Providers**:
+   - Audit store updated to \`JSONAuditStore\` saving to \`.aquilia/audit.json\`.
+   - Provider credential storage updated to \`credentials.json\`.
+
+7. **Build & CI**:
+   - Removed \`surp\` optional dependency from \`pyproject.toml\`, \`setup.py\`, and CI workflows.
+
+---
+
+## Migration Steps for Applications
+
+- **File Extensions**: Rename any \`.surp\` configuration or manifest files in your project workspace to \`.json\`.
+- **API Calls**: Replace any calls to \`request.surp()\` or \`Response.surp()\` with \`request.json()\` or \`Response.json()\`. Remove \`@requires_surp\` decorators from controller routes.
+- **Imports**: Replace imports of \`SurpCatalog\` or \`SurpBytecodeCache\` with \`JSONCatalog\` and \`JSONBytecodeCache\`.
 `,
     "workflows.md": `# Workflows & DAGs — Aquilia v1.3.5
 
@@ -1914,7 +3534,7 @@ Purely additive. \`Workflow\`, \`Signature\`, \`WorkflowResult\`, \`chain\`, \`g
 - [Distributed & Persistent Backends](distributed_tasks.md) — required for workflows that span processes
 - [Idempotency & Deduplication](idempotency.md)
 - [Migration Guide](migration.md)
-`
+`,
   },
   "1.3.4": {
     "README.md": `# Aquilia v1.3.4 Release Notes — "Structural Integrity & Controller Expansion"

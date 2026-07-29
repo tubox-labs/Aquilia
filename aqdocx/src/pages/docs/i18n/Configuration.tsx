@@ -68,7 +68,7 @@ workspace = (
             catalog_dirs=["locales"],
             catalog_format="json",
         )
-    )`}
+    )
 
     # Typed integration object
     .integrate(

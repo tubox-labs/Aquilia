@@ -122,11 +122,16 @@ priority = ChoiceFacet(choices={"L": "Low", "H": "High"})`}</CodeBlock>
             <tbody className={`divide-y ${t('divide-gray-700','divide-gray-200')}`}>
               {[
                 ['TextFacet', 'str', 'String fields with length & regex.'],
-                ['IntFacet', 'int', 'Integer values.'],
+                ['IntFacet', 'int', 'Integer values. Rejects fractional input rather than truncating.'],
                 ['FloatFacet', 'float', 'Floating point values.'],
                 ['DecimalFacet', 'Decimal', 'Precision decimal values serialized as string.'],
                 ['BoolFacet', 'bool', 'Truthiness/falsiness checks.'],
                 ['DateTimeFacet', 'datetime', 'ISO 8601 timestamps.'],
+                ['BytesFacet', 'bytes', 'Binary data over JSON as base64 or hex.'],
+                ['PathFacet', 'PurePosixPath', 'Filesystem paths; rejects traversal and absolute paths.'],
+                ['SecretFacet', 'Secret', 'Sensitive strings masked in repr/str and logs.'],
+                ['MACAddressFacet', 'str', 'MAC addresses normalized to lowercase colon form.'],
+                ['IPFacet', 'str', 'IPv4 and IPv6 addresses.'],
                 ['Computed', 'Any', 'Eagerly evaluated derived fields.'],
                 ['ChoiceFacet', 'Any', 'Enumerated values.'],
               ].map(([m, r, d]) => (
@@ -142,6 +147,124 @@ priority = ChoiceFacet(choices={"L": "Low", "H": "High"})`}</CodeBlock>
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Typed primitives */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Typed Primitives</h2>
+        <p className={`mb-6 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Added in v1.3.5. Four types that previously fell through to a permissive <code>TextFacet</code> or had no facet at all.
+        </p>
+
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${t('text-white','text-gray-900')}`}>BytesFacet</h3>
+          <p className={`text-sm mb-3 ${t('text-gray-300','text-gray-600')}`}>
+            Binary data over a JSON transport. Size constraints apply to the <em>decoded</em> length, which is what matters for memory.
+          </p>
+          <CodeBlock language="python">{`class UploadContract(Contract):
+    payload = BytesFacet()                    # base64 (default)
+    checksum = BytesFacet(encoding="hex")
+    thumbnail = BytesFacet(max_length=64 * 1024)
+
+UploadContract(data={"payload": "aGVsbG8="})
+# validated_data: {"payload": b"hello"}`}</CodeBlock>
+          <p className={`mt-3 text-sm ${t('text-gray-300','text-gray-600')}`}>
+            Always bound <code>max_length</code> on a client-facing binary field. Base64 expands roughly 33%, so a modest request body still
+            decodes to a large allocation.
+          </p>
+        </div>
+
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${t('text-white','text-gray-900')}`}>PathFacet</h3>
+          <p className={`text-sm mb-3 ${t('text-gray-300','text-gray-600')}`}>
+            Filesystem paths validated as <code>pathlib.PurePosixPath</code>, so a payload validates identically regardless of server platform.
+          </p>
+          <CodeBlock language="python">{`class UploadContract(Contract):
+    destination = PathFacet()
+
+UploadContract(data={"destination": "reports/q3.pdf"})
+# validated_data: {"destination": PurePosixPath('reports/q3.pdf')}
+
+# Rejected by default:
+#   "/etc/passwd"          -> Path must be relative
+#   "../../etc/passwd"     -> Path may not contain '..' segments
+#   "a\\x00b"               -> Path may not contain null bytes`}</CodeBlock>
+          <p className={`mt-3 text-sm ${t('text-gray-300','text-gray-600')}`}>
+            The defaults reject the two ways a client-supplied path escapes its root. Null bytes are refused unconditionally — they truncate at
+            the OS layer, so a name passing an extension check can still open a different file. Relax with
+            <code> must_be_relative=False</code> / <code>allow_traversal=True</code> only for paths that never originate from a request.
+          </p>
+        </div>
+
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${t('text-white','text-gray-900')}`}>SecretFacet</h3>
+          <p className={`text-sm mb-3 ${t('text-gray-300','text-gray-600')}`}>
+            Sensitive strings that never appear in output or tracebacks. <code>write_only</code> by default.
+          </p>
+          <CodeBlock language="python">{`class LoginContract(Contract):
+    password = SecretFacet(min_length=8)
+
+secret = contract.validated_data["password"]
+repr(secret)       # "Secret('**********')"
+str(secret)        # "**********"
+secret.reveal()    # "hunter2hunter2"
+
+if secret == stored_secret:   # constant-time comparison
+    ...`}</CodeBlock>
+          <p className={`mt-3 text-sm ${t('text-gray-300','text-gray-600')}`}>
+            Equality uses <code>hmac.compare_digest</code>, so comparing a submitted value against a stored one does not leak the shared-prefix
+            length through timing. Masking defends against <em>accidental</em> disclosure — log lines, exception reports, debug pages — and is not
+            a substitute for hashing or encryption at rest. Call <code>.reveal()</code> only at the point of use.
+          </p>
+        </div>
+
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${t('text-white','text-gray-900')}`}>MACAddressFacet</h3>
+          <p className={`text-sm mb-3 ${t('text-gray-300','text-gray-600')}`}>
+            Accepts colon, dash, and Cisco notations, normalizing at validation so downstream comparisons and database lookups do not each
+            reimplement it.
+          </p>
+          <CodeBlock language="python">{`class DeviceContract(Contract):
+    mac = MACAddressFacet()
+
+# "AA:BB:CC:DD:EE:FF" -> "aa:bb:cc:dd:ee:ff"
+# "aa-bb-cc-dd-ee-ff" -> "aa:bb:cc:dd:ee:ff"
+# "aabb.ccdd.eeff"    -> "aa:bb:cc:dd:ee:ff"`}</CodeBlock>
+        </div>
+
+        <div>
+          <h3 className={`text-lg font-semibold mb-2 ${t('text-white','text-gray-900')}`}>Annotation Routing</h3>
+          <p className={`text-sm mb-3 ${t('text-gray-300','text-gray-600')}`}>
+            These types resolve to the right facet from a plain annotation:
+          </p>
+          <CodeBlock language="python">{`import ipaddress, pathlib
+from aquilia.contracts.facets import Secret
+
+class DeviceContract(Contract):
+    address: ipaddress.IPv4Address    # IPFacet
+    config_path: pathlib.Path         # PathFacet
+    api_key: Secret                   # SecretFacet
+    payload: bytes                    # BytesFacet`}</CodeBlock>
+        </div>
+      </section>
+
+      {/* IntFacet behavior change */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Integer Coercion</h2>
+        <CodeBlock language="python">{`class QuantityContract(Contract):
+    qty = IntFacet()
+
+QuantityContract(data={"qty": 3.0}).is_sealed()   # True — integral float
+QuantityContract(data={"qty": 3.9}).errors
+# {"qty": ["Expected integer, got non-integer number 3.9"]}`}</CodeBlock>
+        <div className={`mt-4 p-4 rounded-lg border ${t('bg-amber-500/5 border-amber-500/20','bg-amber-50 border-amber-200')}`}>
+          <p className={`text-sm ${t('text-gray-300','text-gray-700')}`}>
+            <strong className={t('text-amber-400','text-amber-700')}>Changed in v1.3.5.</strong> <code>3.9</code> was previously truncated to
+            <code> 3</code> while the string <code>&quot;3.9&quot;</code> was correctly rejected — the same logical input behaved differently
+            depending on wire type. Silent truncation of a quantity or a price in cents is a data-integrity bug that surfaces far from its cause.
+            <code> NaN</code> and <code>Infinity</code> are now rejected explicitly.
+          </p>
         </div>
       </section>
 
