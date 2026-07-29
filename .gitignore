@@ -84,6 +84,7 @@ pr.md
 # Testing Projects
 prediction_logs/
 artifacts/
+!aquilia/artifacts
 
 
 # workspace (Testing)

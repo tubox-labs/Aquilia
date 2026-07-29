@@ -2435,6 +2435,15 @@ cli.add_command(contracts_group)
 
 
 # ============================================================================
+# Artifact store management (aq artifacts status/verify/clean)
+# ============================================================================
+
+from .commands.artifacts import artifacts_group
+
+cli.add_command(artifacts_group)
+
+
+# ============================================================================
 # Test command
 # ============================================================================
 
