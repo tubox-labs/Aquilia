@@ -29,6 +29,44 @@ interface ChangelogEntry {
 
 const staticChangelogs: ChangelogEntry[] = [
   {
+    version: '1.3.6',
+    codename: 'Artifact Forge',
+    date: '2026-07-29',
+    tag: 'patch',
+    summary: 'Introduces the unified aquilia.artifacts subsystem, replacing ad-hoc file operations across all producers with standardized ArtifactEnvelope envelopes, atomic write protocol (JSONFileBackend), and HMAC integrity checks. Consolidates all disposable build outputs into .aquilia/artifacts/ and adds the aq artifacts CLI command group.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'Unified Artifact Subsystem (aquilia.artifacts): ArtifactStore, ArtifactEnvelope, JSONFileBackend, MemoryBackend, and ArtifactRegistry.',
+          'Atomic Write Protocol: JSONFileBackend guarantees atomic writes via tempfile.mkstemp, os.fsync, and os.replace.',
+          'HMAC-SHA256 Payload Signing: Native file-format signing (sign_payload, verify_payload) applied via signed=True.',
+          'aq artifacts CLI: New status, verify, and clean commands for inspecting and managing on-disk artifacts.',
+          'DI Integration: ArtifactStoreProvider and provide_artifact_store() factory for app-scoped artifact injection.',
+          'Configurable Root: AQUILIA_ARTIFACT_ROOT env var and [aquilia.artifacts] root TOML configuration.'
+        ]
+      },
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'Unified Path: All framework artifacts now default to .aquilia/artifacts/ instead of scattered artifacts/ folders.',
+          'Producer Migration: DiscoveryCache, export_manifest, schema_snapshot, generate_template_manifest, JSONBytecodeCache, SocketCompiler, and save_index migrated to ArtifactStore.',
+          'Bytecode Cache Default: JSONBytecodeCache cache_dir default changed from "artifacts" to None (resolved at runtime to .aquilia/artifacts).'
+        ]
+      },
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'Eliminated non-atomic Path.write_text() and Path.replace() calls in template, discovery, and WebSocket compilers.',
+          'Fixed inconsistent HMAC verification across discovery engine and bytecode caches.'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.3.5',
     codename: 'Distributed Tide',
     date: '2026-07-28',

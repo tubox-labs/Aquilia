@@ -36,10 +36,27 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.3.6',
+    codename: 'Artifact Forge',
+    date: 'Jul 29, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Unified artifact subsystem (aquilia.artifacts), standardizing all framework-generated metadata, build outputs, compiled Jinja2 bytecode, WebSocket metadata, and discovery caches into atomic, HMAC-signed JSON envelopes stored in .aquilia/artifacts/. Includes new aq artifacts CLI commands.',
+    highlights: ['Unified Artifact Subsystem', 'Path Consolidation (.aquilia/artifacts/)', 'aq artifacts CLI Commands'],
+    assets: [
+      { name: 'aquilia-1.3.6.tar.gz', size: '2.8 MB', type: 'Source' },
+      { name: 'aquilia-1.3.6-py3-none-any.whl', size: '2.3 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.6',
+    commitCount: '12',
+    contributors: 2
+  },
+  {
     version: '1.3.5',
     codename: 'Distributed Tide',
     date: 'Jul 28, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Distributed and durable background tasks via Redis and SQL backends, workflow DAGs, enforced idempotency, and a background mail delivery queue with provider webhook processing and automatic bounce suppression. No breaking changes.',
