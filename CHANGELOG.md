@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.5] — 2026-07-28 — "Distributed Tide"
 
-Background tasks become genuinely distributed and durable, and mail becomes a production delivery pipeline. Jobs now execute across multiple worker processes and machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; mail is delivered by background workers with provider webhook processing and automatic suppression of bounced recipients. No breaking changes — all v1.3.4 applications run without modification, and default behavior is unchanged.
+Background tasks become genuinely distributed and durable, mail becomes a production delivery pipeline, and a deep audit of the Contracts subsystem closes a silent validation bypass. Jobs now execute across multiple worker processes and machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; mail is delivered by background workers with provider webhook processing and automatic suppression of bounced recipients; and nested Contract validation runs the child's full pipeline instead of a structural pass only.
+
+The tasks, mail, and HTTP work is fully backward compatible. The Contracts audit ships four deliberate behavioral corrections, each replacing behavior that was incorrect — see **Changed** below.
 
 Full notes: [`releases/1.3.5/`](releases/1.3.5/README.md)
 
@@ -65,6 +67,42 @@ Full notes: [`releases/1.3.5/`](releases/1.3.5/README.md)
 #### HTTP Client — Zero External Dependencies
 - **`AsyncHTTPClient.aclose` method alias** — added `aclose = close` on `aquilia.http.AsyncHTTPClient` for compatibility with async context managers and explicit close callers.
 
+#### Contracts — Async Serialization
+- **`Contract.to_dict_async()` / `to_dict_many_async()`** — serialization that awaits ORM relations, so a to-many `Lens` no longer has to be prefetched before rendering. Prefetching remains the right choice on hot paths; the async path exists so a missing prefetch costs a query rather than raising.
+- **`Lens.mold_async()`** — awaits a related manager or async iterator. Sync and async share one field-molding generator (`_mold_steps`), so projections, `write_only` exclusion, and computed fields cannot drift between the two.
+
+#### Contracts — Validation Control
+- **`@ward(order=...)`** — sort key within the ward phase; lower runs first, ties keep definition order. Use it when one ward's rejection makes another's work redundant.
+- **`@ward(when=...)`** — predicate receiving the validated data; the ward runs only when it returns truthy. A predicate that raises is treated as "does not apply" rather than manufacturing a field error attributed to the ward it was gating.
+- **`@ward(groups=...)`** — validation groups, selected per pass with `is_sealed(groups=...)` / `is_sealed_async(groups=...)`. An ungrouped ward always runs, since it expresses an invariant that holds regardless of which group was requested. Groups propagate to nested Contracts.
+- **`Spec.fail_fast`** — stop at the first ward error instead of accumulating. Defaults to `False`, unchanged.
+- **`Spec.frozen`** — validated data rejects mutation after sealing, so the guarantee `is_sealed()` gives does not expire on the next assignment.
+- **`Contract.copy(update=...)` / `copy_async(update=...)`** — derive an updated Contract, re-validating by default. Pass `validate=False` to build a payload in stages.
+- **`Contract.__eq__`** — compares class and validated data, falling back to raw input when unsealed. Contracts remain unhashable, with an explicit message naming the reason rather than a silent `__hash__ = None`.
+
+#### Contracts — Facets and Typing
+- **`BytesFacet`** — binary data with base64 (default) or hex wire encoding, and `min_length`/`max_length` constraints applied to the *decoded* size.
+- **`PathFacet`** — filesystem paths validated as `pathlib.PurePosixPath`, rejecting absolute paths and `..` traversal by default and null bytes unconditionally.
+- **`SecretFacet`** and **`Secret`** — sensitive strings masked in `repr`/`str`, `write_only` by default, with constant-time equality and an explicit `.reveal()`.
+- **`MACAddressFacet`** — accepts colon, dash, and Cisco notations, normalizing to lowercase colon-separated form.
+- **Annotation routing** for `pathlib.Path`, `ipaddress.IPv4Address` / `IPv6Address`, and `Secret`.
+
+#### Contracts — Data Sources
+- **`Contract.from_env()`** — build a Contract from environment variables with an optional prefix. Values cast through the normal facet pipeline, so configuration gets the same validation as request data. Absent variables are omitted rather than set empty, so each field's `default` and `required` rules decide the outcome. Validates by default, so configuration errors surface at startup.
+- **`Contract.from_cli()`** — build a Contract from `--flag value`, `--flag=value`, and bare `--flag` arguments. Dashes map to underscores; a repeated flag collects into a list; unknown flags are ignored.
+- **Input adapters** — dataclasses, attrs classes, and `TypedDict` values are first-class Contract input at every level, adapted at a single point (`sigil.adapt_input`) that feeds the existing cast/seal pipeline rather than a parallel one.
+
+#### Contracts — Tooling
+- **`aq contracts stubs MODULES...`** — emits `.pyi` stubs so `mypy` and `pyright` see Contract fields, which are otherwise invisible because they are built at class-body evaluation and served through `__getattr__`. `--check` fails CI on a missing or stale stub; `--path` sets the import root. Generation is deterministic, so `--check` cannot fail at random.
+- **`generate_module_stub()` / `write_module_stub()` / `StubReport`** (`aquilia.contracts`) — the Python API behind the command.
+- **`Facet.python_type()`** — each facet reports the Python type its validated value has, making facets the source of truth for stub generation rather than a parallel mapping table.
+
+#### Contracts — Messages and Faults
+- **`aquilia.contracts.messages`** — every built-in validation message resolves through `contract_message()`, which reads the `contracts.` namespace of the active i18n catalog with ICU-style `{name}` substitution and falls back to the built-in English text. 33 keys ship. Applications without i18n configured see byte-identical messages. Resolution never raises: failing to render the message for a rejected payload would turn a 422 into a 500.
+- **`NestingDepthFault`** (`BP502`), **`LensUnresolvedFault`** (`BP503`), **`StubGenerationFault`** (`BP600`) — structured faults for inbound recursion limits, unresolved relational serialization, and stub generation failures.
+- **`MAX_NESTING_DEPTH`** (`aquilia.contracts.exceptions`) — single authoritative nesting limit shared by the Sigil and facet layers.
+- **`resolve_nested()` / `is_nested_facet()`** (`aquilia.contracts.sigil`) — nested-Contract resolution that looks through container facets. `get_nested_contract_cls()` remains, now delegating to `resolve_nested()`.
+
 ### Changed
 
 - **`backend="redis"` now builds a real backend.** Previously it logged a warning ("not implemented") and silently fell back to `MemoryBackend`. Only an unknown backend name or an unreachable service falls back now, and both log a message naming the durability that was lost.
@@ -75,6 +113,23 @@ Full notes: [`releases/1.3.5/`](releases/1.3.5/README.md)
 - **`aq mail check` validates DKIM configuration** — reports a missing `dkim_domain` and a missing `dkimpy` install. DKIM failures raise at send time rather than shipping unsigned mail, so this check surfaces the misconfiguration before the first real send.
 - **DKIM misconfiguration now fails the send.** With `dkim_enabled=True` and an incomplete configuration, sends raise instead of silently shipping an unsigned message. Not an API break, but a behavior change for anyone who had DKIM half-configured.
 
+#### Contracts — behavioral corrections
+
+Four corrections that can change whether an existing payload is accepted. Each replaces behavior that was incorrect. See [`releases/1.3.5/migration.md`](releases/1.3.5/migration.md#migration-0--contracts-behavioral-review) for the review steps.
+
+- **Nested Contract rules are now enforced.** A nested Contract's `@ward` methods and object-level `validate()` override never ran; they now do, with errors reported at the failing field's path (`{"items": {"1": {"qty": [...]}}}`). Payloads previously accepted may now be rejected — correctly.
+- **`Lens(many=True)` raises on an unresolved relation** instead of returning `[]`. An empty list is indistinguishable from "this record genuinely has no related rows", so the previous behavior shipped wrong data to clients with no signal. Prefetch the relation, assign an awaited list, or use `to_dict_async()`.
+- **Malformed request bodies report a document-level error.** A scalar or list body was coerced to `{}`, producing "This field is required" per field — a misdiagnosis that sent developers hunting the wrong bug. Now `{"__all__": ["Expected an object, got str"]}`. Clients that parse a 422 body and assume every key is a field name should render `__all__` separately.
+- **`IntFacet` rejects fractional input.** `3.9` was silently truncated to `3`, while the string `"3.9"` was correctly rejected — the same logical input behaved differently depending on wire type. Integral floats (`3.0`) are still accepted; `NaN` and `Infinity` are rejected explicitly.
+
+Additionally, `"__minimal__"` projections now return a restricted field set (primary-key plus `read_only` facets) rather than every field; the previous output was never correct.
+
+#### Contracts — other changes
+
+- **PEP 604 unions are recognized in polymorphic field resolution.** The union branch checked only `origin is Union`, missing every `A | B` annotation, whose origin is `types.UnionType`. A union member with no facet mapping now emits a `UserWarning` at class-definition time rather than being dropped silently and surfacing later as a confusing "wrong type" rejection.
+- **`seal_many(parallel=True)` documented honestly** — structural validation and ward dispatch are pure-Python CPU work that CPython's GIL serializes, so the flag only helps when ward methods block on I/O, or under a free-threaded interpreter build.
+- **Dead legacy scanning removed.** `ContractMeta.__new__` scanned `dir(cls)` for `seal_*`/`async_seal_*` into `_seal_methods`, which nothing ever read; `collect_ward_methods()` already folds the legacy convention into `_ward_methods` with correct mode tracking.
+
 ### Fixed
 
 - **Mail delivery task was unresolvable across processes (CRITICAL).** `_deliver_envelope_task` was a bare function, never registered with `@task`. On any persistent backend the consuming worker could not resolve it through the registry, so envelopes sat in `QUEUED` forever with no error. Now registered as `@task(name="aquilia.mail.deliver")` under a stable name that survives a Python-level rename.
@@ -84,6 +139,21 @@ Full notes: [`releases/1.3.5/`](releases/1.3.5/README.md)
 - **`Job.fingerprint` was computed but never read.** Now enforced through `dedup`.
 - **`MailSuppressedFault` was unreachable.** Defined in the fault taxonomy but never raised; now part of a working suppression path.
 
+#### Contracts
+
+- **Nested Contracts never ran their wards or `validate()` hook (CRITICAL).** `Sigil.validate()` recursed into `nested_cls._sigil.validate()` — the *structural* pass only. It never instantiated the nested Contract, so every `@ward` method and the object-level `validate()` override on it were silently skipped. A nested Contract expressing an authorization check or a cross-field invariant enforced nothing, and the payload was accepted. Nested validation now runs the child's full pipeline through a shared `run_nested_contract()` helper.
+- **`list[Contract]` annotations bypassed nested validation entirely (CRITICAL).** `items: list[Item]` builds `ListFacet(child=NestedContractFacet)`, while `NestedContractFacet(Item, many=True)` builds a different facet. Detection matched only the latter, so the far more common annotated spelling was classified as an ordinary list — meaning the fix above did not reach it, `has_async_wards` reported `False` for Contracts whose children declared async wards, and JSON Schema emitted an untyped array instead of an array of `$ref`. Detection now looks through container facets via `resolve_nested()`.
+- **`has_async_wards` consulted only the top-level class.** A Contract whose *nested* child declared an async ward reported `False`, so callers took the sync path and the ward never ran — a silent skip rather than the intended `ContractAsyncMismatchFault`. The property now walks the facet tree, memoized per class, with cycle detection for self-referential Contracts and no caching of answers that depended on an unresolved forward reference.
+- **Top-level async wards bypassed group and ordering semantics.** `is_sealed_async()` ran async wards through its own inline loop rather than the shared `_run_ward_phase_async()`, so `groups`, `when`, `order`, and `fail_fast` applied on the bulk paths but not the single-item one. The duplicate loop is gone.
+- **Nested-Contract recursion had no depth guard on the real validation path.** `MAX_NESTING_DEPTH` was enforced only in `NestedContractFacet.cast()`, which the primary path never called — so a few kilobytes of deeply nested JSON against any endpoint accepting a self-referential Contract raised an uncaught `RecursionError` in the request coroutine. Depth is now threaded through `Sigil.validate()` and yields a structured error.
+- **The recursion-depth counter was global mutable state mislabeled "thread-local".** `NestedContractFacet._current_nesting_depth` was a plain class attribute mutated with `+=`/`-=`, shared across every instance, class, and thread. Concurrent validation could both reject shallow payloads spuriously and undercount deep ones, defeating the guard. Replaced with a `contextvars.ContextVar`, correct for threads and asyncio tasks alike.
+- **`"__minimal__"` projections exposed every field.** `ProjectionRegistry.configure()` stored an empty `frozenset()` placeholder that no code resolved; because an empty set is falsy, the per-field filter passed every field — so a projection declared specifically to minimize exposed data returned all of them, including fields intended to stay private. Both projection filters now compare against `None` rather than truthiness, so an empty projection renders `{}`.
+- **`validate()` ran up to three times per row in bulk paths.** `seal_many()` and `seal_stream()` duplicated the ward-invocation block five times and read `inst.errors`, a property that lazily triggers a full `is_sealed()` cycle. Any `validate()` override with side effects fired three times per record. Row sealing is now a single `_seal_row()` / `_seal_row_async()` pair shared by every entry point, removing roughly 200 lines of duplication.
+- **Async validation was impossible for `many=True` Contracts.** `_seal_many()` called each child's synchronous `is_sealed()`, so a child with async wards raised `ContractAsyncMismatchFault` from inside the loop — propagating out of the very `is_sealed_async()` call meant to handle it. Added `_seal_many_async()`, which dispatches per item with correctly aggregated per-index errors. Items validate sequentially: unbounded concurrency over a 10,000-item batch would exhaust the database connection pool.
+- **`bytes` fields were non-functional end to end.** `bytes` annotations mapped to `TextFacet`, whose cast whitelist *rejects real `bytes`* — so a `payload: bytes` field rejected every genuine value while accepting plain strings. `bytes` now routes to the new `BytesFacet`.
+- **`@computed` methods ran against an uninitialized shell instance.** Because facets are class-level and `Facet.bind()` was never called, `Computed.extract()` reconstructed an owner via `cls.__new__(cls)`, skipping `__init__`. Any computed field touching `self.context`, `self.instance`, or `self._validated_data` raised `AttributeError` in production, while doc-style examples using only the `instance` argument kept working. The live Contract instance is now threaded in explicitly.
+- **Hot-path imports hoisted to module scope** (`contracts/sigil.py`). `get_field_value()`, `get_keys()`, `check_strict_type()`, and `Sigil.validate()` re-executed `from .facets import ...` on every call — once per field, per request.
+
 ### Security
 
 - **Webhook signature verification** — SES via `verify_topic_arn`, SendGrid via an ECDSA `public_key` with replay rejection over `max_age_seconds`, Mailgun via an HMAC `signing_key`. Without verification, anyone can POST a forged bounce and suppress an arbitrary address — a trivial denial of service against your own users. Omitting these parameters parses without verification and logs a warning naming the risk.
@@ -92,6 +162,11 @@ Full notes: [`releases/1.3.5/`](releases/1.3.5/README.md)
 - **PII redaction** for recipient addresses in mail logs.
 - **Parameterized SQL throughout** the new backends and stores; table and column identifiers are validated against a restricted character set before interpolation into DDL.
 - **TLS enforcement** on SMTP remains on by default (`require_tls=True`).
+- **`PathFacet` rejects path escapes by default** — absolute paths and `..` traversal are refused unless explicitly opted out, and null bytes are refused unconditionally (they truncate at the OS layer, so a name passing an extension check can open a different file). Windows separators are normalized before the `..` check, so a backslash cannot smuggle a segment past it on a POSIX server.
+- **`SecretFacet` masks sensitive values in `repr`, `str`, and logs**, is `write_only` by default, and compares in constant time via `hmac.compare_digest` so a submitted-versus-stored comparison does not leak the shared-prefix length through timing.
+- **`"__minimal__"` projections no longer leak every field** — a projection declared specifically to minimize exposed data was returning all of them, including fields intended to stay private.
+- **Nested Contract authorization rules are enforced** — a `@ward` on a nested Contract expressing an access check previously never ran.
+- **The nesting-depth guard now applies to the real validation path**, so deeply nested JSON yields a structured error rather than an uncaught `RecursionError` in the request coroutine, and its counter is per-task/per-thread rather than process-global.
 
 ### Performance
 
@@ -100,16 +175,26 @@ Full notes: [`releases/1.3.5/`](releases/1.3.5/README.md)
 - **`dedup="skip"` collapses duplicate work before it executes.**
 - **`SQLBackend` claim is a single conditional `UPDATE`** inside a transaction; **`RedisBackend` claim is one round trip** against a sorted set.
 - **`MemoryBackend` is untouched** — single-process applications see no change.
+- **Contract bulk validation runs `validate()` once per row** instead of up to three times. `seal_many()` and `seal_stream()` read `inst.errors`, a property that lazily triggered a full `is_sealed()` cycle; roughly 200 lines of duplicated ward-invocation logic collapsed into one shared row-sealing pair.
+- **Contract hot-path imports hoisted to module scope.** `get_field_value()`, `get_keys()`, `check_strict_type()`, and `Sigil.validate()` re-executed `from .facets import ...` on every call — once per field, per request.
+- **`has_async_wards` is memoized per Contract class**, so the facet-tree walk costs nothing after the first call. Contract classes compile once at import, so the answer cannot change at runtime.
+- **Contract `.pyi` stub generation is deterministic**, so a CI `--check` run is a byte comparison rather than a regeneration.
 
 ### Documentation
 
-- **`releases/1.3.5/`** — ten-page release notes covering distributed backends, workflows, idempotency, the mail delivery queue, bounce handling, mail security and MIME, CLI changes, bug fixes, and a migration guide with an upgrade checklist, per-feature before/after migrations, compatibility notes, and known issues.
+- **`releases/1.3.5/`** — thirteen-page release notes covering distributed backends, workflows, idempotency, the mail delivery queue, bounce handling, mail security and MIME, the native HTTP client, the Contracts nested-validation pipeline, Contracts validation control and typing, Contracts stub generation and deprecations, CLI changes, bug fixes, and a migration guide with an upgrade checklist, per-feature before/after migrations, compatibility notes, and known issues.
 - **`docs/developer-guide.md`** — new sections on durable and distributed backends, idempotency, workflows, the mail delivery queue, and bounces and suppression.
+- **`docs/docs/contracts/async-pipeline.md`** and **`docs/docs/contracts/validation-control.md`** — new pages on async validation and serialization, and on ward ordering, conditions, groups, and fail-fast.
+- **`docs/docs/contracts/ward.md`** — rewritten deprecation section covering the `seal_*` migration with rationale, before/after examples, and instructions for finding every affected method.
 - **Corrected the `aquilia.tasks` package docstring**, which listed persistent/distributed backends and workflow DAGs under "Not implemented today (deliberately absent, not stubbed)". All shipped in this release. The docstring now documents the at-least-once delivery contract and the one capability still genuinely absent (per-queue rate limiting).
 
 ### Deprecated
 
-Nothing was deprecated in this release.
+- **The `seal_*` / `async_seal_*` Contract validator naming convention.** Deprecated in 1.3.0, removed in 2.0.0. A Contract declaring an undecorated `seal_*`/`async_seal_*` method now emits a `DeprecationWarning` at class-body evaluation naming the exact replacement decorator for that method. Behavior is unchanged in 1.x — these methods continue to register and run exactly as before, since a rule that stopped firing in a feature release would ship the very bug the deprecation warns about.
+
+  The convention is going away because the name *is* the registration: renaming `seal_total` during a cleanup removes the rule with no error and no warning; a helper legitimately named `seal_envelope` is executed as a validator on every request; async mode was inferred from `iscoroutinefunction` rather than declared, so a validator awaiting the database while written as a sync `def` created a coroutine that was never awaited; and ordering, conditions, and groups have nowhere to live in a naming convention.
+
+  Migration is mechanical — decorate the method with `@ward` (or `@ward(mode="async")`); the body does not change. Adding the decorator without renaming silences the warning immediately. Find every affected method with `python -W error::DeprecationWarning -c "import myapp.contracts"`, or by setting `filterwarnings = ["error::DeprecationWarning"]` in `pyproject.toml`. Timeline constants are exported as `DEPRECATED_PREFIX_SINCE` and `DEPRECATED_PREFIX_REMOVED_IN` from `aquilia.contracts.ward`.
 
 ### Removed
 

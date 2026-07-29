@@ -91,15 +91,76 @@ During Contract class creation, all registered wards are harvested using the [co
 
 ### Deprecation Notice: Legacy Prefix Scanning
 
-Before explicit `@ward` registration, Aquilia automatically discovered cross-field validators by scanning for methods with the `seal_` or `async_seal_` prefix.
+Before explicit `@ward` registration, Aquilia discovered cross-field validators by scanning for methods whose names began with `seal_` or `async_seal_`.
 
-!!! warning "Deprecation Warning"
-    The `seal_*/async_seal_*` prefix convention is deprecated (see [ward.py lines 163–180](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/ward.py#L163-L180)). Classes defining undecorated methods with these prefixes will emit a `DeprecationWarning` during class-body evaluation:
+!!! warning "Deprecated in 1.3.0 — removed in 2.0.0"
+    A Contract declaring an undecorated `seal_*`/`async_seal_*` method emits a `DeprecationWarning` at class-body evaluation naming the exact replacement:
 
     ```
-    DeprecationWarning: ClassName.method_name: seal_*/async_seal_* prefix convention is deprecated. Use @ward or @ward(mode='async') instead.
+    DeprecationWarning: OrderContract.seal_total is registered as a validator by the
+    deprecated seal_*/async_seal_* prefix convention (deprecated in Aquilia 1.3.0,
+    removed in 2.0.0). Decorate it with @ward instead — the method body does not need
+    to change, and you may then rename it freely. After 2.0.0, OrderContract.seal_total
+    will be treated as an ordinary method and will silently stop validating.
     ```
 
+    Until 2.0.0 these methods continue to run exactly as before. There is no behavioral change in 1.x — only the warning.
+
+#### Why the convention is being removed
+
+Each of these has cost real debugging time:
+
+- **A rename silently disables validation.** Renaming `seal_total` to `check_total` during a routine cleanup removes the rule with no error and no warning. The Contract keeps reporting success on payloads it should reject.
+- **A name collision silently creates one.** A helper legitimately named `seal_envelope` is executed as a validator on every request, its return value discarded and any exception it raises turned into a user-facing field error.
+- **Async mode was inferred, not declared.** Mode came from `inspect.iscoroutinefunction`, so a validator awaiting the database while written as a sync `def` registered as sync — the coroutine was created, never awaited, and the check never ran.
+- **No room to grow.** Ordering, conditions, and validation groups have nowhere to live in a naming convention. `@ward` carries them as metadata.
+
+#### Migration
+
+Mechanical — decorate the method. The body does not change.
+
+```python
+# Before (deprecated)
+class OrderContract(Contract):
+    def seal_total(self, data):
+        if data["total"] < 0:
+            self.reject("total", "Must not be negative")
+
+    async def async_seal_stock(self, data):
+        if not await in_stock(data["sku"]):
+            self.reject("sku", "Out of stock")
+
+# After
+class OrderContract(Contract):
+    @ward
+    def total_not_negative(self, data):          # rename is now safe
+        if data["total"] < 0:
+            self.reject("total", "Must not be negative")
+
+    @ward(mode="async")
+    async def stock_available(self, data):
+        if not await in_stock(data["sku"]):
+            self.reject("sku", "Out of stock")
+```
+
+Two things change beyond the decorator: `mode="async"` becomes explicit rather than inferred, and the methods can be renamed to describe the rule rather than to satisfy the scanner.
+
+#### Finding every affected method
+
+Promote the warning to an error and import your Contract modules:
+
+```bash
+python -W error::DeprecationWarning -c "import myapp.contracts"
+```
+
+Or fail the test suite on it:
+
+```toml
+[tool.pytest.ini_options]
+filterwarnings = ["error::DeprecationWarning"]
+```
+
+Both report each legacy method with its class name, its exact replacement decorator, and the file and line that declared it. Because registration happens at class-body evaluation, importing the module is enough — no request needs to run.
 
 ---
 

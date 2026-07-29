@@ -1,12 +1,12 @@
 # Aquilia v1.3.5 Release Notes — "Distributed Tide"
 
-Aquilia v1.3.5 makes the background task system genuinely distributed and durable, and turns the mail subsystem into a production-grade delivery pipeline.
+Aquilia v1.3.5 makes the background task system genuinely distributed and durable, turns the mail subsystem into a production-grade delivery pipeline, and closes a silent validation bypass in Contracts.
 
-Before this release, background tasks ran in a single process on an in-memory queue — jobs were lost on restart, a second web worker meant a second independent queue, and `backend="redis"` was accepted by configuration and then silently ignored. Mail was sent inline inside the request handler, with no bounce handling and no suppression list.
+Before this release, background tasks ran in a single process on an in-memory queue — jobs were lost on restart, a second web worker meant a second independent queue, and `backend="redis"` was accepted by configuration and then silently ignored. Mail was sent inline inside the request handler, with no bounce handling and no suppression list. And a nested Contract's `@ward` methods never ran at all: a validation rule declared on a nested Contract enforced nothing.
 
-This release closes both gaps: jobs now execute across multiple worker processes and multiple machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; and mail is delivered by background workers with provider webhook processing and automatic suppression of bounced and complaining recipients.
+This release closes all three gaps: jobs now execute across multiple worker processes and multiple machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; mail is delivered by background workers with provider webhook processing and automatic suppression of bounced and complaining recipients; and nested Contract validation runs the child's full pipeline.
 
-All of it is backward compatible. Change no configuration and v1.3.5 behaves exactly as v1.3.4 did.
+The tasks and mail work is entirely backward compatible. The Contracts audit ships four deliberate behavioral corrections — each one replacing incorrect behavior — listed under [Breaking Changes](#breaking-changes).
 
 ---
 
@@ -45,15 +45,32 @@ All of it is backward compatible. Change no configuration and v1.3.5 behaves exa
 7. [Native HTTP Client & Dependency Cleanup](http_native.md)
    - Zero third-party HTTP client dependencies (`httpx` removed)
    - `SendGridProvider` and `LiveServerTestCase` updated to `aquilia.http`
-8. [CLI Changes](cli.md)
-   - `aq mail check` validates DKIM configuration
-9. [Bug Fixes](bugfixes.md)
-   - Mail delivery task unresolvable across processes (CRITICAL)
-   - Consumer-only workers polled nothing (CRITICAL)
-   - Job results degraded to `repr` strings on persistent backends
-   - `queue.persistent` had no configuration surface
-10. [Migration Guide](migration.md)
-   - Upgrade checklist, per-feature migrations, compatibility notes, known issues
+8. [Contracts — Nested Validation Pipeline](contracts_pipeline.md)
+   - Nested Contracts never ran their wards or `validate()` hook (CRITICAL)
+   - `list[Contract]` annotations bypassed the nested pipeline (CRITICAL)
+   - `has_async_wards` consulted only the top-level class
+   - `to_dict_async()` / `to_dict_many_async()` / `Lens.mold_async()`
+   - `LensUnresolvedFault` replaces a silent empty list
+   - Input adapters for dataclasses, attrs, and `TypedDict`
+9. [Contracts — Validation Control & Typing](contracts_validation.md)
+   - `@ward(order=..., when=..., groups=...)`, `Spec.fail_fast`
+   - `Spec.frozen`, `Contract.__eq__`, `copy()` / `copy_async()`
+   - `BytesFacet`, `PathFacet`, `SecretFacet`, `MACAddressFacet`
+   - `Contract.from_env()` and `Contract.from_cli()`
+   - Localized validation messages via `contract_message()`
+10. [Contracts — Stub Generation & Deprecations](contracts_tooling.md)
+    - `aq contracts stubs` — `.pyi` emission for `mypy` and `pyright`
+    - `seal_*` / `async_seal_*` prefix convention deprecated
+11. [CLI Changes](cli.md)
+    - `aq mail check` validates DKIM configuration
+    - `aq contracts stubs` generates Contract type stubs
+12. [Bug Fixes](bugfixes.md)
+    - Mail delivery task unresolvable across processes (CRITICAL)
+    - Consumer-only workers polled nothing (CRITICAL)
+    - Job results degraded to `repr` strings on persistent backends
+    - `queue.persistent` had no configuration surface
+13. [Migration Guide](migration.md)
+    - Upgrade checklist, per-feature migrations, compatibility notes, known issues
 
 ---
 
@@ -127,6 +144,40 @@ await process_webhook(events, suppression=mail.suppression, store=mail.store)
 
 A hard bounce or spam complaint removes the address from every future send, protecting sender reputation without application code.
 
+### Nested Contract rules are enforced
+
+```python
+class LineItem(Contract):
+    qty = IntFacet()
+
+    @ward
+    def qty_positive(self, data):
+        if data["qty"] < 1:
+            self.reject("qty", "Must be at least 1")
+
+class Order(Contract):
+    items: list[LineItem] = None
+
+Order(data={"items": [{"qty": 0}]}).is_sealed()
+# v1.3.4: True — the ward never ran
+# v1.3.5: False, errors = {"items": {"0": {"qty": ["Must be at least 1"]}}}
+```
+
+A nested Contract was validated *structurally only*, so every `@ward` and every `validate()` override on it was silently skipped. See [Nested Validation Pipeline](contracts_pipeline.md).
+
+### Contract fields visible to type checkers
+
+```bash
+aq contracts stubs myapp.contracts        # writes myapp/contracts.pyi
+aq contracts stubs myapp.contracts --check  # CI freshness gate
+```
+
+```python
+reveal_type(contract.total)    # decimal.Decimal — was Any
+```
+
+A portable `.pyi` every type checker consumes with no plugin. See [Stub Generation](contracts_tooling.md).
+
 ---
 
 ## What's New
@@ -148,6 +199,15 @@ A hard bounce or spam complaint removes the address from every future send, prot
 | `redact_email` / `redact_pii` | PII redaction for mail logs |
 | `MailAuth.oauth2(...)` | XOAUTH2 bearer-token SMTP authentication |
 | `aquilia[mail-dkim]` | New optional extra for DKIM signing |
+| `aq contracts stubs` | `.pyi` stub emission so `mypy`/`pyright` see Contract fields |
+| `Contract.to_dict_async()` / `to_dict_many_async()` | Async serialization that awaits ORM relations |
+| `@ward(order=..., when=..., groups=...)` | Validator ordering, conditional rules, and validation groups |
+| `Spec.frozen` / `Spec.fail_fast` | Immutable validated data; stop at the first ward error |
+| `Contract.copy()` / `copy_async()` | Derive an updated Contract, re-validating by default |
+| `Contract.from_env()` / `from_cli()` | Build a Contract from environment variables or CLI arguments |
+| `BytesFacet`, `PathFacet`, `SecretFacet`, `MACAddressFacet` | Strongly-typed primitives that previously fell through to `TextFacet` |
+| `aquilia.contracts.messages` | Localized validation messages via the i18n catalog |
+| `NestingDepthFault`, `LensUnresolvedFault`, `StubGenerationFault` | New structured Contract faults |
 
 ---
 
@@ -177,6 +237,10 @@ A hard bounce or spam complaint removes the address from every future send, prot
 - `aq mail check` catches DKIM misconfiguration before the first send fails.
 - Structured faults name the failure precisely — `TaskSerializationFault` reports which argument, `TaskWorkflowFault` names the cycle.
 - The `aquilia.tasks` package docstring no longer claims distributed backends and workflows are unimplemented.
+- **Contract fields are visible to type checkers.** `aq contracts stubs` emits a `.pyi` so `contract.total` resolves to `decimal.Decimal` rather than `Any`, and a field typo fails CI instead of production.
+- **Validation rules carry their own metadata.** Ordering, conditions, and groups live on `@ward` rather than inside ward bodies, so a rule's applicability is inspectable.
+- **Configuration validates like request data.** `Contract.from_env()` runs environment variables through the same facets, so a bad `PORT` fails at startup with a field error instead of at first use with a `ValueError`.
+- **Validation messages localize.** Every built-in message resolves through the i18n catalog's `contracts.` namespace, with no change for applications that do not configure i18n.
 
 ---
 
@@ -202,18 +266,51 @@ A hard bounce or spam complaint removes the address from every future send, prot
 | `Job.fingerprint` computed but never read | Tasks | Enforced at enqueue via `dedup`. |
 | `MailSuppressedFault` unreachable | Mail | Now part of a working suppression path. |
 | Stale package docstring | Tasks | No longer lists shipped features as "deliberately absent". |
+| Nested Contracts never ran wards or `validate()` | Contracts | Nested validation runs the child's full pipeline via `run_nested_contract()`. |
+| `list[Contract]` annotations bypassed nested validation | Contracts | Detection looks through container facets, so both spellings route identically. |
+| `has_async_wards` missed nested async wards | Contracts | Walks the facet tree, memoized, with cycle detection. |
+| `Lens(many=True)` returned `[]` for unresolved relations | Contracts | Raises `LensUnresolvedFault` instead of shipping wrong data. |
+| No async serialization path existed | Contracts | `to_dict_async()`, `to_dict_many_async()`, `Lens.mold_async()`. |
+| Non-mapping input reported every field as missing | Contracts | Reports `{"__all__": ["Expected an object, got str"]}`. |
+| `IntFacet` silently truncated `3.9` to `3` | Contracts | Fractional floats rejected; integral ones still accepted. |
+| `bytes` fields were non-functional end to end | Contracts | `bytes` annotations route to the new `BytesFacet`. |
+| `"__minimal__"` projection exposed every field | Contracts | Resolves to primary-key plus `read_only` facets. |
+| Nesting-depth guard unreachable from the real path | Contracts | Depth threaded through `Sigil.validate()`; structured error. |
+| Depth counter was global mutable state | Contracts | Replaced with a `contextvars.ContextVar`. |
+| `@computed` ran against an uninitialized instance | Contracts | The live Contract instance is threaded in explicitly. |
+| `validate()` ran up to three times per row in bulk paths | Contracts | Single shared `_seal_row()` / `_seal_row_async()`. |
+| Top-level async wards bypassed groups and ordering | Contracts | `is_sealed_async()` uses the shared ward phase. |
+
+Contract fixes are detailed in [Nested Validation Pipeline](contracts_pipeline.md) and [Validation Control & Typing](contracts_validation.md).
 
 ---
 
 ## Breaking Changes
 
-None. See [Migration Guide](migration.md).
+The tasks, mail, and HTTP work introduces no breaking changes.
+
+The Contracts audit ships **four deliberate behavioral corrections**. Each replaces behavior that was incorrect, so the change is the fix rather than a side effect of it:
+
+| Change | Previously | Now | Who is affected |
+|---|---|---|---|
+| Nested Contract rules are enforced | A nested `@ward` or `validate()` override never ran | Runs, and rejects | Anyone whose nested Contracts declare rules. Payloads previously accepted may now be rejected. |
+| `Lens(many=True)` unresolved relation | Returned `[]`, indistinguishable from "no rows" | Raises `LensUnresolvedFault` | Anyone serializing a to-many Lens without prefetching. Prefetch, materialize, or use `to_dict_async()`. |
+| Malformed body error shape | Per-field "This field is required" | `{"__all__": ["Expected an object, got str"]}` | Clients parsing a 422 body that assume every key is a field name. |
+| `IntFacet` fractional input | `3.9` silently became `3` | Rejected | Anyone relying on silent truncation. `3.0` is still accepted. |
+
+`"__minimal__"` projections also return a restricted field set now; the previous output — every field — was never correct.
+
+See the [Migration Guide](migration.md) for the review steps.
 
 ---
 
 ## Deprecated / Removed
 
-Nothing was deprecated or removed in this release.
+**Deprecated:** the `seal_*` / `async_seal_*` Contract validator naming convention. Deprecated in 1.3.0, removed in 2.0.0. Declaring such a method now emits a `DeprecationWarning` naming its exact replacement decorator. Behavior is unchanged in 1.x — these methods continue to run exactly as before.
+
+Migration is mechanical: decorate the method with `@ward` (or `@ward(mode="async")`); the body does not change. Find every affected method with `python -W error::DeprecationWarning -c "import myapp.contracts"`. Full guide in [Stub Generation & Deprecations](contracts_tooling.md#deprecated-the-seal_--async_seal_-prefix-convention).
+
+**Removed:** the third-party `httpx` dependency. See [Native HTTP Client](http_native.md).
 
 ---
 
@@ -255,7 +352,18 @@ Details and workarounds in the [Migration Guide](migration.md#known-issues).
 
 `tests/test_audit_tasks_mail.py` covers the mail provider, DKIM, MIME, redaction, and rate-limiting paths.
 
-Full suite: 7,189 passing.
+The Contracts audit adds 217 tests across six files (`BP-SEC-014` … `BP-SEC-037`):
+
+| File | Covers |
+|---|---|
+| `test_contract_audit_regressions.py` | First-pass fixes: projections, depth guard, thread isolation, bulk-path `validate()` |
+| `test_contract_nested_pipeline.py` | Nested wards, `list[Contract]` routing, async serialization, input adapters |
+| `test_contract_typing_features.py` | New facets, equality, copy, frozen Contracts |
+| `test_contract_validation_control.py` | Ward ordering/conditions/groups, fail-fast, i18n messages, `from_env`/`from_cli` |
+| `test_contract_stubs.py` | Facet Python types, module stubs, the `--check` staleness gate |
+| `test_contract_ward_deprecation.py` | `seal_*` warning content, and that legacy validators still run |
+
+Full suite: 7,403 passing.
 
 ---
 

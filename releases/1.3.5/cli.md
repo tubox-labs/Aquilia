@@ -1,6 +1,96 @@
 # CLI Changes — Aquilia v1.3.5
 
-No commands were added, removed, or renamed in this release. One existing command gained new validation.
+One command group was added (`aq contracts`). One existing command gained new validation. Nothing was removed or renamed.
+
+---
+
+## New: `aq contracts stubs`
+
+Emits `.pyi` type stubs so `mypy` and `pyright` can see Contract fields.
+
+### Why
+
+A Contract builds its fields at class-body evaluation time and serves them through `__getattr__`. Neither is visible to a static analyser, so `contract.email` was `Any` at best and an attribute error under `--strict` at worst. For a team with a type-checking gate in CI, this was the single largest adoption barrier.
+
+A generated `.pyi` is a portable artifact: every type checker consumes it with no plugin, no configuration, and no version coupling.
+
+### Usage
+
+```bash
+aq contracts stubs MODULES... [--check] [--path DIR]
+```
+
+| Flag | Purpose |
+|---|---|
+| `--check` | Do not write. Exit non-zero if any stub is missing or out of date. |
+| `--path DIR` | Directory prepended to `sys.path` before importing. Default: current directory. |
+
+### Examples
+
+```bash
+# Write myapp/contracts.pyi
+aq contracts stubs myapp.contracts
+
+# Several modules at once
+aq contracts stubs myapp.users.contracts myapp.orders.contracts
+
+# CI freshness gate
+aq contracts stubs myapp.contracts --check
+```
+
+### Output
+
+Success:
+
+```
+$ aq contracts stubs myapp.contracts
+  ✔ myapp.contracts: wrote /app/myapp/contracts.pyi
+      2 contract(s): AddressContract, OrderContract
+```
+
+Anything that could not be typed faithfully is emitted as `Any` and named, so a lost annotation is reported rather than silently weakening the module's types:
+
+```
+  ✔ myapp.contracts: wrote /app/myapp/contracts.pyi
+      2 contract(s): AddressContract, OrderContract
+      REGISTRY: module-level value emitted as Any
+```
+
+`--check` on a stale or missing stub exits `1` and prints the fix:
+
+```
+$ aq contracts stubs myapp.contracts --check
+  ✘ myapp.contracts: contracts.pyi is missing or out of date
+      2 contract(s): AddressContract, OrderContract
+
+  Stubs are out of date. Regenerate with:
+      aq contracts stubs myapp.contracts
+```
+
+A module that fails to import, or that has no source file, exits `1` with the reason.
+
+### Recommended workflow
+
+Commit the generated stubs, then gate on freshness:
+
+```bash
+# Once, after declaring or changing Contracts
+aq contracts stubs myapp.contracts
+git add myapp/contracts.pyi
+```
+
+```yaml
+# .github/workflows/ci.yml
+- name: Check Contract stubs are current
+  run: aq contracts stubs myapp.contracts --check
+
+- name: Type check
+  run: mypy myapp/
+```
+
+Generation is deterministic — regenerating unchanged input is a byte-identical no-op, so `--check` cannot fail at random.
+
+Full details in [Stub Generation & Deprecations](contracts_tooling.md).
 
 ---
 
@@ -54,5 +144,6 @@ Background task workers are not started by a dedicated CLI command; a worker pro
 
 ## Related
 
+- [Contracts — Stub Generation & Deprecations](contracts_tooling.md)
 - [Mail Security & MIME](mail_security.md)
 - [Migration Guide](migration.md)

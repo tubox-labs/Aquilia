@@ -21,6 +21,8 @@ An Aquilia Contract declares the data contract between a data model and the outs
 - **[Projections](projections.md)**: Defining named subsets of fields (e.g., `"summary"`, `"detail"`) to serialize different shapes of the same contract.
 - **[Lenses](lenses.md)**: Mapping nested database relationships with built-in depth control, cycle prevention, and primary key fallback.
 - **[Wards & Cross-Field Validation](ward.md)**: Declaring multi-field validation constraints using the `@ward` decorator.
+- **[Async Validation & Serialization](async-pipeline.md)**: Nested Contract rules, `is_sealed_async()`, and awaiting ORM relations with `to_dict_async()`.
+- **[Validation Control & Data Sources](validation-control.md)**: Ward ordering, conditions, groups, fail-fast, localized messages, and building Contracts from environment variables or CLI arguments.
 - **[Lifecycle: Cast, Seal & Imprint](casting-sealing.md)**: Understanding how data moves through casting (type checking), sealing (integrity checks), and imprinting (saving).
 - **[Sigil & FieldSpec](sigil.md)**: Declaring low-level field spec templates and structural mapping rules.
 - **[Contract Unions](contract-union.md)**: Supporting discriminated unions and polymorphic API responses.

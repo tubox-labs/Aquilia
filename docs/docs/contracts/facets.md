@@ -169,6 +169,20 @@ Identity facets validate format strings and patterns.
 *   **[URLFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L563-L582)**: Restricts values to standard HTTP/HTTPS schemes and formats via regex match ([facets.py:L566-L572, L575](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L566-L572)).
 *   **[SlugFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L585-L602)**: Coerces to lowercase and validates that the string consists solely of alphanumeric characters, hyphens, and underscores (`^[-a-zA-Z0-9_]+$`) ([facets.py:L588, L591, L594](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L588)).
 *   **[IPFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L605-L620)**: Uses Python's standard `ipaddress.ip_address` module during validation to ensure the string represents a valid IPv4 or IPv6 address ([facets.py:L609-L614](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L609-L614)).
+*   **`MACAddressFacet`**: Accepts colon (`aa:bb:cc:dd:ee:ff`), dash (`aa-bb-cc-dd-ee-ff`), and Cisco (`aabb.ccdd.eeff`) notations, normalizing all of them to lowercase colon-separated form so equality comparisons and database lookups do not depend on which notation a client sent.
+*   **`PathFacet`**: Validates a filesystem path as a `pathlib.PurePosixPath`. By default rejects absolute paths and `..` traversal segments — the two ways a client-supplied path escapes its intended root — and always rejects null bytes, which truncate a path at the OS layer. Relax with `must_be_relative=False` / `allow_traversal=True` only for paths that never originate from a request.
+*   **`SecretFacet`**: Wraps the value in `Secret`, whose `repr`/`str` are masked, and is `write_only` by default so it never appears in output. Call `.reveal()` only at the point of use. `Secret` equality is constant-time. Masking bounds *accidental* disclosure (logs, tracebacks, debug pages); it is not a substitute for hashing or encryption at rest.
+
+```python
+class DeviceContract(Contract):
+    mac = MACAddressFacet()
+    config_path = PathFacet()
+    api_key = SecretFacet(min_length=32)
+```
+
+These types are also reachable through annotations — `pathlib.Path`,
+`ipaddress.IPv4Address`, and `Secret` route to the corresponding facet
+automatically.
 
 ---
 

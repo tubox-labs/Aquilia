@@ -147,4 +147,5 @@ The `aquilia.tasks` package docstring listed "Persistent or distributed backends
 - [Distributed & Persistent Backends](distributed_tasks.md)
 - [Workflows & DAGs](workflows.md)
 - [Mail Delivery Queue](mail_queue.md)
+- [Contracts — Nested Validation Pipeline](contracts_pipeline.md) — Contract subsystem fixes in this release
 - [Migration Guide](migration.md)
