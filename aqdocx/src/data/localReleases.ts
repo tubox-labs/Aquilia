@@ -1,4 +1,508 @@
 export const localReleases: Record<string, Record<string, string>> = {
+  "1.3.6": {
+    "README.md": `# Aquilia v1.3.6 Release Notes — "Artifact Forge"
+
+Aquilia v1.3.6 introduces the **Artifact Subsystem** — a unified, production-grade infrastructure for all framework-generated metadata, build outputs, indexes, compiled representations, and caches.
+
+Before this release, framework artifacts like template bytecode, discovery caches, and MCP indexes were scattered across different files, sometimes in an \`artifacts/\` directory at the project root, and sometimes wherever the subsystem decided. They used varying file formats and I/O strategies, which occasionally led to inconsistent atomic writes.
+
+This release unifies all of this under a single \`.aquilia/artifacts/\` directory and a standardized \`ArtifactEnvelope\` JSON format. It guarantees atomic writes across all producers, introduces HMAC-SHA256 signatures for integrity (like the bytecode cache), and provides a new \`aq artifacts\` CLI to manage them.
+
+The new artifact infrastructure is entirely transparent to most applications, but if you have tooling that expects artifacts in specific paths or legacy formats, you may need to update them.
+
+---
+
+## Table of Contents
+
+1. [Artifact Store Deep Dive](artifact_store.md)
+   - \`aquilia.artifacts\` architecture
+   - \`ArtifactStore\` and \`ArtifactEnvelope\` APIs
+   - \`JSONFileBackend\` atomic writes and HMAC-SHA256 signing
+   - The \`aq artifacts\` CLI commands
+2. [Unified Artifact Directory](unified_artifact_directory.md)
+   - Consolidation from \`artifacts/\` to \`.aquilia/artifacts/\`
+   - Complete directory layout
+   - Configuration via \`[aquilia.artifacts]\` and \`AQUILIA_ARTIFACT_ROOT\`
+3. [Producer Migrations](producer_migrations.md)
+   - How \`DiscoveryCache\`, \`JSONBytecodeCache\`, etc. were migrated
+   - Backward compatibility for legacy formats
+4. [Bug Fixes](bugfixes.md)
+   - Centralized atomic write guarantees
+   - HMAC verification fixes
+5. [Migration Guide](migration.md)
+   - Upgrade checklist and breaking changes
+   - Handling the path and format changes
+
+---
+
+## Highlights
+
+### Unified Artifact Directory
+
+All framework artifacts now live under \`.aquilia/artifacts/\` instead of scattering across the project root.
+
+\`\`\`bash
+# Before:
+# artifacts/templates.bytecode.json
+# artifacts/ws.json
+# ...
+
+# After:
+# .aquilia/artifacts/templates.bytecode.json
+# .aquilia/artifacts/ws.json
+# .aquilia/artifacts/discovery_cache.json
+# ...
+\`\`\`
+
+### The \`aq artifacts\` CLI
+
+Manage all your framework artifacts with the new command group:
+
+\`\`\`bash
+aq artifacts status           # See what's on disk, sizes, schemas
+aq artifacts verify           # Verify HMAC signatures and integrity
+aq artifacts clean            # Remove stale/orphaned artifacts
+\`\`\`
+
+### Standardized Wire Format
+
+Every artifact now uses the \`ArtifactEnvelope\` canonical format, providing clear schema versioning and traceability.
+
+\`\`\`json
+{
+  "format": "aquilia-artifact",
+  "artifact_type": "discovery_cache",
+  "schema_version": "1.0",
+  "key": "main",
+  "fingerprint": "sha256:...",
+  "created_at": "2026-07-29T17:00:00Z",
+  "payload": { ... }
+}
+\`\`\`
+
+### Breaking Changes
+
+1. **Artifact file format changed** — All artifact files now use the \`ArtifactEnvelope\` JSON format. Backward compatibility is provided for some legacy formats on load (\`DiscoveryCache\`, schema snapshots, MCP index), but bytecode cache and frozen registry will be regenerated.
+2. **\`JSONBytecodeCache(cache_dir=...)\` parameter now defaults to \`None\`** — Previously defaulted to \`"artifacts"\`. The cache now lives in \`.aquilia/artifacts/\`.
+3. **Template manifest default location changed** — Moved from \`artifacts/templates.json\` to \`.aquilia/artifacts/templates.json\`.
+4. **WebSocket artifact default location changed** — Moved from \`artifacts/ws.json\` to \`.aquilia/artifacts/ws.json\`.
+
+Check the [Migration Guide](migration.md) for full details on upgrading.
+`,
+    "artifact_store.md": `# Artifact Store Deep Dive
+
+The **Artifact Subsystem** (\`aquilia.artifacts\`) is a new foundational layer in Aquilia v1.3.6 designed to manage all generated data — from discovery caches to compiled bytecode. 
+
+## Why it was built
+
+Historically, each Aquilia subsystem managed its own caching and file I/O. The discovery engine wrote a JSON file, the template engine wrote a different JSON file and a custom HMAC format for bytecode, and the WebSocket compiler wrote another file. 
+This led to:
+- Inconsistent file locations (some in \`artifacts/\`, some in project root).
+- Varying levels of atomic write guarantees (some used \`mkstemp\` + \`replace\`, some just \`write_text\`).
+- No unified way to inspect, verify, or clean up generated data.
+
+The Artifact Store centralizes this, providing a unified API with robust integrity and concurrency guarantees.
+
+## Architecture Overview
+
+The subsystem is composed of several key components:
+
+1. **\`ArtifactStore\`**: The primary async facade for reading, writing, and managing artifacts.
+2. **\`ArtifactEnvelope\`**: The canonical JSON wire format that wraps every payload.
+3. **\`JSONFileBackend\` & \`MemoryBackend\`**: The physical storage layer.
+4. **\`ArtifactRegistry\`**: The central registry of known artifact types.
+5. **Canonicalization & Integrity**: Core logic for fingerprinting and HMAC signing.
+
+### ArtifactStore
+
+The \`ArtifactStore\` provides an async interface for all artifact operations.
+
+\`\`\`python
+from aquilia.artifacts import provide_artifact_store
+
+store = provide_artifact_store()
+
+# Async API
+await store.put("discovery_cache", "main", payload_dict)
+envelope = await store.get("discovery_cache", "main")
+await store.verify("templates.bytecode")
+await store.prune()
+\`\`\`
+
+It also supports an **\`ArtifactTransaction\`** for all-or-nothing multi-artifact commits:
+
+\`\`\`python
+async with store.transaction() as tx:
+    await tx.put("discovery_cache", "main", discovery_data)
+    await tx.put("route_index", "main", route_data)
+# Both are committed atomically at the end of the block.
+\`\`\`
+
+### JSONFileBackend
+
+\`JSONFileBackend\` handles the actual disk I/O, ensuring absolute safety against partial writes and concurrent access.
+
+- **Atomic Writes**: Uses \`tempfile.mkstemp\` to write a temporary file, \`os.fsync\` to flush it to disk, and \`os.replace\` to atomically move it into place.
+- **Signed Mode**: If \`signed=True\`, the backend computes an HMAC-SHA256 signature using the active secret key, appending it to the top of the file: \`<64-char-hex-HMAC>\\n<JSON>\`.
+
+### ArtifactEnvelope Wire Format
+
+Every artifact written to disk (except signed files, which prepend the HMAC) is a strict JSON document matching the \`ArtifactEnvelope\` format:
+
+\`\`\`json
+{
+  "format": "aquilia-artifact",
+  "artifact_type": "discovery_cache",
+  "schema_version": "1.0",
+  "key": "main",
+  "fingerprint": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+  "created_at": "2026-07-29T17:00:00Z",
+  "payload": { 
+      "modules": [...],
+      "routes": [...]
+  }
+}
+\`\`\`
+
+This ensures that any tool, inside or outside of Aquilia, can safely parse, identify, and verify the age/schema of any artifact.
+
+### ArtifactRegistry
+
+The \`ArtifactRegistry\` keeps track of what artifacts exist and how to handle them.
+
+\`\`\`python
+from aquilia.artifacts import register_artifact_type, ArtifactTypeDescriptor
+
+register_artifact_type(ArtifactTypeDescriptor(
+    name="my_custom_cache",
+    schema_version="1.0",
+    signed=False
+))
+\`\`\`
+
+There are currently 10 registered types in Aquilia: \`discovery_cache\`, \`frozen_registry\`, \`schema_snapshot\`, \`ws_metadata\`, \`template_manifest\`, \`mcp_knowledge_index\`, \`template_bytecode\`, \`di_manifest\`, \`route_index\`, \`migration_file\`.
+
+## Dependency Injection
+
+The store is available via the DI container with an app-scoped provider:
+
+\`\`\`python
+from aquilia.artifacts import ArtifactStoreProvider
+
+# Available automatically in controllers/services:
+class MyService:
+    store: ArtifactStore = Inject(ArtifactStore)
+\`\`\`
+
+## CLI: \`aq artifacts\`
+
+A new command group allows you to manage the store from the terminal:
+
+- \`aq artifacts status [--root PATH]\`: Lists all registered artifact types, showing which are present on disk, file size, last modified time, and schema version.
+- \`aq artifacts verify [PATH] [--root PATH]\`: Verifies the integrity of one or all artifacts, strictly checking the HMAC for signed types.
+- \`aq artifacts clean [--root PATH] [--orphaned-only]\`: Removes stale, corrupted, or orphaned artifacts.
+
+## Configuration
+
+The root directory defaults to \`.aquilia/artifacts\` in your project root. You can override this globally:
+
+\`\`\`toml
+# pyproject.toml
+[aquilia.artifacts]
+root = "/var/lib/myapp/artifacts"
+\`\`\`
+
+Or via environment variable:
+\`\`\`bash
+export AQUILIA_ARTIFACT_ROOT=/var/lib/myapp/artifacts
+\`\`\`
+`,
+    "unified_artifact_directory.md": `# Unified Artifact Directory
+
+A critical path fix in Aquilia v1.3.6 is the consolidation of all framework-generated files into a single, predictable location.
+
+## Before
+
+In previous versions, artifacts were scattered, usually landing in an \`artifacts/\` folder created at the current working directory, or sometimes in the project root directly:
+
+- \`artifacts/templates.bytecode.json\`
+- \`artifacts/ws.json\`
+- \`artifacts/templates.json\`
+
+This polluted the project root, often conflicted with user folders named "artifacts", and lacked a standardized structure.
+
+## After
+
+**ALL** framework artifacts now live under a unified hidden directory: \`.aquilia/artifacts/\`.
+
+This change is driven by \`resolve_artifact_root()\`, which locates the project root and appends \`.aquilia/artifacts\`.
+
+### Directory Layout
+
+\`\`\`text
+<project_root>/
+└── .aquilia/
+    └── artifacts/
+        ├── discovery_cache.json          # auto-discovery engine cache
+        ├── schema_snapshot.json          # ORM schema snapshot for migrations
+        ├── templates.bytecode.json       # compiled Jinja2 bytecode (HMAC-signed)
+        ├── templates.json                # template manifest / inventory
+        ├── ws.json                       # WebSocket controller metadata
+        ├── mcp_knowledge_index.json      # MCP context knowledge index
+        ├── di_manifest.json              # DI provider graph
+        └── route_index.json              # compiled route index
+\`\`\`
+
+## Breaking Changes & Path Adjustments
+
+Because the default path changed, any tooling or manual scripts that expected files in \`artifacts/\` will need to be updated.
+
+- \`JSONBytecodeCache.__init__(cache_dir: str | None = None)\`: Default changed from \`"artifacts"\` to \`None\` (which dynamically resolves to \`.aquilia/artifacts\`).
+- \`create_template_engine_from_config(cache_dir: str | None = None)\`: Default changed to \`None\`.
+- \`TemplateManager.compile_all(output_path=None)\`: Default changed from \`"artifacts/templates.json"\` to \`.aquilia/artifacts/templates.json\`.
+- \`cmd_compile(output=None)\`: Resolves via \`resolve_artifact_root() / "templates.json"\`.
+- \`cmd_clear_cache(cache_dir=None)\`: Resolves via \`resolve_artifact_root()\`.
+- \`aq ws inspect --artifacts-dir\`: Default changed from \`"artifacts"\` to \`None\`.
+- \`aq ws gen-client --artifacts-dir\`: Default changed from \`"artifacts"\` to \`None\`.
+
+**Backward Compatibility:** If your code explicitly passes \`cache_dir="artifacts"\`, the framework will respect it and continue to use the old directory. 
+
+## Migration Steps
+
+1. **Update \`.gitignore\`**: You should ignore the new directory.
+   \`\`\`bash
+   echo '.aquilia/artifacts/' >> .gitignore
+   \`\`\`
+
+2. **Clean up old artifacts**: You can safely delete the old scattered files.
+   \`\`\`bash
+   rm -rf artifacts/
+   \`\`\`
+   The framework will automatically regenerate everything inside \`.aquilia/artifacts/\` on the next run.
+
+3. **Verify**: Run the new CLI command to ensure things are working:
+   \`\`\`bash
+   aq artifacts status
+   \`\`\`
+
+## Custom Configuration
+
+If you deploy to a read-only filesystem and need to direct artifacts to a writable volume (like \`/tmp\` or \`/var/lib/\`), you can override the root path globally:
+
+\`\`\`toml
+# pyproject.toml or aquilia.toml
+[aquilia.artifacts]
+root = "/var/lib/myapp/artifacts"
+\`\`\`
+
+Or via environment variable (useful for Docker containers):
+\`\`\`bash
+export AQUILIA_ARTIFACT_ROOT=/var/lib/myapp/artifacts
+\`\`\`
+`,
+    "producer_migrations.md": `# Producer Migrations
+
+In v1.3.6, all 9 primary artifact producers were migrated from ad-hoc file I/O to the new \`ArtifactStore\` backend. This ensures uniform atomic writes, consistent formatting, and centralized integrity checking.
+
+Below are the details on how each producer was migrated and backward compatibility notes.
+
+## 1. Discovery Cache (\`aquilia/discovery/engine.py\`)
+
+**Before:**
+\`DiscoveryCache.save()\` and \`load()\` used raw \`Path.write_text()\` with a plain dictionary format. It did not verify integrity on load.
+
+**After:**
+Uses \`JSONFileBackend.write_sync\`/\`read_sync\` + \`ArtifactEnvelope\`. Integrity is implicitly checked by the backend when resolving the envelope.
+
+**Backward Compatibility:**
+The loader detects the legacy plain dict format and gracefully loads it. It will be seamlessly upgraded to the envelope format on the next save.
+
+## 2. Aquilary Registry (\`aquilia/aquilary/core.py\`)
+
+**Before:**
+\`AquilaryRegistry.export_manifest()\` used standard file writing to dump the frozen registry.
+
+**After:**
+\`export_manifest()\` and \`_from_frozen_manifest()\` use \`JSONFileBackend(signed=True)\` + \`ArtifactEnvelope\`.
+
+**Backward Compatibility:**
+No backward compatibility provided. The frozen registry is ephemeral to the deployment and will be cleanly regenerated on the first boot of a v1.3.6 application.
+
+## 3. Schema Snapshots (\`aquilia/models/schema_snapshot.py\`)
+
+**Before:**
+\`save_snapshot()\` and \`load_snapshot()\` wrote a raw JSON dict to disk.
+
+**After:**
+Uses \`JSONFileBackend\` + \`ArtifactEnvelope\`. 
+
+**Backward Compatibility:**
+Like the discovery cache, legacy plain dict files are detected and read seamlessly.
+
+## 4. Template Manifest (\`aquilia/templates/manifest_integration.py\`)
+
+**Before:**
+\`generate_template_manifest()\` wrote directly to \`artifacts/templates.json\`.
+
+**After:**
+Uses \`bare_fingerprint\` + \`ArtifactEnvelope\` + \`JSONFileBackend\`, writing to \`.aquilia/artifacts/templates.json\`.
+
+**Backward Compatibility:**
+Safe to regenerate. If you rely on the manifest file for external tooling, update the tool to parse the new \`payload\` key inside the envelope.
+
+## 5. Bytecode Cache (\`aquilia/templates/bytecode_cache.py\`)
+
+**Before:**
+\`JSONBytecodeCache._save()\`/\`_load()\` used manual HMAC signing logic with \`Path.replace()\` (not \`os.replace()\`), writing to \`artifacts/templates.bytecode.json\`.
+
+**After:**
+Delegates to \`self._backend\` (\`JSONFileBackend\` with \`signed=True\`). \`__init__\` now accepts \`cache_dir: str | None = None\`, dynamically resolving the directory.
+
+**Backward Compatibility:**
+No backward compatibility for the file format. The cache will be invalidated and regenerated correctly under the new system. Existing code passing \`cache_dir="artifacts"\` continues to work but gets the new envelope format.
+
+## 6. Socket Compiler (\`aquilia/sockets/compile.py\`)
+
+**Before:**
+\`SocketCompiler.generate_artifacts()\` wrote directly to \`artifacts/ws.json\`.
+
+**After:**
+Uses \`ArtifactEnvelope\` + \`JSONFileBackend\`, writing to \`.aquilia/artifacts/ws.json\`.
+
+**Backward Compatibility:**
+Regenerated on demand.
+
+## 7. MCP Knowledge Index (\`aquilia/mcp/context/indexer.py\`)
+
+**Before:**
+\`save_index()\` and \`load_index()\` read/wrote a plain dictionary.
+
+**After:**
+Uses \`ArtifactEnvelope\` + \`JSONFileBackend\`.
+
+**Backward Compatibility:**
+Legacy plain dict formats are still loadable.
+
+## Performance Impact
+
+Despite the additional metadata overhead, there is **no measurable performance degradation**. The previous systems that used atomic writes were already paying the cost of \`mkstemp\` + \`os.replace\`. The abstraction simply centralizes this logic. Systems that previously used \`write_text\` are now slightly slower (on the order of single-digit milliseconds) but gain absolute resilience against partial writes and process crashes.
+`,
+    "migration.md": `# Migration Guide — Aquilia v1.3.6
+
+Aquilia v1.3.6 brings the new **Artifact Subsystem**. For most standard web applications, this upgrade is entirely transparent. The framework handles the migration, recreation, and cleanup of generated artifacts automatically.
+
+However, if you maintain CI/CD pipelines, Dockerfiles, or external tooling that interacts with Aquilia's artifact files, you will need to apply a few small changes.
+
+---
+
+## Upgrading
+
+\`\`\`bash
+pip install aquilia==1.3.6
+\`\`\`
+
+---
+
+## Upgrade Checklist
+
+1. \`pip install aquilia==1.3.6\`
+2. **Update \`.gitignore\`**: Add \`.aquilia/artifacts/\` to your \`.gitignore\`.
+3. **Delete old artifacts**: Run \`rm -rf artifacts/\` from your project root.
+4. **Update CI/CD caches**: If your CI caches the \`artifacts/\` folder, update the path to \`.aquilia/artifacts/\`.
+5. **Update Dockerfiles**: If you \`COPY artifacts/ /app/artifacts/\`, update it to \`COPY .aquilia/artifacts/ /app/.aquilia/artifacts/\`.
+6. **Update external scripts**: If you have tools parsing \`templates.json\` or \`ws.json\`, update them to read from the new path and parse the \`.payload\` property of the new JSON envelope.
+
+---
+
+## Breaking Changes Summary
+
+### 1. Default Artifact Path Changed
+The default path for all artifacts is now \`.aquilia/artifacts/\`.
+* \`JSONBytecodeCache(cache_dir=None)\` previously defaulted to \`"artifacts"\`.
+* Template compilation commands output to \`.aquilia/artifacts/templates.json\`.
+* WebSocket inspect commands read from \`.aquilia/artifacts/ws.json\`.
+
+If your code explicitly provided \`cache_dir="artifacts"\`, that code will continue to work, but the files written inside it will use the new JSON format.
+
+### 2. Artifact File Format Changed
+All framework JSON artifacts are now wrapped in an \`ArtifactEnvelope\`.
+
+**Old Format (e.g. \`discovery_cache.json\`):**
+\`\`\`json
+{
+  "modules": ["app.users", "app.billing"],
+  "timestamp": 123456789
+}
+\`\`\`
+
+**New Format:**
+\`\`\`json
+{
+  "format": "aquilia-artifact",
+  "artifact_type": "discovery_cache",
+  "schema_version": "1.0",
+  "key": "main",
+  "fingerprint": "...",
+  "created_at": "...",
+  "payload": {
+    "modules": ["app.users", "app.billing"]
+  }
+}
+\`\`\`
+
+The framework automatically handles backward compatibility for reading legacy \`discovery_cache.json\`, \`schema_snapshot.json\`, and \`mcp_knowledge_index.json\`. Other caches (like bytecode) will be regenerated.
+
+---
+
+## Verification
+
+After upgrading, boot your application or run your tests, then use the new CLI tool to verify the store:
+
+\`\`\`bash
+aq artifacts status
+\`\`\`
+
+You should see a table showing the newly generated artifacts in the \`.aquilia/artifacts/\` directory.
+
+---
+
+## Rollback Procedure
+
+If you need to roll back to v1.3.5:
+1. \`pip install aquilia==1.3.5\`
+2. Delete the new directory: \`rm -rf .aquilia/artifacts/\`
+3. Delete any legacy \`artifacts/\` directory just to be safe.
+4. Reboot the application; v1.3.5 will regenerate the artifacts in the old format and old locations.
+`,
+    "bugfixes.md": `# Bug Fixes
+
+The introduction of the unified \`ArtifactStore\` in v1.3.6 inherently resolves several long-standing, subtle bugs related to file I/O and caching across the framework.
+
+## 1. Centralized Atomic Write Guarantees
+
+**The Bug:**
+Different subsystems implemented file writing differently. Some, like the bytecode cache, attempted atomic writes but used \`Path.replace()\` (which is not guaranteed to be atomic across all filesystems/platforms) instead of \`os.replace()\`. Others, like the discovery engine, used a raw \`Path.write_text()\`, meaning a crash during the write could leave a corrupted, partially written JSON file on disk, breaking the app on the next boot.
+
+**The Fix:**
+All artifact writing now routes through \`JSONFileBackend.write_sync()\`. This function rigorously employs \`tempfile.mkstemp\` (ensuring the temporary file is on the same filesystem), writes the data, calls \`os.fsync\` to guarantee durability, and then uses \`os.replace\` for a true atomic swap. No partial writes are possible.
+
+## 2. Inconsistent HMAC Verification
+
+**The Bug:**
+While the bytecode cache properly verified its HMAC signature on load, other caches (like the discovery cache) did not verify integrity at all. If the \`discovery_cache.json\` file was manually tampered with or corrupted without breaking JSON syntax, the framework would load it blindly.
+
+**The Fix:**
+The \`JSONFileBackend\` natively supports a \`signed=True\` mode, and the \`ArtifactEnvelope\` includes a \`fingerprint\` property. The \`ArtifactStore\` verifies signatures on load for all configured artifact types, throwing an \`ArtifactCorruptFault\` if tampering or corruption is detected.
+
+## 3. Directory Clutter & Collisions
+
+**The Bug:**
+The framework created an \`artifacts/\` directory in the current working directory of the process. If a developer ran a command from a subdirectory, a second \`artifacts/\` directory would be created there. Furthermore, the generic name \`artifacts/\` often collided with user-created folders or CI output directories.
+
+**The Fix:**
+All generated artifacts are now strictly confined to \`.aquilia/artifacts/\` relative to the project root, resolved predictably via \`resolve_artifact_root()\`.
+`,
+  },
   "1.3.5": {
     "README.md": `# Aquilia v1.3.5 Release Notes — "Distributed Tide"
 

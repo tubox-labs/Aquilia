@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6] — 2026-07-29 — "Artifact Forge"
+
+This release introduces the Artifact Subsystem, unifying all framework-generated metadata, caches, and compiled representations into a single production-grade infrastructure with atomic writes and HMAC integrity checks.
+
+The framework now writes all artifacts to `.aquilia/artifacts/` using a standardized JSON envelope. This replaces the scattered, ad-hoc file I/O previously used by the template, discovery, and WebSocket engines. For most applications, this is entirely transparent, though CI/CD pipelines caching the old `artifacts/` directory will need a small adjustment.
+
+Full notes: [`releases/1.3.6/`](releases/1.3.6/README.md)
+
+### Added
+
+#### Artifacts — Store & Backends
+- **`aquilia.artifacts`** — New package containing the unified `ArtifactStore`, `ArtifactEnvelope`, `JSONFileBackend`, and `MemoryBackend`.
+- **`ArtifactStore`** (`aquilia.artifacts.store.ArtifactStore`) — Async facade providing `get`, `put`, `verify`, `status`, and `prune`. Supports `ArtifactTransaction` for all-or-nothing commits of multiple artifacts.
+- **`JSONFileBackend`** (`aquilia.artifacts.backends.json_file.JSONFileBackend`) — Physical storage layer with guaranteed atomic writes via `tempfile.mkstemp`, `os.fsync`, and `os.replace`.
+- **`ArtifactRegistry`** (`aquilia.artifacts.registry.ArtifactRegistry`) — Central registry for artifact schemas and behavior (`ArtifactTypeDescriptor`).
+- **`ArtifactEnvelope`** (`aquilia.artifacts.envelope.ArtifactEnvelope`) — Standardized wire format carrying schema versions, timestamps, and payload fingerprints.
+- **`HMAC-SHA256 Signing`** (`aquilia.artifacts.integrity`) — Native payload signing (`sign_payload`, `verify_payload`) applied directly via backend `signed=True`.
+
+#### Artifacts — CLI & DI
+- **`aq artifacts` CLI commands** — `status` to list disk contents, `verify` to check integrity, and `clean` to prune orphans.
+- **`ArtifactStoreProvider`** (`aquilia.artifacts.di.ArtifactStoreProvider`) — App-scoped DI provider available via `provide_artifact_store()`.
+- **`AQUILIA_ARTIFACT_ROOT`** — Configuration surface to override the `.aquilia/artifacts` path globally or via `[aquilia.artifacts] root` in TOML.
+
+### Changed
+
+#### Subsystems Migrated
+- **Discovery Engine** (`aquilia.discovery.engine`) — `DiscoveryCache` migrated to `ArtifactStore`.
+- **Aquilary Registry** (`aquilia.aquilary.core`) — `export_manifest()` migrated to signed artifacts.
+- **Schema Snapshots** (`aquilia.models.schema_snapshot`) — Migrated to `ArtifactEnvelope`.
+- **Template Manifest** (`aquilia.templates.manifest_integration`) — Path changed to `.aquilia/artifacts/templates.json`.
+- **Template Bytecode** (`aquilia.templates.bytecode_cache`) — Path changed to `.aquilia/artifacts/templates.bytecode.json`. Default `cache_dir` parameter is now `None`.
+- **Socket Compiler** (`aquilia.sockets.compile`) — Path changed to `.aquilia/artifacts/ws.json`.
+- **MCP Indexer** (`aquilia.mcp.context.indexer`) — Migrated to `ArtifactStore`.
+
+### Fixed
+
+- **Centralized Atomic Write Guarantees** — Some subsystems previously used `Path.write_text()` or `Path.replace()`, risking partial writes. All writes now use the rigorous `JSONFileBackend`.
+- **Inconsistent HMAC Verification** — Subsystems like discovery cache now automatically inherit integrity verification.
+- **Directory Clutter** — Artifacts no longer pollute the project root with the generic `artifacts/` folder.
+
 ## [1.3.5] — 2026-07-28 — "Distributed Tide"
 
 Background tasks become genuinely distributed and durable, mail becomes a production delivery pipeline, and a deep audit of the Contracts subsystem closes a silent validation bypass. Jobs now execute across multiple worker processes and machines with lease-based coordination and crash recovery; job state survives restarts on Redis or SQL; jobs compose into chains, groups, chords, and arbitrary DAGs; duplicate enqueues are collapsed by an enforced fingerprint; mail is delivered by background workers with provider webhook processing and automatic suppression of bounced recipients; and nested Contract validation runs the child's full pipeline instead of a structural pass only.

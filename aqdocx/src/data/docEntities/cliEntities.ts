@@ -253,5 +253,61 @@ registerDocEntities([
     status: 'stable',
     version: 'v1.0+',
     docsHref: '/docs/testing/runner'
+  },
+  {
+    id: 'cli.artifacts_status',
+    type: 'cli',
+    title: 'aq artifacts status',
+    description: 'Lists all registered framework artifacts, showing which are present on disk, file size, last modified time, and schema version.',
+    signature: 'aq artifacts status [--root PATH]',
+    language: 'bash',
+    parameters: [
+      { name: '--root', type: 'option', description: 'Override the default .aquilia/artifacts directory path.' }
+    ],
+    example: {
+      code: 'aq artifacts status',
+      language: 'bash'
+    },
+    status: 'stable',
+    version: 'v1.3.6+',
+    docsHref: '/docs/artifacts/cli'
+  },
+  {
+    id: 'cli.artifacts_verify',
+    type: 'cli',
+    title: 'aq artifacts verify',
+    description: 'Verifies the integrity of framework artifacts, strictly checking the HMAC-SHA256 signature for signed types.',
+    signature: 'aq artifacts verify [PATH] [--root PATH]',
+    language: 'bash',
+    parameters: [
+      { name: '[PATH]', type: 'argument', description: 'Optional path to a specific artifact to verify. Verifies all if omitted.' },
+      { name: '--root', type: 'option', description: 'Override the default .aquilia/artifacts directory path.' }
+    ],
+    example: {
+      code: 'aq artifacts verify .aquilia/artifacts/templates.bytecode.json',
+      language: 'bash'
+    },
+    status: 'stable',
+    version: 'v1.3.6+',
+    docsHref: '/docs/artifacts/cli'
+  },
+  {
+    id: 'cli.artifacts_clean',
+    type: 'cli',
+    title: 'aq artifacts clean',
+    description: 'Removes stale, corrupted, or orphaned artifacts from the artifact store directory.',
+    signature: 'aq artifacts clean [--root PATH] [--orphaned-only]',
+    language: 'bash',
+    parameters: [
+      { name: '--orphaned-only', type: 'option', description: 'Only remove artifacts that are not in the current registry.' },
+      { name: '--root', type: 'option', description: 'Override the default .aquilia/artifacts directory path.' }
+    ],
+    example: {
+      code: 'aq artifacts clean --orphaned-only',
+      language: 'bash'
+    },
+    status: 'stable',
+    version: 'v1.3.6+',
+    docsHref: '/docs/artifacts/cli'
   }
 ])
