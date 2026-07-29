@@ -11,9 +11,10 @@ Naming:
 
 from __future__ import annotations
 
+import inspect
 from typing import TYPE_CHECKING, Any
 
-from .exceptions import LensCycleFault
+from .exceptions import LensCycleFault, LensUnresolvedFault
 from .facets import Facet
 
 if TYPE_CHECKING:
@@ -76,6 +77,10 @@ class Lens(Facet):
     def target(self) -> type[Contract] | None:
         return self._target_cls
 
+    def python_type(self) -> str:
+        """A Lens molds to a plain dict (or a list of them for ``many=True``)."""
+        return "list[dict[str, Any]]" if self.many else "dict[str, Any]"
+
     def bind(self, name: str, contract: Contract) -> None:
         super().bind(name, contract)
         # If source not explicitly set, try to match model FK attribute
@@ -95,9 +100,39 @@ class Lens(Facet):
         Mold related data through the target Contract.
 
         Args:
-            value: Related model instance(s)
-            _depth: Current nesting depth (internal)
-            _seen: Set of Contract class ids already in the chain (cycle detection)
+            value: Related model instance(s), or an already-materialized list.
+            _depth: Current nesting depth (internal).
+            _seen: Set of Contract class ids already in the chain (internal,
+                cycle detection).
+
+        Returns:
+            A dict for a to-one relation, a list of dicts for ``many=True``, or
+            a bare primary key once ``depth`` is exhausted.
+
+        Raises:
+            LensCycleFault: If the same target Contract reappears in the chain.
+            LensUnresolvedFault: If ``many=True`` receives an un-awaited
+                related manager/queryset. This path is synchronous and cannot
+                await the ORM, so the relation must be prefetched (or already
+                materialized to a list) before serialization.
+
+        Examples:
+        ```
+            Prefetch to-many relations before rendering::
+
+                order = await Order.objects.prefetch_related("items").get(pk=1)
+                OrderContract(instance=order).data
+
+            Or materialize explicitly::
+
+                order.items = await order.items.all()
+                OrderContract(instance=order).data
+        ```
+        Notes:
+            An unresolved relation raises rather than yielding ``[]``: an empty
+            list is indistinguishable from "this record genuinely has no
+            related rows", which silently ships wrong data to clients. Failing
+            loudly at development time is the safer default.
         """
         if value is None:
             return None
@@ -118,19 +153,34 @@ class Lens(Facet):
         if _depth >= self.max_depth:
             # At max depth, return PK only
             if self.many:
+                if self._is_unresolved_manager(value):
+                    raise LensUnresolvedFault(self.name or "<unbound>")
                 return [self._pk_fallback(item) for item in value]
             return self._pk_fallback(value)
 
         new_seen = _seen | {target_id}
 
         if self.many:
-            items = value if not hasattr(value, "__aiter__") else value
-            if hasattr(items, "all"):
-                # It's a manager/queryset -- can't iterate sync
-                # Return empty; async path should be used
-                return []
-            return [self._mold_single(item, _depth=_depth + 1, _seen=new_seen) for item in items]
+            if self._is_unresolved_manager(value):
+                raise LensUnresolvedFault(self.name or "<unbound>")
+            return [self._mold_single(item, _depth=_depth + 1, _seen=new_seen) for item in value]
         return self._mold_single(value, _depth=_depth + 1, _seen=new_seen)
+
+    @staticmethod
+    def _is_unresolved_manager(value: Any) -> bool:
+        """
+        Detect an un-awaited related manager / queryset.
+
+        Aquilia's ``RelatedManager.all()`` is a coroutine, so such an object
+        cannot be iterated from this synchronous path. Anything exposing an
+        ``all`` attribute or async iteration but no synchronous ``__iter__``
+        is treated as unresolved.
+        """
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return False
+        if hasattr(value, "all"):
+            return True
+        return hasattr(value, "__aiter__") and not hasattr(value, "__iter__")
 
     def _mold_single(self, instance: Any, *, _depth: int, _seen: set) -> dict[str, Any]:
         """Mold a single related instance through the target Contract."""
@@ -140,6 +190,106 @@ class Lens(Facet):
 
         bp = self._target_cls(instance=instance, projection=self._projection)
         return bp.to_dict(_depth=_depth, _seen=_seen)
+
+    async def mold_async(self, value: Any, *, _depth: int = 0, _seen: set | None = None) -> Any:
+        """
+        Async counterpart of :meth:`mold` — resolves un-awaited ORM relations.
+
+        Aquilia's ``RelatedManager.all()`` is a coroutine, so a to-many relation
+        that was not prefetched cannot be read from the synchronous path. This
+        method awaits it instead of raising, making
+        :meth:`~aquilia.contracts.core.Contract.to_dict_async` usable directly
+        on a lazily-loaded instance.
+
+        Args:
+            value: Related model instance(s), an already-materialized list, or
+                an un-awaited related manager.
+            _depth: Current nesting depth (internal).
+            _seen: Contract class ids already in the chain (internal).
+
+        Returns:
+            A dict for a to-one relation, a list of dicts for ``many=True``, or
+            a bare primary key once ``depth`` is exhausted.
+
+        Raises:
+            LensCycleFault: If the same target Contract reappears in the chain.
+
+        Examples:
+        ```
+            Serialize without prefetching::
+
+                order = await Order.objects.get(pk=1)
+                await OrderContract(instance=order).to_dict_async()
+        ```
+        Performance:
+            Each unresolved to-many relation costs one query at the point it is
+            reached — the N+1 pattern. Prefetching still gives the better plan;
+            this path exists so that lazy relations are *correct* rather than
+            an error, not so that prefetching becomes unnecessary.
+        """
+        if value is None:
+            return None
+
+        if _seen is None:
+            _seen = set()
+
+        target_id = id(self._target_cls)
+        if target_id in _seen:
+            raise LensCycleFault(
+                [cls.__name__ for cls in _seen] + [self._target_cls.__name__]
+                if hasattr(self._target_cls, "__name__")
+                else ["<unknown>"]
+            )
+
+        if self.many:
+            value = await self._resolve_manager(value)
+
+        if _depth >= self.max_depth:
+            # At max depth, return PK only
+            if self.many:
+                return [self._pk_fallback(item) for item in value]
+            return self._pk_fallback(value)
+
+        new_seen = _seen | {target_id}
+
+        if self.many:
+            return [await self._mold_single_async(item, _depth=_depth + 1, _seen=new_seen) for item in value]
+        return await self._mold_single_async(value, _depth=_depth + 1, _seen=new_seen)
+
+    @classmethod
+    async def _resolve_manager(cls, value: Any) -> Any:
+        """
+        Materialize an un-awaited related manager into a list.
+
+        Args:
+            value: A related manager, an async iterable, or an
+                already-materialized sequence.
+
+        Returns:
+            A sequence safe to iterate synchronously.
+        """
+        if not cls._is_unresolved_manager(value):
+            return value
+
+        if hasattr(value, "all"):
+            resolved = value.all()
+            if inspect.isawaitable(resolved):
+                resolved = await resolved
+            if not cls._is_unresolved_manager(resolved):
+                return resolved
+            value = resolved
+
+        if hasattr(value, "__aiter__"):
+            return [item async for item in value]
+        return value
+
+    async def _mold_single_async(self, instance: Any, *, _depth: int, _seen: set) -> dict[str, Any]:
+        """Mold a single related instance through the target Contract, async."""
+        if self._target_cls is None:
+            return self._pk_fallback(instance)
+
+        bp = self._target_cls(instance=instance, projection=self._projection)
+        return await bp.to_dict_async(_depth=_depth, _seen=_seen)
 
     @staticmethod
     def _pk_fallback(instance: Any) -> Any:

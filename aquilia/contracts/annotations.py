@@ -29,10 +29,13 @@ Usage::
 
 from __future__ import annotations
 
+import ipaddress
+import pathlib
 import sys
 import types
 import uuid
 from collections.abc import Callable, Sequence
+from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import (
@@ -44,10 +47,12 @@ from typing import (
 )
 
 from .._uploads import FormData, UploadFile
+from .exceptions import MAX_NESTING_DEPTH as _MAX_NESTING_DEPTH
 from .exceptions import CastFault
 from .facets import (
     UNSET,
     BoolFacet,
+    BytesFacet,
     ChoiceFacet,
     Computed,
     DateFacet,
@@ -60,9 +65,13 @@ from .facets import (
     FloatFacet,
     FormDataFacet,
     IntFacet,
+    IPFacet,
     ListFacet,
     LiteralFacet,
+    PathFacet,
     PolymorphicFacet,
+    Secret,
+    SecretFacet,
     SetFacet,
     TextFacet,
     TimeFacet,
@@ -99,7 +108,13 @@ ANNOTATION_TO_FACET: dict[type, type[Facet]] = {
     list: ListFacet,
     set: SetFacet,
     tuple: TupleFacet,
-    bytes: TextFacet,
+    bytes: BytesFacet,
+    ipaddress.IPv4Address: IPFacet,
+    ipaddress.IPv6Address: IPFacet,
+    pathlib.Path: PathFacet,
+    pathlib.PurePath: PathFacet,
+    pathlib.PurePosixPath: PathFacet,
+    Secret: SecretFacet,
     UploadFile: UploadFileFacet,
     FormData: FormDataFacet,
 }
@@ -333,15 +348,35 @@ class NestedContractFacet(Facet):
 
     The nested Contract is fully sealed during the parent's seal phase,
     producing structured, validated output.
+
+    Concurrency:
+        The recursion-depth counter is a :class:`contextvars.ContextVar`, so
+        each asyncio task and each OS thread tracks its own depth. A plain
+        class attribute would be shared process-wide: concurrent requests
+        would interleave increments, producing both spurious depth rejections
+        for shallow payloads and — worse — undercounting that defeats the
+        guard for a still-in-flight deep payload.
+
+    Notes:
+        On the primary validation path (``Contract(data=...).is_sealed()``)
+        depth is enforced by :meth:`aquilia.contracts.sigil.Sigil.validate`,
+        which recurses directly into the nested Contract's Sigil. The guard
+        here covers direct ``cast()`` callers, such as
+        :class:`~aquilia.contracts.pipeline.Pipeline`. Both share the single
+        :data:`~aquilia.contracts.exceptions.MAX_NESTING_DEPTH` limit.
+
+    See Also:
+        :class:`LazyContractFacet` — forward-reference variant.
     """
 
     _type_name = "object"
 
-    # Maximum nesting depth to prevent stack overflow from recursive Contracts
-    MAX_NESTING_DEPTH = 32
+    # Maximum nesting depth to prevent stack overflow from recursive Contracts.
+    # Sourced from exceptions.py so Sigil and this facet cannot disagree.
+    MAX_NESTING_DEPTH: int = _MAX_NESTING_DEPTH
 
-    # Thread-local nesting depth counter
-    _current_nesting_depth = 0
+    #: Per-task/per-thread nesting depth counter (see class Concurrency notes).
+    _depth_var: ContextVar[int] = ContextVar("aquilia_nested_contract_depth", default=0)
 
     def __init__(
         self,
@@ -384,12 +419,22 @@ class NestedContractFacet(Facet):
     def target(self) -> type:
         return self._contract_cls
 
+    def python_type(self) -> str:
+        """Annotation for the nested Contract's validated payload."""
+        return _nested_python_type(self._contract_cls, many=self.many)
+
     def cast(self, value: Any) -> Any:
-        """Cast input through the nested Contract's seal pipeline."""
-        # Guard against recursive nesting depth
-        NestedContractFacet._current_nesting_depth += 1
+        """
+        Cast input through the nested Contract's seal pipeline.
+
+        Raises:
+            CastFault: If the nested Contract rejects the value, the value is
+                not object/list shaped, or nesting depth exceeds
+                ``max_nesting_depth``.
+        """
+        token = self._depth_var.set(self._depth_var.get() + 1)
         try:
-            if NestedContractFacet._current_nesting_depth > self._max_depth:
+            if self._depth_var.get() > self._max_depth:
                 raise CastFault(
                     self.name or "<unbound>",
                     f"Nested Contract depth exceeds maximum of {self._max_depth}",
@@ -398,7 +443,7 @@ class NestedContractFacet(Facet):
                 return self._cast_many(value)
             return self._cast_single(value)
         finally:
-            NestedContractFacet._current_nesting_depth -= 1
+            self._depth_var.reset(token)
 
     def _cast_single(self, value: Any) -> dict:
         """Cast a single nested value."""
@@ -546,6 +591,11 @@ class LazyContractFacet(Facet):
     def target(self) -> type:
         return self._get_resolved().target
 
+    def python_type(self) -> str:
+        # Deliberately does not resolve: stub generation must not fail because
+        # a forward reference's target module has not been imported yet.
+        return _nested_python_type(None, many=self.many)
+
     def cast(self, value: Any) -> Any:
         return self._get_resolved().cast(value)
 
@@ -628,6 +678,19 @@ def _extract_ref_name(cls: Any) -> str:
     if isinstance(cls, ForwardRef):
         return cls.__forward_arg__
     return str(cls)
+
+
+def _nested_python_type(contract_cls: type | None, *, many: bool) -> str:
+    """
+    Annotation for a nested Contract's *validated payload*, not the Contract.
+
+    A nested facet yields a plain mapping of the child's validated fields, so
+    the honest annotation is ``dict[str, Any]`` rather than the Contract class.
+    Naming the Contract would let ``parent.author.is_sealed()`` type-check
+    against a value that is a dict at runtime.
+    """
+    inner = "dict[str, Any]"
+    return f"list[{inner}]" if many else inner
 
 
 def _make_forward_ref(annotation_str: str) -> Any:
@@ -1050,7 +1113,11 @@ def _build_facet_from_annotation_raw(
         return ChoiceFacet(choices=allowed, **choice_kwargs)
 
     # ── Polymorphic / Union Nesting ──────────────────────────────────
-    if origin is Union:
+    # Both spellings must be handled: typing.Union[A, B] reports its origin as
+    # Union, while PEP 604's A | B is a types.UnionType instance whose origin
+    # is types.UnionType. Checking only the former silently skipped every
+    # modern `A | B` annotation.
+    if origin is Union or (hasattr(types, "UnionType") and origin is types.UnionType):
         union_args = get_args(inner_type)
         choices = []
         for arg in union_args:
@@ -1064,6 +1131,21 @@ def _build_facet_from_annotation_raw(
                 arg_facet_cls = ANNOTATION_TO_FACET.get(arg)
                 if arg_facet_cls is not None:
                     choices.append(arg_facet_cls())
+                else:
+                    # A union member with no Facet mapping would otherwise be
+                    # dropped silently, narrowing the field to fewer accepted
+                    # types than the annotation promises. Surface it at class
+                    # definition time rather than as a confusing "wrong type"
+                    # rejection at request time.
+                    import warnings
+
+                    warnings.warn(
+                        f"Union member {getattr(arg, '__name__', arg)!r} has no Facet mapping and "
+                        f"will not be accepted for this field. Declare an explicit Facet, or "
+                        f"register the type via ANNOTATION_TO_FACET.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
 
         if choices:
             poly_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank", "min_length", "max_length")}

@@ -19,12 +19,15 @@ import uuid
 from collections.abc import Callable, Sequence
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
+from pathlib import PurePath, PurePosixPath
 from typing import (
     TYPE_CHECKING,
     Any,
+    Literal,
 )
 
 from .exceptions import CastFault, SealFault
+from .messages import contract_message
 
 if TYPE_CHECKING:
     from .core import Contract
@@ -34,6 +37,7 @@ __all__ = [
     "Facet",
     "TextFacet",
     "IntFacet",
+    "BytesFacet",
     "FloatFacet",
     "DecimalFacet",
     "BoolFacet",
@@ -46,6 +50,10 @@ __all__ = [
     "URLFacet",
     "SlugFacet",
     "IPFacet",
+    "MACAddressFacet",
+    "PathFacet",
+    "SecretFacet",
+    "Secret",
     "ListFacet",
     "DictFacet",
     "JSONFacet",
@@ -86,6 +94,68 @@ class _Unset:
 
 
 UNSET = _Unset()
+
+
+class Secret:
+    """
+    A string whose value is hidden from ``repr``, ``str``, and log output.
+
+    Produced by :class:`SecretFacet`. The underlying value is available only
+    through :meth:`reveal`, so a secret cannot leak by being interpolated into
+    a log line, an f-string, or an exception message by accident.
+
+    Args:
+        value: The sensitive string to wrap.
+
+    Examples:
+        >>> token = Secret("sk-live-1234")
+        >>> print(f"token={token}")
+        token=**********
+        >>> token.reveal()
+        'sk-live-1234'
+        >>> token == Secret("sk-live-1234")
+        True
+
+    Security:
+        Equality is constant-time, so comparing a submitted value against a
+        stored one does not leak the length of the shared prefix through timing.
+        Masking bounds accidental disclosure; it is not encryption.
+    """
+
+    __slots__ = ("_value",)
+
+    _MASK = "**********"
+
+    def __init__(self, value: str):
+        self._value = value
+
+    def reveal(self) -> str:
+        """Return the underlying value. Call only at the point of use."""
+        return self._value
+
+    def __str__(self) -> str:
+        return self._MASK
+
+    def __repr__(self) -> str:
+        return f"Secret({self._MASK!r})"
+
+    def __eq__(self, other: object) -> bool:
+        import hmac
+
+        if isinstance(other, Secret):
+            return hmac.compare_digest(self._value, other._value)
+        if isinstance(other, str):
+            return hmac.compare_digest(self._value, other)
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self._value)
+
+    def __len__(self) -> int:
+        return len(self._value)
+
+    def __bool__(self) -> bool:
+        return bool(self._value)
 
 
 # ── Facet Factory Metaclass ──────────────────────────────────────────────
@@ -253,6 +323,13 @@ class Facet(metaclass=FacetMeta):
     # Override in subclasses for schema generation
     _type_name: str = "any"
 
+    #: Python type of the *validated* value this facet produces, as source text
+    #: for a type annotation. Consumed by stub generation (``aq contracts
+    #: stubs``) so a type checker sees the post-cast type rather than the wire
+    #: type — ``IntFacet`` accepts ``"42"`` but yields ``int``. ``"Any"`` means
+    #: no narrower type is guaranteed.
+    _python_type: str = "Any"
+
     def __init__(
         self,
         *,
@@ -340,6 +417,24 @@ class Facet(metaclass=FacetMeta):
         Override in subclasses for type-specific formatting.
         """
         return value
+
+    # ── Static typing ────────────────────────────────────────────────
+
+    def python_type(self) -> str:
+        """
+        Source text for the type annotation of this facet's validated value.
+
+        Consumed by stub generation (``aq contracts stubs``). The default
+        returns :attr:`_python_type`; facets whose type depends on how they
+        were constructed — a list's child, an enum's class, a nested
+        Contract's target — override this.
+
+        Returns:
+            An annotation expression. Names of user-defined types (enums,
+            Contracts) are fully qualified, so the stub writer can derive the
+            import from the name alone rather than re-walking the facet tree.
+        """
+        return self._python_type
 
     # ── Validation: Seal ─────────────────────────────────────────────
 
@@ -464,6 +559,7 @@ class TextFacet(Facet):
     """Text/string facet with length constraints."""
 
     _type_name = "string"
+    _python_type = "str"
 
     # Maximum allowed length for regex patterns to prevent ReDoS
     MAX_PATTERN_LENGTH = 500
@@ -520,11 +616,11 @@ class TextFacet(Facet):
 
     def seal(self, value: Any) -> str:
         if not self.allow_blank and isinstance(value, str) and value == "":
-            raise CastFault(self.name or "<unbound>", "This field may not be blank")
+            raise CastFault(self.name or "<unbound>", contract_message("blank"))
         if self.min_length is not None and len(value) < self.min_length:
-            raise CastFault(self.name or "<unbound>", f"Must be at least {self.min_length} characters")
+            raise CastFault(self.name or "<unbound>", contract_message("min_length", min=self.min_length))
         if self.max_length is not None and len(value) > self.max_length:
-            raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_length} characters")
+            raise CastFault(self.name or "<unbound>", contract_message("max_length", max=self.max_length))
         if self.pattern and not self.pattern.search(value):
             raise CastFault(self.name or "<unbound>", "Does not match required pattern")
         return super().seal(value)
@@ -551,7 +647,7 @@ class EmailFacet(TextFacet):
 
     def seal(self, value: Any) -> str:
         if not self._EMAIL_RE.match(value):
-            raise CastFault(self.name or "<unbound>", "Invalid email address")
+            raise CastFault(self.name or "<unbound>", contract_message("invalid_email"))
         return super().seal(value)
 
     def to_schema(self) -> dict[str, Any]:
@@ -573,7 +669,7 @@ class URLFacet(TextFacet):
 
     def seal(self, value: Any) -> str:
         if not self._URL_RE.match(value):
-            raise CastFault(self.name or "<unbound>", "Invalid URL")
+            raise CastFault(self.name or "<unbound>", contract_message("invalid_url"))
         return super().seal(value)
 
     def to_schema(self) -> dict[str, Any]:
@@ -593,7 +689,7 @@ class SlugFacet(TextFacet):
 
     def seal(self, value: Any) -> str:
         if not self._SLUG_RE.match(value):
-            raise CastFault(self.name or "<unbound>", "Invalid slug (use letters, numbers, hyphens, underscores)")
+            raise CastFault(self.name or "<unbound>", contract_message("invalid_slug"))
         return super().seal(value)
 
     def to_schema(self) -> dict[str, Any]:
@@ -611,7 +707,7 @@ class IPFacet(TextFacet):
         try:
             ipaddress.ip_address(value)
         except ValueError:
-            raise CastFault(self.name or "<unbound>", "Invalid IP address")
+            raise CastFault(self.name or "<unbound>", contract_message("invalid_ip"))
         return super().seal(value)
 
     def to_schema(self) -> dict[str, Any]:
@@ -620,13 +716,350 @@ class IPFacet(TextFacet):
         return schema
 
 
+class MACAddressFacet(TextFacet):
+    """
+    MAC address facet, normalized to lowercase colon-separated form.
+
+    Accepts the three common notations — ``aa:bb:cc:dd:ee:ff``,
+    ``aa-bb-cc-dd-ee-ff``, and Cisco-style ``aabb.ccdd.eeff`` — and normalizes
+    all of them, so equality comparisons and database lookups do not depend on
+    which notation a client happened to send.
+
+    Examples:
+        >>> class DeviceContract(Contract):
+        ...     mac = MACAddressFacet()
+        >>> bp = DeviceContract(data={"mac": "AA-BB-CC-DD-EE-FF"})
+        >>> bp.is_sealed()
+        True
+        >>> bp.validated_data["mac"]
+        'aa:bb:cc:dd:ee:ff'
+    """
+
+    _MAC_SEPARATORS = str.maketrans("", "", ":-.")
+
+    def cast(self, value: Any) -> str:
+        """Normalize any accepted notation to lowercase colon-separated form."""
+        if not isinstance(value, str):
+            raise CastFault(self.name or "<unbound>", f"Expected a MAC address string, got {type(value).__name__}")
+
+        digits = value.strip().translate(self._MAC_SEPARATORS).lower()
+        if len(digits) != 12 or any(c not in "0123456789abcdef" for c in digits):
+            raise CastFault(self.name or "<unbound>", contract_message("invalid_mac"))
+        return ":".join(digits[i : i + 2] for i in range(0, 12, 2))
+
+    def seal(self, value: Any) -> str:
+        # Re-validate: strict mode skips cast(), so seal() cannot assume the
+        # value has already been normalized.
+        return super().seal(self.cast(value))
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        schema["format"] = "mac-address"
+        schema["pattern"] = "^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$"
+        return schema
+
+
+class PathFacet(TextFacet):
+    """
+    Filesystem path facet, cast to :class:`pathlib.Path`.
+
+    Args:
+        must_be_relative: Reject absolute paths. Default ``True`` — a path from
+            a client is almost always joined onto a server-controlled root, and
+            an absolute path silently discards that root when joined.
+        allow_traversal: Permit ``..`` segments. Default ``False``.
+
+    Examples:
+        >>> class UploadContract(Contract):
+        ...     destination = PathFacet()
+        >>> bp = UploadContract(data={"destination": "reports/q3.pdf"})
+        >>> bp.is_sealed()
+        True
+        >>> bp.validated_data["destination"]
+        PurePosixPath('reports/q3.pdf')
+
+    Security:
+        The defaults reject the two ways a client-supplied path escapes its
+        intended root: an absolute path (``/etc/passwd``, which ``Path("/root")
+        / "/etc/passwd"`` resolves to ``/etc/passwd``) and traversal segments
+        (``../../etc/passwd``). Null bytes are rejected unconditionally — they
+        truncate the path at the OS layer, so a name that passes an extension
+        check can still open a different file. Relax these only for paths that
+        never originate from a request.
+
+    Notes:
+        Values are validated as :class:`pathlib.PurePosixPath`, so a payload
+        validates identically regardless of the server's platform. Convert with
+        ``Path(value)`` at the point of filesystem access.
+    """
+
+    _type_name = "string"
+    _python_type = "pathlib.PurePosixPath"
+
+    def __init__(
+        self,
+        *,
+        must_be_relative: bool = True,
+        allow_traversal: bool = False,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.must_be_relative = must_be_relative
+        self.allow_traversal = allow_traversal
+
+    def cast(self, value: Any) -> PurePosixPath:
+        """
+        Parse ``value`` into a :class:`pathlib.PurePosixPath`.
+
+        Raises:
+            CastFault: If the value is not path-like, contains a null byte, or
+                violates the configured traversal/absolute-path rules.
+        """
+        if isinstance(value, PurePath):
+            text = str(value)
+        elif isinstance(value, str):
+            text = value
+        else:
+            raise CastFault(self.name or "<unbound>", f"Expected a path string, got {type(value).__name__}")
+
+        if "\x00" in text:
+            raise CastFault(self.name or "<unbound>", contract_message("path_null_byte"))
+        if not text.strip():
+            raise CastFault(self.name or "<unbound>", contract_message("path_empty"))
+
+        # Normalize Windows separators so a backslash cannot smuggle a segment
+        # past the "..' check on a POSIX server.
+        path = PurePosixPath(text.replace("\\", "/"))
+
+        if self.must_be_relative and path.is_absolute():
+            raise CastFault(self.name or "<unbound>", contract_message("path_not_relative"))
+        if not self.allow_traversal and ".." in path.parts:
+            raise CastFault(self.name or "<unbound>", contract_message("path_traversal"))
+        return path
+
+    def seal(self, value: Any) -> PurePosixPath:
+        """Enforce path rules, then the inherited length/pattern constraints."""
+        path = self.cast(value)
+        super().seal(str(path))
+        return path
+
+    def mold(self, value: Any) -> Any:
+        """Render a path back to a plain string."""
+        if value is None:
+            return None
+        if isinstance(value, PurePath):
+            return str(value)
+        return value
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        schema["format"] = "path"
+        return schema
+
+
+class SecretFacet(TextFacet):
+    """
+    Sensitive string facet whose value never appears in output or tracebacks.
+
+    Wraps the validated value in :class:`Secret`, whose ``repr`` is masked. The
+    facet is ``write_only`` by default, so it is accepted inbound and omitted
+    from every serialized representation.
+
+    Args:
+        write_only: Omit from output. Default ``True``; setting it ``False``
+            emits the masked placeholder rather than the real value.
+
+    Examples:
+        >>> class LoginContract(Contract):
+        ...     password = SecretFacet(min_length=8)
+        >>> bp = LoginContract(data={"password": "hunter2hunter2"})
+        >>> bp.is_sealed()
+        True
+        >>> repr(bp.validated_data["password"])
+        "Secret('**********')"
+        >>> bp.validated_data["password"].reveal()
+        'hunter2hunter2'
+
+    Security:
+        Masking is a defense against *accidental* disclosure — log lines,
+        exception reports, debug pages — not a substitute for hashing or
+        encryption at rest. Call :meth:`Secret.reveal` only at the point of use.
+    """
+
+    # Not `str`: cast() wraps the validated value, so a stub that promised str
+    # would let `contract.password.lower()` type-check and fail at runtime.
+    _python_type = "aquilia.contracts.facets.Secret"
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("write_only", True)
+        super().__init__(**kwargs)
+
+    def cast(self, value: Any) -> Secret:
+        """Wrap the value in :class:`Secret`, unwrapping first if already wrapped."""
+        if isinstance(value, Secret):
+            return value
+        return Secret(super().cast(value))
+
+    def seal(self, value: Any) -> Secret:
+        """Apply the inherited string constraints to the revealed value."""
+        raw = value.reveal() if isinstance(value, Secret) else value
+        return Secret(super().seal(raw))
+
+    def mold(self, value: Any) -> Any:
+        """Render the masked placeholder — never the underlying value."""
+        if value is None:
+            return None
+        return str(value)
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        schema["format"] = "password"
+        schema["writeOnly"] = True
+        return schema
+
+
 # ── Numeric Facets ───────────────────────────────────────────────────────
 
 
+class BytesFacet(Facet):
+    """
+    Binary data facet, transported as base64 over JSON.
+
+    JSON has no native binary type, so inbound values arrive as base64 strings
+    and are decoded to ``bytes``; outbound ``bytes`` are re-encoded to base64.
+    Actual ``bytes``/``bytearray`` input (e.g. from a form or an internal
+    caller) passes through without a decode round-trip.
+
+    Args:
+        min_length: Minimum decoded size in bytes.
+        max_length: Maximum decoded size in bytes. Set this on any field fed by
+            untrusted input — base64 expands ~33%, so a modest request body can
+            still decode to a large allocation.
+        encoding: Wire encoding. ``"base64"`` (default) or ``"hex"``.
+
+    Examples:
+        >>> class UploadContract(Contract):
+        ...     thumbnail = BytesFacet(max_length=64 * 1024)
+        >>> bp = UploadContract(data={"thumbnail": "aGVsbG8="})
+        >>> bp.is_sealed()
+        True
+        >>> bp.validated_data["thumbnail"]
+        b'hello'
+
+        Round-tripping outbound::
+
+            UploadContract(instance=row).data["thumbnail"]  # -> 'aGVsbG8='
+
+    Security:
+        Always bound ``max_length`` on client-facing binary fields; an unbounded
+        base64 field is a memory-exhaustion vector.
+
+    See Also:
+        :class:`UploadFileFacet` — for streamed multipart file uploads, which
+        should be preferred over inlining large payloads in JSON.
+    """
+
+    _type_name = "string"
+    _python_type = "bytes"
+
+    def __init__(
+        self,
+        *,
+        min_length: int | None = None,
+        max_length: int | None = None,
+        encoding: Literal["base64", "hex"] = "base64",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        if encoding not in ("base64", "hex"):
+            raise CastFault("<encoding>", f"Unsupported bytes encoding '{encoding}'. Use 'base64' or 'hex'.")
+        self.min_length = min_length
+        self.max_length = max_length
+        self.encoding = encoding
+
+    def cast(self, value: Any) -> bytes:
+        """
+        Decode ``value`` to ``bytes``.
+
+        Raises:
+            CastFault: If a string value is not valid for the configured
+                encoding, or the value is neither string nor bytes-like.
+        """
+        if isinstance(value, bytes):
+            return value
+        if isinstance(value, bytearray | memoryview):
+            return bytes(value)
+        if isinstance(value, str):
+            import base64
+            import binascii
+
+            try:
+                if self.encoding == "hex":
+                    return bytes.fromhex(value)
+                return base64.b64decode(value, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise CastFault(self.name or "<unbound>", f"Invalid {self.encoding}-encoded value") from exc
+        raise CastFault(
+            self.name or "<unbound>", f"Expected {self.encoding} string or bytes, got {type(value).__name__}"
+        )
+
+    def seal(self, value: Any) -> bytes:
+        """
+        Enforce size constraints on the decoded bytes.
+
+        Raises:
+            CastFault: If the decoded length falls outside
+                ``min_length``/``max_length``.
+        """
+        if self.min_length is not None and len(value) < self.min_length:
+            raise CastFault(self.name or "<unbound>", contract_message("min_bytes", min=self.min_length))
+        if self.max_length is not None and len(value) > self.max_length:
+            raise CastFault(self.name or "<unbound>", contract_message("max_bytes", max=self.max_length))
+        return super().seal(value)
+
+    def mold(self, value: Any) -> Any:
+        """Encode ``bytes`` back to a wire-safe string."""
+        if value is None:
+            return None
+        if isinstance(value, bytes | bytearray | memoryview):
+            raw = bytes(value)
+            if self.encoding == "hex":
+                return raw.hex()
+            import base64
+
+            return base64.b64encode(raw).decode("ascii")
+        return value
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        schema["format"] = "byte" if self.encoding == "base64" else "hex"
+        if self.min_length is not None:
+            schema["minLength"] = self.min_length
+        if self.max_length is not None:
+            schema["maxLength"] = self.max_length
+        return schema
+
+
 class IntFacet(Facet):
-    """Integer facet with range constraints."""
+    """
+    Integer facet with range and divisibility constraints.
+
+    Args:
+        min_value: Inclusive lower bound.
+        max_value: Inclusive upper bound.
+        multiple_of: Value must be an exact multiple of this.
+
+    Examples:
+        >>> quantity = IntFacet(min_value=1, max_value=999)
+        >>> page_size = IntFacet(default=25, multiple_of=25)
+
+    Notes:
+        Coercion accepts integral floats (``3.0``) but rejects fractional ones
+        (``3.9``) — see :meth:`cast`.
+    """
 
     _type_name = "integer"
+    _python_type = "int"
 
     def __init__(
         self,
@@ -642,8 +1075,36 @@ class IntFacet(Facet):
         self.multiple_of = multiple_of
 
     def cast(self, value: Any) -> int:
+        """
+        Coerce ``value`` to ``int``.
+
+        Accepts ints, integral floats/Decimals (``3.0``), and integral numeric
+        strings (``"3"``). Rejects booleans and anything with a fractional part.
+
+        Raises:
+            CastFault: If the value is a bool, is NaN/Infinity, has a fractional
+                part, or is not numeric at all.
+
+        Notes:
+            ``3.9`` is rejected rather than truncated to ``3``. Truncation is
+            silent data corruption — a client sending ``{"quantity": 3.9}``
+            would otherwise get ``3`` persisted with no indication anything was
+            dropped. ``3.0`` is accepted because no information is lost.
+        """
         if isinstance(value, bool):
             raise CastFault(self.name or "<unbound>", "Boolean is not a valid integer")
+        if isinstance(value, float):
+            if value != value or value in (float("inf"), float("-inf")):
+                raise CastFault(self.name or "<unbound>", "NaN and Infinity are not valid integers")
+            if not value.is_integer():
+                raise CastFault(self.name or "<unbound>", f"Expected integer, got non-integer number {value}")
+            return int(value)
+        if isinstance(value, Decimal):
+            if not value.is_finite():
+                raise CastFault(self.name or "<unbound>", "NaN and Infinity are not valid integers")
+            if value != value.to_integral_value():
+                raise CastFault(self.name or "<unbound>", f"Expected integer, got non-integer number {value}")
+            return int(value)
         try:
             return int(value)
         except (ValueError, TypeError, OverflowError) as exc:
@@ -651,9 +1112,9 @@ class IntFacet(Facet):
 
     def seal(self, value: Any) -> int:
         if self.min_value is not None and value < self.min_value:
-            raise CastFault(self.name or "<unbound>", f"Must be at least {self.min_value}")
+            raise CastFault(self.name or "<unbound>", contract_message("min_value", min=self.min_value))
         if self.max_value is not None and value > self.max_value:
-            raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_value}")
+            raise CastFault(self.name or "<unbound>", contract_message("max_value", max=self.max_value))
         if self.multiple_of is not None:
             if value % self.multiple_of != 0:
                 raise CastFault(self.name or "<unbound>", f"Must be a multiple of {self.multiple_of}")
@@ -674,6 +1135,7 @@ class FloatFacet(Facet):
     """Floating-point facet."""
 
     _type_name = "number"
+    _python_type = "float"
 
     def __init__(
         self,
@@ -707,9 +1169,9 @@ class FloatFacet(Facet):
 
     def seal(self, value: Any) -> float:
         if self.min_value is not None and value < self.min_value:
-            raise CastFault(self.name or "<unbound>", f"Must be at least {self.min_value}")
+            raise CastFault(self.name or "<unbound>", contract_message("min_value", min=self.min_value))
         if self.max_value is not None and value > self.max_value:
-            raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_value}")
+            raise CastFault(self.name or "<unbound>", contract_message("max_value", max=self.max_value))
         if self.multiple_of is not None:
             if abs(value / self.multiple_of - round(value / self.multiple_of)) > 1e-9:
                 raise CastFault(self.name or "<unbound>", f"Must be a multiple of {self.multiple_of}")
@@ -730,6 +1192,7 @@ class DecimalFacet(Facet):
     """Decimal facet with precision constraints."""
 
     _type_name = "string"  # JSON doesn't have decimal, use string
+    _python_type = "decimal.Decimal"
 
     def __init__(
         self,
@@ -756,9 +1219,9 @@ class DecimalFacet(Facet):
 
     def seal(self, value: Decimal) -> Decimal:
         if self.min_value is not None and value < self.min_value:
-            raise CastFault(self.name or "<unbound>", f"Must be at least {self.min_value}")
+            raise CastFault(self.name or "<unbound>", contract_message("min_value", min=self.min_value))
         if self.max_value is not None and value > self.max_value:
-            raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_value}")
+            raise CastFault(self.name or "<unbound>", contract_message("max_value", max=self.max_value))
         if self.max_digits is not None:
             sign, digits, exp = value.as_tuple()
             total_digits = len(digits)
@@ -790,6 +1253,7 @@ class BoolFacet(Facet):
     """Boolean facet with truthy/falsy coercion."""
 
     _type_name = "boolean"
+    _python_type = "bool"
 
     _TRUE_VALUES = {"true", "1", "yes", "on", "t", "y"}
     _FALSE_VALUES = {"false", "0", "no", "off", "f", "n"}
@@ -818,6 +1282,7 @@ class DateFacet(Facet):
     """Date facet (ISO 8601)."""
 
     _type_name = "string"
+    _python_type = "datetime.date"
 
     def cast(self, value: Any) -> date:
         if isinstance(value, datetime):
@@ -848,6 +1313,7 @@ class TimeFacet(Facet):
     """Time facet (ISO 8601)."""
 
     _type_name = "string"
+    _python_type = "datetime.time"
 
     def cast(self, value: Any) -> time:
         if isinstance(value, time):
@@ -876,6 +1342,7 @@ class DateTimeFacet(Facet):
     """DateTime facet (ISO 8601)."""
 
     _type_name = "string"
+    _python_type = "datetime.datetime"
 
     def cast(self, value: Any) -> datetime:
         if isinstance(value, datetime):
@@ -907,6 +1374,7 @@ class DurationFacet(Facet):
     """Duration/timedelta facet."""
 
     _type_name = "string"
+    _python_type = "datetime.timedelta"
 
     def cast(self, value: Any) -> timedelta:
         if isinstance(value, timedelta):
@@ -951,6 +1419,7 @@ class UUIDFacet(Facet):
     """UUID facet."""
 
     _type_name = "string"
+    _python_type = "uuid.UUID"
 
     def cast(self, value: Any) -> uuid.UUID:
         if isinstance(value, uuid.UUID):
@@ -978,6 +1447,7 @@ class ListFacet(Facet):
     """List/array facet with optional child facet."""
 
     _type_name = "array"
+    _python_type = "list[Any]"
 
     def __init__(
         self,
@@ -991,6 +1461,9 @@ class ListFacet(Facet):
         self.child = child
         self.min_items = min_items
         self.max_items = max_items
+
+    def python_type(self) -> str:
+        return f"list[{self.child.python_type() if self.child else 'Any'}]"
 
     def cast(self, value: Any) -> list:
         if not isinstance(value, (list, tuple)):
@@ -1044,6 +1517,7 @@ class SetFacet(Facet):
     """Set/unique array facet with optional child facet."""
 
     _type_name = "array"
+    _python_type = "set[Any]"
 
     def __init__(
         self,
@@ -1057,6 +1531,9 @@ class SetFacet(Facet):
         self.child = child
         self.min_items = min_items
         self.max_items = max_items
+
+    def python_type(self) -> str:
+        return f"set[{self.child.python_type() if self.child else 'Any'}]"
 
     def cast(self, value: Any) -> set:
         if not isinstance(value, (list, tuple, set)):
@@ -1111,6 +1588,7 @@ class TupleFacet(Facet):
     """Tuple array facet with optional child facet."""
 
     _type_name = "array"
+    _python_type = "tuple[Any, ...]"
 
     def __init__(
         self,
@@ -1124,6 +1602,9 @@ class TupleFacet(Facet):
         self.child = child
         self.min_items = min_items
         self.max_items = max_items
+
+    def python_type(self) -> str:
+        return f"tuple[{self.child.python_type() if self.child else 'Any'}, ...]"
 
     def cast(self, value: Any) -> tuple:
         if not isinstance(value, (list, tuple, set)):
@@ -1177,6 +1658,7 @@ class DictFacet(Facet):
     """Dictionary/object facet, optionally validating all values against a specific facet."""
 
     _type_name = "object"
+    _python_type = "dict[str, Any]"
 
     # Default maximum number of keys to prevent hash-collision DoS
     DEFAULT_MAX_KEYS = 1000
@@ -1185,6 +1667,9 @@ class DictFacet(Facet):
         super().__init__(**kwargs)
         self.value_facet = value_facet
         self.max_keys = max_keys if max_keys is not None else self.DEFAULT_MAX_KEYS
+
+    def python_type(self) -> str:
+        return f"dict[str, {self.value_facet.python_type() if self.value_facet else 'Any'}]"
 
     def cast(self, value: Any) -> dict:
         if isinstance(value, str):
@@ -1262,6 +1747,7 @@ class JSONFacet(Facet):
     """Arbitrary JSON facet with configurable depth and type restrictions."""
 
     _type_name = "object"
+    _python_type = "Any"
 
     # Default maximum nesting depth for JSON structures
     DEFAULT_MAX_DEPTH = 32
@@ -1361,6 +1847,19 @@ class ChoiceFacet(Facet):
         """Alias for _valid_values, matching schema needs."""
         return tuple(self.choices.keys())
 
+    def python_type(self) -> str:
+        """
+        ``Literal[...]`` of the allowed values when they are all literal-safe.
+
+        Only ``str``/``int``/``bool``/``None`` may appear inside ``Literal``.
+        Anything else (a date, a tuple, an arbitrary object) falls back to
+        ``Any`` rather than emitting a stub a type checker rejects.
+        """
+        values = self.allowed_values
+        if not values or not all(v is None or isinstance(v, (str, int, bool)) for v in values):
+            return "Any"
+        return f"Literal[{', '.join(repr(v) for v in values)}]"
+
     def cast(self, value: Any) -> Any:
         return value
 
@@ -1398,6 +1897,14 @@ class EnumFacet(Facet):
     @property
     def allowed_values(self) -> tuple:
         return tuple(m.value for m in self.enum_class)
+
+    def python_type(self) -> str:
+        """Fully-qualified name of the enum class, which ``cast`` returns."""
+        module = getattr(self.enum_class, "__module__", "")
+        qualname = getattr(self.enum_class, "__qualname__", getattr(self.enum_class, "__name__", "Any"))
+        if not module or module == "builtins" or "<locals>" in qualname:
+            return "Any"
+        return f"{module}.{qualname}"
 
     def cast(self, value: Any) -> Any:
         if value is None:
@@ -1521,12 +2028,41 @@ class PolymorphicFacet(Facet):
 
 class Computed(Facet):
     """
-    A facet whose value is computed at output time -- never accepted as input.
+    A facet whose value is computed at output time — never accepted as input.
 
-    Usage::
+    The compute callable receives the model instance (and, for methods declared
+    with ``@computed``, the live Contract instance as ``self``). This means
+    ``self.context``, ``self.instance``, and ``self._validated_data`` are all
+    available inside a ``@computed`` method.
 
-        full_name = Computed(lambda user: f"{user.first_name} {user.last_name}")
-        item_count = Computed("get_item_count")  # calls method on model/contract
+    Args:
+        compute: Either a callable ``(instance) -> value`` or
+            ``(contract_self, instance) -> value``, or a string naming a method
+            on the Contract or the model instance.
+
+    Examples:
+    ```
+        Lambda (model-only)::
+
+            full_name = Computed(lambda user: f"{user.first_name} {user.last_name}")
+
+        Decorator (contract + model)::
+
+            @computed
+            def item_count(self, instance) -> int:
+                return len(self.context.get("cart", []))
+
+        String (method name on model)::
+
+            display_name = Computed("get_display_name")
+    ```
+    Notes:
+        Facets are class-level objects shared across all instances of a
+        Contract. ``self.contract`` on a facet is therefore unreliable as a
+        live instance reference. The live Contract instance is threaded in via
+        :meth:`extract`'s ``_owner`` parameter, which
+        :meth:`~aquilia.contracts.core.Contract._to_dict_instance` always
+        supplies.
     """
 
     def __init__(self, compute: Callable | str, **kwargs):
@@ -1534,36 +2070,46 @@ class Computed(Facet):
         super().__init__(**kwargs)
         self._compute = compute
 
-    def extract(self, instance: Any) -> Any:
-        """Compute the value from the instance."""
+    def extract(self, instance: Any, _owner: Any = None) -> Any:
+        """
+        Compute the value from the model instance.
+
+        Args:
+            instance: The model instance being serialized.
+            _owner: The live Contract instance. Supplied by
+                :meth:`~aquilia.contracts.core.Contract._to_dict_instance` so
+                that ``@computed`` methods receive a fully initialized ``self``
+                with ``context``, ``instance``, and ``_validated_data`` set.
+
+        Returns:
+            The computed value, or ``None`` if the callable/method cannot be
+            resolved.
+        """
         if isinstance(self._compute, str):
             # Method name on the contract
-            if self.contract is not None:
-                method = getattr(self.contract, self._compute, None)
+            owner = _owner if _owner is not None else self.contract
+            if owner is not None:
+                method = getattr(owner, self._compute, None)
                 if method is not None:
                     return method(instance)
             # Method name on the instance
             method = getattr(instance, self._compute, None)
             if method is not None:
-                result = method()
-                return result
+                return method()
             return None
-        # Callable -- may be a lambda(instance) or an unbound method(self, instance)
-        # from @computed decorator. Detect by inspecting parameter count.
+
         import inspect
 
         try:
             sig = inspect.signature(self._compute)
             if len(sig.parameters) >= 2:
                 # Unbound method: needs (contract_self, instance)
-                bp = self.contract
+                bp = _owner if _owner is not None else self.contract
                 if bp is None:
-                    # Facets are class-level shared; contract is not bound per-instance.
-                    # Create a minimal owning Contract instance for method binding.
+                    # Last resort: construct a minimal shell from __qualname__
                     qualname = getattr(self._compute, "__qualname__", "")
                     if "." in qualname:
                         cls_name = qualname.rsplit(".", 1)[0]
-                        # Walk the declaring module to find the class
                         mod = inspect.getmodule(self._compute)
                         if mod is not None:
                             bp_cls = getattr(mod, cls_name, None)
@@ -1594,6 +2140,11 @@ class Constant(Facet):
         kwargs["read_only"] = True
         super().__init__(**kwargs)
         self._constant = value
+
+    def python_type(self) -> str:
+        if self._constant is None or isinstance(self._constant, (str, int, bool)):
+            return f"Literal[{self._constant!r}]"
+        return "Any"
 
     def extract(self, instance: Any) -> Any:
         return self._constant

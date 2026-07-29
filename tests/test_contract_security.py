@@ -645,25 +645,53 @@ class TestBPSEC010_NestedContractDepthGuard:
         facet = NestedContractFacet(NestedChild, max_nesting_depth=10)
         facet.name = "child"
         facet.cast({"label": "ok"})
-        assert NestedContractFacet._current_nesting_depth == 0
+        assert NestedContractFacet._depth_var.get() == 0
 
     def test_depth_counter_resets_on_error(self):
         """Even on failure the depth counter must not leak."""
         facet = NestedContractFacet(NestedChild, max_nesting_depth=1)
         facet.name = "child"
-        # Ensure counter starts at 0
-        NestedContractFacet._current_nesting_depth = 0
-        # Force a cast on something that will work (depth=1 should be fine for a single nesting)
-        # But set the counter artificially high to trigger the guard
-        NestedContractFacet._current_nesting_depth = 5
+        # Set the counter artificially high to trigger the guard
+        token = NestedContractFacet._depth_var.set(5)
         try:
             with pytest.raises(CastFault, match="depth exceeds maximum"):
                 facet.cast({"label": "ok"})
+            # Counter must be restored to its pre-cast value
+            assert NestedContractFacet._depth_var.get() == 5
         finally:
-            # Verify counter decremented back by 1
-            assert NestedContractFacet._current_nesting_depth == 5
-            # Reset for other tests
-            NestedContractFacet._current_nesting_depth = 0
+            NestedContractFacet._depth_var.reset(token)
+
+    def test_depth_counter_is_thread_isolated(self):
+        """
+        BP-SEC-014: the depth counter must not be shared across threads.
+
+        A process-wide counter would let concurrent requests interleave their
+        increments — producing spurious depth rejections for shallow payloads
+        and, worse, undercounting that defeats the guard for a genuinely deep
+        one.
+        """
+        import threading
+
+        facet = NestedContractFacet(NestedChild, max_nesting_depth=4)
+        facet.name = "child"
+        failures: list[str] = []
+
+        def hammer() -> None:
+            try:
+                for _ in range(200):
+                    assert facet.cast({"label": "ok"})["label"] == "ok"
+                    assert NestedContractFacet._depth_var.get() == 0
+            except Exception as exc:  # pragma: no cover - only on regression
+                failures.append(repr(exc))
+
+        threads = [threading.Thread(target=hammer) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert failures == []
+        assert NestedContractFacet._depth_var.get() == 0
 
     def test_custom_max_depth(self):
         facet = NestedContractFacet(NestedChild, max_nesting_depth=3)

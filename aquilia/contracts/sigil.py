@@ -8,19 +8,38 @@ It is the compiled, immutable representation of the schema.
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
-from .exceptions import CastFault
+from .exceptions import MAX_NESTING_DEPTH, CastFault
+from .facets import (
+    UNSET,
+    BoolFacet,
+    Computed,
+    Constant,
+    DateFacet,
+    DateTimeFacet,
+    DecimalFacet,
+    DictFacet,
+    DurationFacet,
+    FileFacet,
+    FloatFacet,
+    Inject,
+    IntFacet,
+    ListFacet,
+    TextFacet,
+    TimeFacet,
+    UUIDFacet,
+)
+from .messages import contract_message
 from .pipeline import Pipeline
 
 __all__ = ["Sigil", "FieldSpec", "SigilDiff", "FieldDiff", "build_sigil"]
-
-import re
 
 # Module-level caches for validation helpers
 _MAPPING_LIKE_TYPES = None
@@ -152,8 +171,46 @@ class Sigil:
         strict: bool | None = None,
         partial: bool = False,
         context: dict[str, Any] | None = None,
+        _depth: int = 0,
+        _async_pending: list[Any] | None = None,
+        _path: tuple[str, ...] = (),
     ) -> tuple[dict[str, list[str]], dict[str, Any]]:
-        """Validate input data against this schema. Never raises."""
+        """
+        Validate input data against this schema. Never raises.
+
+        Args:
+            data: Mapping-like inbound payload.
+            strict: Override the Contract's ``Spec.strict`` setting. In strict
+                mode a field's declared type must already match — ``cast()`` is
+                skipped, so any normalization a Facet performs during casting
+                (trimming, case folding) does **not** run.
+            partial: Skip "this field is required" errors for absent keys
+                (PATCH semantics).
+            context: Contextual data; also the resolution source for
+                ``Inject`` facets.
+            _depth: Internal nested-Contract recursion counter. Recursion is
+                capped at :data:`~aquilia.contracts.exceptions.MAX_NESTING_DEPTH`
+                so a deeply nested payload yields a structured error rather
+                than an uncaught ``RecursionError``.
+            _async_pending: Internal. When supplied, nested Contracts declaring
+                ``@ward(mode="async")`` are not rejected — instead a
+                ``(path, contract_cls, data, validated)`` record is appended for
+                the async driver to await. When ``None`` (the synchronous entry
+                point), such a nested Contract raises
+                :class:`ContractAsyncMismatchFault`, matching the top-level
+                behavior of :meth:`~aquilia.contracts.core.Contract.is_sealed`.
+            _path: Internal. Dotted field path of this Sigil within the outer
+                Contract, used to report nested async ward errors at the right
+                location.
+
+        Returns:
+            ``(errors, validated)``. ``errors`` maps field name to a list of
+            reasons (or, for nested collections, to a nested error mapping).
+
+        See Also:
+            :meth:`aquilia.contracts.core.Contract.is_sealed` — the caller that
+            layers ward methods and the object-level hook on top of this.
+        """
         errors: dict[str, list[str]] = {}
         validated: dict[str, Any] = {}
         context = context or {}
@@ -193,8 +250,6 @@ class Sigil:
                                 "__revision__": [f"Missing migration path from revision {current_rev} to {next_rev}"]
                             }, {}
 
-        from .facets import UNSET, Computed, Constant, Inject
-
         for fname, spec in self.fields.items():
             facet = spec.facet
             if isinstance(facet, (Computed, Constant)):
@@ -220,7 +275,7 @@ class Sigil:
                     validated[fname] = default
                     continue
                 if facet.required:
-                    errors.setdefault(fname, []).append("This field is required")
+                    errors.setdefault(fname, []).append(contract_message("required"))
                     continue
                 if facet.allow_null:
                     validated[fname] = None
@@ -232,25 +287,39 @@ class Sigil:
                 if facet.allow_null:
                     validated[fname] = None
                     continue
-                errors.setdefault(fname, []).append("This field may not be null")
+                errors.setdefault(fname, []).append(contract_message("not_null"))
                 continue
 
             # Recursive nested contracts check
-            nested_cls = get_nested_contract_cls(facet)
+            nested_cls, is_many = resolve_nested(facet) if spec.is_nested_contract else (None, False)
             if nested_cls is not None:
-                is_many = getattr(facet, "many", False)
+                # Depth guard: a self-referential Contract fed deeply nested
+                # input would otherwise recurse until the interpreter's stack
+                # limit, surfacing as an uncaught RecursionError.
+                if _depth >= MAX_NESTING_DEPTH:
+                    errors.setdefault(fname, []).append(contract_message("nesting_depth", max=MAX_NESTING_DEPTH))
+                    continue
+
                 if is_many:
                     if not isinstance(raw, (list, tuple)):
-                        errors.setdefault(fname, []).append("Expected a list of items")
+                        errors.setdefault(fname, []).append(contract_message("expected_list"))
                         continue
                     list_errors = {}
                     list_validated = []
                     for idx, item in enumerate(raw):
+                        item = adapt_input(item)
                         if not is_mapping_like(item):
-                            list_errors[str(idx)] = {"__all__": ["Expected a dictionary"]}
+                            list_errors[str(idx)] = {"__all__": [contract_message("expected_dict")]}
                             continue
-                        sub_errors, sub_validated = nested_cls._sigil.validate(
-                            item, strict=strict, partial=partial, context=context
+                        sub_errors, sub_validated = run_nested_contract(
+                            nested_cls,
+                            item,
+                            strict=strict,
+                            partial=partial,
+                            context=context,
+                            _depth=_depth + 1,
+                            _async_pending=_async_pending,
+                            _path=(*_path, fname, str(idx)),
                         )
                         if sub_errors:
                             list_errors[str(idx)] = sub_errors
@@ -267,11 +336,19 @@ class Sigil:
                         except Exception as exc:
                             errors.setdefault(fname, []).append(str(exc))
                 else:
+                    raw = adapt_input(raw)
                     if not is_mapping_like(raw):
-                        errors.setdefault(fname, []).append("Expected a dictionary")
+                        errors.setdefault(fname, []).append(contract_message("expected_dict"))
                         continue
-                    sub_errors, sub_validated = nested_cls._sigil.validate(
-                        raw, strict=strict, partial=partial, context=context
+                    sub_errors, sub_validated = run_nested_contract(
+                        nested_cls,
+                        raw,
+                        strict=strict,
+                        partial=partial,
+                        context=context,
+                        _depth=_depth + 1,
+                        _async_pending=_async_pending,
+                        _path=(*_path, fname),
                     )
                     if sub_errors:
                         errors[fname] = sub_errors  # type: ignore[assignment]
@@ -289,7 +366,7 @@ class Sigil:
             if is_strict:
                 if not check_strict_type(facet, raw):
                     errors.setdefault(fname, []).append(
-                        f"Invalid type: expected {type(facet).__name__.replace('Facet', '').lower()}"
+                        contract_message("invalid_type", expected=type(facet).__name__.replace("Facet", "").lower())
                     )
                     continue
                 if spec.pipeline is not None:
@@ -323,6 +400,58 @@ class Sigil:
 
         return errors, validated
 
+    async def validate_async(
+        self,
+        data: Any,
+        *,
+        strict: bool | None = None,
+        partial: bool = False,
+        context: dict[str, Any] | None = None,
+        _depth: int = 0,
+    ) -> tuple[dict[str, list[str]], dict[str, Any]]:
+        """
+        Async counterpart of :meth:`validate` — awaits nested async wards.
+
+        The structural pass is pure CPU work and identical in both modes, so
+        this method runs :meth:`validate` once with an accumulator attached,
+        then drains the nested Contracts that declared
+        ``@ward(mode="async")``. There is no second traversal and no duplicated
+        field loop.
+
+        Args:
+            data: Mapping-like inbound payload.
+            strict: Override the Contract's ``Spec.strict`` setting.
+            partial: Skip required-field errors for absent keys.
+            context: Contextual data; resolution source for ``Inject`` facets.
+            _depth: Internal nested-Contract recursion counter.
+
+        Returns:
+            ``(errors, validated)``, with any nested async ward failures merged
+            in at the failing Contract's path.
+
+        See Also:
+            :meth:`validate` — the synchronous entry point, which rejects
+            nested async wards rather than skipping them.
+        """
+        pending: list[Any] = []
+        errors, validated = self.validate(
+            data,
+            strict=strict,
+            partial=partial,
+            context=context,
+            _depth=_depth,
+            _async_pending=pending,
+        )
+        if errors or not pending:
+            return errors, validated
+
+        for path, nested_cls, inst, data_obj in pending:
+            await nested_cls._run_ward_phase_async(inst, data_obj, _sync_already_run=True)
+            if inst._errors:
+                merge_nested_errors(errors, path, inst._errors)
+
+        return errors, validated
+
     def to_json_schema(self) -> dict[str, Any]:
         """Produces a JSON Schema 2020-12 dict representation."""
         if self._json_schema_cache is not None:
@@ -344,7 +473,7 @@ class Sigil:
                             if k not in ("type", "title", "description") or k not in sch:
                                 sch[k] = v
 
-            nested_cls = get_nested_contract_cls(facet)
+            nested_cls, nested_many = resolve_nested(facet)
             if nested_cls is not None:
                 cls_name = nested_cls.__name__
                 if cls_name not in defs:
@@ -355,7 +484,7 @@ class Sigil:
                         defs.update(sub_defs)
 
                 ref_dict = {"$ref": f"#/$defs/{cls_name}"}
-                if getattr(facet, "many", False):
+                if nested_many:
                     sch = {"type": "array", "items": ref_dict}
                 else:
                     sch = ref_dict
@@ -552,22 +681,24 @@ def serialize_facet_shape(facet: Any) -> list[tuple[str, str]]:
 
 
 def check_strict_type(facet: Any, value: Any) -> bool:
-    """Type-check values strictly without casting/coercion."""
-    from .facets import (
-        BoolFacet,
-        DateFacet,
-        DateTimeFacet,
-        DecimalFacet,
-        DictFacet,
-        DurationFacet,
-        FloatFacet,
-        IntFacet,
-        ListFacet,
-        TextFacet,
-        TimeFacet,
-        UUIDFacet,
-    )
+    """
+    Type-check a value without coercion, for ``Spec.strict`` Contracts.
 
+    Args:
+        facet: The declaring facet.
+        value: The raw inbound value.
+
+    Returns:
+        True if ``value`` already has the facet's declared Python type.
+        Unknown/custom facet types return True — strictness is only enforced
+        for the built-in scalar and container facets.
+
+    Notes:
+        Strict mode deliberately skips :meth:`Facet.cast`, so any normalization
+        a facet performs while casting (trimming, case folding, alias
+        resolution) does **not** run. "Strict" means "no coercion at all",
+        not "the same pipeline with tighter checks".
+    """
     if isinstance(facet, TextFacet):
         return isinstance(value, str)
     if isinstance(facet, IntFacet):
@@ -595,15 +726,60 @@ def check_strict_type(facet: Any, value: Any) -> bool:
     return True
 
 
+def adapt_input(data: Any) -> Any:
+    """
+    Normalize a supported input object into a mapping the pipeline can read.
+
+    Mapping-like payloads (``dict``, ``Mapping``, ``MultiDict``, ``FormData``)
+    are returned unchanged — the common path costs one ``isinstance`` check.
+    Everything else is adapted only if it is a recognized structured type:
+
+    ==================== =============================================
+    Input                Adapted via
+    ==================== =============================================
+    dataclass instance   ``__dataclass_fields__`` (shallow, by design)
+    attrs instance       ``__attrs_attrs__``
+    TypedDict instance   already a ``dict``; no adaptation needed
+    ==================== =============================================
+
+    ``TypedDict`` instances are plain dicts at runtime, so they pass through
+    the mapping branch and need no special case.
+
+    Adaptation is shallow: nested dataclasses stay as objects and are handled
+    by the nested-Contract branch, which reads attributes directly. Using
+    ``dataclasses.asdict`` would deep-convert and lose that, and would also
+    copy every nested structure on every request.
+
+    Args:
+        data: Any inbound payload.
+
+    Returns:
+        A mapping-like object, or ``data`` unchanged when it is not a
+        recognized structured type (the caller reports that as an error).
+    """
+    if is_mapping_like(data):
+        return data
+
+    fields = getattr(type(data), "__dataclass_fields__", None)
+    if fields is not None:
+        return {name: getattr(data, name) for name in fields if hasattr(data, name)}
+
+    attrs_fields = getattr(type(data), "__attrs_attrs__", None)
+    if attrs_fields is not None:
+        return {a.name: getattr(data, a.name) for a in attrs_fields if hasattr(data, a.name)}
+
+    return data
+
+
 def is_mapping_like(val: Any) -> bool:
+    """True if ``val`` can be read as a field mapping (dict/Mapping/MultiDict/FormData)."""
     if _MAPPING_LIKE_TYPES is None:
         _init_validation_types()
     return isinstance(val, _MAPPING_LIKE_TYPES)
 
 
 def get_keys(data: Any) -> set[str]:
-    from collections.abc import Mapping
-
+    """Collect the top-level keys of any mapping-like inbound payload."""
     if _MAPPING_LIKE_TYPES is None:
         _init_validation_types()
 
@@ -617,10 +793,26 @@ def get_keys(data: Any) -> set[str]:
 
 
 def get_field_value(data: Any, fname: str, facet: Any) -> Any:
-    from collections.abc import Mapping
+    """
+    Read one field's raw value out of an inbound payload.
 
-    from .facets import UNSET, FileFacet, ListFacet, TextFacet
+    Handles the several shapes a request body can take: plain mappings,
+    ``MultiDict`` query/form data (where a list field arrives as repeated keys
+    or as ``field[]``), and multipart ``FormData`` (where files live in a
+    separate namespace from scalar fields).
 
+    Args:
+        data: The inbound payload.
+        fname: Facet name to look up.
+        facet: The facet, consulted to decide list/file handling.
+
+    Returns:
+        The raw value, or ``UNSET`` when the key is absent.
+
+    Performance:
+        Called once per field per validation. Type references are resolved from
+        module scope rather than re-imported per call.
+    """
     if _MAPPING_LIKE_TYPES is None:
         _init_validation_types()
 
@@ -925,27 +1117,271 @@ def extract_flat_list_mapping(data: Any) -> list[Any] | None:
     return results
 
 
-def get_nested_contract_cls(facet: Any) -> type | None:
-    """Retrieve nested contract class if facet wraps one."""
-    from .annotations import LazyContractFacet, NestedContractFacet
+_NESTED_FACET_TYPES: tuple[type, ...] | None = None
 
-    if isinstance(facet, NestedContractFacet):
+
+def _nested_facet_types() -> tuple[type, ...]:
+    """
+    Lazily resolve ``(NestedContractFacet, LazyContractFacet)`` once per process.
+
+    ``annotations`` imports ``core``, which imports this module, so these types
+    cannot be imported at module scope. Resolving them once and caching keeps
+    the per-field cost of :func:`get_nested_contract_cls` to a global lookup
+    rather than a ``sys.modules`` round-trip on every field of every request.
+    """
+    global _NESTED_FACET_TYPES
+    if _NESTED_FACET_TYPES is None:
+        from .annotations import LazyContractFacet, NestedContractFacet
+
+        _NESTED_FACET_TYPES = (NestedContractFacet, LazyContractFacet)
+    return _NESTED_FACET_TYPES
+
+
+def is_nested_facet(facet: Any) -> bool:
+    """
+    Whether a facet wraps a nested Contract, without resolving it.
+
+    Used at class-body evaluation time, where a forward reference cannot be
+    resolved yet — the Contract it names is very often the one currently being
+    built, so it is not in the registry until this call returns.
+
+    Args:
+        facet: Any facet.
+
+    Returns:
+        True for a nested-Contract facet, or a container whose child is one.
+    """
+    nested_cls, lazy_cls = _nested_facet_types()
+    if isinstance(facet, (nested_cls, lazy_cls)):
+        return True
+    return isinstance(getattr(facet, "child", None), (nested_cls, lazy_cls))
+
+
+def get_nested_contract_cls(facet: Any) -> type | None:
+    """
+    Resolve the Contract class a nested facet wraps, if any.
+
+    Args:
+        facet: Any facet.
+
+    Returns:
+        The target Contract class, or ``None`` if this facet does not wrap one
+        (or wraps a forward reference that is still unresolvable).
+
+    See Also:
+        :func:`resolve_nested` — also reports whether the relation is to-many,
+        and looks through container facets.
+    """
+    return resolve_nested(facet)[0]
+
+
+def resolve_nested(facet: Any) -> tuple[type | None, bool]:
+    """
+    Resolve a facet's nested Contract and whether it holds many of them.
+
+    A to-many nested relation has two spellings that build different facets::
+
+        items = NestedContractFacet(ItemContract, many=True)   # many on the facet
+        items: list[ItemContract] = None                       # ListFacet(child=...)
+
+    Both mean the same thing, so both must reach the same validation path.
+    Treating only the first as nested left the second running structural
+    validation alone — the child's wards and ``validate()`` hook never ran, and
+    the async-ward detection reported ``False`` for a Contract that had them.
+
+    Args:
+        facet: Any facet.
+
+    Returns:
+        ``(contract_cls, is_many)``. ``contract_cls`` is ``None`` when the facet
+        wraps no Contract, or wraps a forward reference that cannot yet resolve.
+
+    Examples:
+        >>> resolve_nested(NestedContractFacet(ItemContract, many=True))
+        (ItemContract, True)
+        >>> resolve_nested(ListFacet(child=NestedContractFacet(ItemContract)))
+        (ItemContract, True)
+    """
+    direct = _direct_nested_cls(facet)
+    if direct is not None:
+        return direct, bool(getattr(facet, "many", False))
+
+    child = getattr(facet, "child", None)
+    if child is not None:
+        nested = _direct_nested_cls(child)
+        if nested is not None:
+            return nested, True
+
+    return None, False
+
+
+def _direct_nested_cls(facet: Any) -> type | None:
+    """
+    Contract class a facet wraps directly, without looking at containers.
+
+    A forward reference that cannot resolve yields ``None`` rather than
+    propagating: callers ask this to decide how to *route* a field, and a
+    Contract still being constructed must not fail its own class body.
+    """
+    nested_cls, lazy_cls = _nested_facet_types()
+
+    if isinstance(facet, nested_cls):
         return facet.target
-    if isinstance(facet, LazyContractFacet):
-        resolved = facet._get_resolved()
+    if isinstance(facet, lazy_cls):
+        from aquilia.faults.domains import RegistryFault
+
+        try:
+            resolved = facet._get_resolved()
+        except RegistryFault:
+            return None
         if resolved is not None:
             return resolved.target
     return None
 
 
+def merge_nested_errors(
+    errors: dict[str, Any],
+    path: tuple[str, ...],
+    nested_errors: dict[str, Any],
+) -> None:
+    """
+    Splice a nested Contract's errors into the outer error mapping at ``path``.
+
+    Args:
+        errors: The outer error mapping, mutated in place.
+        path: Field path of the nested Contract, e.g. ``("author",)`` or
+            ``("items", "2")`` for the third element of a to-many field.
+        nested_errors: The nested Contract's own error mapping.
+
+    Side Effects:
+        Mutates ``errors``.
+    """
+    if not path:
+        _merge_error_maps(errors, nested_errors)
+        return
+
+    cursor = errors
+    for segment in path[:-1]:
+        nxt = cursor.get(segment)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            cursor[segment] = nxt
+        cursor = nxt
+
+    leaf = path[-1]
+    existing = cursor.get(leaf)
+    if isinstance(existing, dict):
+        _merge_error_maps(existing, nested_errors)
+    else:
+        cursor[leaf] = nested_errors
+
+
+def _merge_error_maps(target: dict[str, Any], source: dict[str, Any]) -> None:
+    """Merge ``source`` error entries into ``target``, concatenating lists."""
+    for key, value in source.items():
+        existing = target.get(key)
+        if isinstance(existing, list) and isinstance(value, list):
+            existing.extend(value)
+        elif existing is None:
+            target[key] = value
+
+
+def run_nested_contract(
+    nested_cls: type,
+    data: Any,
+    *,
+    strict: bool | None = None,
+    partial: bool = False,
+    context: dict[str, Any] | None = None,
+    _depth: int = 0,
+    _async_pending: list[Any] | None = None,
+    _path: tuple[str, ...] = (),
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """
+    Validate a nested Contract through its *full* pipeline.
+
+    Structural validation alone is not sufficient: a nested Contract may
+    declare ``@ward`` methods and an object-level ``validate()`` override, and
+    those express business rules (authorization checks, cross-field
+    invariants) exactly as they do at the top level. Recursing into
+    ``nested_cls._sigil.validate()`` runs only the structural pass and
+    silently skips both, so a nested Contract's rules would never be enforced.
+
+    Args:
+        nested_cls: The nested Contract class.
+        data: Mapping-like payload for the nested Contract.
+        strict: Forwarded strict-mode override.
+        partial: Forwarded PATCH semantics flag.
+        context: Forwarded contextual data.
+        _depth: Nesting depth, already incremented by the caller.
+        _async_pending: Accumulator for nested Contracts with async wards. See
+            :meth:`Sigil.validate`.
+        _path: Dotted path of this Contract within the outer payload.
+
+    Returns:
+        ``(errors, validated)`` — the same shape :meth:`Sigil.validate`
+        returns, so the caller's error handling is unchanged.
+
+    Raises:
+        ContractAsyncMismatchFault: If the nested Contract declares an async
+            ward and ``_async_pending`` is ``None`` (synchronous entry point).
+
+    See Also:
+        :meth:`Sigil.validate`, :meth:`Sigil.validate_async`
+    """
+    from aquilia.utils.data import DataObject
+
+    from .exceptions import ContractAsyncMismatchFault
+
+    errors, validated = nested_cls._sigil.validate(
+        data,
+        strict=strict,
+        partial=partial,
+        context=context,
+        _depth=_depth,
+        _async_pending=_async_pending,
+        _path=_path,
+    )
+    if errors:
+        return errors, validated
+
+    has_async = any(wm.mode == "async" for wm in nested_cls._ward_methods)
+    if has_async and _async_pending is None:
+        raise ContractAsyncMismatchFault(
+            f"Nested Contract '{nested_cls.__name__}' contains async wards and must be "
+            f"validated using is_sealed_async()."
+        )
+
+    inst = nested_cls(data=data, context=context)
+    inst._errors = {}
+    data_obj = DataObject(validated)
+
+    nested_cls._run_ward_phase(inst, data_obj)
+    if not inst._errors:
+        data_obj = nested_cls._run_validate_hook(inst, data_obj)
+
+    if has_async:
+        # Sync phases passed; the async wards are drained by the async driver,
+        # which reports any errors against this Contract's path.
+        _async_pending.append((_path, nested_cls, inst, data_obj))  # type: ignore[union-attr]
+
+    if inst._errors:
+        return inst._errors, {}
+    return {}, dict(data_obj)
+
+
 def build_sigil(cls: type) -> Sigil:
     """Construct Sigil configuration from Contract class definitions."""
-    from .annotations import LazyContractFacet, NestedContractFacet
     from .lenses import Lens
 
     fields = {}
     for fname, facet in cls._all_facets.items():
-        is_nested = isinstance(facet, (NestedContractFacet, LazyContractFacet))
+        # is_nested_facet() rather than an isinstance check: a ``list[Item]``
+        # annotation builds ``ListFacet(child=NestedContractFacet)``, which is
+        # every bit as nested as ``NestedContractFacet(Item, many=True)``. It
+        # deliberately does not resolve — a forward reference here usually
+        # names the Contract whose class body is still executing.
+        is_nested = is_nested_facet(facet)
         is_lens_field = isinstance(facet, Lens)
 
         # Retrieve pipeline associated if annotation parsed it

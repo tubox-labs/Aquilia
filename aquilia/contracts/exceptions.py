@@ -150,6 +150,103 @@ class LensCycleFault(ContractFault):
         )
 
 
+class LensUnresolvedFault(ContractFault):
+    """
+    Raised when a to-many :class:`~aquilia.contracts.lenses.Lens` receives an
+    un-awaited related manager or queryset.
+
+    Serialization is synchronous, so it cannot await the ORM. The relation must
+    be prefetched (``prefetch_related``) or materialized to a list before the
+    Contract renders it.
+
+    Args:
+        field: Name of the Lens facet that could not be resolved.
+
+    Examples:
+        >>> order = await Order.objects.prefetch_related("items").get(pk=1)
+        >>> OrderContract(instance=order).data  # resolves cleanly
+
+    Notes:
+        This replaces an earlier behaviour that returned ``[]`` for unresolved
+        relations. An empty list is indistinguishable from a genuinely empty
+        relation, which silently produced wrong API responses — including, in
+        the worst case, an empty permission list read as "no permissions".
+
+    See Also:
+        :class:`LensDepthFault`, :class:`LensCycleFault`
+    """
+
+    code = "BP503"
+
+    def __init__(self, field: str):
+        super().__init__(
+            message=(
+                f"Lens '{field}' received an unresolved async manager. "
+                f"Prefetch the relation (e.g. prefetch_related('{field}')) or "
+                f"assign an awaited list before serializing."
+            ),
+            errors={field: ["Related collection was not resolved before serialization"]},
+            metadata={"field": field},
+        )
+        self.field = field
+
+
+#: Maximum nesting depth for inbound nested-Contract validation.
+#:
+#: Deeply nested payloads are a denial-of-service vector: JSON allows
+#: arbitrary nesting in a few kilobytes, and each level costs a Python stack
+#: frame. Exceeding this limit produces a structured
+#: :class:`NestingDepthFault` (a clean 4xx) instead of an uncaught
+#: ``RecursionError`` that would abort the request coroutine mid-stack.
+#:
+#: Lives here rather than on a Facet class so both the annotation layer and
+#: the compiled :class:`~aquilia.contracts.sigil.Sigil` can reference one
+#: authoritative value without an import cycle.
+MAX_NESTING_DEPTH: int = 32
+
+
+class NestingDepthFault(ContractFault):
+    """
+    Raised when inbound nested-Contract validation exceeds its depth limit.
+
+    Complements :class:`LensDepthFault`, which guards the *outbound*
+    (serialization) direction. This fault guards the *inbound* direction and
+    is the graceful failure mode for maliciously or accidentally
+    deeply-nested request bodies.
+
+    Args:
+        field: Name of the facet at which the limit was reached.
+        max_depth: The limit that was exceeded.
+
+    Examples:
+        >>> class Node(Contract):
+        ...     label: str
+        ...     child: "Node" = None
+        >>> deep = {"label": "x"}
+        >>> for _ in range(100):
+        ...     deep = {"label": "x", "child": deep}
+        >>> bp = Node(data=deep)
+        >>> bp.is_sealed()
+        False
+        >>> "child" in bp.errors
+        True
+
+    See Also:
+        :data:`MAX_NESTING_DEPTH`, :class:`LensDepthFault`
+    """
+
+    code = "BP502"
+
+    def __init__(self, field: str, max_depth: int):
+        super().__init__(
+            message=f"Nested Contract depth exceeds maximum of {max_depth} at '{field}'",
+            errors={field: [f"Nested Contract depth exceeds maximum of {max_depth}"]},
+            metadata={"field": field, "max_depth": max_depth},
+        )
+        self.field = field
+        self.max_depth = max_depth
+
+
 class ContractAsyncMismatchFault(ContractFault, RuntimeError):
     """Raised when an async-only contract/field operation is called synchronously."""
 
@@ -158,3 +255,23 @@ class ContractAsyncMismatchFault(ContractFault, RuntimeError):
     def __init__(self, message: str, **kwargs):
         ContractFault.__init__(self, message=message, **kwargs)
         RuntimeError.__init__(self, message)
+
+
+class StubGenerationFault(ContractFault):
+    """
+    Raised when a ``.pyi`` stub cannot be generated for a module.
+
+    A developer-tooling fault, not a request-path one: it surfaces from
+    ``aq contracts stubs``, never from serving traffic. It is therefore not
+    public — its message names local module paths.
+
+    Args:
+        message: What could not be stubbed and why.
+
+    See Also:
+        :mod:`aquilia.contracts.stubs`
+    """
+
+    code = "BP600"
+    public = False
+    severity = Severity.WARN

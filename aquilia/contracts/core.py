@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import warnings
+from collections.abc import Mapping, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -37,6 +38,7 @@ from .exceptions import (
 )
 from .facets import UNSET, Computed, Constant, Facet, Inject, derive_facet
 from .lenses import Lens, _ProjectedRef
+from .messages import contract_message
 from .projections import ProjectionRegistry
 
 if TYPE_CHECKING:
@@ -182,6 +184,8 @@ class _SpecData:
         "revision",
         "migrate_from",
         "discriminator",
+        "frozen",
+        "fail_fast",
     )
 
     def __init__(self, spec_cls: type | None = None):
@@ -202,6 +206,8 @@ class _SpecData:
             self.revision = None
             self.migrate_from = {}
             self.discriminator = None
+            self.frozen = False
+            self.fail_fast = False
             return
 
         self.model = getattr(spec_cls, "model", None)
@@ -232,6 +238,8 @@ class _SpecData:
         else:
             self.migrate_from = {}
         self.discriminator = getattr(spec_cls, "discriminator", None)
+        self.frozen = getattr(spec_cls, "frozen", False)
+        self.fail_fast = getattr(spec_cls, "fail_fast", False)
 
 
 # ── Metaclass ────────────────────────────────────────────────────────────
@@ -376,8 +384,6 @@ class ContractMeta(type):
 
         # If this is the base Contract class itself, skip model derivation and basic setup
         if name == "Contract":
-            cls._seal_methods = []
-            cls._async_seal_methods = []
             return cls
 
         # Auto-derive facets from model
@@ -422,20 +428,8 @@ class ContractMeta(type):
             default=spec.default_projection,
             all_facet_names=set(cls._all_facets.keys()),
             write_only_names=write_only_names,
+            minimal_names=mcs._minimal_facet_names(cls._all_facets, spec),
         )
-
-        # Discover seal methods
-        cls._seal_methods: list[str] = []
-        cls._async_seal_methods: list[str] = []
-        for attr_name in dir(cls):
-            if attr_name.startswith("seal_") and not attr_name.startswith("__"):
-                method = getattr(cls, attr_name, None)
-                if callable(method):
-                    cls._seal_methods.append(attr_name)
-            elif attr_name.startswith("async_seal_") and not attr_name.startswith("__"):
-                method = getattr(cls, attr_name, None)
-                if callable(method):
-                    cls._async_seal_methods.append(attr_name)
 
         # Collect ward methods
         from .ward import collect_ward_methods
@@ -453,6 +447,45 @@ class ContractMeta(type):
             _contract_registry[name] = cls
 
         return cls
+
+    @staticmethod
+    def _minimal_facet_names(all_facets: dict[str, Facet], spec: _SpecData) -> set[str]:
+        """
+        Resolve the facet names that make up the ``"__minimal__"`` projection.
+
+        A minimal projection is the smallest identifying view of a record:
+        the model's primary key plus every facet the Contract marks
+        ``read_only`` (server-owned fields such as ``created_at``, which are
+        safe to expose because a client can never set them).
+
+        Primary keys are discovered from ``Spec.model._fields`` when a model is
+        bound; otherwise the conventional ``id``/``pk`` facet names are used so
+        that model-less DTO Contracts still get a meaningful minimal view.
+
+        Args:
+            all_facets: The Contract's fully merged facet mapping.
+            spec: The Contract's parsed ``Spec`` configuration.
+
+        Returns:
+            Facet names to include. May be empty — an empty minimal
+            projection renders ``{}`` rather than leaking every field.
+
+        See Also:
+            :meth:`ProjectionRegistry.configure` — consumes this set.
+        """
+        names: set[str] = set()
+
+        model = spec.model if spec else None
+        model_fields = getattr(model, "_fields", {}) if model is not None else {}
+        for fname, mf in model_fields.items():
+            if getattr(mf, "primary_key", False) and fname in all_facets:
+                names.add(fname)
+
+        if not names:
+            names.update(n for n in ("id", "pk") if n in all_facets)
+
+        names.update(fname for fname, facet in all_facets.items() if facet.read_only)
+        return names
 
     @staticmethod
     def _facet_target_tokens(facet: Facet) -> set[str]:
@@ -792,41 +825,60 @@ class ContractUnion:
 
 
 class ContractSerializationDescriptor:
-    """Descriptor to support calling to_dict/to_dict_many as class methods or instance methods."""
+    """
+    Expose ``to_dict``/``to_dict_many`` (and their async variants) as both
+    class methods and instance methods.
+
+    On an instance, ``bp.to_dict`` binds to ``bp._to_dict_instance``. On the
+    class, ``UserContract.to_dict(obj)`` wraps ``obj`` in a throwaway Contract
+    first, so a model instance can be molded without constructing one by hand.
+
+    Args:
+        name: Public method name — one of ``to_dict``, ``to_dict_many``,
+            ``to_dict_async``, ``to_dict_many_async``.
+    """
+
+    __slots__ = ("name", "is_many", "is_async")
 
     def __init__(self, name: str):
         self.name = name
+        self.is_many = name.startswith("to_dict_many")
+        self.is_async = name.endswith("_async")
 
     def __get__(self, instance, owner):
-        if instance is None:
-            # Accessed on the class, e.g., ComplexUserContract.to_dict
-            if self.name == "to_dict":
+        if instance is not None:
+            # Accessed on the instance, e.g., bp.to_dict
+            return getattr(instance, f"_{self.name}_instance")
 
-                def class_to_dict(obj, *, _depth: int = 0, _seen: set | None = None):
-                    from aquilia.contracts.core import Contract
+        # Accessed on the class, e.g., ComplexUserContract.to_dict
+        name = self.name
+        if self.is_many:
 
-                    if isinstance(obj, Contract):
-                        return obj.to_dict(_depth=_depth, _seen=_seen)
-                    return owner(instance=obj).to_dict(_depth=_depth, _seen=_seen)
+            def class_many(objs, *, _depth: int = 0, _seen: set | None = None):
+                if isinstance(objs, Contract):
+                    return getattr(objs, name)(_depth=_depth, _seen=_seen)
+                return getattr(owner(many=True), name)(objs, _depth=_depth, _seen=_seen)
 
-                return class_to_dict
-            elif self.name == "to_dict_many":
+            return class_many
 
-                def class_to_dict_many(objs, *, _depth: int = 0, _seen: set | None = None):
-                    from aquilia.contracts.core import Contract
+        def class_single(obj, *, _depth: int = 0, _seen: set | None = None):
+            if isinstance(obj, Contract):
+                return getattr(obj, name)(_depth=_depth, _seen=_seen)
+            return getattr(owner(instance=obj), name)(_depth=_depth, _seen=_seen)
 
-                    if isinstance(objs, Contract):
-                        return objs.to_dict_many(_depth=_depth, _seen=_seen)
-                    return owner(many=True).to_dict_many(objs, _depth=_depth, _seen=_seen)
-
-                return class_to_dict_many
-        # Accessed on the instance, e.g., bp.to_dict
-        return getattr(instance, f"_{self.name}_instance")
+        return class_single
 
 
 class Contract(Generic[ModelT], metaclass=ContractMeta):
+    # Class-level default: some paths build instances without running
+    # __init__ (Computed.extract), and __getattr__ would otherwise mask the
+    # missing attribute as "no such field".
+    _active_groups: frozenset[str] | None = None
+
     to_dict = ContractSerializationDescriptor("to_dict")
     to_dict_many = ContractSerializationDescriptor("to_dict_many")
+    to_dict_async = ContractSerializationDescriptor("to_dict_async")
+    to_dict_many_async = ContractSerializationDescriptor("to_dict_many_async")
     """
     The Contract -- a contract between a Model and the outside world.
 
@@ -899,13 +951,76 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         self._sigil = getattr(self.__class__, "_sigil", None)
         # Store context
         self._context = self.context
+        # Validation groups requested for the current pass; None = unrestricted.
+        self._active_groups: frozenset[str] | None = None
 
     @property
     def has_async_wards(self) -> bool:
-        """Check if this contract has async ward methods or legacy async seal methods."""
-        return any(wm.mode == "async" for wm in self.__class__._ward_methods) or bool(
-            getattr(self.__class__, "_async_seal_methods", [])
-        )
+        """
+        True if this Contract, or any Contract nested beneath it, declares an
+        ``@ward(mode="async")`` method.
+
+        Nested Contracts are included because their wards run as part of this
+        Contract's validation. If only the top level were consulted, a Contract
+        whose nested child declares an async ward would pass :meth:`is_sealed`
+        while that ward never ran — silently skipping validation instead of
+        directing the caller to :meth:`is_sealed_async`.
+        """
+        return self.__class__._has_async_wards_deep()
+
+    @classmethod
+    def _has_async_wards_deep(cls, _seen: frozenset[int] = frozenset()) -> bool:
+        """
+        Walk this Contract's facet tree looking for async wards.
+
+        Args:
+            _seen: Contract class ids already visited, so a self-referential
+                Contract terminates instead of recursing forever.
+
+        Returns:
+            True if this Contract or any nested Contract declares an async ward.
+
+        Performance:
+            Memoized per class once the walk is complete; it runs once, not per
+            request. Self-referential Contracts are cut by ``_seen``.
+        """
+        cached = cls.__dict__.get("_async_wards_deep_cache")
+        if cached is not None:
+            return cached
+
+        if any(wm.mode == "async" for wm in cls._ward_methods):
+            cls._async_wards_deep_cache = True
+            return True
+
+        from .sigil import get_nested_contract_cls
+
+        seen = _seen | {id(cls)}
+        result = False
+        complete = True
+        sigil = getattr(cls, "_sigil", None)
+        if sigil is not None:
+            for spec in sigil.fields.values():
+                if not spec.is_nested_contract:
+                    continue
+                nested_cls = get_nested_contract_cls(spec.facet)
+                if not isinstance(nested_cls, type) or not issubclass(nested_cls, Contract):
+                    # An unresolved forward reference (still a string): the
+                    # answer for this class is not yet knowable, so it must
+                    # not be cached.
+                    complete = False
+                    continue
+                if id(nested_cls) in seen:
+                    # Cycle: this branch adds nothing, but the truncation is
+                    # specific to the path that reached it.
+                    complete = False
+                    continue
+                if nested_cls._has_async_wards_deep(seen):
+                    result = True
+                    break
+
+        if result or complete:
+            cls._async_wards_deep_cache = result
+        return result
 
     @property
     def _bound_facets(self) -> dict[str, Facet]:
@@ -941,6 +1056,69 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             return self._validated_data
         return {}
 
+    def _mold_steps(
+        self,
+        obj: Any,
+        *,
+        _depth: int,
+        _seen: set | None,
+    ) -> Any:
+        """
+        Mold one instance, yielding each Lens field for the driver to resolve.
+
+        This is the single implementation of the field-molding loop, shared by
+        the sync and async serializers. Every step except Lens resolution is
+        identical in both modes; a Lens is the only field type that may need to
+        await the ORM. Rather than duplicating the loop, this generator yields
+        ``(facet, value)`` for each Lens and receives the molded result back via
+        ``send()`` — so the driver decides whether resolution is sync or async.
+
+        Args:
+            obj: Model instance to mold.
+            _depth: Lens traversal depth.
+            _seen: Cycle-detection set for Lens traversal.
+
+        Yields:
+            ``(lens_facet, raw_value)`` pairs awaiting resolution.
+
+        Returns:
+            The completed output mapping (via ``StopIteration.value``).
+
+        See Also:
+            :meth:`_to_dict_instance`, :meth:`_to_dict_async_instance`
+        """
+        projection_fields = self._projections.resolve(self._projection_name)
+
+        result: dict[str, Any] = {}
+        for fname, facet in self._bound_facets.items():
+            # Skip write-only facets in output
+            if facet.write_only:
+                continue
+            # Apply projection filter. Compared against None, not truthiness:
+            # an empty projection means "expose nothing", not "expose all".
+            if projection_fields is not None and fname not in projection_fields:
+                continue
+
+            # Extract value from instance
+            if isinstance(facet, Computed):
+                value = facet.extract(obj, _owner=self)
+            else:
+                value = facet.extract(obj)
+
+            # Mold through Lens (with depth/cycle tracking)
+            if isinstance(facet, Lens):
+                value = yield (facet, value)
+            elif value is not None:
+                value = facet.mold(value)
+            elif facet.allow_null:
+                value = None
+            else:
+                continue  # Skip None values for non-nullable facets
+
+            result[fname] = value
+
+        return result
+
     def _to_dict_instance(
         self,
         instance: Any = None,
@@ -955,6 +1133,11 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             instance: Override instance (default: self.instance)
             _depth: Internal depth counter for Lens traversal
             _seen: Internal cycle detection set
+
+        Raises:
+            LensUnresolvedFault: If a ``many=True`` Lens receives an un-awaited
+                related manager. Prefetch the relation, or use
+                :meth:`to_dict_async`, which awaits it.
         """
         if instance is None and self.many:
             if self.instance is not None:
@@ -969,34 +1152,54 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
                 return self._validated_data
             return {}
 
-        # Resolve projection
-        projection_fields = self._projections.resolve(self._projection_name)
+        gen = self._mold_steps(obj, _depth=_depth, _seen=_seen)
+        try:
+            facet, value = next(gen)
+            while True:
+                molded = facet.mold(value, _depth=_depth, _seen=_seen)
+                facet, value = gen.send(molded)
+        except StopIteration as stop:
+            return stop.value
 
-        result: dict[str, Any] = {}
-        for fname, facet in self._bound_facets.items():
-            # Skip write-only facets in output
-            if facet.write_only:
-                continue
-            # Apply projection filter
-            if projection_fields and fname not in projection_fields:
-                continue
+    async def _to_dict_async_instance(
+        self,
+        instance: Any = None,
+        *,
+        _depth: int = 0,
+        _seen: set | None = None,
+    ) -> dict[str, Any] | list[dict[str, Any]]:
+        """
+        Async counterpart of :meth:`_to_dict_instance` — awaits ORM relations.
 
-            # Extract value from instance
-            value = facet.extract(obj)
+        Args:
+            instance: Override instance (default: self.instance)
+            _depth: Internal depth counter for Lens traversal
+            _seen: Internal cycle detection set
 
-            # Mold through Lens (with depth/cycle tracking)
-            if isinstance(facet, Lens):
-                value = facet.mold(value, _depth=_depth, _seen=_seen)
-            elif value is not None:
-                value = facet.mold(value)
-            elif facet.allow_null:
-                value = None
-            else:
-                continue  # Skip None values for non-nullable facets
+        Returns:
+            The molded mapping, or a list of them for ``many=True``.
+        """
+        if instance is None and self.many:
+            if self.instance is not None:
+                return await self.to_dict_many_async(self.instance, _depth=_depth, _seen=_seen)
+            if self._validated_data is not None:
+                return self._validated_data
+            return []
 
-            result[fname] = value
+        obj = instance or self.instance
+        if obj is None:
+            if self._validated_data is not None:
+                return self._validated_data
+            return {}
 
-        return result
+        gen = self._mold_steps(obj, _depth=_depth, _seen=_seen)
+        try:
+            facet, value = next(gen)
+            while True:
+                molded = await facet.mold_async(value, _depth=_depth, _seen=_seen)
+                facet, value = gen.send(molded)
+        except StopIteration as stop:
+            return stop.value
 
     def _to_dict_many_instance(
         self,
@@ -1010,9 +1213,45 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             return instances.to_dict_many(_depth=_depth, _seen=_seen)
         return [self.to_dict(instance=obj, _depth=_depth, _seen=_seen) for obj in instances]
 
+    async def _to_dict_many_async_instance(
+        self,
+        instances: Any,
+        *,
+        _depth: int = 0,
+        _seen: set | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Async counterpart of :meth:`_to_dict_many_instance`.
+
+        Args:
+            instances: An iterable of model instances, an un-awaited related
+                manager, or a Contract wrapping them.
+            _depth: Lens traversal depth.
+            _seen: Cycle-detection set.
+
+        Returns:
+            One molded mapping per instance, in input order.
+
+        Performance:
+            Instances are molded sequentially. Gathering them concurrently
+            would issue one lazy-relation query per row simultaneously and
+            exhaust the connection pool on a large result set.
+        """
+        if isinstance(instances, Contract):
+            return await instances.to_dict_many_async(_depth=_depth, _seen=_seen)
+        instances = await Lens._resolve_manager(instances)
+        return [await self.to_dict_async(instance=obj, _depth=_depth, _seen=_seen) for obj in instances]
+
     # ── Inbound: Cast + Seal ─────────────────────────────────────────
 
-    def is_sealed(self, *, raise_fault: bool = False, _bypass_async_check: bool = False) -> bool:
+    def is_sealed(
+        self,
+        *,
+        raise_fault: bool = False,
+        groups: str | Sequence[str] | None = None,
+        _bypass_async_check: bool = False,
+        _async_pending: list[Any] | None = None,
+    ) -> bool:
         """
         Validate the input data through the full pipeline.
 
@@ -1024,10 +1263,21 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
         Args:
             raise_fault: If True, raise ContractFault on failure.
+            groups: Restrict ward execution to these validation groups. Wards
+                declared without groups always run; a grouped ward runs only
+                when one of its groups is named here. ``None`` (default) runs
+                every ungrouped ward and no grouped ones.
+            _bypass_async_check: Internal. Skip the async-ward guard because an
+                async driver is running this as its synchronous phase.
+            _async_pending: Internal. Accumulator for nested Contracts with
+                async wards, drained by :meth:`is_sealed_async`.
 
         Returns:
             True if data passes all seals.
         """
+        if groups is not None:
+            self._active_groups = frozenset((groups,) if isinstance(groups, str) else groups)
+
         if not _bypass_async_check and self.has_async_wards:
             raise ContractAsyncMismatchFault(
                 "Contract contains async wards (is async but called from sync context) and must be validated using is_sealed_async()."
@@ -1054,9 +1304,17 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         self._errors = {}
         validated: dict[str, Any] = {}
 
-        from .sigil import is_mapping_like
+        from .sigil import adapt_input, is_mapping_like
 
-        data = self._input_data if is_mapping_like(self._input_data) else {}
+        data = adapt_input(self._input_data)
+        if not is_mapping_like(data):
+            # Previously coerced to {}, which reported every field as missing —
+            # a misleading diagnosis of a payload that was never an object.
+            self._errors = {"__all__": [contract_message("expected_object", type=type(self._input_data).__name__)]}
+            self._is_sealed = False
+            if raise_fault:
+                raise SealFault(message="Contract validation failed", errors=self._errors)
+            return False
 
         # ── Unknown field rejection ──────────────────────────────────
         extra_fields_mode = self._spec.extra_fields if self._spec else "ignore"
@@ -1070,7 +1328,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             unknown = get_keys(data) - known_fields
             if unknown:
                 for field_name in sorted(unknown):
-                    self._errors.setdefault(field_name, []).append(f"Unknown field '{field_name}' is not allowed")
+                    self._errors.setdefault(field_name, []).append(contract_message("unknown_field", field=field_name))
                 self._is_sealed = False
                 if raise_fault:
                     raise SealFault(
@@ -1086,6 +1344,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             strict=strict_override,
             partial=self.partial,
             context=self.context,
+            _async_pending=_async_pending,
         )
         self._errors.update(errors)
         validated.update(validated_dict)
@@ -1098,17 +1357,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
         # Phase 3: Cross-field seals (ward methods)
         validated = DataObject(validated)
-        data_obj = validated
-        for wm in self.__class__._ward_methods:
-            if wm.mode == "sync":
-                try:
-                    wm.fn(self, data_obj)
-                except CastFault as exc:
-                    msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                    if exc.field not in self._errors or msg not in self._errors[exc.field]:
-                        self._errors.setdefault(exc.field, []).append(msg)
-                except Exception as exc:
-                    self._errors.setdefault("__all__", []).append(str(exc))
+        self.__class__._run_ward_phase(self, validated)
 
         if self._errors:
             self._is_sealed = False
@@ -1117,20 +1366,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             return False
 
         # Phase 4: Object-level validate
-        try:
-            validated = self.validate(validated)
-        except CastFault as exc:
-            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-            if exc.field not in self._errors or msg not in self._errors[exc.field]:
-                self._errors.setdefault(exc.field, []).append(msg)
-        except SealFault as exc:
-            if hasattr(exc, "field_errors") and exc.field_errors:
-                for field, msgs in exc.field_errors.items():
-                    self._errors.setdefault(field, []).extend(msgs)
-            else:
-                self._errors.setdefault("__all__", []).append(str(exc))
-        except Exception as exc:
-            self._errors.setdefault("__all__", []).append(str(exc))
+        validated = self.__class__._run_validate_hook(self, validated)
 
         if self._errors:
             self._is_sealed = False
@@ -1138,37 +1374,103 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
                 raise SealFault(message="Contract validation failed", errors=self._errors)
             return False
 
-        self._validated_data = validated
+        self._validated_data = self._freeze_if_needed(validated)
         self._is_sealed = True
         return True
 
-    async def is_sealed_async(self, *, raise_fault: bool = False) -> bool:
+    async def is_sealed_async(
+        self,
+        *,
+        raise_fault: bool = False,
+        groups: str | Sequence[str] | None = None,
+    ) -> bool:
         """
-        Async variant of is_sealed -- also runs async_seal_* and async ward methods.
+        Validate the input data, including ``@ward(mode="async")`` methods.
+
+        Required whenever the Contract declares any async ward — the sync
+        :meth:`is_sealed` raises :class:`ContractAsyncMismatchFault` in that
+        case rather than silently skipping the async validation.
+
+        Args:
+            raise_fault: If True, raise :class:`SealFault` on failure instead of
+                returning False.
+
+        Returns:
+            True if the data passes every phase.
+
+        Raises:
+            SealFault: If validation fails and ``raise_fault`` is set.
+
+        Async Behavior:
+            The synchronous phases run first (structural validation, sync
+            wards, the ``validate()`` hook), then async wards. For
+            ``many=True`` Contracts, async wards run **per item** — each row is
+            validated independently, matching the per-item semantics of the
+            single-item path.
+
+        Examples:
+        ```
+            Async uniqueness check against the database::
+
+                class UserContract(Contract):
+                    email: str
+
+                    @ward(mode="async")
+                    async def unique_email(self, data):
+                        if await User.objects.filter(email=data["email"]).exists():
+                            self.reject("email", "Already registered")
+
+                bp = UserContract(data=payload)
+                if not await bp.is_sealed_async():
+                    return Response.json(bp.errors, status=422)
+
+            Bulk bodies work the same way::
+
+                bp = UserContract(data=rows, many=True)
+                await bp.is_sealed_async()  # async wards run once per row
+        ```
+        See Also:
+            :meth:`is_sealed`, :meth:`seal_stream`
         """
-        # Run sync pipeline (which skips async wards)
-        if not self.is_sealed(raise_fault=False, _bypass_async_check=True):
+        if groups is not None:
+            self._active_groups = frozenset((groups,) if isinstance(groups, str) else groups)
+
+        if self.many:
+            return await self._seal_many_async(raise_fault=raise_fault)
+
+        # Run sync pipeline (which skips async wards), collecting any nested
+        # Contracts whose async wards still need to be awaited.
+        nested_pending: list[Any] = []
+        if not self.is_sealed(
+            raise_fault=False,
+            groups=groups,
+            _bypass_async_check=True,
+            _async_pending=nested_pending,
+        ):
             if raise_fault:
                 raise SealFault(message="Contract validation failed", errors=self._errors)
             return False
 
-        # Phase 5: Async seals and coroutine ward methods
-        data_obj = self._validated_data
-        for wm in self.__class__._ward_methods:
-            if wm.mode == "async":
-                try:
-                    import inspect
+        # Phase 4b: nested Contracts' async wards
+        if nested_pending:
+            from .sigil import merge_nested_errors
 
-                    if inspect.iscoroutinefunction(wm.fn):
-                        await wm.fn(self, data_obj)
-                    else:
-                        wm.fn(self, data_obj)
-                except CastFault as exc:
-                    msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                    if exc.field not in self._errors or msg not in self._errors[exc.field]:
-                        self._errors.setdefault(exc.field, []).append(msg)
-                except Exception as exc:
-                    self._errors.setdefault("__all__", []).append(str(exc))
+            for path, nested_cls, inst, data_obj in nested_pending:
+                await nested_cls._run_ward_phase_async(inst, data_obj, _sync_already_run=True)
+                if inst._errors:
+                    merge_nested_errors(self._errors, path, inst._errors)
+
+            if self._errors:
+                self._is_sealed = False
+                self._validated_data = None
+                if raise_fault:
+                    raise SealFault(message="Contract validation failed", errors=self._errors)
+                return False
+
+        # Phase 5: async ward methods. Delegated to the shared helper so group,
+        # condition, ordering, and fail-fast semantics cannot drift between the
+        # single-item path and the bulk paths.
+        await self.__class__._run_ward_phase_async(self, self._validated_data, _sync_already_run=True)
 
         if self._errors:
             self._is_sealed = False
@@ -1180,7 +1482,98 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         return True
 
     def _seal_many(self, *, raise_fault: bool) -> bool:
-        """Validate a list of input items."""
+        """
+        Validate a list of input items synchronously.
+
+        Args:
+            raise_fault: If True, raise :class:`SealFault` on failure.
+
+        Returns:
+            True if every item validates.
+
+        Raises:
+            SealFault: If validation fails and ``raise_fault`` is set.
+            ContractAsyncMismatchFault: If the Contract declares async wards —
+                use :meth:`is_sealed_async` instead, which dispatches per item.
+
+        Security:
+            The batch size is capped by ``Spec.max_many_items`` (10,000 by
+            default) *before* iteration, so an oversized list is rejected
+            without allocating per-item Contract instances.
+        """
+        items, failure = self._prepare_many_items(raise_fault=raise_fault)
+        if items is None:
+            return failure
+
+        all_validated = []
+        all_errors: dict[str, Any] = {}
+        for i, item in enumerate(items):
+            child = self._make_child(item)
+            if child.is_sealed():
+                all_validated.append(child.validated_data)
+            else:
+                all_errors[str(i)] = child.errors
+
+        return self._finish_many(all_validated, all_errors, raise_fault=raise_fault)
+
+    async def _seal_many_async(self, *, raise_fault: bool) -> bool:
+        """
+        Async counterpart of :meth:`_seal_many` — validates each item via
+        :meth:`is_sealed_async` so async wards run once per item.
+
+        Args:
+            raise_fault: If True, raise :class:`SealFault` on failure.
+
+        Returns:
+            True if every item validates.
+
+        Raises:
+            SealFault: If validation fails and ``raise_fault`` is set.
+
+        Async Behavior:
+            Items are validated sequentially rather than concurrently: async
+            wards commonly hit a database, and unbounded concurrency over a
+            10,000-item batch would exhaust the connection pool.
+        """
+        items, failure = self._prepare_many_items(raise_fault=raise_fault)
+        if items is None:
+            return failure
+
+        all_validated = []
+        all_errors: dict[str, Any] = {}
+        for i, item in enumerate(items):
+            child = self._make_child(item)
+            if await child.is_sealed_async():
+                all_validated.append(child.validated_data)
+            else:
+                all_errors[str(i)] = child.errors
+
+        return self._finish_many(all_validated, all_errors, raise_fault=raise_fault)
+
+    def _make_child(self, item: Any) -> Contract:
+        """Build the per-item child Contract used by the ``many=True`` paths."""
+        child = self.__class__(
+            data=item,
+            partial=self.partial,
+            projection=self._projection_name,
+            context=self.context,
+        )
+        # Groups are a property of the validation pass, not of one row.
+        child._active_groups = self._active_groups
+        return child
+
+    def _prepare_many_items(self, *, raise_fault: bool) -> tuple[list[Any] | None, bool]:
+        """
+        Normalize and size-check ``many=True`` input.
+
+        Returns:
+            ``(items, unused)`` on success, or ``(None, False)`` when the input
+            is not a list or exceeds ``Spec.max_many_items`` — in which case
+            ``self._errors``/``self._is_sealed`` are already set.
+
+        Raises:
+            SealFault: If the input is rejected and ``raise_fault`` is set.
+        """
         from .sigil import extract_flat_list_mapping, is_mapping_like
 
         input_data = self._input_data
@@ -1194,11 +1587,11 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             self._is_sealed = False
             if raise_fault:
                 raise SealFault(message="Expected a list", errors=self._errors)
-            return False
+            return None, False
 
         # Enforce maximum list size to prevent resource exhaustion
         max_items = self._spec.max_many_items if self._spec else 10000
-        # Allow runtime override via context
+        # Allow runtime override via context (trusted, server-side data only)
         if self.context.get("max_many_items"):
             max_items = self.context["max_many_items"]
 
@@ -1210,30 +1603,20 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
                     message=f"Too many items ({len(input_data)} > {max_items})",
                     errors=self._errors,
                 )
-            return False
+            return None, False
 
-        all_validated = []
-        all_errors = {}
-        for i, item in enumerate(input_data):
-            child = self.__class__(
-                data=item,
-                partial=self.partial,
-                projection=self._projection_name,
-                context=self.context,
-            )
-            if child.is_sealed():
-                all_validated.append(child.validated_data)
-            else:
-                all_errors[str(i)] = child.errors
+        return list(input_data), False
 
-        if all_errors:
-            self._errors = all_errors
+    def _finish_many(self, validated: list[Any], errors: dict[str, Any], *, raise_fault: bool) -> bool:
+        """Record the aggregated outcome of a ``many=True`` validation pass."""
+        if errors:
+            self._errors = errors
             self._is_sealed = False
             if raise_fault:
                 raise SealFault(message="List validation failed", errors=self._errors)
             return False
 
-        self._validated_data = all_validated
+        self._validated_data = self._freeze_if_needed(validated)
         self._is_sealed = True
         return True
 
@@ -1464,7 +1847,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
                 continue
             if mode == "input" and facet.read_only:
                 continue
-            if projection_fields and fname not in projection_fields:
+            if projection_fields is not None and fname not in projection_fields:
                 continue
 
             if fname in base_schema["properties"]:
@@ -1505,277 +1888,484 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         return cls._all_facets.get(name)
 
     @classmethod
+    def _run_ward_phase(
+        cls,
+        inst: Contract,
+        data_obj: DataObject,
+        *,
+        include_async: bool = False,
+    ) -> None:
+        """
+        Run cross-field ward methods against already-structurally-validated data.
+
+        Shared by :meth:`is_sealed`, :meth:`seal_many`, and :meth:`seal_stream`
+        so all four entry points apply identical ward semantics. Errors are
+        accumulated onto ``inst._errors`` rather than raised — a ward that
+        rejects a field is an expected outcome, not an exceptional one.
+
+        Args:
+            inst: Contract instance the wards are bound to; receives errors.
+            data_obj: The validated data passed as the ward's ``data`` argument.
+            include_async: If False, ``mode="async"`` wards are skipped (they
+                belong to the ``is_sealed_async`` phase). If True, async wards
+                are invoked but *not* awaited — only use from
+                :meth:`_run_ward_phase_async`.
+
+        Side Effects:
+            Mutates ``inst._errors``.
+        """
+        groups = inst._active_groups
+        fail_fast = inst._spec is not None and inst._spec.fail_fast
+        for wm in cls._ward_methods:
+            if wm.mode != "sync" and not include_async:
+                continue
+            if not wm.should_run(data_obj, groups):
+                continue
+            try:
+                wm.fn(inst, data_obj)
+            except CastFault as exc:
+                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                    inst._errors.setdefault(exc.field, []).append(msg)
+            except Exception as exc:
+                inst._errors.setdefault("__all__", []).append(str(exc))
+
+            if inst._errors and fail_fast:
+                return
+
+    @classmethod
+    async def _run_ward_phase_async(
+        cls,
+        inst: Contract,
+        data_obj: DataObject,
+        *,
+        _sync_already_run: bool = False,
+    ) -> None:
+        """
+        Async counterpart of :meth:`_run_ward_phase` — runs *all* wards.
+
+        Sync wards run inline; ``mode="async"`` wards are awaited when they are
+        coroutine functions and called directly otherwise (defensive: a ward
+        may be declared ``mode="async"`` while remaining a plain function).
+
+        Args:
+            inst: Contract instance the wards are bound to; receives errors.
+            data_obj: The validated data passed as the ward's ``data`` argument.
+            _sync_already_run: Skip ``mode="sync"`` wards because the caller
+                already ran them. Used by the nested-Contract async drain,
+                where the sync phase completed during structural validation —
+                without this, a ward with side effects would fire twice.
+
+        Side Effects:
+            Mutates ``inst._errors``.
+        """
+        import inspect
+
+        groups = inst._active_groups
+        fail_fast = inst._spec is not None and inst._spec.fail_fast
+        for wm in cls._ward_methods:
+            if _sync_already_run and wm.mode != "async":
+                continue
+            if not wm.should_run(data_obj, groups):
+                continue
+            try:
+                if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
+                    await wm.fn(inst, data_obj)
+                else:
+                    wm.fn(inst, data_obj)
+            except CastFault as exc:
+                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                    inst._errors.setdefault(exc.field, []).append(msg)
+            except Exception as exc:
+                inst._errors.setdefault("__all__", []).append(str(exc))
+
+            if inst._errors and fail_fast:
+                return
+
+    @staticmethod
+    def _run_validate_hook(inst: Contract, validated: DataObject) -> DataObject:
+        """
+        Run the overridable object-level :meth:`validate` hook exactly once.
+
+        Args:
+            inst: Contract instance whose ``validate()`` override to invoke.
+            validated: Data to pass to the hook.
+
+        Returns:
+            The hook's return value, or ``validated`` unchanged if the hook
+            raised (in which case the reason is recorded on ``inst._errors``).
+
+        Side Effects:
+            Mutates ``inst._errors`` on failure.
+
+        Notes:
+            Exactly-once invocation matters: a ``validate()`` override may have
+            side effects (metrics, audit logs, external calls). Earlier
+            revisions of the bulk paths invoked it up to three times per row.
+        """
+        try:
+            return inst.validate(validated)
+        except CastFault as exc:
+            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+            if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                inst._errors.setdefault(exc.field, []).append(msg)
+        except SealFault as exc:
+            if getattr(exc, "field_errors", None):
+                for field, msgs in exc.field_errors.items():
+                    inst._errors.setdefault(field, []).extend(msgs)
+            else:
+                inst._errors.setdefault("__all__", []).append(str(exc))
+        except Exception as exc:
+            inst._errors.setdefault("__all__", []).append(str(exc))
+        return validated
+
+    @classmethod
+    def _seal_row(cls, row: Any, index: int, *, context: dict[str, Any] | None = None) -> SealOutcome:
+        """
+        Validate one row through the full pipeline and report the outcome.
+
+        The single implementation behind :meth:`seal_many` and
+        :meth:`seal_stream`. Runs, in order: Sigil structural validation, sync
+        ward methods, then the object-level ``validate()`` hook — each stage
+        gated on the previous one producing no errors, and each stage run
+        exactly once.
+
+        Args:
+            row: One inbound record (mapping-like).
+            index: Position of the row in the batch; echoed into the outcome.
+            context: Optional contextual data forwarded to the Contract.
+
+        Returns:
+            A :class:`SealOutcome` carrying either the validated value or the
+            accumulated per-field errors.
+
+        Performance:
+            One Contract instantiation and one Sigil pass per row.
+
+        See Also:
+            :meth:`_seal_row_async` — variant that also runs async wards.
+        """
+        from .sigil import adapt_input, is_mapping_like
+
+        row = adapt_input(row)
+        if not is_mapping_like(row):
+            return SealOutcome(
+                index=index,
+                ok=False,
+                value=None,
+                errors={"__all__": [contract_message("expected_object", type=type(row).__name__)]},
+            )
+
+        errors, validated_dict = cls._sigil.validate(row, context=context)
+        if errors:
+            return SealOutcome(index=index, ok=False, value=None, errors=errors)
+
+        inst = cls(data=row, context=context)
+        inst._errors = {}
+        validated = DataObject(validated_dict)
+
+        cls._run_ward_phase(inst, validated)
+        if not inst._errors:
+            validated = cls._run_validate_hook(inst, validated)
+
+        if inst._errors:
+            return SealOutcome(index=index, ok=False, value=None, errors=inst._errors)
+        return SealOutcome(index=index, ok=True, value=validated, errors=None)
+
+    @classmethod
+    async def _seal_row_async(cls, row: Any, index: int, *, context: dict[str, Any] | None = None) -> SealOutcome:
+        """
+        Async variant of :meth:`_seal_row` — also awaits ``mode="async"`` wards.
+
+        Args:
+            row: One inbound record (mapping-like).
+            index: Position of the row in the batch; echoed into the outcome.
+            context: Optional contextual data forwarded to the Contract.
+
+        Returns:
+            A :class:`SealOutcome`.
+
+        See Also:
+            :meth:`_seal_row`
+        """
+        from .sigil import adapt_input, is_mapping_like
+
+        row = adapt_input(row)
+        if not is_mapping_like(row):
+            return SealOutcome(
+                index=index,
+                ok=False,
+                value=None,
+                errors={"__all__": [contract_message("expected_object", type=type(row).__name__)]},
+            )
+
+        errors, validated_dict = cls._sigil.validate(row, context=context)
+        if errors:
+            return SealOutcome(index=index, ok=False, value=None, errors=errors)
+
+        inst = cls(data=row, context=context)
+        inst._errors = {}
+        validated = DataObject(validated_dict)
+
+        await cls._run_ward_phase_async(inst, validated)
+        if not inst._errors:
+            validated = cls._run_validate_hook(inst, validated)
+
+        if inst._errors:
+            return SealOutcome(index=index, ok=False, value=None, errors=inst._errors)
+        return SealOutcome(index=index, ok=True, value=validated, errors=None)
+
+    @classmethod
+    def from_env(
+        cls,
+        env: Mapping[str, str] | None = None,
+        *,
+        prefix: str = "",
+        seal: bool = True,
+    ) -> Contract:
+        """
+        Build a Contract from environment variables.
+
+        Field names map to upper-case variable names, so a field ``database_url``
+        reads ``DATABASE_URL`` (or ``<PREFIX>DATABASE_URL``). Absent variables
+        are omitted rather than set empty, so each field's ``default`` and
+        ``required`` rules decide the outcome exactly as they would for a JSON
+        body.
+
+        Args:
+            env: Mapping to read. Defaults to :data:`os.environ`.
+            prefix: Prefix stripped from variable names, e.g. ``"APP_"``.
+            seal: Validate before returning. Default ``True`` — configuration
+                errors should surface at startup, not at first use.
+
+        Returns:
+            A Contract populated from the environment.
+
+        Raises:
+            SealFault: If ``seal`` is set and validation fails.
+
+        Examples:
+            >>> class SettingsContract(Contract):
+            ...     port = IntFacet(default=8000)
+            ...     database_url = TextFacet()
+            >>> settings = SettingsContract.from_env(prefix="APP_")
+
+        Notes:
+            Every value arrives as a string; the facets' normal casting turns
+            ``"8000"`` into an ``int``. Configuration therefore gets the same
+            validation as request data instead of a parallel parsing path.
+        """
+        import os
+
+        source = os.environ if env is None else env
+        data: dict[str, Any] = {}
+        for fname in cls._all_facets:
+            key = f"{prefix}{fname.upper()}"
+            if key in source:
+                data[fname] = source[key]
+
+        contract = cls(data=data)
+        if seal:
+            contract.is_sealed(raise_fault=True)
+        return contract
+
+    @classmethod
+    def from_cli(
+        cls,
+        argv: Sequence[str] | None = None,
+        *,
+        seal: bool = True,
+    ) -> Contract:
+        """
+        Build a Contract from command-line arguments.
+
+        Parses the common ``--flag value``, ``--flag=value``, and bare
+        ``--flag`` (boolean) forms. Dashes in flag names map to underscores, so
+        ``--database-url`` fills a ``database_url`` field. A flag repeated more
+        than once collects into a list for a ``ListFacet`` to validate.
+
+        Args:
+            argv: Arguments to parse. Defaults to ``sys.argv[1:]``.
+            seal: Validate before returning. Default ``True``.
+
+        Returns:
+            A Contract populated from the parsed arguments.
+
+        Raises:
+            SealFault: If ``seal`` is set and validation fails.
+
+        Examples:
+            >>> class ImportContract(Contract):
+            ...     source = TextFacet()
+            ...     dry_run = BoolFacet(default=False)
+            >>> options = ImportContract.from_cli(["--source", "data.csv", "--dry-run"])
+
+        Notes:
+            A deliberately small parser for feeding a Contract, not a
+            replacement for the ``aq`` CLI's Click layer. Unknown flags are
+            ignored so a Contract can read the subset of arguments it cares
+            about from a larger command line.
+        """
+        import sys
+
+        args = list(sys.argv[1:] if argv is None else argv)
+        raw: dict[str, Any] = {}
+
+        index = 0
+        while index < len(args):
+            token = args[index]
+            if not token.startswith("--"):
+                index += 1
+                continue
+
+            token = token[2:]
+            if "=" in token:
+                name, value = token.split("=", 1)
+            else:
+                name = token
+                nxt = args[index + 1] if index + 1 < len(args) else None
+                if nxt is not None and not nxt.startswith("--"):
+                    value = nxt
+                    index += 1
+                else:
+                    value = "true"  # bare flag
+            index += 1
+
+            name = name.replace("-", "_")
+            if name in raw:
+                existing = raw[name]
+                raw[name] = [*existing, value] if isinstance(existing, list) else [existing, value]
+            else:
+                raw[name] = value
+
+        data = {k: v for k, v in raw.items() if k in cls._all_facets}
+
+        contract = cls(data=data)
+        if seal:
+            contract.is_sealed(raise_fault=True)
+        return contract
+
+    @classmethod
     def seal_many(cls, rows: list[dict], *, parallel: bool = False, raise_on_any: bool = False) -> list[SealOutcome]:
-        """Validate multiple rows of input data, returning outcomes."""
-        outcomes = []
+        """
+        Validate multiple rows of input data, returning one outcome per row.
+
+        Args:
+            rows: Inbound records.
+            parallel: Spread rows across a :class:`~concurrent.futures.ThreadPoolExecutor`.
+                See the Performance note before enabling this.
+            raise_on_any: Raise :class:`SealFault` on the first failing row
+                instead of returning its outcome.
+
+        Returns:
+            One :class:`SealOutcome` per input row, in input order.
+
+        Raises:
+            SealFault: If ``raise_on_any`` is set and any row fails.
+
+        Performance:
+            ``parallel=True`` is only useful when ward methods block on I/O.
+            Structural validation and ward dispatch are pure-Python CPU work,
+            which CPython's GIL serializes — on a standard build this flag adds
+            thread-scheduling overhead without adding throughput. It becomes
+            genuinely parallel on a free-threaded interpreter build.
+
+        Examples:
+            >>> outcomes = OrderContract.seal_many([{"total": 10}, {"total": -1}])
+            >>> [o.ok for o in outcomes]
+            [True, False]
+
+            Collect the valid rows and report the rest::
+
+                good = [o.value for o in outcomes if o.ok]
+                bad = {o.index: o.errors for o in outcomes if not o.ok}
+
+        Notes:
+            Async wards are not run by this method; use :meth:`seal_stream` or
+            per-row :meth:`is_sealed_async` when async validation is required.
+
+        See Also:
+            :meth:`seal_stream`, :meth:`seal_columnar`
+        """
         if not parallel or len(rows) <= 1:
-            for idx, row in enumerate(rows):
-                errors, validated = cls._sigil.validate(row)
-                if not errors:
-                    inst = cls(data=row)
-                    inst._errors = {}
-                    validated = DataObject(validated)
-                    data_obj = validated
-                    for wm in cls._ward_methods:
-                        if wm.mode == "sync":
-                            try:
-                                wm.fn(inst, data_obj)
-                            except CastFault as exc:
-                                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                                if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
-                                    inst._errors.setdefault(exc.field, []).append(msg)
-                            except Exception as exc:
-                                inst.reject("__all__", str(exc))
-                    errors = inst.errors
-
-                if not errors:
-                    try:
-                        inst = cls(data=row)
-                        inst._errors = {}
-                        validated = inst.validate(validated)
-                        errors = inst.errors
-                    except CastFault as exc:
-                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                        if exc.field not in errors or msg not in errors[exc.field]:
-                            errors.setdefault(exc.field, []).append(msg)
-                    except SealFault as exc:
-                        if hasattr(exc, "field_errors") and exc.field_errors:
-                            for field, msgs in exc.field_errors.items():
-                                errors.setdefault(field, []).extend(msgs)
-                        else:
-                            errors.setdefault("__all__", []).append(str(exc))
-                    except Exception as exc:
-                        errors.setdefault("__all__", []).append(str(exc))
-
-                ok = not errors
-                outcome = SealOutcome(
-                    index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None
-                )
-                if not ok and raise_on_any:
-                    raise SealFault(message="Seal validation failed", errors=errors)
-                outcomes.append(outcome)
+            outcomes = [cls._seal_row(row, idx) for idx, row in enumerate(rows)]
         else:
             from concurrent.futures import ThreadPoolExecutor
 
-            def validate_single(args):
-                idx, row = args
-                errors, validated = cls._sigil.validate(row)
-                if not errors:
-                    inst = cls(data=row)
-                    inst._errors = {}
-                    validated = DataObject(validated)
-                    data_obj = validated
-                    for wm in cls._ward_methods:
-                        if wm.mode == "sync":
-                            try:
-                                wm.fn(inst, data_obj)
-                            except CastFault as exc:
-                                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                                if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
-                                    inst._errors.setdefault(exc.field, []).append(msg)
-                            except Exception as exc:
-                                inst.reject("__all__", str(exc))
-                    errors = inst.errors
-
-                if not errors:
-                    try:
-                        inst = cls(data=row)
-                        inst._errors = {}
-                        validated = inst.validate(validated)
-                        errors = inst.errors
-                    except CastFault as exc:
-                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                        if exc.field not in errors or msg not in errors[exc.field]:
-                            errors.setdefault(exc.field, []).append(msg)
-                    except SealFault as exc:
-                        if hasattr(exc, "field_errors") and exc.field_errors:
-                            for field, msgs in exc.field_errors.items():
-                                errors.setdefault(field, []).extend(msgs)
-                        else:
-                            errors.setdefault("__all__", []).append(str(exc))
-                    except Exception as exc:
-                        errors.setdefault("__all__", []).append(str(exc))
-
-                ok = not errors
-                return SealOutcome(index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None)
-
             with ThreadPoolExecutor(max_workers=min(32, len(rows))) as executor:
-                futures = executor.map(validate_single, enumerate(rows))
-                for outcome in futures:
-                    if not outcome.ok and raise_on_any:
-                        raise SealFault(message="Seal validation failed", errors=outcome.errors)
-                    outcomes.append(outcome)
+                outcomes = list(executor.map(lambda args: cls._seal_row(args[1], args[0]), enumerate(rows)))
 
+        if raise_on_any:
+            for outcome in outcomes:
+                if not outcome.ok:
+                    raise SealFault(message="Seal validation failed", errors=outcome.errors)
         return outcomes
 
     @classmethod
     async def seal_stream(cls, byte_or_dict_iterator: Any, *, chunk_size: int | None = None) -> Any:
-        """Validate stream NDJSON data or dicts asynchronously."""
+        """
+        Validate a stream of NDJSON bytes or pre-parsed dicts, lazily.
+
+        Yields one outcome per record as it is decoded, so memory stays flat
+        regardless of stream length — the intended entry point for bulk
+        ingestion of untrusted payloads.
+
+        Args:
+            byte_or_dict_iterator: Async iterable yielding ``dict`` records, or
+                ``bytes``/``str`` chunks of newline-delimited JSON. Chunks need
+                not align to record boundaries; partial lines are buffered.
+            chunk_size: Accepted for call-site symmetry; the caller controls
+                chunking by what it yields.
+
+        Yields:
+            :class:`SealOutcome` per record, including malformed-JSON lines
+            (reported as an ``__all__`` error rather than raising).
+
+        Async Behavior:
+            Both sync and ``mode="async"`` ward methods run for every record.
+
+        Examples:
+            >>> async for outcome in EventContract.seal_stream(request.iter_bytes()):
+            ...     if outcome.ok:
+            ...         await sink.write(outcome.value)
+
+        See Also:
+            :meth:`seal_many`, :meth:`_seal_row_async`
+        """
+        import json
+
         idx = 0
         buffer = ""
+
         async for chunk in byte_or_dict_iterator:
             if isinstance(chunk, dict):
-                errors, validated = cls._sigil.validate(chunk)
-                if not errors:
-                    inst = cls(data=chunk)
-                    inst._errors = {}
-                    validated = DataObject(validated)
-                    data_obj = validated
-                    for wm in cls._ward_methods:
-                        try:
-                            import inspect
-
-                            if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
-                                await wm.fn(inst, data_obj)
-                            else:
-                                wm.fn(inst, data_obj)
-                        except CastFault as exc:
-                            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                            if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
-                                inst._errors.setdefault(exc.field, []).append(msg)
-                        except Exception as exc:
-                            inst.reject("__all__", str(exc))
-                    errors = inst.errors
-
-                if not errors:
-                    try:
-                        inst = cls(data=chunk)
-                        inst._errors = {}
-                        validated = inst.validate(validated)
-                        errors = inst.errors
-                    except CastFault as exc:
-                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                        if exc.field not in errors or msg not in errors[exc.field]:
-                            errors.setdefault(exc.field, []).append(msg)
-                    except SealFault as exc:
-                        if hasattr(exc, "field_errors") and exc.field_errors:
-                            for field, msgs in exc.field_errors.items():
-                                errors.setdefault(field, []).extend(msgs)
-                        else:
-                            errors.setdefault("__all__", []).append(str(exc))
-                    except Exception as exc:
-                        errors.setdefault("__all__", []).append(str(exc))
-
-                ok = not errors
-                yield SealOutcome(index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None)
+                yield await cls._seal_row_async(chunk, idx)
                 idx += 1
-            else:
-                if isinstance(chunk, bytes):
-                    buffer += chunk.decode("utf-8")
+                continue
+
+            buffer += chunk.decode("utf-8") if isinstance(chunk, bytes) else str(chunk)
+
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    item = json.loads(line)
+                except Exception as exc:
+                    yield SealOutcome(index=idx, ok=False, value=None, errors={"__all__": [f"JSON parse error: {exc}"]})
                 else:
-                    buffer += str(chunk)
-
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    import json
-
-                    try:
-                        item = json.loads(line)
-                        errors, validated = cls._sigil.validate(item)
-                        if not errors:
-                            inst = cls(data=item)
-                            inst._errors = {}
-                            validated = DataObject(validated)
-                            data_obj = validated
-                            for wm in cls._ward_methods:
-                                try:
-                                    import inspect
-
-                                    if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
-                                        await wm.fn(inst, data_obj)
-                                    else:
-                                        wm.fn(inst, data_obj)
-                                except CastFault as exc:
-                                    msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                                    if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
-                                        inst._errors.setdefault(exc.field, []).append(msg)
-                                except Exception as exc:
-                                    inst.reject("__all__", str(exc))
-                            errors = inst.errors
-
-                        if not errors:
-                            try:
-                                inst = cls(data=item)
-                                inst._errors = {}
-                                validated = inst.validate(validated)
-                                errors = inst.errors
-                            except CastFault as exc:
-                                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                                if exc.field not in errors or msg not in errors[exc.field]:
-                                    errors.setdefault(exc.field, []).append(msg)
-                            except SealFault as exc:
-                                if hasattr(exc, "field_errors") and exc.field_errors:
-                                    for field, msgs in exc.field_errors.items():
-                                        errors.setdefault(field, []).extend(msgs)
-                                else:
-                                    errors.setdefault("__all__", []).append(str(exc))
-                            except Exception as exc:
-                                errors.setdefault("__all__", []).append(str(exc))
-
-                        ok = not errors
-                        yield SealOutcome(
-                            index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None
-                        )
-                    except Exception as e:
-                        yield SealOutcome(
-                            index=idx, ok=False, value=None, errors={"__all__": [f"JSON parse error: {e}"]}
-                        )
-                    idx += 1
+                    yield await cls._seal_row_async(item, idx)
+                idx += 1
 
         if buffer.strip():
             try:
-                import json
-
                 item = json.loads(buffer.strip())
-                errors, validated = cls._sigil.validate(item)
-                if not errors:
-                    inst = cls(data=item)
-                    inst._errors = {}
-                    validated = DataObject(validated)
-                    data_obj = validated
-                    for wm in cls._ward_methods:
-                        try:
-                            import inspect
-
-                            if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
-                                await wm.fn(inst, data_obj)
-                            else:
-                                wm.fn(inst, data_obj)
-                        except CastFault as exc:
-                            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                            if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
-                                inst._errors.setdefault(exc.field, []).append(msg)
-                        except Exception as exc:
-                            inst.reject("__all__", str(exc))
-                    errors = inst.errors
-
-                if not errors:
-                    try:
-                        inst = cls(data=item)
-                        inst._errors = {}
-                        validated = inst.validate(validated)
-                        errors = inst.errors
-                    except CastFault as exc:
-                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
-                        if exc.field not in errors or msg not in errors[exc.field]:
-                            errors.setdefault(exc.field, []).append(msg)
-                    except SealFault as exc:
-                        if hasattr(exc, "field_errors") and exc.field_errors:
-                            for field, msgs in exc.field_errors.items():
-                                errors.setdefault(field, []).extend(msgs)
-                        else:
-                            errors.setdefault("__all__", []).append(str(exc))
-                    except Exception as exc:
-                        errors.setdefault("__all__", []).append(str(exc))
-
-                ok = not errors
-                yield SealOutcome(index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None)
-            except Exception as e:
-                yield SealOutcome(index=idx, ok=False, value=None, errors={"__all__": [f"JSON parse error: {e}"]})
+            except Exception as exc:
+                yield SealOutcome(index=idx, ok=False, value=None, errors={"__all__": [f"JSON parse error: {exc}"]})
+            else:
+                yield await cls._seal_row_async(item, idx)
 
     @classmethod
     def seal_columnar(cls, rows_as_dicts_iterable: Any) -> ColumnarReport:
@@ -2072,6 +2662,147 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             fields_strategies[fname] = st.none()
 
         return st.fixed_dictionaries(fields_strategies)
+
+    def _freeze_if_needed(self, validated: Any) -> Any:
+        """
+        Freeze validated data when the Contract declares ``Spec.frozen``.
+
+        A frozen Contract's validated data rejects mutation, so a value that
+        passed validation cannot be edited afterwards — the guarantee
+        ``is_sealed()`` gives would otherwise expire the moment a caller
+        assigned to a field.
+
+        Args:
+            validated: The freshly validated data (a ``DataObject``, or a list
+                of them for ``many=True``).
+
+        Returns:
+            The same object, frozen in place when ``Spec.frozen`` is set.
+
+        See Also:
+            :meth:`copy` — the supported way to derive an updated Contract from
+            a frozen one.
+        """
+        if self._spec is None or not self._spec.frozen:
+            return validated
+        if isinstance(validated, list):
+            for item in validated:
+                if isinstance(item, DataObject):
+                    item.freeze()
+        elif isinstance(validated, DataObject):
+            validated.freeze()
+        return validated
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare two Contracts by class and validated data.
+
+        Two Contracts are equal when they are the same class and carry the same
+        validated data. Unvalidated Contracts compare on their raw input
+        instead, so a comparison before sealing is still meaningful rather than
+        falling back to identity.
+
+        Returns:
+            ``NotImplemented`` for non-Contract operands, so Python falls back
+            to the reflected operation.
+        """
+        if not isinstance(other, Contract):
+            return NotImplemented
+        if type(self) is not type(other):
+            return False
+        if self._validated_data is not None and other._validated_data is not None:
+            return self._validated_data == other._validated_data
+        if self._validated_data is not None or other._validated_data is not None:
+            return False
+        return self._input_data == other._input_data
+
+    def __hash__(self) -> int:
+        # Contracts hold mutable validated data, so they are unhashable by
+        # design — defining __eq__ without this would silently make them so.
+        raise TypeError(f"{type(self).__name__} is unhashable (its validated data is mutable)")
+
+    def copy(
+        self,
+        *,
+        update: dict[str, Any] | None = None,
+        validate: bool = True,
+    ) -> Contract:
+        """
+        Return a new Contract with some fields replaced.
+
+        Args:
+            update: Field values to override. Merged over this Contract's
+                current data; keys absent from ``update`` are carried over.
+            validate: Seal the copy before returning it. Default ``True`` —
+                an override can violate a constraint the original satisfied, so
+                skipping validation would produce a Contract whose
+                ``validated_data`` never passed the rules it claims to enforce.
+
+        Returns:
+            A new Contract of the same class, projection, and context.
+
+        Raises:
+            SealFault: If ``validate`` is set and the updated data fails.
+            ContractAsyncMismatchFault: If ``validate`` is set on a Contract
+                with async wards. Use :meth:`copy_async` instead.
+
+        Examples:
+            >>> updated = contract.copy(update={"name": "New"})
+
+            Defer validation when building up a payload in stages::
+
+                draft = contract.copy(update={"name": "New"}, validate=False)
+
+        See Also:
+            :meth:`copy_async` — the variant that awaits async wards.
+        """
+        clone = self._copy_unsealed(update)
+        if validate:
+            clone.is_sealed(raise_fault=True)
+        return clone
+
+    async def copy_async(
+        self,
+        *,
+        update: dict[str, Any] | None = None,
+    ) -> Contract:
+        """
+        Async counterpart of :meth:`copy` — awaits async wards on the copy.
+
+        Args:
+            update: Field values to override.
+
+        Returns:
+            A new, sealed Contract of the same class.
+
+        Raises:
+            SealFault: If the updated data fails validation.
+        """
+        clone = self._copy_unsealed(update)
+        await clone.is_sealed_async(raise_fault=True)
+        return clone
+
+    def _copy_unsealed(self, update: dict[str, Any] | None) -> Contract:
+        """Build an unsealed copy of this Contract with ``update`` merged in."""
+        from .sigil import adapt_input, is_mapping_like
+
+        base: dict[str, Any]
+        if self._validated_data is not None and not self.many:
+            base = dict(self._validated_data)
+        else:
+            adapted = adapt_input(self._input_data)
+            base = dict(adapted) if is_mapping_like(adapted) else {}
+
+        if update:
+            base.update(update)
+
+        return type(self)(
+            data=base,
+            partial=self.partial,
+            projection=self._projection_name,
+            context=self.context,
+            many=self.many,
+        )
 
     def __repr__(self) -> str:
         model_name = self._spec.model.__name__ if self._spec.model else "None"

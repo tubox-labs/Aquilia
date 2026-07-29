@@ -40,13 +40,19 @@ class ProjectionRegistry:
 
     Special values:
         - ``"__all__"``: all non-write-only facets
-        - ``"__minimal__"``: only PK + read-only facets
+        - ``"__minimal__"``: primary-key facets plus every ``read_only`` facet
 
     A projection can also exclude fields with ``-`` prefix::
 
         projections = {
             "public": ["-password", "-email"],  # all except these
         }
+
+    Notes:
+        An empty projection is a legitimate, honoured result: it renders an
+        empty object rather than falling through to "all fields". Callers must
+        therefore compare against ``None`` (no projection) rather than testing
+        truthiness of the resolved set.
     """
 
     def __init__(self):
@@ -61,17 +67,27 @@ class ProjectionRegistry:
         default: str | None,
         all_facet_names: set[str],
         write_only_names: set[str],
+        minimal_names: set[str] | None = None,
     ) -> None:
         """
         Configure projections from Spec definitions.
 
         Args:
-            projections: Mapping of name → field list (or "__all__")
+            projections: Mapping of name → field list (or "__all__"/"__minimal__")
             default: Name of the default projection
             all_facet_names: Complete set of facet names
             write_only_names: Set of write-only facet names
+            minimal_names: Facet names that make up the ``"__minimal__"``
+                projection — primary-key and ``read_only`` facets. When
+                omitted, ``"__minimal__"`` falls back to any facet named
+                ``id``/``pk`` so the projection never silently resolves to
+                every field.
         """
         self._all_facets = frozenset(all_facet_names - write_only_names)
+
+        if minimal_names is None:
+            minimal_names = {n for n in ("id", "pk") if n in all_facet_names}
+        minimal = frozenset(minimal_names) & self._all_facets
 
         if projections is None:
             # No projections defined -- create a default "__all__" projection
@@ -83,8 +99,7 @@ class ProjectionRegistry:
             if fields == "__all__":
                 self._projections[name] = self._all_facets
             elif fields == "__minimal__":
-                # Just PK fields -- resolved later by the Contract
-                self._projections[name] = frozenset()  # placeholder
+                self._projections[name] = minimal
             elif isinstance(fields, (list, tuple)):
                 # Check for exclusion syntax
                 includes = []

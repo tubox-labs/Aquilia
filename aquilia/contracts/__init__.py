@@ -49,12 +49,15 @@ from .exceptions import (
     LensDepthFault,
     ProjectionFault,
     SealFault,
+    StubGenerationFault,
 )
 from .facets import (
     MODEL_FIELD_TO_FACET,
     UNSET,
     # Boolean
     BoolFacet,
+    # Numeric
+    BytesFacet,
     ChoiceFacet,
     # Special
     Computed,
@@ -74,14 +77,17 @@ from .facets import (
     FormDataFacet,
     Hidden,
     Inject,
-    # Numeric
     IntFacet,
     IPFacet,
     JSONFacet,
     # Structured
     ListFacet,
     LiteralFacet,
+    MACAddressFacet,
+    PathFacet,
     ReadOnly,
+    Secret,
+    SecretFacet,
     SetFacet,
     SlugFacet,
     # Text
@@ -106,6 +112,7 @@ from .lenses import Lens
 from .projections import ProjectionRegistry
 from .schema import generate_component_schemas, generate_schema
 from .sigil import FieldSpec, Sigil
+from .stubs import StubReport, generate_module_stub, write_module_stub
 from .ward import WardMethod, ward
 
 __all__ = [
@@ -127,6 +134,11 @@ __all__ = [
     "URLFacet",
     "SlugFacet",
     "IPFacet",
+    "BytesFacet",
+    "MACAddressFacet",
+    "PathFacet",
+    "Secret",
+    "SecretFacet",
     "IntFacet",
     "FloatFacet",
     "DecimalFacet",
@@ -173,10 +185,15 @@ __all__ = [
     "ProjectionFault",
     "LensDepthFault",
     "LensCycleFault",
+    "StubGenerationFault",
     "CONTRACT",
     # Schema
     "generate_schema",
     "generate_component_schemas",
+    # Stub generation
+    "StubReport",
+    "generate_module_stub",
+    "write_module_stub",
     # Integration
     "is_contract_class",
     "is_projected_contract",
