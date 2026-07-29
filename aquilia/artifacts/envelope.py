@@ -119,6 +119,7 @@ class ArtifactEnvelope:
     def to_dict(self) -> dict[str, Any]:
         """Serialize envelope to a plain dict (JSON-safe)."""
         d = asdict(self)
+        d["__format__"] = "json"  # Backward compatibility marker
         # Remove None values for cleaner JSON output
         if self.hmac_signature is None:
             d.pop("hmac_signature", None)

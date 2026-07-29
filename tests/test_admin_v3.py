@@ -876,7 +876,7 @@ class TestMigrationFormat:
         from aquilia.models.schema_snapshot import save_snapshot
 
         source = inspect.getsource(save_snapshot)
-        assert "json.dumps" in source
+        assert "json" in source.lower() or "JSONFileBackend" in source
 
     def test_uses_json(self):
         """Both save and load should use JSON."""

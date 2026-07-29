@@ -12,6 +12,7 @@ import contextlib
 import hashlib
 import json
 import os
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -245,8 +246,13 @@ class JSONBytecodeCache(BytecodeCache):
             self._metadata = payload.get("metadata", {})
 
         except Exception:
-            # Cache load failed, start fresh
-            pass
+            # Cache load failed or integrity check failed, emit warning and start fresh
+            warnings.warn(
+                f"Bytecode cache {self.cache_file} failed integrity check, ignoring",
+                stacklevel=2,
+            )
+            self._cache.clear()
+            self._metadata.clear()
 
     def _save(self) -> None:
         """Save cache to disk via ArtifactStore backend (atomic write + HMAC signing)."""
