@@ -391,11 +391,11 @@ class ContractMeta(type):
         if spec.model is not None:
             model_facets = mcs._derive_model_facets(spec)
 
-        # Merge: parent < annotated < model < declared (declared wins)
+        # Merge: parent < model < annotated < declared (annotated & declared win over auto-derived model fields)
         all_facets = {}
         all_facets.update(parent_facets)
-        all_facets.update(annotated_facets)
         all_facets.update(model_facets)
+        all_facets.update(annotated_facets)
         all_facets.update(declared_facets)
 
         # Add extra facets from Spec
@@ -870,6 +870,70 @@ class ContractSerializationDescriptor:
 
 
 class Contract(Generic[ModelT], metaclass=ContractMeta):
+    """
+    The core Contract base class -- defining first-class data contracts between Model instances and the external world.
+
+    Purpose:
+        Declaratively manages outbound model serialization (molding), inbound payload validation (casting & sealing),
+        field projection filtering, and ORM persistence (imprinting).
+
+    Lifecycle:
+        1. **Class Creation**: Metaclass ``ContractMeta.__new__`` parses ``Spec``, gathers Facets, sets up Sigil schemas, and compiles Projections.
+        2. **Instantiation**: Bound to outbound ``instance`` or inbound ``data`` (payload dictionary).
+        3. **Sealing Phase**: Executes type casting, facet constraints, and cross-field ``@ward`` validators via ``is_sealed()`` or ``is_sealed_async()``.
+        4. **Imprint Phase**: Writes back validated data to ORM model instances via ``imprint()``.
+
+    Execution Order:
+        - **Inbound Pipeline** (``Contract(data=...)``):
+          1. Cast input values via Facet pipelines.
+          2. Execute facet-level validators.
+          3. Execute ``@ward`` cross-field validator methods.
+          4. Store cleaned validated dictionary in ``_validated_data``.
+        - **Outbound Pipeline** (``Contract(instance=...)``):
+          1. Extract values from model fields/properties via Facet ``source`` mappings.
+          2. Filter attributes against active ``projection``.
+          3. Transform nested relations through Lens facets or nested contracts.
+          4. Output JSON-serializable dictionary payload.
+
+    Parameters:
+        instance (ModelT | list[ModelT] | None, optional):
+            Model instance or list of model instances for outbound serialization. Defaults to ``None``.
+        data (Any, optional):
+            Raw dictionary or form payload for inbound validation. Defaults to ``UNSET``.
+        many (bool, optional):
+            If ``True``, processes a collection of instances/payloads. Defaults to ``False``.
+        partial (bool, optional):
+            If ``True``, disables required field checks for partial updates (PATCH semantics). Defaults to ``False``.
+        projection (str | None, optional):
+            Name of specific projection to apply for field filtering. Defaults to ``None``.
+        context (dict[str, Any] | None, optional):
+            Execution context dictionary (injecting HTTP request, DI container, etc.). Defaults to ``None``.
+
+    Returns:
+        Contract: An instantiated Contract instance.
+
+    Exceptions:
+        ImprintFault: Raised during ``imprint()`` if data is unsealed or model creation fails.
+        SealFault: Raised during validation if ``raise_fault=True`` and validation seals break.
+        ContractAsyncMismatchFault: Raised if a contract containing async wards is validated via sync ``is_sealed()``.
+
+    Notes:
+        - Thread and Async Safe: Uses context variables for depth tracking and isolated validation state per instance.
+        - Subscript syntax support: ``Contract["projection_name"]`` returns a projected reference.
+
+    Examples:
+        >>> class UserRegistrationContract(Contract[UserModel]):
+        ...     name: str = Field(min_length=1, max_length=100)
+        ...     email: typing.Annotated[str, Facet.email() >> strip >> lower]
+        ...
+        ...     class Spec:
+        ...         model = UserModel
+        ...         projections = {"summary": ["id", "name", "email"]}
+        >>> contract = UserRegistrationContract(data=payload)
+        >>> if await contract.is_sealed_async():
+        ...     user = await contract.imprint()
+    """
+
     # Class-level default: some paths build instances without running
     # __init__ (Computed.extract), and __getattr__ would otherwise mask the
     # missing attribute as "no such field".
@@ -879,42 +943,6 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
     to_dict_many = ContractSerializationDescriptor("to_dict_many")
     to_dict_async = ContractSerializationDescriptor("to_dict_async")
     to_dict_many_async = ContractSerializationDescriptor("to_dict_many_async")
-    """
-    The Contract -- a contract between a Model and the outside world.
-
-    A Contract declares:
-        - **Facets**: what data points are visible/writable
-        - **Projections**: named subsets of facets
-        - **Seals**: validation rules (field, cross-field, async)
-        - **Imprints**: how validated data writes back to the model
-
-    Usage::
-
-        class ProductContract(Contract):
-            class Spec:
-                model = Product
-                projections = {
-                    "summary": ["id", "name", "price"],
-                    "detail": "__all__",
-                }
-
-        # Outbound: Model → dict
-        bp = ProductContract(instance=product)
-        data = bp.to_dict()
-
-        # Inbound: dict → validated data
-        bp = ProductContract(data={"name": "Widget", "price": 9.99})
-        if bp.is_sealed():
-            product = await bp.imprint()
-
-    Args:
-        instance: Model instance for outbound (mold) operations.
-        data: Raw input data for inbound (cast + seal) operations.
-        many: If True, expect a list of instances/data.
-        partial: If True, don't require all required fields (PATCH semantics).
-        projection: Named projection to use.
-        context: Extra context dict (request, container, etc.).
-    """
 
     _spec: _SpecData
     _all_facets: dict[str, Facet]

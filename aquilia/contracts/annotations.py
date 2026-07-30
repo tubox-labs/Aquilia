@@ -125,48 +125,60 @@ ANNOTATION_TO_FACET: dict[type, type[Facet]] = {
 
 class Field:
     """
-    Constraint descriptor for annotation-driven Contract fields.
+    Constraint and metadata descriptor for annotation-driven Contract field definitions.
 
-    Provides the same power as explicit Facet kwargs, but in a concise
-    form suitable for use as a default value alongside a type annotation.
+    Purpose:
+        Provides validation constraints (min/max length, regex patterns, numeric bounds), defaults, and field metadata
+        when defining contract fields using type annotations (e.g. ``name: str = Field(min_length=1, max_length=150)``).
 
-    Args:
-        default:         Static default value.
-        default_factory: Zero-arg callable producing the default.
-        required:        Override auto-detected required status.
-        read_only:       If True, field only appears in output.
-        write_only:      If True, field only accepted as input.
-        allow_null:      Accept None as a valid value.
-        allow_blank:     Accept empty string (text fields).
-        source:          Model attribute name override.
-        label:           Human-readable label.
-        help_text:       Documentation string.
-        validators:      Extra validator callables.
+    Lifecycle:
+        1. **Class Body Evaluation**: Instantiated as a default value alongside type annotations.
+        2. **Metaclass Introspection**: Inspected by ``introspect_annotations()`` during ``ContractMeta.__new__`` to generate backing Facets.
+        3. **Class Clean-up**: Discarded from class namespace dictionary to avoid attribute pollution.
 
-        # Numeric constraints
-        ge:              Greater-than-or-equal (min_value).
-        le:              Less-than-or-equal (max_value).
-        gt:              Strictly greater-than.
-        lt:              Strictly less-than.
+    Execution Order:
+        1. Capture default values, defaults factory, constraints, and validation rules.
+        2. Increment global ``_creation_counter`` to maintain stable field declaration ordering.
 
-        # Text constraints
-        min_length:      Minimum string length.
-        max_length:      Maximum string length.
-        pattern:         Regex pattern the value must match.
+    Parameters:
+        default (Any, optional): Static default value for the field.
+        default_factory (Callable, optional): Zero-argument factory function to construct defaults dynamically.
+        required (bool, optional): Override auto-detected required status.
+        read_only (bool, optional): If ``True``, field is output-only (omitted from input validation).
+        write_only (bool, optional): If ``True``, field is input-only (omitted from output serialization).
+        allow_null (bool, optional): Accept ``None`` as a valid value.
+        allow_blank (bool, optional): Accept empty strings for text fields.
+        source (str, optional): Model attribute name override.
+        label (str, optional): Human-readable UI label.
+        help_text (str, optional): Field documentation string.
+        validators (Sequence[Callable], optional): Additional custom validator functions.
+        ge (int | float, optional): Greater-than-or-equal numeric lower bound.
+        le (int | float, optional): Less-than-or-equal numeric upper bound.
+        gt (int | float, optional): Strict greater-than numeric lower bound.
+        lt (int | float, optional): Strict less-than numeric upper bound.
+        min_length (int, optional): Minimum string length.
+        max_length (int, optional): Maximum string length.
+        pattern (str, optional): Regular expression pattern string.
+        min_items (int, optional): Minimum item count for collection fields.
+        max_items (int, optional): Maximum item count for collection fields.
+        choices (Sequence[Any], optional): List of allowed choice values.
+        max_digits (int, optional): Maximum total digits for Decimal fields.
+        decimal_places (int, optional): Maximum decimal places for Decimal fields.
+        alias (str, optional): Key name alias for input mapping.
 
-        # Collection constraints
-        min_items:       Minimum list length.
-        max_items:       Maximum list length.
+    Returns:
+        Field: An initialized descriptor capturing field constraints.
 
-        # Choice constraint
-        choices:         Allowed values.
+    Exceptions:
+        None.
 
-        # Decimal
-        max_digits:      Maximum total digits.
-        decimal_places:  Maximum decimal places.
+    Notes:
+        - Works seamlessly with ``typing.Annotated``: ``Annotated[str, Field(min_length=3)]``.
 
-        # Alias
-        alias:           Alternative input key name.
+    Examples:
+        >>> class UserContract(Contract):
+        ...     username: str = Field(min_length=3, max_length=30)
+        ...     age: int = Field(ge=18, le=120)
     """
 
     # Track creation order for stable field ordering.
@@ -341,32 +353,66 @@ class ContractUnionAdapterFacet(Facet):
 
 class NestedContractFacet(Facet):
     """
-    A Facet that delegates validation to a nested Contract.
+    A Facet that delegates validation, molding, and sealing to a nested Contract.
 
-    Used when a type annotation references another Contract subclass.
-    Handles both single-instance and list-of-instances nesting.
+    Purpose:
+        Enables structured, hierarchical contract schemas. Supports both declarative attribute assignment
+        (``name = NestedContractFacet[UserNameContract]``) and modern Python type-annotation syntax
+        (``name: NestedContractFacet[UserNameContract]`` or ``name: UserNameContract``).
 
-    The nested Contract is fully sealed during the parent's seal phase,
-    producing structured, validated output.
+    Lifecycle:
+        1. **Class Creation**: Evaluated during ``ContractMeta.__new__``, either gathered from class namespace
+           or introspected from ``__annotations__``.
+        2. **Contract Sealing**: Sealed recursively during parent Contract validation, executing nested wards,
+           transforms, and sub-facets.
+        3. **Imprinting**: Transformed recursively into model attributes or nested dict payloads.
 
-    Concurrency:
-        The recursion-depth counter is a :class:`contextvars.ContextVar`, so
-        each asyncio task and each OS thread tracks its own depth. A plain
-        class attribute would be shared process-wide: concurrent requests
-        would interleave increments, producing both spurious depth rejections
-        for shallow payloads and — worse — undercounting that defeats the
-        guard for a still-in-flight deep payload.
+    Execution Order:
+        1. Validate input structure (dict for single instance, list of dicts for ``many=True``).
+        2. Track recursion depth using thread-/task-isolated :class:`contextvars.ContextVar`.
+        3. Instantiate target Contract and invoke seal/cast pipeline.
+        4. Return validated structured dict payload or model instance.
+
+    Parameters:
+        contract_cls (type):
+            Target ``Contract`` subclass class object.
+        many (bool, optional):
+            If ``True``, validates a list/sequence of nested contracts. Defaults to ``False``.
+        max_nesting_depth (int, optional):
+            Maximum permissible nesting depth before rejecting. Defaults to ``MAX_NESTING_DEPTH``.
+        **kwargs:
+            Additional base Facet keyword arguments (``required``, ``allow_null``, ``source``, etc.).
+
+    Returns:
+        NestedContractFacet: An initialized facet instance ready for Contract integration.
+
+    Exceptions:
+        CastFault: Raised during ``cast()`` if input shape is invalid or nesting depth exceeds max limit.
+        ConfigInvalidFault: Raised during metaclass build if annotation and declared facet conflict in cardinality or target class.
 
     Notes:
-        On the primary validation path (``Contract(data=...).is_sealed()``)
-        depth is enforced by :meth:`aquilia.contracts.sigil.Sigil.validate`,
-        which recurses directly into the nested Contract's Sigil. The guard
-        here covers direct ``cast()`` callers, such as
-        :class:`~aquilia.contracts.pipeline.Pipeline`. Both share the single
-        :data:`~aquilia.contracts.exceptions.MAX_NESTING_DEPTH` limit.
+        - Thread and Async Safe: Depth tracking uses ``ContextVar`` to prevent inter-task interference.
+        - Supports subscript indexing: ``NestedContractFacet[ChildContract]`` or ``NestedContractFacet[ChildContract, True]``.
+        - Supports forward references via string args, returning a :class:`LazyContractFacet`.
 
-    See Also:
-        :class:`LazyContractFacet` — forward-reference variant.
+    Internal Behaviour:
+        Integrates with ``ContractMeta._merge_nested_annotation_facets`` to resolve overlaps between type annotations
+        and explicit class attributes deterministically.
+
+    Edge Cases:
+        - ``None`` value with ``allow_null=True`` returns ``None`` without invoking nested seal.
+        - Recursive self-referencing contracts are bound by ``MAX_NESTING_DEPTH``.
+
+    Examples:
+        >>> # Declarative Syntax
+        >>> class UserRegistrationContract(Contract):
+        ...     name = NestedContractFacet[UserNameContract]
+
+        >>> # Type-Annotation Syntax
+        >>> class UserRegistrationContract(Contract):
+        ...     name: NestedContractFacet[UserNameContract]
+        ...     profile: ProfileContract
+        ...     roles: list[NestedContractFacet[RoleContract]]
     """
 
     _type_name = "object"
@@ -392,11 +438,43 @@ class NestedContractFacet(Facet):
         self._max_depth = max_nesting_depth or self.MAX_NESTING_DEPTH
 
     def __class_getitem__(cls, params: Any) -> Any:
-        """Allow indexing with a Contract class to instantiate the facet.
+        """
+        Allow subscript indexing with a Contract class to instantiate the facet.
 
-        Supports:
-            NestedContractFacet[MyContract]
-            NestedContractFacet[MyContract, True]  # sets many=True
+        Purpose:
+            Provides concise generic syntax for declaring nested contract relationships in both attribute
+            declarations and type annotations.
+
+        Lifecycle:
+            Executed at module loading / class definition time when evaluating expressions like
+            ``NestedContractFacet[MyContract]``.
+
+        Execution Order:
+            1. Parse parameters tuple or single argument.
+            2. Extract target contract class and optional ``many`` boolean flag.
+            3. If contract class is string or ForwardRef, construct and return a :class:`LazyContractFacet`.
+            4. Otherwise, construct and return an instance of :class:`NestedContractFacet`.
+
+        Parameters:
+            params (Any):
+                Contract subclass, string forward reference, or tuple ``(ContractSubclass, many_bool)``.
+
+        Returns:
+            NestedContractFacet | LazyContractFacet:
+                An instantiated facet binding the specified target contract.
+
+        Exceptions:
+            TypeError: If an empty tuple parameter is provided.
+
+        Notes:
+            Enables full compatibility with Python type annotation resolvers and static checkers.
+
+        Examples:
+            >>> # Single instance
+            >>> facet = NestedContractFacet[UserNameContract]
+
+            >>> # List of instances
+            >>> facet_many = NestedContractFacet[UserNameContract, True]
         """
         from typing import ForwardRef
 

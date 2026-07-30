@@ -174,13 +174,58 @@ class EnumField(Field[E], Generic[E]):
             return self.enum_class[value]
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         """
         Convert an ``enum_class`` member to its database-storable form.
 
-        Returns ``value.name`` if ``store_name=True``, else
-        ``value.value``. Non-enum values (already the raw stored form,
-        or ``None``) pass through unchanged.
+        Purpose:
+            Serializes Python Enum instances or raw storable enum values into
+            database column format (either string member name or underlying value),
+            compatible with database dialect transformations.
+
+        Lifecycle:
+            Invoked during model persistence operations (``Model.save()``,
+            ``Model.create()``, bulk operations, and query filtering) by the ORM
+            model layer before building SQL parameter tuples.
+
+        Execution Order:
+            1. Handle ``None`` (returns ``None`` immediately).
+            2. If value is an instance of ``enum_class``: return ``value.name`` if
+               ``store_name=True``, otherwise return ``value.value``.
+            3. Return non-enum value unchanged (assumed to be raw DB storable form).
+
+        Parameters:
+            value (Any):
+                The Python value to transform. May be an Enum instance, scalar value,
+                or ``None``.
+            dialect (str, optional):
+                The database engine dialect (e.g., ``"sqlite"``, ``"postgresql"``,
+                ``"mysql"``). Defaults to ``"sqlite"``.
+
+        Returns:
+            Any:
+                The database-ready representation (e.g., str name, int/str value, or None).
+
+        Exceptions:
+            None directly raised. Invalid conversions are handled gracefully by returning
+            the raw value.
+
+        Notes:
+            Maintains signature compatibility with base ``Field.to_db(self, value, dialect="sqlite")``.
+
+        Internal Behaviour:
+            Transparently unwraps Enum instances according to ``self.store_name``.
+
+        Edge Cases:
+            - Unrecognized string/int values pass through unchanged for DB driver coercion.
+            - Null values pass through as ``None``.
+
+        Examples:
+            >>> field = EnumField(enum_class=UserStatus, store_name=False)
+            >>> field.to_db(UserStatus.ACTIVE, dialect="sqlite")
+            'active'
+            >>> field.to_db(UserStatus.ACTIVE, dialect="postgresql")
+            'active'
         """
         if value is None:
             return None

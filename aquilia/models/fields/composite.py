@@ -234,15 +234,51 @@ class CompositeField(Field):
                 return value
         return value
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         """
-        Convert a Python dict to its database-ready form.
+        Convert a Python dict or composite object to its database-ready form.
 
-        Under the ``"json"`` strategy, serializes ``value`` to a JSON
-        string via ``json.dumps``. Under ``"expand"`` (or any other
-        strategy), returns ``value`` unchanged -- expanded storage is
-        handled by the individual sub-field columns, not by this method.
-        ``None`` passes through unchanged.
+        Purpose:
+            Serializes composite field data structures (such as dictionaries)
+            into database column storable representations (e.g., JSON text).
+
+        Lifecycle:
+            Invoked during model persistence (``Model.save()``, ``Model.create()``,
+            querying, and updates) when converting Python-level attributes to
+            database parameter bindings.
+
+        Execution Order:
+            1. Return ``None`` immediately if ``value`` is ``None``.
+            2. If ``self.strategy == "json"``: serialize dictionary to JSON string using ``json.dumps``.
+            3. Under ``"expand"`` (or other strategies): return ``value`` unchanged as storage is
+               handled across individual columns.
+
+        Parameters:
+            value (Any):
+                The composite Python value (dict, JSON string, or None).
+            dialect (str, optional):
+                The target SQL engine dialect (e.g., ``"sqlite"``, ``"postgresql"``). Defaults to ``"sqlite"``.
+
+        Returns:
+            Any:
+                JSON string representation or raw storable value.
+
+        Exceptions:
+            TypeError: If JSON serialization fails on non-serializable dictionary values under ``"json"`` strategy.
+
+        Notes:
+            Maintains signature compatibility with base ``Field.to_db(self, value, dialect="sqlite")``.
+
+        Internal Behaviour:
+            Under JSON strategy, converts dict to formatted JSON string. Under expanded strategy, passes through.
+
+        Edge Cases:
+            - ``None`` values pass through as ``None``.
+
+        Examples:
+            >>> field = CompositeField(strategy="json")
+            >>> field.to_db({"key": "val"}, dialect="sqlite")
+            '{"key": "val"}'
         """
         if value is None:
             return None
