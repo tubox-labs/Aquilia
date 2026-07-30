@@ -134,9 +134,9 @@ def patch_model_registry() -> None:
         _original_create_tables_new = NewRegistry.create_tables
 
         @classmethod
-        async def _patched_create_tables_new(cls):
+        async def _patched_create_tables_new(cls, db=None):
             try:
-                return await _original_create_tables_new.__func__(cls)
+                return await _original_create_tables_new.__func__(cls, db)
             except Exception as e:
                 raise SchemaFault(
                     table="(multiple)",
