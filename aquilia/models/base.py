@@ -1422,7 +1422,32 @@ class Model(metaclass=ModelMeta):
         return self
 
     @classmethod
+    def _clear_reverse_relation_caches(cls) -> None:
+        """
+        Clear cached reverse FK references and relation maps on this class.
+
+        Purpose:
+            Invalidate lazily built reverse relation metadata maps when new models
+            are registered or registry state is reset.
+
+        Lifecycle:
+            Called by ``ModelRegistry.register()`` and ``ModelRegistry.reset()``.
+
+        Execution Order:
+            Sets ``_reverse_fk_cache`` and ``_reverse_relation_cache`` to None on ``cls``.
+
+        Parameters:
+            None.
+
+        Return Value:
+            None.
+        """
+        cls._reverse_fk_cache = None
+        cls._reverse_relation_cache = None
+
+    @classmethod
     def _get_reverse_fk_refs(cls) -> list[tuple[type[Model], str, str]]:
+
         """
         Get all (model_cls, column_name, on_delete) tuples where other models
         have ForeignKey pointing to this model. Cached per class.
