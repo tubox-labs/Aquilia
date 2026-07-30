@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.7] — 2026-07-30 — "Thread Sentinel"
+
+This release introduces thread-safe ModelRegistry registration with re-entrant locking (`threading.RLock`) and reverse-relation cache invalidation, thread-isolated BaseManager descriptor subclass binding via shallow copying, standard Python type hint annotation support for `NestedContractFacet`, dialect parameter support across `EnumField` and `CompositeField` `to_db()` methods, and comprehensive 10-point industry docstrings across the Contracts subsystem.
+
+Full notes: [`releases/1.3.7/`](releases/1.3.7/README.md)
+
+### Added
+
+#### Contracts — Type Hint Annotations & Docstrings
+- **NestedContractFacet Type Annotations** (`aquilia.contracts.annotations`) — Support for `name: NestedContractFacet[SubContract]`, `name: SubContract`, and list variations (`list[SubContract]`) in `ContractMeta`.
+- **10-Point Standard Docstrings** (`aquilia.contracts`) — Added comprehensive industry docstrings across `facets.py`, `exceptions.py`, `integration.py`, `lenses.py`, `pipeline.py`, `projections.py`, `schema.py`, and `ward.py`.
+
+#### Tests
+- **ORM & Model Concurrency Test Suite** (`tests/test_models_thread_safety_and_docstrings.py`) — Multi-threaded concurrent tests verifying thread-safe `ModelRegistry` registration, manager subclass isolation, and reverse-relation cache invalidation.
+- **EnumField & Nested Annotations Test Suite** (`tests/test_enum_field_dialect_and_nested_annotations.py`) — Tests verifying dialect parameter handling in `EnumField.to_db()` and `CompositeField.to_db()`, and nested contract type annotations.
+
+### Refactored
+
+#### Models — Thread Safety & Descriptor Isolation
+- **ModelRegistry RLock Guard** (`aquilia.models.registry.ModelRegistry`) — Added class-level `threading.RLock()` guarding `register()`, `reset()`, `set_database()`, `get_model()`, `_resolve_relations()`, `create_tables()`, and `drop_tables()`.
+- **Reverse Relation Cache Invalidation** (`aquilia.models.base.Model._clear_reverse_relation_caches()`) — Dynamic invalidation of `_reverse_fk_cache` and `_reverse_relation_cache` when models are registered or reset.
+- **BaseManager Descriptor Subclass Copying** (`aquilia.models.manager.BaseManager.__get__()`) — Returns a bound shallow copy (`copy.copy(self)`) when accessed on subclasses, preventing cross-thread manager state pollution.
+
+### Fixed
+
+- **EnumField & CompositeField `to_db()` Dialect Parameter** — `EnumField.to_db()` and `CompositeField.to_db()` now accept `dialect="sqlite"`, resolving `TypeError` when imprinting contracts into ORM models (`contract.imprint()`).
+- **Bytecode Cache & Snapshot Assertions** — Resolved HMAC secret warning and envelope dict format assertions in bytecode cache and schema snapshot test suite.
+
 ## [1.3.6] — 2026-07-29 — "Artifact Forge"
 
 This release introduces the Artifact Subsystem, unifying all framework-generated metadata, caches, and compiled representations into a single production-grade infrastructure with atomic writes and HMAC integrity checks.

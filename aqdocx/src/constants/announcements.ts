@@ -8,6 +8,22 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Record<string, Announcement> = {
+  '1.3.7': {
+    version: '1.3.7',
+    badgeText: 'V1.3.7 Release',
+    title: 'Thread-safe ModelRegistry, manager subclass isolation & contract annotations:',
+    highlightText: 'Thread Sentinel',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.3.7',
+  },
+  '1.3.6': {
+    version: '1.3.6',
+    badgeText: 'V1.3.6 Release',
+    title: 'Unified artifact store (.aquilia/artifacts/), HMAC signatures & CLI:',
+    highlightText: 'Artifact Forge',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.3.6',
+  },
   '1.3.5': {
     version: '1.3.5',
     badgeText: 'V1.3.5 Release',
@@ -62,5 +78,5 @@ export function getLatestAnnouncement(version?: string): Announcement {
   if (version && ANNOUNCEMENTS[version]) {
     return ANNOUNCEMENTS[version]
   }
-  return ANNOUNCEMENTS['1.3.5']
+  return ANNOUNCEMENTS['1.3.7']
 }

@@ -29,6 +29,41 @@ interface ChangelogEntry {
 
 const staticChangelogs: ChangelogEntry[] = [
   {
+    version: '1.3.7',
+    codename: 'Thread Sentinel',
+    date: '2026-07-30',
+    tag: 'patch',
+    summary: 'Introduces thread-safe ModelRegistry registration with re-entrant locking (threading.RLock) and reverse-relation cache invalidation, thread-isolated BaseManager descriptor subclass binding via shallow copying, standard Python type hint annotation support for NestedContractFacet, dialect parameter support across EnumField and CompositeField to_db() methods, and comprehensive 10-point industry docstrings across the Contracts subsystem.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'NestedContractFacet Type Annotations: Support for name: NestedContractFacet[SubContract], name: SubContract, and list variations in ContractMeta.',
+          '10-Point Standard Docstrings: Added comprehensive industry docstrings across facets.py, exceptions.py, integration.py, lenses.py, pipeline.py, projections.py, schema.py, and ward.py.',
+          'ORM & Model Concurrency Test Suite: Multi-threaded test suite verifying thread-safe ModelRegistry operations, manager subclass isolation, and reverse-relation cache invalidation.'
+        ]
+      },
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'ModelRegistry Thread Safety: Class-level threading.RLock guarding register(), reset(), set_database(), get_model(), _resolve_relations(), create_tables(), and drop_tables().',
+          'Reverse Relation Cache Invalidation: Dynamic invalidation of _reverse_fk_cache and _reverse_relation_cache when models are registered or reset.',
+          'BaseManager Descriptor Subclass Copying: BaseManager.__get__() returns a bound shallow copy (copy.copy(self)) when accessed on subclasses, preventing cross-thread manager state pollution.'
+        ]
+      },
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'EnumField & CompositeField to_db() Dialect Parameter: Accepted dialect="sqlite" in to_db(), resolving TypeError when imprinting contracts into ORM models (contract.imprint()).',
+          'Bytecode Cache & Snapshot Assertions: Resolved HMAC secret warning and envelope dict format assertions in bytecode cache and schema snapshot test suite.'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.3.6',
     codename: 'Artifact Forge',
     date: '2026-07-29',

@@ -36,10 +36,27 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.3.7',
+    codename: 'Thread Sentinel',
+    date: 'Jul 30, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Thread-safe ModelRegistry operations with re-entrant locking (threading.RLock) & reverse relation cache invalidation, thread-isolated BaseManager descriptor subclass binding, standard Python type hint annotation support for NestedContractFacet, multi-dialect EnumField and CompositeField to_db conversion, and comprehensive 10-point standard docstrings across the Contracts subsystem.',
+    highlights: ['Thread-Safe ModelRegistry (RLock)', 'Manager Subclass Copy Isolation', 'Type-Annotated Nested Contracts'],
+    assets: [
+      { name: 'aquilia-1.3.7.tar.gz', size: '2.8 MB', type: 'Source' },
+      { name: 'aquilia-1.3.7-py3-none-any.whl', size: '2.3 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.7',
+    commitCount: '7',
+    contributors: 2
+  },
+  {
     version: '1.3.6',
     codename: 'Artifact Forge',
     date: 'Jul 29, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Unified artifact subsystem (aquilia.artifacts), standardizing all framework-generated metadata, build outputs, compiled Jinja2 bytecode, WebSocket metadata, and discovery caches into atomic, HMAC-signed JSON envelopes stored in .aquilia/artifacts/. Includes new aq artifacts CLI commands.',

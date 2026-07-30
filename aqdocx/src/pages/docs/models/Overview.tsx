@@ -187,19 +187,23 @@ async with atomic():
         </div>
       </section>
 
-      {/* Model Registry */}
+      {/* Model Registry & Thread Safety */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Model Registry</h2>
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Model Registry & Thread Safety</h2>
         <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
-          Metaclass auto-registers models in <DocTerm id="orm.registry">ModelRegistry</DocTerm> for dependency mapping.
+          The metaclass auto-registers models in <DocTerm id="orm.registry">ModelRegistry</DocTerm> for topology and dependency mapping. In v1.3.7, <code className="text-aquilia-500">ModelRegistry</code> is fully thread-safe (guarded by <code className="text-aquilia-500">threading.RLock</code>) and automatically invalidates reverse relation metadata caches across models on registration or reset.
         </p>
-        <CodeBlock language="python">{`from aquilia.models.registry import ModelRegistry
+        <CodeBlock language="python" filename="thread_safe_registry.py">{`from aquilia.models.registry import ModelRegistry
 
-# Get model class
-UserModel = ModelRegistry.get("User")
+# Thread-safe model lookup (guarded by RLock)
+UserModel = ModelRegistry.get_model("User")
 
-# Create all tables (respects FK topology order)
-await ModelRegistry.create_tables(db)`}</CodeBlock>
+# Create all tables (respects FK topology order across worker threads)
+await ModelRegistry.create_tables(db)
+
+# BaseManager descriptor isolation on model subclasses
+# SubModel.objects returns a thread-isolated bound copy (copy.copy)
+items = await ConcreteItem.objects.all()`}</CodeBlock>
       </section>
 
       {/* Navigation */}
