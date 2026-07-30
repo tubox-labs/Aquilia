@@ -8,6 +8,14 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Record<string, Announcement> = {
+  '1.3.8': {
+    version: '1.3.8',
+    badgeText: 'V1.3.8 Release',
+    title: 'DSL Migration Generator Overhaul, FK Topological Model Sorting & Scalar Enum Defaults:',
+    highlightText: 'Migration Architect',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.3.8',
+  },
   '1.3.7': {
     version: '1.3.7',
     badgeText: 'V1.3.7 Release',
@@ -78,5 +86,5 @@ export function getLatestAnnouncement(version?: string): Announcement {
   if (version && ANNOUNCEMENTS[version]) {
     return ANNOUNCEMENTS[version]
   }
-  return ANNOUNCEMENTS['1.3.7']
+  return ANNOUNCEMENTS['1.3.8']
 }

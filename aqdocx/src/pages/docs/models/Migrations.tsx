@@ -401,6 +401,61 @@ await ops.add_foreign_key(
         </CodeBlock>
       </section>
 
+      {/* v1.3.8 Migration Generator Improvements */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>v1.3.8 Migration Generator Overhaul</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          In Aquilia v1.3.8, the Migration DSL Generator and Schema Snapshot engine incorporate significant correctness enhancements:
+        </p>
+        <ul className={`list-disc pl-6 space-y-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+          <li><strong>Topological Model Creation Order:</strong> <code>CreateModel</code> operations are sorted dependency-first via post-order topological traversal (<code>_topologically_sort_models</code>), ensuring parent tables exist before foreign key creation.</li>
+          <li><strong>FK Target Table Resolution:</strong> <code>_resolve_target_table</code> resolves target model class references to actual database table names (e.g. <code>"users"</code> instead of <code>"usersmodel"</code>).</li>
+          <li><strong>Database Column Mapping:</strong> Index and constraint field names resolve model attribute names to actual database column names (<code>"user"</code> → <code>"user_id"</code>).</li>
+          <li><strong>Scalar Enum Defaults:</strong> Enum field default values are unwrapped into DB-storable scalar primitives (<code>default='active'</code>), ensuring generated Python files parse cleanly via <code>ast.parse()</code>.</li>
+          <li><strong>Index Column Normalization:</strong> Index field declarations strictly normalize into column name arrays (<code>columns=['token']</code>), eliminating character-split column lists.</li>
+        </ul>
+        <CodeBlock language="python" filename="migrations/20260730_201500_initial.py">
+{`from aquilia.models.migration_dsl import (
+    AddConstraint, CreateIndex, CreateModel,
+    columns as C,
+)
+
+class Meta:
+    revision = "20260730_201500"
+    slug = "post_useremailverificationmodel_and_2_more"
+    models = ['Post', 'UserEmailVerificationModel', 'UserModel', 'UserRoleModel']
+    dependencies = []
+
+operations = [
+    # 1. Parent model created FIRST due to topological sorting
+    CreateModel(
+        name='UserModel',
+        table='users',
+        fields=[
+            C.varchar("id", 36, primary_key=True),
+            C.text("status", default='active'),
+        ],
+    ),
+    # 2. Dependent models created AFTER parent model
+    CreateModel(
+        name='UserEmailVerificationModel',
+        table='email_verification',
+        fields=[
+            C.varchar("id", 36, primary_key=True),
+            C.foreign_key("user_id", "users", "id", col_type="VARCHAR(36)"),
+            C.varchar("token", 255),
+        ],
+    ),
+    CreateIndex(
+        name='idx_email_verification_token',
+        table='email_verification',
+        columns=['token'],
+        unique=False,
+    ),
+]`}
+        </CodeBlock>
+      </section>
+
       {/* Signals */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Migration Signals</h2>

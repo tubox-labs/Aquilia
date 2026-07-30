@@ -1,4 +1,588 @@
 export const localReleases: Record<string, Record<string, string>> = {
+  "1.3.8": {
+    "README.md": `# Aquilia v1.3.8 Release Notes — "Migration Architect"
+
+Aquilia v1.3.8 introduces **DSL Migration Generator Architectural Overhaul**, **Topological Foreign Key Model Dependency Ordering**, **Character-Split Index Normalization**, **Strict Foreign Key Target Table Resolution**, **Scalar Enum Default Serialization**, and **Comprehensive Migration Dependencies Metadata** across the Aquilia Database and ORM Migration subsystem.
+
+Before this release, auto-generated migration DSL files produced by \`aq db makemigrations\` (and \`generate_dsl_migration()\`) contained critical correctness bugs: index column names were split into single characters (\`columns=['t', 'o', 'k', 'e', 'n']\`), foreign key references targeted raw un-pluralized model class name stubs (\`C.foreign_key("user_id", "usersmodel", "id")\`), Enum field default values emitted stringified enum representation objects (\`default=<UserStatus.ACTIVE: 'active'>\`) breaking Python syntax, model creation operations were ordered arbitrarily rather than by foreign key dependencies, and index/constraint column targets failed to resolve model attribute names to actual database column names (\`"user"\` instead of \`"user_id"\`).
+
+This release addresses all 19 identified migration DSL generator vulnerabilities, implements post-order topological dependency sorting (\`_topologically_sort_models()\`), adds strict foreign key target table resolution (\`_resolve_target_table()\`), normalizes database column resolution (\`_resolve_db_column_name()\`), unwraps Enum defaults to DB-storable primitive scalars, and adds migration dependency tracking metadata (\`dependencies = [...]\`).
+
+---
+
+## Table of Contents
+
+1. [Migration DSL Generator Overhaul](migration_dsl_generator_fixes.md)
+   - Index column normalization (fixing character-split index column arrays)
+   - Foreign key target table resolution (\`_resolve_target_table()\`)
+   - Model attribute to database column name mapping (\`_resolve_db_column_name()\`)
+   - Foreign key SQL type inference consistency (\`col_type="VARCHAR(36)"\`)
+2. [Topological Model Dependency Ordering](model_dependency_ordering.md)
+   - Dependency graph construction for \`CreateModel\` operations
+   - Post-order depth-first topological traversal (\`_topologically_sort_models()\`)
+   - Self-referential and cyclic foreign key resolution
+3. [ORM Field Deconstruction & Serialization](orm_field_deconstruct_serialization.md)
+   - Scalar Enum default value unwrapping (\`'active'\` instead of \`<Enum: 'active'>\`)
+   - Snapshot serialization (\`create_snapshot()\`) and diffing (\`diff_to_operations()\`)
+   - Column definition generator (\`_render_column_def()\`)
+4. [Bug Fixes](bugfixes.md)
+   - Comprehensive audit of all 19 migration generator issues, root causes, and resolutions
+5. [Migration Guide](migration.md)
+   - Upgrade checklist, compatibility notes, and zero-breaking-change guarantees
+
+---
+
+## Highlights
+
+### 1. Character-Split Index Column Normalization
+
+Index field declarations—whether provided as strings (\`Index(fields="token")\`), tuples, or list expressions—are strictly normalized into database column arrays (\`columns=['token']\`), eliminating corrupted index column arrays (\`['t', 'o', 'k', 'e', 'n']\`) and index names (\`idx_email_verification_t_o_k_e_n\`).
+
+\`\`\`python
+# Generated Migration DSL (v1.3.8)
+CreateIndex(
+    name='idx_email_verification_token',
+    table='email_verification',
+    columns=['token'],
+    unique=False,
+),
+\`\`\`
+
+### 2. Foreign Key Target Table Resolution
+
+Foreign key references dynamically resolve to actual database table names (\`"users"\`), taking into account \`_meta.table_name\` overrides, \`ModelRegistry\` lookups, and PascalCase-to-snake_case pluralization fallbacks.
+
+\`\`\`python
+# Generated Migration DSL (v1.3.8)
+C.foreign_key("user_id", "users", "id", col_type="VARCHAR(36)"),
+\`\`\`
+
+### 3. Scalar Enum Default Serialization
+
+Enum defaults are unwrapped during snapshot serialization and code generation to DB-storable primitive scalar literals (\`'active'\` or \`1\`), ensuring generated Python migration files parse cleanly via \`ast.parse()\`.
+
+\`\`\`python
+# Generated Migration DSL (v1.3.8)
+C.text("status", default='active'),
+\`\`\`
+
+### 4. Topological Model Creation Ordering
+
+\`CreateModel\` operations in generated migrations are topologically sorted based on foreign key table dependencies. Referenced tables (\`users\`) are always created before dependent tables (\`email_verification\`, \`user_roles\`).
+
+\`\`\`python
+# Generated Migration DSL (v1.3.8 operations list)
+operations = [
+    CreateModel(name='UserModel', table='users', fields=[...]),
+    CreateModel(name='Post', table='posts', fields=[...]),
+    CreateModel(name='UserEmailVerificationModel', table='email_verification', fields=[...]),
+    CreateModel(name='UserRoleModel', table='user_roles', fields=[...]),
+]
+\`\`\`
+
+### 5. Migration Dependency Tracking Metadata
+
+Generated migration modules now explicitly include prerequisite revision IDs in \`Meta.dependencies\`.
+
+\`\`\`python
+class Meta:
+    revision = "20260730_201500"
+    slug = "post_useremailverificationmodel_and_2_more"
+    models = ['Post', 'UserEmailVerificationModel', 'UserModel', 'UserRoleModel']
+    dependencies = ['20260730_143000']
+\`\`\`
+
+---
+
+## Summary of Changes
+
+| Subsystem | Change | Impact |
+|---|---|---|
+| \`aquilia.models.schema_snapshot\` | Added \`_resolve_db_column_name()\`, \`_resolve_target_table()\`, \`_topologically_sort_models()\` | Resolves DB column names, FK target tables, and topological \`CreateModel\` execution order |
+| \`aquilia.models.migration_gen\` | Updated \`generate_dsl_migration()\`, \`_render_migration_file()\`, \`_render_column_def()\` | Emits syntactically valid Python source text with dependencies metadata |
+| \`aquilia.models.migration_dsl\` | Updated \`_format_default()\` | Unwraps Enum defaults to scalar Python literals in DSL column definitions |
+| \`aquilia.models.fields_module\` | Updated \`Index.__init__()\` | Safely normalizes string or tuple \`fields\` parameters into string lists |
+| \`aquilia.models.index\` | Updated \`_PostgresOnlyIndex.__init__()\` | Normalizes index column inputs across PostgreSQL index variants |
+`,
+    "migration_dsl_generator_fixes.md": `# Migration DSL Generator Overhaul
+
+## Overview
+
+In Aquilia v1.3.8, the Migration DSL Generator (\`aquilia.models.migration_gen\` and \`aquilia.models.schema_snapshot\`) underwent a comprehensive architectural overhaul. The generator is responsible for transforming model definitions into schema snapshots (\`create_snapshot()\`), calculating diffs (\`diff_to_operations()\`), and emitting human-readable, executable Python DSL migration files (\`generate_dsl_migration()\`).
+
+---
+
+## Technical Details
+
+### 1. Character-Split Index Column Normalization
+
+#### Previous Behavior
+When an index was declared using a single string or when \`Index.deconstruct()\` returned \`fields: "token"\`, \`schema_snapshot.py\` iterated over the string as a sequence (\`list("token")\`), splitting column names into character arrays:
+
+\`\`\`python
+# Old Output (v1.3.7 Bug)
+CreateIndex(
+    name='idx_email_verification_t_o_k_e_n',
+    table='email_verification',
+    columns=['t', 'o', 'k', 'e', 'n'],
+    unique=False,
+)
+\`\`\`
+
+#### New Implementation
+\`Index.__init__()\` and \`_PostgresOnlyIndex.__init__()\` normalize \`fields\` arguments upon instantiation. Furthermore, \`create_snapshot()\` inspects and normalizes string column names into strict \`list[str]\` objects before building auto index names or emitting DSL \`CreateIndex\` operations:
+
+\`\`\`python
+# New Output (v1.3.8)
+CreateIndex(
+    name='idx_email_verification_token',
+    table='email_verification',
+    columns=['token'],
+    unique=False,
+)
+\`\`\`
+
+---
+
+### 2. Strict Foreign Key Target Table Resolution
+
+#### Previous Behavior
+When a \`ForeignKey\` field referenced a model using a string class name (e.g. \`ForeignKey("UserModel")\`), \`_serialize_field()\` fell back to lowercasing the raw string (\`"usersmodel"\`), ignoring \`UserModel._meta.table_name\` (\`"users"\`):
+
+\`\`\`python
+# Old Output (v1.3.7 Bug)
+C.foreign_key("user_id", "usersmodel", "id")
+\`\`\`
+
+#### New Implementation
+\`_resolve_target_table(to_ref, model_classes)\` resolves target table names through a multi-pass lookup pipeline:
+1. Inspects \`to_ref._meta.table_name\` if \`to_ref\` is a \`Model\` subclass.
+2. Scans \`model_classes\` passed to snapshot creation for matching \`__name__\` or \`_meta.table_name\`.
+3. Queries \`ModelRegistry\` for registered model class metadata.
+4. Applies a PascalCase-to-snake_case pluralization fallback (\`"UserModel"\` -> \`"users"\`).
+
+\`\`\`python
+# New Output (v1.3.8)
+C.foreign_key("user_id", "users", "id", col_type="VARCHAR(36)")
+\`\`\`
+
+---
+
+### 3. Model Attribute Name to Database Column Name Resolution
+
+#### Previous Behavior
+When indexes or constraints referenced model attribute names (e.g. \`Index(fields=["user"])\` or \`UniqueConstraint(fields=["user", "role"])\`), the generator emitted the Python attribute name (\`"user"\`) rather than the database column name (\`"user_id"\`):
+
+\`\`\`python
+# Old Output (v1.3.7 Bug)
+CreateIndex(name='idx_user_roles_user', table='user_roles', columns=['user'])
+AddConstraint(table='user_roles', constraint_sql='CONSTRAINT "user_role_unique" UNIQUE ("user", "role")')
+\`\`\`
+
+#### New Implementation
+\`_resolve_db_column_name(model_cls, field_or_name)\` inspects \`model_cls._fields\` descriptors. If the field is a \`ForeignKey\` or has a custom \`column_name\`/\`db_column\` attribute, it extracts the actual database column name (\`"user"\` -> \`"user_id"\`):
+
+\`\`\`python
+# New Output (v1.3.8)
+CreateIndex(name='idx_user_roles_user_id', table='user_roles', columns=['user_id'])
+AddConstraint(table='user_roles', constraint_sql='CONSTRAINT "user_role_unique" UNIQUE ("user_id", "role")')
+\`\`\`
+
+---
+
+### 4. Foreign Key SQL Type Inference Consistency
+
+#### Previous Behavior
+If a foreign key target model (e.g., \`UserModel\` with UUID primary key \`id = UUIDField(primary_key=True)\`) was un-resolved at field initialization time, \`_field_to_sql_type()\` returned \`"INTEGER"\` for one model and \`"VARCHAR(36)"\` for another, causing column definition type mismatches in generated migrations.
+
+#### New Implementation
+\`_field_to_sql_type(fld, model_classes=model_classes)\` dynamically inspects \`model_classes\` and \`ModelRegistry\` during snapshot creation to determine the exact primary key SQL type of the target model (\`"VARCHAR(36)"\`), emitting \`col_type="VARCHAR(36)"\` consistently across all referencing foreign key column definitions.
+`,
+    "model_dependency_ordering.md": `# Topological Model Dependency Ordering
+
+## Overview
+
+In Aquilia v1.3.8, \`diff_to_operations()\` implements post-order topological dependency sorting (\`_topologically_sort_models()\`) for \`CreateModel\` operations in generated migrations.
+
+---
+
+## The Problem
+
+Before v1.3.8, added models in a migration diff were processed in simple alphabetical order. For example, given the models:
+
+- \`Post\` (table \`posts\`)
+- \`UserEmailVerificationModel\` (table \`email_verification\`, referencing \`users.id\`)
+- \`UserModel\` (table \`users\`, primary key \`id\`)
+- \`UserRoleModel\` (table \`user_roles\`, referencing \`users.id\`)
+
+Alphabetical iteration produced \`CreateModel\` operations in the following sequence:
+
+1. \`CreateModel(name='Post', table='posts', ...)\`
+2. \`CreateModel(name='UserEmailVerificationModel', table='email_verification', fields=[C.foreign_key("user_id", "users", "id"), ...])\`
+3. \`CreateModel(name='UserModel', table='users', ...)\`
+4. \`CreateModel(name='UserRoleModel', table='user_roles', fields=[C.foreign_key("user_id", "users", "id"), ...])\`
+
+When the migration runner attempted to execute \`CREATE TABLE email_verification\` on PostgreSQL or SQLite with foreign key enforcement active, the execution failed with:
+
+\`\`\`
+[MIGRATION_FAILED] Cannot add foreign key constraint: table 'users' does not exist
+\`\`\`
+
+---
+
+## Architectural Implementation
+
+### Dependency Graph Construction & Topological Sorting
+
+\`_topologically_sort_models(added_models, models_data)\` constructs a directed dependency graph where:
+- Each node represents an added model name.
+- A directed edge A -> B indicates that Model A contains a \`ForeignKey\` referencing Model B's database table (B != A).
+
+\`\`\`python
+def _topologically_sort_models(
+    added_models: list[str],
+    models_data: dict[str, Any],
+) -> list[str]:
+    if len(added_models) <= 1:
+        return added_models
+
+    table_to_model = {}
+    for m_name in added_models:
+        m_info = models_data.get(m_name, {})
+        t_name = m_info.get("table", m_name.lower())
+        table_to_model[t_name] = m_name
+
+    deps: dict[str, set[str]] = {m: set() for m in added_models}
+    for m_name in added_models:
+        m_info = models_data.get(m_name, {})
+        fields = m_info.get("fields", {})
+        for f_info in fields.values():
+            ref = f_info.get("references")
+            if ref and isinstance(ref, dict):
+                ref_table = ref.get("table")
+                if ref_table and ref_table in table_to_model:
+                    target_m = table_to_model[ref_table]
+                    if target_m != m_name:
+                        deps[m_name].add(target_m)
+
+    sorted_models: list[str] = []
+    visited: set[str] = set()
+    visiting: set[str] = set()
+
+    def visit(node: str) -> None:
+        if node in visiting:
+            return
+        if node not in visited:
+            visiting.add(node)
+            for dep in sorted(deps[node]):
+                visit(dep)
+            visiting.remove(node)
+            visited.add(node)
+            sorted_models.append(node)
+
+    for m_name in sorted(added_models):
+        if m_name not in visited:
+            visit(m_name)
+
+    return sorted_models
+\`\`\`
+
+---
+
+## Execution Guarantees
+
+1. **Dependency First**: Tables referenced by foreign keys (\`users\`) are guaranteed to appear in \`CreateModel\` operations before tables that reference them (\`email_verification\`, \`user_roles\`).
+2. **Cycle Safety**: Self-referential models (Model A -> Model A) ignore self-loops, and circular dependencies (Model A -> Model B -> Model A) are broken gracefully without recursion errors.
+3. **Determinism**: Ties are broken using sorted model names, ensuring byte-for-byte deterministic migration file generation across platforms.
+`,
+    "orm_field_deconstruct_serialization.md": `# ORM Field Deconstruction & Snapshot Serialization
+
+## Overview
+
+Aquilia v1.3.8 fixes scalar default unwrapping during model field serialization (\`_serialize_field()\`), snapshot generation (\`create_snapshot()\`), and DSL column rendering (\`_render_column_def()\`).
+
+---
+
+## Technical Details
+
+### 1. Enum Default Value Unwrapping
+
+#### Previous Behavior
+When a model field used an \`EnumField\` or \`Enum\` default (e.g. \`status = EnumField(enum_class=UserStatus, default=UserStatus.ACTIVE)\`), \`_serialize_field()\` failed to serialize the raw Enum instance into JSON, falling back to string representation:
+
+\`\`\`python
+# Snapshot JSON (v1.3.7 Bug)
+"default": "<UserStatus.ACTIVE: 'active'>"
+
+# Migration DSL (v1.3.7 Bug - SyntaxError line 61)
+status = C.text("status", default=<UserStatus.ACTIVE: 'active'>)
+\`\`\`
+
+When Python loaded the migration file, \`ast.parse()\` and \`importlib\` failed with \`SyntaxError: invalid syntax\`.
+
+#### New Implementation
+\`_serialize_field()\` now unwrap \`Enum\` defaults through \`fld.to_db(val)\` or by extracting \`.value\` / \`.name\` directly:
+
+\`\`\`python
+if hasattr(fld, "default") and fld.default is not None:
+    if fld.default is not UNSET:
+        val = fld.default
+        if isinstance(fld, EnumField):
+            val = fld.to_db(val)
+        elif isinstance(val, Enum):
+            val = val.name if getattr(fld, "store_name", False) else val.value
+
+        try:
+            json.dumps(val)
+            info["default"] = val
+        except (TypeError, ValueError):
+            info["default"] = str(val)
+\`\`\`
+
+And \`_format_default()\` in \`migration_dsl.py\` formats Enum instances into Python string literals:
+
+\`\`\`python
+# Snapshot JSON (v1.3.8)
+"default": "active"
+
+# Migration DSL (v1.3.8 - Valid Python)
+C.text("status", default='active')
+\`\`\`
+
+---
+
+### 2. Snapshot Diffing & Column Definition Generation
+
+\`_snapshot_field_to_column_def()\` converts serialized field dictionaries back into \`ColumnDef\` objects for operation rendering. In v1.3.8, \`_render_column_def()\` formats column helper calls matching the target database column definition:
+
+\`\`\`python
+# Primary Key Column
+C.varchar("id", 36, primary_key=True)
+
+# Foreign Key Column
+C.foreign_key("user_id", "users", "id", null=True, on_delete="CASCADE", col_type="VARCHAR(36)")
+
+# Varchar Column with Default
+C.varchar("email", 254, unique=True)
+\`\`\`
+`,
+    "bugfixes.md": `# Comprehensive Bug Fixes in v1.3.8
+
+This document details all 19 bug fixes and correctness improvements implemented in Aquilia v1.3.8.
+
+---
+
+## 1. Character-Split Index Columns (Critical)
+
+- **Previous Behavior**: \`Index(fields="token")\` or tuple inputs converted column strings to character arrays (\`columns=['t', 'o', 'k', 'e', 'n']\`).
+- **Root Cause**: \`Index.deconstruct()\` returned \`fields: "token"\`. Snapshot logic called \`list("token")\`, splitting the string into single characters.
+- **New Behavior**: Strictly normalizes string fields into string lists (\`columns=['token']\`).
+
+---
+
+## 2. Foreign Key Target Table Name Mismatch (Critical)
+
+- **Previous Behavior**: Foreign key references emitted raw low-cased class stubs (\`C.foreign_key("user_id", "usersmodel", "id")\`).
+- **Root Cause**: Unbound string target model names (\`"UserModel"\`) bypassed model registry resolution and fell back to \`to.lower()\`.
+- **New Behavior**: \`_resolve_target_table()\` queries model classes, metadata, and registry to resolve actual database table names (\`"users"\`).
+
+---
+
+## 3. Un-serializable Enum Default Repr Syntax Error (Critical)
+
+- **Previous Behavior**: \`default=<UserStatus.ACTIVE: 'active'>\` emitted in migration DSL, causing \`SyntaxError\` on import.
+- **Root Cause**: \`_serialize_field()\` stringified Enum objects when \`json.dumps()\` failed instead of unwrapping \`.value\` or calling \`to_db()\`.
+- **New Behavior**: Unwraps Enum default instances to scalar primitives (\`default='active'\`).
+
+---
+
+## 4. Wrong Index Name Generation (High)
+
+- **Previous Behavior**: \`_auto_index_name\` produced corrupted names like \`idx_email_verification_t_o_k_e_n\`.
+- **Root Cause**: \`_auto_index_name\` joined character-split arrays (\`"_".join(['t', 'o', 'k', 'e', 'n'])\`).
+- **New Behavior**: Uses normalized column lists, producing \`idx_email_verification_token\`.
+
+---
+
+## 5. Index Column Field vs. DB Column Name Mismatch (High)
+
+- **Previous Behavior**: \`Index(fields=["user"])\` produced \`columns=['user']\` instead of \`columns=['user_id']\`.
+- **Root Cause**: Generator serialized model attribute names directly without mapping through descriptor column names.
+- **New Behavior**: \`_resolve_db_column_name()\` maps model attributes to database column names (\`"user"\` -> \`"user_id"\`).
+
+---
+
+## 6. Unique Constraint Field vs. DB Column Name Mismatch (High)
+
+- **Previous Behavior**: \`UniqueConstraint(fields=["user", "role"])\` produced \`UNIQUE ("user", "role")\`.
+- **Root Cause**: Constraint fields were not resolved to underlying database column names.
+- **New Behavior**: Maps constraint fields to database column names, producing \`UNIQUE ("user_id", "role")\`.
+
+---
+
+## 7. Foreign Key Column Type Inference Inconsistency (High)
+
+- **Previous Behavior**: Foreign key column types defaulted to \`"INTEGER"\` on some models and \`"VARCHAR(36)"\` on others.
+- **Root Cause**: \`_field_to_sql_type()\` failed to inspect target model primary key types for string references.
+- **New Behavior**: Dynamically resolves target model primary key types (\`"VARCHAR(36)"\`), ensuring type consistency across models.
+
+---
+
+## 8. Table Naming Inconsistency Across Model References (High)
+
+- **Previous Behavior**: String reference targets were inconsistently resolved depending on model declaration order.
+- **Root Cause**: Lack of unified target table resolution pipeline.
+- **New Behavior**: Unified target table resolution pipeline guarantees consistent table names regardless of declaration order.
+
+---
+
+## 9. Missing Foreign Key Metadata (Medium)
+
+- **Previous Behavior**: \`on_delete\`, \`on_update\`, and \`null=True\` were omitted from generated DSL foreign key calls.
+- **Root Cause**: Generator omitted default options from rendered \`C.foreign_key()\` argument strings.
+- **New Behavior**: \`_render_column_def()\` renders all non-default foreign key metadata.
+
+---
+
+## 10. Reverse Relation Metadata Leakage in DDL (Medium)
+
+- **Previous Behavior**: Reverse relation descriptors populated metadata into snapshot field maps.
+- **Root Cause**: Descriptor scanning did not filter out virtual relation properties.
+- **New Behavior**: Virtual relation properties are handled cleanly without polluting DDL operation definitions.
+
+---
+
+## 11. Field Options & Timestamp Metadata Loss (Medium)
+
+- **Previous Behavior**: \`auto_now\` and \`auto_now_add\` flags were omitted from snapshot metadata.
+- **Root Cause**: \`_serialize_field()\` did not record timestamp flags.
+- **New Behavior**: Captures timestamp metadata cleanly in snapshot definitions.
+
+---
+
+## 12. Case-Insensitive Unique Constraint DDL Generation (Medium)
+
+- **Previous Behavior**: Case-insensitive fields emitted broken constraint DDL.
+- **Root Cause**: \`CIEmailField\` expression unique constraints were formatted without parenthesis escaping.
+- **New Behavior**: Properly compiles schema expressions for case-insensitive unique constraints.
+
+---
+
+## 13. Redundant Column-Level Uniqueness (Medium)
+
+- **Previous Behavior**: Fields with table-level unique constraints also emitted \`unique=True\` on column definitions.
+- **Root Cause**: Generator did not check table-level constraint duplicates.
+- **New Behavior**: Suppresses redundant column-level \`unique=True\` when expression-based unique constraints exist.
+
+---
+
+## 14. Arbitrary Model Dependency Creation Ordering (Critical)
+
+- **Previous Behavior**: \`CreateModel\` operations were emitted in alphabetical order, causing foreign key creation crashes.
+- **Root Cause**: Added models list was iterated without topological dependency analysis.
+- **New Behavior**: \`_topologically_sort_models()\` sorts \`CreateModel\` operations dependency-first.
+
+---
+
+## 15. Migration Revision Dependency Metadata Omission (Medium)
+
+- **Previous Behavior**: \`Meta.dependencies\` was omitted from generated migration source text.
+- **Root Cause**: Generator did not collect previous migration revision IDs.
+- **New Behavior**: Scans \`migrations_dir\` and includes \`dependencies = ['<prev_rev>']\` in \`Meta\`.
+
+---
+
+## 16. State Operation Support (Low)
+
+- **Previous Behavior**: Migration DSL did not support custom SQL state operations cleanly.
+- **Root Cause**: Lack of \`RunSQL\` operation rendering.
+- **New Behavior**: Full support for \`RunSQL\` rendering and execution.
+
+---
+
+## 17. Field Options Preservation (Low)
+
+- **Previous Behavior**: Options like \`max_digits\` and \`decimal_places\` were lost during snapshot roundtripping.
+- **Root Cause**: Missing parameter serialization in \`_serialize_field()\`.
+- **New Behavior**: Preserves all field parameters cleanly.
+
+---
+
+## 18. Nullable Foreign Key Definition Rendering (Low)
+
+- **Previous Behavior**: Nullable foreign keys emitted \`null=False\` in rendered DSL column definitions.
+- **Root Cause**: \`nullable\` property was not passed to \`C.foreign_key()\`.
+- **New Behavior**: Emits \`C.foreign_key(..., null=True)\` when \`nullable=True\`.
+
+---
+
+## 19. Postgres Index Abstraction Support (Low)
+
+- **Previous Behavior**: Custom Postgres index variants (\`GinIndex\`, \`GistIndex\`) dropped \`condition\` or \`opclasses\`.
+- **Root Cause**: Generator omitted index options in snapshot dict.
+- **New Behavior**: Preserves condition and operator class overrides in index snapshot metadata.
+`,
+    "migration.md": `# Aquilia v1.3.8 Migration Guide
+
+## Upgrade Overview
+
+Aquilia v1.3.8 is a **zero-breaking-change patch release** focused on ORM Migration DSL Generator correctness, topological model dependency sorting, and snapshot serialization robustness.
+
+All existing code, model definitions, and applied database migrations remain 100% compatible with v1.3.8.
+
+---
+
+## Upgrade Steps
+
+### 1. Upgrade Package Version
+
+Upgrade Aquilia in your environment via \`pip\` or \`uv\`:
+
+\`\`\`bash
+pip install --upgrade aquilia==1.3.8
+\`\`\`
+
+Or using \`uv\`:
+
+\`\`\`bash
+uv add aquilia==1.3.8
+\`\`\`
+
+### 2. Verify Generated Migrations
+
+If you previously generated migration DSL files with v1.3.7 that experienced syntax errors (such as \`default=<UserStatus.ACTIVE: 'active'>\`) or character-split indexes (\`columns=['t', 'o', 'k', 'e', 'n']\`), delete those un-applied migration files and re-run:
+
+\`\`\`bash
+aq db makemigrations
+\`\`\`
+
+The newly generated migration files will automatically incorporate:
+- Topological model creation order (\`users\` created before \`email_verification\`).
+- Resolved target table names (\`"users"\` instead of \`"usersmodel"\`).
+- Resolved database column names (\`"user_id"\` instead of \`"user"\`).
+- Clean scalar Enum defaults (\`default='active'\`).
+- Valid index column arrays (\`columns=['token']\`).
+
+### 3. Apply Pending Migrations
+
+Execute the migration runner:
+
+\`\`\`bash
+aq db migrate
+\`\`\`
+
+---
+
+## Compatibility Summary
+
+| Component | Status | Notes |
+|---|---|---|
+| Model Definitions | 100% Compatible | No changes required to \`Model\` or \`Field\` declarations. |
+| Existing Applied Migrations | 100% Compatible | Applied migration files in \`migrations/\` continue to work without modification. |
+| Migration Runner | Enhanced | Fully supports topological model execution and dependencies metadata. |
+| Database Engines | 100% Compatible | Verified against SQLite, PostgreSQL, MySQL, and Oracle. |
+`
+  },
   "1.3.7": {
     "README.md": `# Aquilia v1.3.7 Release Notes — "Thread Sentinel"
 

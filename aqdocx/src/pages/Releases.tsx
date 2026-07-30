@@ -36,10 +36,27 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.3.8',
+    codename: 'Migration Architect',
+    date: 'Jul 30, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Complete architectural overhaul of the ORM Migration DSL Generator, post-order topological model dependency graph ordering (_topologically_sort_models), character-split index column normalization (columns=["token"]), strict FK target table name resolution (_resolve_target_table), scalar Enum default serialization (default="active"), and migration revision dependencies tracking metadata.',
+    highlights: ['DSL Migration Generator Overhaul', 'Topological Model Creation Sorting', 'Character-Split Index Normalization', 'Scalar Enum Default Serialization'],
+    assets: [
+      { name: 'aquilia-1.3.8.tar.gz', size: '2.8 MB', type: 'Source' },
+      { name: 'aquilia-1.3.8-py3-none-any.whl', size: '2.3 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.8',
+    commitCount: '19',
+    contributors: 2
+  },
+  {
     version: '1.3.7',
     codename: 'Thread Sentinel',
     date: 'Jul 30, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Thread-safe ModelRegistry operations with re-entrant locking (threading.RLock) & reverse relation cache invalidation, thread-isolated BaseManager descriptor subclass binding, standard Python type hint annotation support for NestedContractFacet, multi-dialect EnumField and CompositeField to_db conversion, and comprehensive 10-point standard docstrings across the Contracts subsystem.',

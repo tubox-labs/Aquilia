@@ -29,6 +29,45 @@ interface ChangelogEntry {
 
 const staticChangelogs: ChangelogEntry[] = [
   {
+    version: '1.3.8',
+    codename: 'Migration Architect',
+    date: '2026-07-30',
+    tag: 'patch',
+    summary: 'Complete architectural overhaul of the ORM Migration DSL Generator, post-order topological model dependency graph ordering (_topologically_sort_models), character-split index column normalization (columns=["token"]), strict FK target table name resolution (_resolve_target_table), scalar Enum default serialization (default="active"), and migration revision dependencies tracking metadata.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'Topological Model Creation Sorting: Post-order depth-first traversal (_topologically_sort_models) ensures referenced tables (users) are created before dependent tables (email_verification, user_roles) in CreateModel operations.',
+          'Foreign Key Target Table Resolver: Multi-pass resolution (_resolve_target_table) resolves target model metadata, ModelRegistry entries, and PascalCase-to-snake_case fallbacks ("UserModel" -> "users").',
+          'Database Column Name Resolver: Maps model attribute names to underlying database column names ("user" -> "user_id") across indexes and table constraints.',
+          'Migration Dependencies Metadata: Generated DSL migration modules now include prerequisite revision IDs in Meta.dependencies.',
+          'Migration Generator Correctness Test Suite: Comprehensive test suite verifying all 19 migration generator correctness rules, AST parsing, loading, and DDL execution on SQLite.'
+        ]
+      },
+      {
+        title: 'Improved',
+        type: 'changed',
+        items: [
+          'Character-Split Index Normalization: Normalizes string index fields into list[str] arrays, eliminating character-split index columns ([\'t\', \'o\', \'k\', \'e\', \'n\']) and corrupted index names.',
+          'Scalar Enum Default Unwrapping: Unwraps Enum member instances to scalar string/int primitives (default=\'active\'), fixing Python SyntaxError on migration load.',
+          'Foreign Key Type Inference Consistency: Dynamically inspects target primary key types to emit consistent column types (col_type="VARCHAR(36)") across referencing foreign key column definitions.',
+          'Foreign Key Metadata Preservation: Renders null=True, on_delete, on_update, and col_type in C.foreign_key() DSL calls.'
+        ]
+      },
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'AST Syntax Error on Enum Migration Load: Fixed stringified Enum representation output (default=<UserStatus.ACTIVE: \'active\'>) by serializing DB-storable primitive values.',
+          'Foreign Key DDL Execution Failures: Fixed CreateModel execution order for added models using topological graph sorting.',
+          'Foreign Key Target Table Reference Crashes: Fixed target table references pointing to un-pluralized class name stubs ("usersmodel") instead of actual table names ("users").'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.3.7',
     codename: 'Thread Sentinel',
     date: '2026-07-30',
