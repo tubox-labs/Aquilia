@@ -3663,62 +3663,44 @@ class AquiliaServer:
                 )
 
         # 3b. Resolve config dict (Workspace.database() / Integration.database())
+        explicit_auto_migrate_false = False
         if hasattr(self.config, "get"):
             db_url = self.config.get("database.url", None)
-            auto_create = auto_create or self.config.get("database.auto_create", False)
-            auto_migrate = auto_migrate or self.config.get("database.auto_migrate", False)
+            auto_create = self.config.get("database.auto_create", False)
+            raw_auto_mig = self.config.get("database.auto_migrate", None)
+            if raw_auto_mig is False:
+                explicit_auto_migrate_false = True
+            auto_migrate = bool(raw_auto_mig)
         elif hasattr(self.config, "to_dict"):
             cfg_dict = self.config.to_dict()
             db_section = cfg_dict.get("database", {})
             db_url = db_section.get("url")
-            auto_create = auto_create or db_section.get("auto_create", False)
-            auto_migrate = auto_migrate or db_section.get("auto_migrate", False)
+            auto_create = db_section.get("auto_create", False)
+            raw_auto_mig = db_section.get("auto_migrate", None)
+            if raw_auto_mig is False:
+                explicit_auto_migrate_false = True
+            auto_migrate = bool(raw_auto_mig)
+
+        env_auto_mig = os.environ.get("AQUILIA_AUTO_MIGRATE", "").strip()
+        if env_auto_mig in ("1", "true", "yes"):
+            auto_migrate = True
+            explicit_auto_migrate_false = False
+        elif env_auto_mig in ("0", "false", "no"):
+            auto_migrate = False
+            explicit_auto_migrate_false = True
 
         # ── Phase 3b: Startup guard -- warn if DB missing / stale ────────
         if db_url and not auto_migrate:
             try:
-                from pathlib import Path
-
                 from aquilia.models.startup_guard import check_db_ready
 
-                db_ready = check_db_ready(
+                check_db_ready(
                     db_url=db_url,
                     migrations_dir=migrations_dir,
                     auto_migrate=auto_migrate,
                     auto_create=auto_create,
                 )
-                if not db_ready:
-                    # Check if there are any migration files in migrations_dir
-                    mdir = Path(migrations_dir)
-                    has_migrations = mdir.exists() and any(mdir.glob("*.py"))
-
-                    if auto_create and not has_migrations:
-                        # No migrations exist, but auto_create is True:
-                        # Proceed with auto_creation for a new project/first boot.
-                        pass
-                    else:
-                        # Otherwise, raise a SchemaFault (which is a standard Exception)
-                        # so that the ASGI startup fails cleanly and halts the server.
-                        from aquilia.faults.domains import SchemaFault
-
-                        raise SchemaFault(
-                            table="(startup)",
-                            reason="Database is not ready. There are unapplied migrations or the database is missing. "
-                            "Please run: aq db makemigrations && aq db migrate",
-                        )
-            except SystemExit as e:
-                # If a legacy SystemExit/DatabaseNotReadyError is raised, raise SchemaFault
-                from aquilia.faults.domains import SchemaFault
-
-                raise SchemaFault(
-                    table="(startup)",
-                    reason=f"Database is not ready: {e}. Please run: aq db makemigrations && aq db migrate",
-                ) from e
             except Exception as exc:
-                from aquilia.faults.domains import SchemaFault
-
-                if isinstance(exc, SchemaFault):
-                    raise exc
                 self.logger.warning(f"Startup-guard check skipped: {exc}")
 
         # ── Phase 4: Connect and create tables ────────────────────────────
@@ -3731,18 +3713,30 @@ class AquiliaServer:
             if ModelRegistry._models:
                 ModelRegistry.set_database(db)
 
-            if auto_create:
+            # Strictly respect auto_migrate=False: NO table creation or migration execution
+            # when auto_migrate is explicitly False.
+            if explicit_auto_migrate_false:
+                pass
+            elif auto_migrate:
+                from pathlib import Path
+
+                mdir = Path(migrations_dir)
+                has_migrations = mdir.exists() and any(mdir.glob("*.py"))
+
+                if auto_create and not has_migrations:
+                    if ModelRegistry._models:
+                        await ModelRegistry.create_tables()
+                else:
+                    try:
+                        from aquilia.models.migration_runner import MigrationRunner
+
+                        runner = MigrationRunner(db, migrations_dir)
+                        await runner.migrate()
+                    except Exception as e:
+                        self.logger.warning(f"Auto-migration failed: {e}")
+            elif auto_create:
                 if ModelRegistry._models:
                     await ModelRegistry.create_tables()
-
-            if auto_migrate:
-                try:
-                    from .models.migrations import MigrationRunner
-
-                    runner = MigrationRunner(db, migrations_dir)
-                    await runner.migrate()
-                except Exception as e:
-                    self.logger.warning(f"Auto-migration failed: {e}")
 
             # ── Phase 5: Register in DI containers ────────────────────────
             from .di.providers import ValueProvider

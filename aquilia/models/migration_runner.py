@@ -352,10 +352,11 @@ class MigrationRunner:
                 # Legacy raw-SQL migration
                 upgrade_fn = module.upgrade
                 try:
-                    if inspect.iscoroutinefunction(upgrade_fn):
-                        await upgrade_fn(self.db)
-                    else:
-                        upgrade_fn(self.db)
+                    async with self.db.transaction():
+                        if inspect.iscoroutinefunction(upgrade_fn):
+                            await upgrade_fn(self.db)
+                        else:
+                            upgrade_fn(self.db)
                 except MigrationFault:
                     raise
                 except Exception as exc:

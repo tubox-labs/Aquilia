@@ -416,32 +416,33 @@ class ModelRegistry:
         dialect = getattr(target_db, "dialect", "sqlite")
         statements: list[str] = []
 
-        for model_cls in ordered:
-            if model_cls._meta.abstract or not model_cls._meta.managed:
-                continue
+        async with target_db.transaction():
+            for model_cls in ordered:
+                if model_cls._meta.abstract or not model_cls._meta.managed:
+                    continue
 
-            # Create main table
-            sql = model_cls.generate_create_table_sql(dialect=dialect)
-            await target_db.execute(sql)
-            statements.append(sql)
+                # Create main table
+                sql = model_cls.generate_create_table_sql(dialect=dialect)
+                await target_db.execute(sql)
+                statements.append(sql)
 
-            # Create indexes
-            for idx_sql in model_cls.generate_index_sql(dialect=dialect):
-                try:
-                    await target_db.execute(idx_sql)
-                except Exception as idx_exc:
-                    _orig = getattr(idx_exc, "__cause__", idx_exc)
-                    _args = getattr(_orig, "args", ())
-                    if _args and _args[0] == 1061:
-                        pass
-                    else:
-                        raise
-                statements.append(idx_sql)
+                # Create indexes
+                for idx_sql in model_cls.generate_index_sql(dialect=dialect):
+                    try:
+                        await target_db.execute(idx_sql)
+                    except Exception as idx_exc:
+                        _orig = getattr(idx_exc, "__cause__", idx_exc)
+                        _args = getattr(_orig, "args", ())
+                        if _args and _args[0] == 1061:
+                            pass
+                        else:
+                            raise
+                    statements.append(idx_sql)
 
-            # Create M2M junction tables
-            for m2m_sql in model_cls.generate_m2m_sql(dialect=dialect):
-                await target_db.execute(m2m_sql)
-                statements.append(m2m_sql)
+                # Create M2M junction tables
+                for m2m_sql in model_cls.generate_m2m_sql(dialect=dialect):
+                    await target_db.execute(m2m_sql)
+                    statements.append(m2m_sql)
 
         return statements
 

@@ -32,31 +32,59 @@ _RESET = "\033[0m"
 _BOLD = "\033[1m"
 
 
+from enum import Enum
+
+class DatabaseState(Enum):
+    """Clean state model for database startup readiness."""
+    READY = "READY"
+    MISSING_DATABASE = "MISSING_DATABASE"
+    PENDING_MIGRATIONS = "PENDING_MIGRATIONS"
+    CORRUPTED_HISTORY = "CORRUPTED_HISTORY"
+    SCHEMA_MISMATCH = "SCHEMA_MISMATCH"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
 class DatabaseNotReadyError(SystemExit):
     """
-    Raised when the database is not ready at server startup.
+    Raised when the database is not ready at server startup (legacy/explicit check).
 
     This is a SystemExit subclass so the process exits with a
-    non-zero code and a human-readable message.  It also inherits
-    from ``SchemaFault`` so it flows through the Aquilia fault pipeline
-    for logging and auditing before terminating.
+    non-zero code and a human-readable message.
     """
 
     def __init__(self, message: str):
         self.message = message
-        # Log through fault system before exiting
         try:
             from ..faults.domains import SchemaFault
-
-            fault = SchemaFault(table="(startup)", reason=message)
             import logging
 
-            logging.getLogger("aquilia.models.startup_guard").error(
-                "Database not ready — %s [fault=%s]", message, fault.code
+            fault = SchemaFault(table="(startup)", reason=message)
+            logging.getLogger("aquilia.models.startup_guard").warning(
+                "Database not ready warning — %s [fault=%s]", message, fault.code
             )
         except Exception:
             pass
         super().__init__(1)
+
+
+def get_db_state(
+    db_url: str = "sqlite:///db.sqlite3",
+    migrations_dir: str | Path = "migrations",
+) -> DatabaseState:
+    """
+    Determine the detailed readiness state of the database.
+    """
+    from .migration_runner import check_db_exists, check_migrations_applied
+
+    if not check_db_exists(db_url):
+        return DatabaseState.MISSING_DATABASE
+
+    mdir = Path(migrations_dir)
+    has_migrations = mdir.exists() and any(mdir.glob("*.py"))
+    if has_migrations and not check_migrations_applied(db_url, migrations_dir):
+        return DatabaseState.PENDING_MIGRATIONS
+
+    return DatabaseState.READY
 
 
 def check_db_ready(
@@ -69,53 +97,41 @@ def check_db_ready(
     """
     Check if the database is ready for the application to start.
 
-    This function MUST be called during server startup (before
-    any ModelRegistry.create_tables() call).
-
     Rules:
     1. If AQUILIA_AUTO_MIGRATE=1 (or auto_migrate=True), skip checks.
-    2. If auto_create=True and no migrations exist, allow initial table creation.
-    3. For SQLite: if the DB file does not exist, warn and return False.
-    4. If there are unapplied migrations, warn and return False.
-
-    Args:
-        db_url: Database connection URL
-        migrations_dir: Path to migrations directory
-        auto_migrate: Override for AQUILIA_AUTO_MIGRATE env var
-        auto_create: Override for database auto_create setting
+    2. If auto_migrate=False: inspect database state.
+    3. If state is not READY: log yellow warning instructions and return False.
 
     Returns:
         True if the database is ready, False otherwise.
     """
-    from .migration_runner import check_db_exists, check_migrations_applied
-
-    # Check auto-migrate override
     if auto_migrate is None:
         auto_migrate = os.environ.get("AQUILIA_AUTO_MIGRATE", "").strip() in ("1", "true", "yes")
 
     if auto_migrate:
         return True
 
-    mdir = Path(migrations_dir)
-    has_migrations = mdir.exists() and any(mdir.glob("*.py"))
+    state = get_db_state(db_url, migrations_dir)
 
-    # Check 1: Does the database file exist?
-    if not check_db_exists(db_url):
-        if auto_create and not has_migrations:
-            return True
+    if state == DatabaseState.MISSING_DATABASE:
         _warn_not_ready(
             "Database file does not exist",
             db_url=db_url,
             hint="Run the following commands to initialize database:",
         )
         return False
-
-    # Check 2: Are all migrations applied?
-    if has_migrations and not check_migrations_applied(db_url, migrations_dir):
+    elif state == DatabaseState.PENDING_MIGRATIONS:
         _warn_not_ready(
             "Unapplied migrations detected",
             db_url=db_url,
             hint="Run the following commands to apply migrations:",
+        )
+        return False
+    elif state == DatabaseState.CORRUPTED_HISTORY:
+        _warn_not_ready(
+            "Migration history mismatch or corrupted",
+            db_url=db_url,
+            hint="Verify migration checksums using 'aq db status'",
         )
         return False
 
@@ -162,3 +178,4 @@ def _fail_start(reason: str, *, db_url: str, hint: str) -> None:
     """Print a yellow warning and raise DatabaseNotReadyError (legacy)."""
     _warn_not_ready(reason, db_url=db_url, hint=hint)
     raise DatabaseNotReadyError(reason)
+
