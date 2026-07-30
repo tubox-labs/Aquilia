@@ -73,9 +73,8 @@ def _validate_field_name(name: str, *, context: str = "query") -> None:
         )
 
 
-# Module-level cached lookup registry -- avoid calling lookup_registry()
-# on every filter clause.
-_cached_lookup_registry = None
+# Module-level cached lookup registry -- initialized at import time for thread safety.
+_cached_lookup_registry = lookup_registry()
 
 # Pre-built operator map for Expression-based filter comparisons
 _EXPR_OP_MAP = {
@@ -98,6 +97,7 @@ if TYPE_CHECKING:
 TModel = TypeVar("TModel", bound="Model")
 
 __all__ = ["Q", "QNode", "QCombination", "Prefetch"]
+
 
 
 # ── Q Combinator (for AND/OR composition) ────────────────────────────────────
@@ -293,9 +293,6 @@ def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
         # Lookup registry covers: exact, iexact, contains, icontains,
         # startswith, istartswith, endswith, iendswith, in, gt, gte,
         # lt, lte, isnull, range, regex, iregex, date, year, month, day
-        global _cached_lookup_registry
-        if _cached_lookup_registry is None:
-            _cached_lookup_registry = lookup_registry()
         if op in _cached_lookup_registry:
             lookup_inst = resolve_lookup(field, op, value)
             return lookup_inst.as_sql()

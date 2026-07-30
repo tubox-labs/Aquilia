@@ -36,6 +36,7 @@ Usage:
 
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
@@ -73,33 +74,65 @@ class QuerySet(Generic[TModel]):
     """
     Reusable query method set -- compose into Manager via from_queryset().
 
-    Define custom chainable query shortcuts here:
+    Purpose:
+        Encapsulate reusable, chainable query shortcuts and domain-specific query logic.
 
+    Lifecycle:
+        Instantiated implicitly when starting a query chain via a Manager created with
+        ``Manager.from_queryset(QuerySetSubclass)``.
+
+    Execution Order:
+        Subclass methods invoke ``self.get_queryset()`` to obtain a base ``Q`` object
+        and apply further filters, ordering, or annotations.
+
+    Parameters:
+        Generic[TModel]: The target model type.
+
+    Return Value:
+        N/A (class definition).
+
+    Exceptions:
+        ModelRegistrationFault: Raised if ``get_queryset()`` is called on a QuerySet
+            not bound to a model.
+
+    Notes:
+        Immutable methods. Each filter call returns a new ``Q`` instance.
+
+    Examples:
         class UserQuerySet(QuerySet):
             def active(self):
                 return self.get_queryset().filter(active=True)
 
-            def adults(self):
-                return self.get_queryset().filter(age__gte=18)
-
         UserManager = Manager.from_queryset(UserQuerySet)
-
-        class User(Model):
-            objects = UserManager()
-
-        # Chain custom + built-in methods:
-        users = await User.objects.active().adults().order("-name").all()
     """
 
     _model_cls: type[TModel] | None = None
 
     def _get_queryset(self) -> Q[TModel]:
-        """Return a fresh ``Q`` bound to ``self._model_cls``.
+        """
+        Return a fresh ``Q`` bound to ``self._model_cls``.
 
-        Raises ``ModelRegistrationFault`` if this ``QuerySet`` hasn't been
-        composed into a ``Manager`` yet (i.e. ``_model_cls`` is still
-        ``None``) -- happens if a ``QuerySet`` subclass is used standalone
-        instead of via ``Manager.from_queryset()``.
+        Purpose:
+            Construct a new Q query builder instance for the bound model class.
+
+        Lifecycle:
+            Called internally whenever a query method requires a base Q instance.
+
+        Execution Order:
+            1. Validate ``self._model_cls`` is not None.
+            2. Call ``self._model_cls.query()``.
+
+        Parameters:
+            None.
+
+        Return Value:
+            Q[TModel]: Fresh Q query builder.
+
+        Exceptions:
+            ModelRegistrationFault: Raised if unbound to a model class.
+
+        Notes:
+            Internal helper.
         """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
@@ -111,10 +144,30 @@ class QuerySet(Generic[TModel]):
         return self._model_cls.query()
 
     def get_queryset(self) -> Q[TModel]:
-        """Public entry point for custom query methods -- delegates to ``_get_queryset()``.
+        """
+        Public entry point for custom query methods.
 
-        Override this (not ``_get_queryset()``) in a ``QuerySet`` subclass if
-        you need pre-filtering, mirroring ``Manager.get_queryset()``.
+        Purpose:
+            Provide a customizable starting point for query chains, allowing custom pre-filtering.
+
+        Lifecycle:
+            Invoked by custom query shortcut methods.
+
+        Execution Order:
+            Delegates to ``_get_queryset()``.
+
+        Parameters:
+            None.
+
+        Return Value:
+            Q[TModel]: Initialized Q query builder.
+
+        Exceptions:
+            ModelRegistrationFault: If unbound.
+
+        Examples:
+            def active(self):
+                return self.get_queryset().filter(active=True)
         """
         return self._get_queryset()
 
@@ -123,37 +176,85 @@ class BaseManager(Generic[TModel]):
     """
     Base manager with Python descriptor protocol.
 
-    Accessible only from the model CLASS, not from instances:
-        User.objects.filter(...)    #
-        user.objects                # AttributeError
+    Purpose:
+        Provide class-level query access (``Model.objects``) while blocking instance-level access.
+
+    Lifecycle:
+        Attached as a class attribute during model definition and bound at runtime.
+
+    Execution Order:
+        __set_name__() -> __get__() -> filter()/all()/get() proxying to Q builder.
+
+    Parameters:
+        Generic[TModel]: Bound model class type.
+
+    Return Value:
+        N/A (class definition).
+
+    Exceptions:
+        ManagerInstanceAccessFault: Raised when accessed from a model instance.
+
+    Notes:
+        Thread-safe descriptor design. Subclass access creates a shallow bound copy
+        to avoid race conditions across concurrent model access.
     """
 
     _model_cls: type[TModel] | None = None
 
     def __set_name__(self, owner: type, name: str) -> None:
-        """Bind this manager to its owning model at class-body definition time.
+        """
+        Bind this manager to its owning model at class definition time.
 
-        Called automatically by Python when the manager is assigned as a
-        class attribute (e.g. ``objects = Manager()`` inside ``class User(Model)``),
-        letting ``self._model_cls`` be resolved before ``__get__`` ever runs.
+        Purpose:
+            Record the owning model class when the descriptor is assigned.
+
+        Lifecycle:
+            Executed by Python during model class construction.
+
+        Execution Order:
+            Stamps ``self._model_cls = owner``.
+
+        Parameters:
+            owner (type): Owning model class.
+            name (str): Attribute name (e.g. ``"objects"``).
+
+        Return Value:
+            None.
         """
         self._model_cls = cast("type[TModel]", owner)
 
     def __get__(self: M, instance: Any, owner: type) -> M:
-        """Descriptor accessor -- returns the (class-bound) manager itself.
-
-        Re-binds ``_model_cls`` to *owner* on every access so subclassing
-        works correctly (e.g. a manager defined on a base model resolves to
-        the concrete subclass when accessed as ``SubModel.objects``).
-
-        Raises ``AttributeError`` if accessed from an instance rather than
-        the class (``user.objects`` fails; only ``User.objects`` works),
-        since a single ``Manager()`` is shared across every row and isn't
-        parametrized per-instance -- see ``RelatedManager`` for the
-        per-instance equivalent.
         """
-        # Bind to current class (supports inheritance)
-        self._model_cls = cast("type[TModel]", owner)
+        Descriptor accessor returning the class-bound manager.
+
+        Purpose:
+            Return the manager when accessed on a class, or raise a fault if accessed on an instance.
+
+        Lifecycle:
+            Executed on every attribute lookup of the manager (e.g. ``User.objects``).
+
+        Execution Order:
+            1. Validate ``instance is None``; raise ``ManagerInstanceAccessFault`` otherwise.
+            2. If ``owner`` matches ``self._model_cls`` or ``self._model_cls`` is None, set and return ``self``.
+            3. If accessed on a subclass, return a shallow copy bound to ``owner`` for thread safety.
+
+        Parameters:
+            instance (Any): Instance accessing attribute, or None if class access.
+            owner (type): Model class accessing descriptor.
+
+        Return Value:
+            M (BaseManager[TModel]): Manager bound to ``owner``.
+
+        Exceptions:
+            ManagerInstanceAccessFault: Raised if accessed via a model instance (``user.objects``).
+
+        Notes:
+            Thread-safe. Prevents race conditions on shared parent manager descriptors when accessed
+            concurrently from multiple subclasses.
+
+        Examples:
+            >>> User.objects.filter(active=True)
+        """
         if instance is not None:
             from aquilia.faults.domains import ManagerInstanceAccessFault
 
@@ -162,7 +263,14 @@ class BaseManager(Generic[TModel]):
                 model_name=model_name,
                 manager_name=_manager_attr_name(self, owner),
             )
-        return self
+
+        if self._model_cls is owner or self._model_cls is None:
+            self._model_cls = cast("type[TModel]", owner)
+            return self
+
+        bound = copy.copy(self)
+        bound._model_cls = cast("type[TModel]", owner)
+        return bound
 
     # ── QuerySet factory ─────────────────────────────────────────────
 
