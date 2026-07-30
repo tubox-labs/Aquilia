@@ -248,4 +248,3 @@ class DatabaseAdapter(ABC):
     def dialect(self) -> str:
         """Return the SQL dialect name."""
         return self.capabilities.name
-

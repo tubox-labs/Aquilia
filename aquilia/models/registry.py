@@ -480,7 +480,6 @@ class ModelRegistry:
         runner = MigrationRunner(target_db, dialect=getattr(target_db, "dialect", "sqlite"))
         return await runner.drop_all_tables(models_snapshot)
 
-
     @classmethod
     def reset(cls) -> None:
         """

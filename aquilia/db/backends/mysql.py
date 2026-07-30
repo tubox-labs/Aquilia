@@ -440,7 +440,6 @@ class MySQLAdapter(DatabaseAdapter):
                     code = first[0]
         return code in (1061, 1091)
 
-
     @property
     def is_connected(self) -> bool:
         return self._connected and self._pool is not None
@@ -448,7 +447,6 @@ class MySQLAdapter(DatabaseAdapter):
     @property
     def dialect(self) -> str:
         return "mysql"
-
 
 
 # ── URL parsing helper ──────────────────────────────────────────────

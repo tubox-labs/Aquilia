@@ -226,7 +226,6 @@ class MigrationRunner:
         plan = MigrationPlan(steps=[step])
         await self.execute_plan(plan, record_history=False, fake=False)
 
-
     async def get_applied(self) -> list[str]:
         """Get list of applied revision IDs, ordered by application time."""
         await self.ensure_tracking_table()
@@ -308,9 +307,7 @@ class MigrationRunner:
 
             if hasattr(module, "operations"):
                 migration_obj = _build_migration_from_module(module)
-                compiled = DDLExecutor.compile_operations(
-                    migration_obj.operations, self.dialect, migration_rev=rev
-                )
+                compiled = DDLExecutor.compile_operations(migration_obj.operations, self.dialect, migration_rev=rev)
                 for stmt in compiled:
                     if stmt.sql:
                         statements.append(stmt.sql)
@@ -332,9 +329,7 @@ class MigrationRunner:
 
         if hasattr(module, "operations"):
             migration_obj = _build_migration_from_module(module)
-            compiled = DDLExecutor.compile_operations(
-                migration_obj.operations, self.dialect, migration_rev=revision
-            )
+            compiled = DDLExecutor.compile_operations(migration_obj.operations, self.dialect, migration_rev=revision)
             return [s.sql for s in compiled if s.sql and not s.is_comment]
         else:
             return _extract_sql_from_source(path)

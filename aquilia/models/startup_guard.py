@@ -37,6 +37,7 @@ from enum import Enum
 
 class DatabaseState(Enum):
     """Clean state model for database startup readiness."""
+
     READY = "READY"
     MISSING_DATABASE = "MISSING_DATABASE"
     PENDING_MIGRATIONS = "PENDING_MIGRATIONS"
@@ -180,4 +181,3 @@ def _fail_start(reason: str, *, db_url: str, hint: str) -> None:
     """Print a yellow warning and raise DatabaseNotReadyError (legacy)."""
     _warn_not_ready(reason, db_url=db_url, hint=hint)
     raise DatabaseNotReadyError(reason)
-
