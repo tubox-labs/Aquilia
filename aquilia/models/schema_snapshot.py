@@ -188,6 +188,10 @@ def _resolve_db_column_name(model_cls: type | None, field_or_name: Any) -> str:
                 or field_or_name
             )
         return field_or_name
+    from aquilia.models.expression import Expression
+
+    if isinstance(field_or_name, Expression):
+        return _compile_schema_expression(field_or_name, model_cls)
     return str(field_or_name)
 
 
@@ -809,12 +813,6 @@ def _field_to_sql_type(fld, model_classes: list | None = None) -> str:
     if isinstance(fld, EnumField):
         return fld.sql_type()
 
-    if hasattr(fld, "sql_type") and callable(fld.sql_type):
-        try:
-            return fld.sql_type()
-        except Exception:
-            pass
-
     type_map = {
         AutoField: "INTEGER",
         BigAutoField: "INTEGER",
@@ -835,6 +833,12 @@ def _field_to_sql_type(fld, model_classes: list | None = None) -> str:
     for cls, sql_type in type_map.items():
         if isinstance(fld, cls):
             return sql_type
+
+    if hasattr(fld, "sql_type") and callable(fld.sql_type):
+        try:
+            return fld.sql_type()
+        except Exception:
+            pass
 
     if isinstance(fld, (CharField, SlugField, EmailField, URLField, FileField, ImageField)):
         ml = getattr(fld, "max_length", 255) or 255
