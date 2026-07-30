@@ -714,20 +714,67 @@ users = await User.objects.annotate(posts=Count("post")).all()`,
     type: 'class',
     title: 'ModelRegistry',
     description:
-      'Global registry where every Model class is automatically registered by the ModelMeta metaclass. Resolves forward references, handles topological ordering for CREATE TABLE, and provides runtime lookups by name.',
-    signature: 'class ModelRegistry:\n    @staticmethod\n    def get(name: str) -> type[Model]\n    @staticmethod\n    async def create_tables(db) -> None',
+      'Global model registry managing Model class registration, forward reference resolution, dependency topology, and delegating table creation and teardown to MigrationRunner.',
+    signature: 'class ModelRegistry:\n    @classmethod\n    def get(cls, name: str) -> type[Model]\n    @classmethod\n    async def create_tables(cls, db: AquiliaDatabase | None = None) -> list[str]\n    @classmethod\n    async def drop_tables(cls, db: AquiliaDatabase | None = None) -> list[str]',
     language: 'python',
     example: {
       code: `from aquilia.models.registry import ModelRegistry
 
 UserModel = ModelRegistry.get("User")
-await ModelRegistry.create_tables(db)   # respects FK ordering`,
+# Delegates DDL compilation and execution directly to MigrationRunner
+statements = await ModelRegistry.create_tables(db)`,
       language: 'python',
     },
     status: 'stable',
     version: 'v1.0+',
-    docsHref: '/docs/models/advanced',
+    docsHref: '/docs/models/migrations',
     source: { file: 'aquilia/models/registry.py' },
+  },
+
+  // ── DDLExecutor ──────────────────────────────────────────────────────
+  {
+    id: 'orm.ddl_executor',
+    type: 'class',
+    title: 'DDLExecutor',
+    description:
+      'Single-authority DDL statement compiler and execution engine. Converts DSL operations to typed ExecutableStatement objects and executes them within atomic transactions.',
+    signature: 'class DDLExecutor:\n    @classmethod\n    def compile_operations(cls, operations: list[Operation], dialect: str = "sqlite") -> list[ExecutableStatement]\n    @classmethod\n    async def execute_statements(cls, db: AquiliaDatabase, statements: list[ExecutableStatement], in_transaction: bool = True) -> ExecutionResult',
+    language: 'python',
+    example: {
+      code: `from aquilia.models import DDLExecutor, CreateModel, C
+
+ops = [CreateModel("User", "users", [C.auto("id"), C.varchar("email", 255)])]
+statements = DDLExecutor.compile_operations(ops, dialect="postgresql")
+result = await DDLExecutor.execute_statements(db, statements, in_transaction=True)`,
+      language: 'python',
+    },
+    status: 'stable',
+    version: 'v1.3.9+',
+    docsHref: '/docs/models/migrations',
+    source: { file: 'aquilia/models/ddl_executor.py' },
+  },
+
+  // ── MigrationPlanner ─────────────────────────────────────────────────
+  {
+    id: 'orm.migration_planner',
+    type: 'class',
+    title: 'MigrationPlanner',
+    description:
+      'Dedicated planning authority for initial schema setup and incremental snapshot diffing. Features InitialSchemaPlanner for direct zero-revision DDL generation.',
+    signature: 'class MigrationPlanner:\n    @classmethod\n    def plan_initial_schema(cls, model_classes: list[type[Model]] | None = None) -> MigrationPlan\n    @classmethod\n    def plan_incremental(cls, old_snapshot: dict, new_snapshot: dict, revision: str, slug: str) -> MigrationPlan',
+    language: 'python',
+    example: {
+      code: `from aquilia.models import MigrationPlanner
+
+# Plan initial schema directly from model metadata
+plan = MigrationPlanner.plan_initial_schema()
+# plan.steps[0].revision == "0000_initial_schema"`,
+      language: 'python',
+    },
+    status: 'stable',
+    version: 'v1.3.9+',
+    docsHref: '/docs/models/migrations',
+    source: { file: 'aquilia/models/migration_planner.py' },
   },
 
   // ── Missing QuerySet methods ──────────────────────────────────────────

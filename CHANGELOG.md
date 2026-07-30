@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.9] — 2026-07-30 — "Database Sentinel"
 
-This release introduces strict `auto_migrate=False` schema enforcement, a non-fatal database startup readiness model (`DatabaseState`), and atomic transactional DDL & migration rollback guarantees across the Aquilia Database, ORM, and Server Startup lifecycle subsystems.
+This release introduces strict `auto_migrate=False` schema enforcement, a non-fatal database startup readiness model (`DatabaseState`), a single-authority migration execution engine (`MigrationRunner`, `DDLExecutor`, `MigrationPlanner`), typed statement intermediate representations (`ExecutableStatement`), backend adapter DDL error encapsulation, and atomic transactional DDL & migration rollback guarantees across the Aquilia Database, ORM, and Server Startup lifecycle subsystems.
 
 Full notes: [`releases/1.3.9/`](releases/1.3.9/README.md)
 
 ### Added
+
+#### Database & ORM — DDL Execution & Migration Planning
+- **DDL Executor Subsystem** (`aquilia.models.ddl_executor.DDLExecutor`) — Single-authority DDL statement compiler and executor featuring lazy operation compilation, async Python operation dispatch, and backend error tolerance delegation.
+- **Typed Statement Intermediate Representation** (`aquilia.models.ddl_executor.ExecutableStatement`) — Strongly-typed statement dataclass replacing raw SQL string arrays, carrying `StatementType` categories (`CREATE_TABLE`, `ALTER_TABLE`, `CREATE_INDEX`, `PYTHON_CALLABLE`, `COMMENT`, etc.), description metadata, and operation references.
+- **Execution Diagnostics & Metrics** (`aquilia.models.ddl_executor.ExecutionResult`) — Structured execution result capturing executed statement count, skipped count, duration in milliseconds, and diagnostic logs.
+- **Migration & Initial Schema Planner** (`aquilia.models.migration_planner.MigrationPlanner` & `InitialSchemaPlanner`) — Dedicated planning authority generating clean initial DDL operations (`CreateModel`, `CreateIndex`, `AddConstraint`) directly from model descriptors without empty-snapshot diffing hacks.
+- **Backend Adapter DDL Error Hook** (`aquilia.db.backends.base.DatabaseAdapter.should_ignore_ddl_error()`) — Encapsulates backend-specific ignorable DDL errors (such as MySQL error `1061` for duplicate key names and `1091` for missing index drops) within the database adapter layer.
 
 #### Database & ORM — Startup Readiness & State Management
 - **DatabaseState Enum Model** (`aquilia.models.startup_guard.DatabaseState`) — Clean state classification (`READY`, `MISSING_DATABASE`, `PENDING_MIGRATIONS`, `CORRUPTED_HISTORY`, `SCHEMA_MISMATCH`, `UNAVAILABLE`) for structured readiness tracking.
@@ -19,24 +26,31 @@ Full notes: [`releases/1.3.9/`](releases/1.3.9/README.md)
 - **Non-Fatal Terminal Warning Banner** (`aquilia.models.startup_guard._warn_not_ready()`) — Formatted yellow terminal diagnostic banner instructing developers on required `aq db` commands without raising fatal `SchemaFault` process crashes.
 
 #### Tests
-- **Migration Subsystem Architecture Test Suite** (`tests/test_migration_architecture_audit.py`) — Comprehensive audit test suite verifying strict `auto_migrate=False` enforcement, non-fatal readiness warnings, and atomic DDL transaction rollbacks.
+- **Migration Engine Refactor Verification Test Suite** (`tests/test_migration_engine_refactor_verification.py`) — Exhaustive test suite verifying `ModelRegistry` execution removal, `MigrationRunner` sole execution authority, `InitialSchemaPlanner` direct planning, `DDLExecutor` typed statement handling, backend error encapsulation, tracking history recording, and atomic step rollbacks.
+- **Migration Subsystem Architecture Test Suite** (`tests/test_migration_architecture_audit.py`) — Audit test suite verifying strict `auto_migrate=False` enforcement, non-fatal readiness warnings, and atomic DDL transaction rollbacks.
 - **Migration Subsystem Bug Reproduction Test Suite** (`tests/test_migration_architecture_repro.py`) — Minimal reproduction test suite isolating root causes for Bug 1, Bug 2, and Bug 3.
 
 ### Refactored
+
+#### Database & ORM — Elimination of Split-Brain DDL Execution
+- **`ModelRegistry` Stripped of Execution Authority** (`aquilia.models.registry.ModelRegistry`) — `ModelRegistry` now acts purely as a model metadata and dependency topology registry. All DDL string loops, manual transaction blocks, string comment parsing (`sql.startswith("--")`), and hardcoded MySQL error handling were completely removed. `ModelRegistry.create_tables()` and `ModelRegistry.drop_tables()` delegate directly to `MigrationRunner`.
+- **Sole Execution Authority** (`aquilia.models.migration_runner.MigrationRunner`) — `MigrationRunner` is the single execution engine for initial schema setup, incremental migrations, rollbacks, and tracking table management.
+- **Authoritative Revision Zero History** (`aquilia_migrations`) — Initial schema creation via `create_initial_schema()` records a `0000_initial_schema` entry in `aquilia_migrations`, maintaining clean history from revision zero.
 
 #### Server & Startup Execution
 - **Strict `auto_migrate=False` Enforcement** (`aquilia.server.AquiliaServer._register_models()`) — `auto_migrate=False` explicitly suppresses all `CREATE TABLE`, `ALTER TABLE`, and schema modification operations on startup, overriding default `auto_create=True` settings.
 - **Configuration Precedence Tracker** (`aquilia.server.AquiliaServer`) — Added `explicit_auto_migrate_false` tracking across workspace, integration, and environment variable configuration layers.
 
 #### Database & ORM — Transactional DDL & Integrity
-- **Atomic Multi-Table Schema Creation** (`aquilia.models.registry.ModelRegistry.create_tables()`) — Enclosed entire topological table, index, and junction table creation loop in `async with target_db.transaction():` context, guaranteeing 0 partial tables on DDL failure.
-- **Atomic Legacy Migration Runner** (`aquilia.models.migration_runner.MigrationRunner._apply_migration()`) — Wrapped legacy raw-SQL `upgrade()` calls in `async with self.db.transaction():` for atomic migration execution and clean transaction rollback on failure.
+- **Atomic Multi-Table Schema Creation** (`aquilia.models.ddl_executor.DDLExecutor`) — Enclosed statement execution in `async with target_db.transaction():` context, guaranteeing 0 partial tables on DDL failure.
+- **Atomic Migration Execution & Rollback** (`aquilia.models.migration_runner.MigrationRunner`) — All migration plans and rollback steps execute within atomic database transactions.
 
 ### Fixed
 
 - **Implicit Table Creation under `auto_migrate=False`** — Fixed `auto_create=True` bypassing `auto_migrate=False` during server startup.
 - **Fatal Process Termination on Uninitialized Database** — Fixed `startup_guard.py` raising a fatal `SchemaFault` and process termination on missing databases or pending migrations under `auto_migrate=False`.
-- **Partial Schema Pollution on Migration Failure** — Fixed un-wrapper DDL execution in `create_tables()` and legacy migration runner by executing statements inside atomic database transactions.
+- **Partial Schema Pollution on Migration Failure** — Fixed un-wrapped DDL execution in `create_tables()` and legacy migration runner by executing statements inside atomic database transactions.
+- **Split-Brain Schema Generation Logic** — Fixed `ModelRegistry` running duplicate, un-tracked DDL routines by unifying initial schema creation and migration execution under `MigrationRunner` and `DDLExecutor`.
 
 ## [1.3.8] — 2026-07-30 — "Migration Architect"
 
