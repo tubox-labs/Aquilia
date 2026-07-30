@@ -39,7 +39,50 @@ class Rune:
 
 
 class Pipeline:
-    """Ordered sequence of Rune steps composed via >>."""
+    """
+    An ordered sequence of transformation and validation steps ("Runes") composed via the ``>>`` operator.
+
+    Purpose:
+        Enables fluent, functional composition of facets and data transforms (e.g. ``Facet.text() >> strip >> lower``).
+        Executes composed pipelines sequentially during Contract casting and validation passes.
+
+    Lifecycle:
+        1. **Definition Time**: Constructed when combining facets and functions using ``>>``.
+        2. **Execution Time**: Called via ``pipeline.run(value)`` during facet value casting/sealing.
+
+    Execution Order:
+        1. Iterate over composed ``Rune`` steps from left to right.
+        2. If a rune is a ``Facet``: call ``cast(val)`` followed by ``seal(val)``.
+        3. If a rune is a callable transform: invoke ``fn(val)``.
+        4. Return ``(True, final_value, None)`` on success, or catch errors and return ``(False, value, error_msg)``.
+
+    Parameters:
+        runes (list[Rune]):
+            List of ordered ``Rune`` instances composing this pipeline.
+
+    Returns:
+        Pipeline: An initialized pipeline instance ready for execution.
+
+    Exceptions:
+        None directly raised during ``run()`` (errors are caught and returned in tuple).
+
+    Notes:
+        - Immutable & Reusable: Pipeline execution does not mutate internal rune definitions.
+        - Supports nested pipeline concatenation via ``pipeline1 >> pipeline2``.
+
+    Internal Behaviour:
+        Catches ``CastFault`` and arbitrary ``Exception`` subclasses to return unified ``(ok, value, error)`` tuples.
+
+    Edge Cases:
+        - If a transform within the pipeline fails, execution stops immediately and returns the value state prior to failure.
+
+    Examples:
+        >>> from aquilia.contracts.transforms import strip, lower
+        >>> pipe = Facet.text(min_length=3) >> strip >> lower
+        >>> ok, val, err = pipe.run("  ALICE  ")
+        >>> (ok, val)
+        (True, 'alice')
+    """
 
     __slots__ = ("runes",)
 
@@ -53,14 +96,31 @@ class Pipeline:
         return Pipeline([*self.runes, other_rune])
 
     def run(self, value: Any) -> tuple[bool, Any, str | None]:
-        """Run each rune in order.
+        """
+        Execute all composed pipeline runes sequentially on input value.
 
-        If a rune is a Facet, call ``.cast()`` then ``.seal()``.
-        Otherwise call it as a plain function.
+        Purpose:
+            Applies type coercion, transforms, and validators step-by-step from left to right.
+
+        Lifecycle:
+            Invoked when validating or casting inputs bound to a Pipeline-backed Facet.
+
+        Execution Order:
+            1. Iterate over each ``Rune`` in ``self.runes``.
+            2. Apply facet casting/sealing or plain callable invocation.
+            3. On failure: catch exception and return tuple with ``ok=False``.
+            4. On completion: return tuple with ``ok=True``.
+
+        Parameters:
+            value (Any):
+                The raw input value to transform and validate.
 
         Returns:
-            ``(ok, final_value, error_or_none)``.
-            Never raises.  Uses try/except internally.
+            tuple[bool, Any, str | None]:
+                Tuple containing ``(success_flag, transformed_value, error_message_or_none)``.
+
+        Exceptions:
+            None. Internal exceptions are trapped and returned as error string in result tuple.
         """
         for rune in self.runes:
             try:

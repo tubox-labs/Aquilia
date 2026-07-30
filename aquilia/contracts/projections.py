@@ -25,34 +25,49 @@ __all__ = ["ProjectionRegistry"]
 
 class ProjectionRegistry:
     """
-    Manages named projections for a Contract class.
+    Manages named field projections for a Contract class.
 
-    Projections are defined in the Contract's ``Spec`` inner class::
+    Purpose:
+        Provides named, reusable field subsets for contracts (analogous to database views or GraphQL field selections).
+        Enables endpoints to request specific views (e.g. ``"summary"``, ``"detail"``, ``"minimal"``) without creating separate classes.
 
-        class Spec:
-            model = Product
-            projections = {
-                "summary": ["id", "name", "price"],
-                "detail": ["id", "name", "description", "price", "category"],
-                "admin": "__all__",
-            }
-            default_projection = "detail"
+    Lifecycle:
+        1. **Class Creation**: Instantiated and populated by ``ContractMeta.__new__`` from ``Spec.projections``.
+        2. **Runtime Resolution**: Queried during ``contract.data`` or ``Contract["projection"]`` to resolve active field names.
 
-    Special values:
-        - ``"__all__"``: all non-write-only facets
-        - ``"__minimal__"``: primary-key facets plus every ``read_only`` facet
+    Execution Order:
+        1. Parse projection definitions during ``configure()``.
+        2. Resolve special keywords (``"__all__"``, ``"__minimal__"``, exclusion prefixes ``"-field"``).
+        3. Store immutable ``frozenset[str]`` mapping for each projection name.
+        4. During ``resolve(name)``, return corresponding frozenset or raise ``ProjectionFault``.
 
-    A projection can also exclude fields with ``-`` prefix::
+    Parameters:
+        None directly on ``__init__``. Configuration occurs via ``configure()``.
 
-        projections = {
-            "public": ["-password", "-email"],  # all except these
-        }
+    Returns:
+        ProjectionRegistry: An initialized registry instance.
+
+    Exceptions:
+        ProjectionFault: Raised during ``resolve()`` if an unrecognized projection name is requested.
 
     Notes:
-        An empty projection is a legitimate, honoured result: it renders an
-        empty object rather than falling through to "all fields". Callers must
-        therefore compare against ``None`` (no projection) rather than testing
-        truthiness of the resolved set.
+        - Thread-Safe: Stored projection sets are immutable ``frozenset`` instances.
+        - Supports exclusion lists: ``["-password", "-secret"]`` expands to all non-write-only facets minus excluded ones.
+
+    Internal Behaviour:
+        Filters out write-only fields from default ``"__all__"`` projections to prevent accidental credential leaking in output.
+
+    Edge Cases:
+        - An empty field list in a projection is valid and produces an empty dictionary output rather than defaulting to all fields.
+
+    Examples:
+        >>> class Spec:
+        ...     projections = {
+        ...         "summary": ["id", "name"],
+        ...         "public": ["-password", "-security_answer"],
+        ...         "full": "__all__",
+        ...     }
+        ...     default_projection = "summary"
     """
 
     def __init__(self):
@@ -70,18 +85,37 @@ class ProjectionRegistry:
         minimal_names: set[str] | None = None,
     ) -> None:
         """
-        Configure projections from Spec definitions.
+        Configure named projections from Spec class declarations.
 
-        Args:
-            projections: Mapping of name → field list (or "__all__"/"__minimal__")
-            default: Name of the default projection
-            all_facet_names: Complete set of facet names
-            write_only_names: Set of write-only facet names
-            minimal_names: Facet names that make up the ``"__minimal__"``
-                projection — primary-key and ``read_only`` facets. When
-                omitted, ``"__minimal__"`` falls back to any facet named
-                ``id``/``pk`` so the projection never silently resolves to
-                every field.
+        Purpose:
+            Compiles raw projection dict definitions into pre-computed, immutable frozensets of facet names.
+
+        Lifecycle:
+            Executed once per Contract class during metaclass construction in ``ContractMeta.__new__``.
+
+        Execution Order:
+            1. Compute ``_all_facets`` by subtracting write-only field names from all facet names.
+            2. Compute minimal projection set (primary keys and read-only facets).
+            3. Iterate through raw projections dictionary and construct matching frozensets.
+            4. Establish default projection name.
+
+        Parameters:
+            projections (dict[str, str | list[str]] | None):
+                Mapping of projection name to field list, exclusion list, or keyword string.
+            default (str | None):
+                Name of default projection.
+            all_facet_names (set[str]):
+                Complete set of facet names declared on the Contract.
+            write_only_names (set[str]):
+                Set of write-only facet names to exclude from output projections.
+            minimal_names (set[str] | None, optional):
+                Explicit facet names defining the ``"__minimal__"`` projection.
+
+        Returns:
+            None
+
+        Exceptions:
+            None.
         """
         self._all_facets = frozenset(all_facet_names - write_only_names)
 
@@ -125,16 +159,33 @@ class ProjectionRegistry:
 
     def resolve(self, name: str | None = None) -> frozenset[str]:
         """
-        Resolve a projection name to a set of facet names.
+        Resolve a projection name to a set of valid facet names.
 
-        Args:
-            name: Projection name (None = default)
+        Purpose:
+            Looks up and returns the exact subset of facet names associated with a named projection.
+
+        Lifecycle:
+            Invoked during contract molding, output serialization, and schema generation.
+
+        Execution Order:
+            1. If ``name`` is ``None``, fall back to default projection name.
+            2. If default name is also ``None``, return all available non-write-only facets.
+            3. Look up projection name in internal registry dict.
+            4. If not found, raise ``ProjectionFault``.
+
+        Parameters:
+            name (str | None, optional):
+                Requested projection name (e.g. ``"summary"``). Defaults to ``None``.
 
         Returns:
-            Frozen set of facet names in the projection.
+            frozenset[str]: Immutable set of allowed facet names.
 
-        Raises:
-            ProjectionFault: If the projection name doesn't exist.
+        Exceptions:
+            ProjectionFault: If ``name`` is not registered in this registry.
+
+        Examples:
+            >>> registry.resolve("summary")
+            frozenset({'id', 'name'})
         """
         if name is None:
             name = self._default
@@ -148,10 +199,12 @@ class ProjectionRegistry:
 
     @property
     def default_name(self) -> str | None:
+        """Name of default projection."""
         return self._default
 
     @property
     def available(self) -> list[str]:
+        """List of all registered projection names."""
         return list(self._projections.keys())
 
     def __contains__(self, name: str) -> bool:

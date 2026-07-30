@@ -172,47 +172,68 @@ _VALID_MODES = frozenset({"sync", "async"})
 
 
 class ward:
-    """Decorator (and decorator-factory) for registering Contract ward methods.
+    """
+    Decorator and decorator factory for registering cross-field validation rules ("wards") on Contracts.
 
-    Supports two usage patterns:
+    Purpose:
+        Provides an explicit, metadata-driven decorator mechanism for contract validation rules. Replaces legacy
+        ``seal_*`` / ``async_seal_*`` method name prefix scanning with declarative rule configuration (execution order,
+        mode, execution predicates, and validation groups).
 
-    * **Bare decorator** — ``@ward`` attaches sync metadata::
+    Lifecycle:
+        1. **Decoration Time**: Invoked during module loading when evaluating class definitions. Attaches ``__ward_meta__``
+           dict to the target method.
+        2. **Contract Construction Time**: Collected by ``collect_ward_methods`` during ``ContractMeta.__new__`` into ordered
+           :class:`WardMethod` descriptors.
+        3. **Validation Pass Time**: Evaluated during ``Contract.is_sealed()`` or ``Contract.is_sealed_async()``.
 
-          @ward
-          def my_validator(self, data): ...
+    Execution Order:
+        1. Parse arguments (mode, order, when predicate, validation groups).
+        2. Validate mode against supported modes (``"sync"``, ``"async"``).
+        3. Attach metadata dictionary ``__ward_meta__`` to target callable.
+        4. Return decorated method.
 
-    * **Parameterised decorator** — ``@ward(mode="async")``::
+    Parameters:
+        fn (Callable, optional):
+            Target method being decorated (supplied automatically in bare ``@ward`` usage).
+        mode (str, optional):
+            Execution mode: ``"sync"`` (default) or ``"async"``.
+        order (int, optional):
+            Execution priority sort key. Lower integers execute first; ties maintain declaration order. Defaults to ``0``.
+        when (Callable[[Any], bool], optional):
+            Predicate function receiving validated data dict; ward executes only if ``when(data)`` evaluates to ``True``.
+        groups (str | Sequence[str], optional):
+            Validation group names this rule belongs to. Ungrouped wards (default) execute on every validation pass.
 
-          @ward(mode="async")
-          async def my_async_validator(self, data): ...
+    Returns:
+        Callable: The decorated method with attached ``__ward_meta__`` metadata.
 
-    Args:
-        fn: The decorated function (bare usage only).
-        mode: ``"sync"`` (default) or ``"async"``.
-        order: Sort key within the ward phase. Lower runs first; wards sharing
-            an order keep definition order. Use this when one ward's rejection
-            makes another's work redundant or misleading.
-        when: Predicate receiving the validated data; the ward runs only when it
-            returns truthy. For conditional rules — a shipping-address check
-            that applies only to physical orders, say.
-        groups: Group names. A ward with groups runs only when
-            ``is_sealed(groups=...)`` names one of them; a ward without groups
-            always runs.
+    Exceptions:
+        ValueError: If ``mode`` is not ``"sync"`` or ``"async"``.
+        TypeError: If ``fn`` is not callable or ``when`` is not a callable predicate.
+
+    Notes:
+        - Thread and Async Safe: Metadata attachment is immutable and thread-safe.
+        - Supports both bare syntax (``@ward``) and parameterised syntax (``@ward(mode="async", order=10)``).
+
+    Internal Behaviour:
+        Uses ``__new__`` dispatch to support dual bare/parameterised decorator invocation without requiring double parentheses.
+
+    Edge Cases:
+        - If ``when`` predicate raises an exception during evaluation, it is safely caught and treated as ``False`` without failing validation.
+        - Wards decorated on overridden parent methods cleanly replace parent descriptors during metaclass construction.
 
     Examples:
-    ```
-        Ordering and conditions::
-
-            @ward(order=-10)
-            def cheapest_check_first(self, data): ...
-
-            @ward(when=lambda data: data.get("kind") == "physical")
-            def needs_shipping_address(self, data): ...
-
-            @ward(groups=("checkout",))
-            def payment_method_valid(self, data): ...
-    ```
-    In all cases the decorated function receives a ``__ward_meta__`` dict.
+        >>> class UserContract(Contract):
+        ...     @ward
+        ...     def check_passwords_match(self, data):
+        ...         if data.get("password") != data.get("confirm_password"):
+        ...             self.reject("confirm_password", "Passwords do not match")
+        ...
+        ...     @ward(mode="async", order=5)
+        ...     async def check_email_unique(self, data):
+        ...         if await User.objects.filter(email=data.get("email")).exists():
+        ...             self.reject("email", "Email already registered")
     """
 
     # Use __new__ so that ``ward(fn)`` (bare) returns the decorated *fn*

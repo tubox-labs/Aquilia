@@ -23,7 +23,46 @@ CONTRACT = FaultDomain(
 
 
 class ContractFault(Fault):
-    """Base fault for all Contract errors."""
+    """
+    Base fault exception for all Contract layer validation, casting, molding, projection, and imprint failures.
+
+    Purpose:
+        Integrates Contract layer errors directly into Aquilia's structured fault domain system (``CONTRACT`` domain).
+        Generates structured API error payloads with field-to-message error maps.
+
+    Lifecycle:
+        Instantiated and raised when contract operations fail (e.g., calling ``is_sealed(raise_fault=True)`` or ``imprint()``).
+
+    Execution Order:
+        1. Store field error dictionary mapping field names to lists of error messages.
+        2. Delegate fault initialization to superclass ``Fault`` with code ``BP000`` and metadata.
+
+    Parameters:
+        message (str, optional):
+            Human-readable exception summary. Defaults to ``"Contract validation failed"``.
+        errors (dict[str, list[str]] | None, optional):
+            Field error mapping (e.g. ``{"email": ["Invalid email format"]}``).
+        code (str | None, optional):
+            Fault code identifier. Defaults to class code (``BP000``).
+        metadata (dict[str, Any] | None, optional):
+            Additional diagnostic context metadata.
+
+    Returns:
+        ContractFault: An initialized fault exception.
+
+    Exceptions:
+        None directly raised on creation.
+
+    Notes:
+        - Participating Domain: ``CONTRACT``.
+        - Public Flag: ``True`` (safe for user-facing API error responses).
+
+    Internal Behaviour:
+        Includes ``field_errors`` mapping inside the fault's ``metadata`` dictionary for JSON serialization.
+
+    Examples:
+        >>> raise ContractFault("Invalid request data", errors={"age": ["Must be at least 18"]})
+    """
 
     domain = CONTRACT
     severity = Severity.ERROR
@@ -46,7 +85,7 @@ class ContractFault(Fault):
         )
 
     def as_response_body(self) -> dict[str, Any]:
-        """Structured error payload for API responses."""
+        """Structured error payload dictionary for HTTP API responses."""
         body: dict[str, Any] = {
             "fault": self.code,
             "message": str(self),
@@ -60,7 +99,20 @@ class ContractFault(Fault):
 
 
 class CastFault(ContractFault):
-    """Raised when incoming data cannot be cast to the expected type."""
+    """
+    Raised when incoming raw data fails type coercion / casting for a specific facet.
+
+    Purpose:
+        Identifies type mismatch or parsing failures during input casting phase (code ``BP100``).
+
+    Lifecycle:
+        Raised by ``Facet.cast()`` or ``Pipeline.run()`` during step 1 of Contract validation.
+
+    Parameters:
+        field (str): Name of the field that failed casting.
+        message (str, optional): Explanation of cast failure. Defaults to ``"Invalid value"``.
+        metadata (dict[str, Any] | None, optional): Diagnostic metadata.
+    """
 
     code = "BP100"
 
@@ -80,7 +132,21 @@ class CastFault(ContractFault):
 
 
 class SealFault(ContractFault):
-    """Raised when a validation seal is broken."""
+    """
+    Raised when one or more contract validation seals (wards or facet validators) fail.
+
+    Purpose:
+        Represents business logic validation failures (code ``BP200``).
+
+    Lifecycle:
+        Raised by ``Contract.is_sealed(raise_fault=True)`` or controller binding when payload validation fails.
+
+    Parameters:
+        message (str, optional): Exception summary message. Defaults to ``"Contract validation failed"``.
+        errors (dict[str, list[str]] | None, optional): Field error mapping.
+        code (str | None, optional): Override error code. Defaults to ``BP200``.
+        metadata (dict[str, Any] | None, optional): Additional metadata.
+    """
 
     code = "BP200"
 
@@ -109,13 +175,30 @@ class SealFault(ContractFault):
 
 
 class ImprintFault(ContractFault):
-    """Raised when a write (imprint) operation fails."""
+    """
+    Raised when persisting contract data to a model instance fails (code ``BP300``).
+
+    Purpose:
+        Surfaces model creation or update failures during ``contract.imprint()``.
+
+    Lifecycle:
+        Raised by ``Contract._imprint_create()`` or ``Contract._imprint_update()`` when ORM operations fail.
+    """
 
     code = "BP300"
 
 
 class ProjectionFault(ContractFault):
-    """Raised when an invalid projection is requested."""
+    """
+    Raised when an unrecognized or invalid projection name is requested on a Contract (code ``BP400``).
+
+    Purpose:
+        Prevents rendering undefined projection views.
+
+    Parameters:
+        projection (str): The requested invalid projection name.
+        available (list[str]): List of valid projection names on the target Contract.
+    """
 
     code = "BP400"
 

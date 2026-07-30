@@ -304,20 +304,56 @@ async def bind_contract_to_request(
     context: dict[str, Any] | None = None,
 ) -> Contract:
     """
-    Create and validate a Contract from an incoming request.
+    Instantiate, bind, and validate a Contract from an incoming HTTP Request object.
 
-    This is the integration point called by the controller engine
-    when it detects a Contract type annotation on a handler parameter.
+    Purpose:
+        Serves as the primary HTTP integration entrypoint invoked by the Aquilia Controller runtime when a handler parameter
+        is annotated with a ``Contract`` class. Parses body, query, path, header, and cookie values according to facet extractors.
 
-    Args:
-        contract_cls: The Contract class to instantiate
-        request: The Aquilia Request object
-        projection: Optional projection name
-        partial: If True, don't require all fields (PATCH)
-        context: Extra context to pass to the Contract
+    Lifecycle:
+        1. Invoked by controller route handler dispatch before executing endpoint logic.
+        2. Validates request body size limit against ``MAX_BODY_SIZE`` (default 10 MB).
+        3. Parses payload based on request ``Content-Type`` (JSON, multipart/form-data, urlencoded).
+        4. Merges query and path parameters.
+        5. Instantiates Contract and executes validation seal pass.
+
+    Execution Order:
+        1. Check ``Content-Length`` header against maximum body size limit.
+        2. Parse request payload according to ``Content-Type``.
+        3. Copy query parameters and path parameters into merged payload mapping.
+        4. Extract explicit parameter bindings using facet extractors (``Query``, ``Header``, ``Cookie``, ``Path``, ``Body``).
+        5. Build ``ContractContext`` containing request and DI container references.
+        6. Instantiate ``contract_cls(data=merged_data, ...)`` and call ``is_sealed()``.
+        7. Record validation span in active request trace inspector.
+        8. Return sealed Contract instance.
+
+    Parameters:
+        contract_cls (type[Contract]):
+            Target ``Contract`` subclass class object to instantiate.
+        request (Any):
+            Incoming Aquilia HTTP Request object.
+        projection (str | None, optional):
+            Projection name to apply to the contract. Defaults to ``None``.
+        partial (bool, optional):
+            If ``True``, disables required field validation (PATCH mode). Defaults to ``False``.
+        context (dict[str, Any] | None, optional):
+            Extra context variables to inject into ``ContractContext``. Defaults to ``None``.
 
     Returns:
-        A validated Contract instance (is_sealed() has been called)
+        Contract:
+            An instantiated and sealed Contract instance. Errors can be checked via ``contract.errors``.
+
+    Exceptions:
+        SealFault: If request body size exceeds ``MAX_BODY_SIZE`` or form key unflattening depth limits are violated.
+
+    Notes:
+        - Thread/Async Safe: Executes asynchronously within the request coroutine context.
+        - Performance: Automatically instruments tracing spans for validation performance analysis.
+
+    Examples:
+        >>> contract = await bind_contract_to_request(UserRegistrationContract, request)
+        >>> if contract.is_sealed():
+        ...     user = await contract.imprint()
     """
     import time
 
@@ -546,19 +582,41 @@ def render_contract_response(
     many: bool = False,
 ) -> Any:
     """
-    Render data through a Contract for response output.
+    Render Python objects or model instances through a Contract for outbound HTTP responses.
 
-    This is used by the controller engine when a ``response_contract``
-    is specified on a route.
+    Purpose:
+        Applies contract field filtering, lens traversal, and projection formatting to raw data instances or QuerySets before serializing to HTTP JSON responses.
 
-    Args:
-        contract_or_cls: Contract instance or class
-        data: The data to render (model instance or list)
-        projection: Optional projection name
-        many: If True, data is a list of instances
+    Lifecycle:
+        Invoked by the Controller response renderer when a handler specifies a ``response_contract`` annotation or setting.
+
+    Execution Order:
+        1. If ``contract_or_cls`` is already a ``Contract`` instance, bind ``instance=data`` and ``many=many``.
+        2. If ``contract_or_cls`` is a ``_ProjectedRef`` (e.g. ``UserContract["summary"]``), unwrap target class and projection.
+        3. Instantiate Contract class binding ``instance=data``.
+        4. Return formatted ``contract.data`` (dict or list of dicts).
+
+    Parameters:
+        contract_or_cls (Contract | type[Contract] | _ProjectedRef):
+            Contract class, Contract instance, or projected reference.
+        data (Any, optional):
+            The model instance, dict, or list of instances to format. Defaults to ``None``.
+        projection (str | None, optional):
+            Specific projection name to apply. Defaults to ``None``.
+        many (bool, optional):
+            If ``True``, formats ``data`` as a collection of instances. Defaults to ``False``.
 
     Returns:
-        Dict or list of dicts ready for JSON serialization
+        Any: A dictionary or list of dictionaries ready for JSON response serialization.
+
+    Exceptions:
+        ProjectionFault: If an invalid projection is requested.
+        LensUnresolvedFault: If an un-prefetched to-many relation is encountered in a Lens facet.
+
+    Examples:
+        >>> output = render_contract_response(UserContract["summary"], user_instance)
+        >>> isinstance(output, dict)
+        True
     """
     if isinstance(contract_or_cls, Contract):
         # Already an instance -- use it

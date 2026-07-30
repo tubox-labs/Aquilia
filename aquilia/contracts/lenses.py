@@ -26,26 +26,60 @@ __all__ = ["Lens"]
 
 class Lens(Facet):
     """
-    A relational facet that views related data through another Contract.
+    A relational facet that projects related model data through a target Contract.
 
-    Features:
-        - Depth control: limits how deep nested Lenses resolve
-        - Cycle detection: prevents infinite recursion
-        - Projection selection: use a named projection of the target Contract
-        - Many: handles to-many relations (returns list)
+    Purpose:
+        Provides depth-controlled, cycle-safe relational views over foreign keys, one-to-one, and to-many relations.
+        Enables structured representation of related entities with optional projection selection (e.g., ``UserContract["public"]``).
 
-    Usage::
+    Lifecycle:
+        1. **Class Creation**: Bound to a parent ``Contract`` as a class attribute.
+        2. **Contract Instantiation**: Configured with target Contract class, cardinality (``many``), and max recursion depth.
+        3. **Outbound Serialization**: Invoked during ``contract.data`` or ``contract.to_dict()`` to extract and transform related instances.
 
-        class OrderContract(Contract):
-            customer = Lens(UserContract["public"])
-            items = Lens(OrderItemContract, many=True, depth=2)
+    Execution Order:
+        1. Inspect input relation value (single instance or iterable).
+        2. Verify recursion depth against ``max_depth`` (returns primary key fallback if exceeded).
+        3. Check for target Contract class IDs in ``_seen`` recursion tracker (raises ``LensCycleFault`` if circular).
+        4. Check for un-awaited ORM managers (raises ``LensUnresolvedFault`` in sync path if un-prefetched).
+        5. Instantiate target Contract for child instance(s) and invoke ``to_dict()``.
+        6. Return molded dictionary or list of dictionaries.
 
-    Args:
-        target: Contract class (or ProjectedContract from subscript).
-        many: If True, expect an iterable and mold each item.
-        depth: Maximum nesting depth (default 3).
-        source: Model attribute for the related object(s).
-        read_only: Lenses are read-only by default.
+    Parameters:
+        target (type[Contract] | _ProjectedRef | None):
+            Target ``Contract`` class or projected reference (e.g. ``UserContract["summary"]``).
+        many (bool, optional):
+            If ``True``, treats the relation as a to-many collection. Defaults to ``False``.
+        depth (int, optional):
+            Maximum permissible relational traversal depth. Defaults to ``3``.
+        projection (str, optional):
+            Name of specific target contract projection to apply. Defaults to ``None``.
+        **kwargs:
+            Base Facet keyword arguments (``source``, ``read_only``, etc.). Lenses default to ``read_only=True``.
+
+    Returns:
+        Lens: An initialized relational facet descriptor.
+
+    Exceptions:
+        LensCycleFault: Raised if a circular dependency is detected in the Lens traversal graph.
+        LensUnresolvedFault: Raised in synchronous ``mold()`` if an un-awaited ORM relation manager is encountered.
+        LensDepthFault: Raised if recursion limit is exceeded when depth checks are configured strictly.
+
+    Notes:
+        - Read-Only by Default: Lenses represent outbound relational projections and are marked read-only by default.
+        - Supports both synchronous ``mold()`` and asynchronous ``mold_async()`` for ORM manager resolution.
+
+    Internal Behaviour:
+        Maintains an internal ``_seen`` set of active Contract class Object IDs across recursive steps to detect reference cycles.
+
+    Edge Cases:
+        - If ``value`` is ``None``, returns ``None`` without instantiating child contracts.
+        - When max depth is reached, returns raw primary key attributes (``id`` or ``pk``) instead of expanding full nested objects.
+
+    Examples:
+        >>> class OrderContract(Contract):
+        ...     customer = Lens(UserContract["public"], depth=2)
+        ...     items = Lens(OrderItemContract, many=True, depth=2)
     """
 
     _type_name = "object"
