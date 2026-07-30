@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.8] — 2026-07-30 — "Migration Architect"
+
+This release introduces a complete architectural overhaul of the ORM Migration DSL Generator, post-order topological model dependency ordering for `CreateModel` DDL operations, character-split index normalization, strict foreign key target table name resolution, scalar Enum default serialization, and migration revision dependencies metadata.
+
+Full notes: [`releases/1.3.8/`](releases/1.3.8/README.md)
+
+### Added
+
+#### Database & ORM — Migration DSL Generator & Topological Ordering
+- **Topological Model Creation Sorting** (`aquilia.models.schema_snapshot._topologically_sort_models()`) — Post-order depth-first traversal of model dependency graphs ensures referenced tables (`users`) are created before dependent tables (`email_verification`, `user_roles`) in generated migrations.
+- **Foreign Key Target Table Resolver** (`aquilia.models.schema_snapshot._resolve_target_table()`) — Multi-pass target table resolution pipeline resolves target model metadata, `ModelRegistry` entries, and PascalCase-to-snake_case fallbacks (`"UserModel"` $\rightarrow$ `"users"`).
+- **Database Column Name Resolver** (`aquilia.models.schema_snapshot._resolve_db_column_name()`) — Maps model attribute names to underlying database column names (`"user"` $\rightarrow$ `"user_id"`) across indexes and table constraints.
+- **Migration Dependencies Metadata** (`aquilia.models.migration_gen._render_migration_file()`) — Generated DSL migration modules now include prerequisite revision IDs in `Meta.dependencies`.
+
+#### Tests
+- **Migration Generator Correctness Test Suite** (`tests/test_migration_dsl_generator_correctness.py`) — Comprehensive test suite verifying all 19 migration generator correctness rules, AST parsing, loading, and DDL execution on SQLite.
+
+### Improved
+
+#### Models & Serialization
+- **Character-Split Index Normalization** (`aquilia.models.index`, `aquilia.models.fields_module`) — Normalizes string index fields into `list[str]` arrays, eliminating character-split index columns (`['t', 'o', 'k', 'e', 'n']`) and corrupted index names (`idx_email_verification_t_o_k_e_n`).
+- **Scalar Enum Default Unwrapping** (`aquilia.models.schema_snapshot._serialize_field()`, `aquilia.models.migration_dsl._format_default()`) — Unwraps `Enum` member instances to scalar string/int primitives (`default='active'`), fixing Python `SyntaxError` on migration load.
+- **Foreign Key Type Inference Consistency** (`aquilia.models.schema_snapshot._field_to_sql_type()`) — Dynamically inspects target primary key types to emit consistent column types (`col_type="VARCHAR(36)"`) across referencing foreign key column definitions.
+- **Foreign Key Metadata Preservation** (`aquilia.models.migration_gen._render_column_def()`) — Renders `null=True`, `on_delete`, `on_update`, and `col_type` in `C.foreign_key()` DSL calls.
+
+### Fixed
+
+- **AST Syntax Error on Enum Migration Load** — Fixed stringified Enum representation output (`default=<UserStatus.ACTIVE: 'active'>`) by serializing DB-storable primitive values.
+- **Foreign Key DDL Execution Failures** — Fixed `CreateModel` execution order for added models using topological graph sorting.
+- **Foreign Key Target Table Reference Crashes** — Fixed target table references pointing to un-pluralized class name stubs (`"usersmodel"`) instead of actual table names (`"users"`).
+
 ## [1.3.7] — 2026-07-30 — "Thread Sentinel"
 
 This release introduces thread-safe ModelRegistry registration with re-entrant locking (`threading.RLock`) and reverse-relation cache invalidation, thread-isolated BaseManager descriptor subclass binding via shallow copying, standard Python type hint annotation support for `NestedContractFacet`, dialect parameter support across `EnumField` and `CompositeField` `to_db()` methods, and comprehensive 10-point industry docstrings across the Contracts subsystem.
