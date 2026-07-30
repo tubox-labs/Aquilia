@@ -368,16 +368,8 @@ class ModelRegistry:
         """
         Create tables, indexes, and M2M junction tables for all managed models.
 
-        Purpose:
-            Execute DDL statements to create database structures in topological order.
-
-        Lifecycle:
-            Called during application startup or test setup.
-
-        Execution Order:
-            1. Resolve target database connection.
-            2. Topologically sort models based on FK relationships.
-            3. Execute ``CREATE TABLE``, indexes, and M2M junction tables.
+        Delegates schema planning and execution directly to MigrationRunner as the
+        sole execution authority in the framework.
 
         Parameters:
             db (AquiliaDatabase | None): Optional database engine override.
@@ -387,18 +379,6 @@ class ModelRegistry:
 
         Exceptions:
             DatabaseConnectionFault: Raised if no database engine is configured.
-
-        Notes:
-            Async operation. Thread-safe snapshot of models is used.
-
-        Internal Behaviour:
-            Iterates topologically sorted models and calls ``target_db.execute()``.
-
-        Edge Cases:
-            MySQL error 1061 (duplicate key) on index creation is safely ignored.
-
-        Examples:
-            >>> statements = await ModelRegistry.create_tables(db)
         """
         with cls._lock:
             target_db = db or cls._db
@@ -413,70 +393,16 @@ class ModelRegistry:
                 "Call ModelRegistry.set_database(db) before create_tables().",
             )
 
-        dialect = getattr(target_db, "dialect", "sqlite")
-        statements: list[str] = []
+        from .migration_runner import MigrationRunner
 
-        async with target_db.transaction():
-            for model_cls in ordered:
-                if model_cls._meta.abstract or not model_cls._meta.managed:
-                    continue
-
-                # Create main table
-                sql = model_cls.generate_create_table_sql(dialect=dialect)
-                await target_db.execute(sql)
-                statements.append(sql)
-
-                # Create indexes
-                for idx_sql in model_cls.generate_index_sql(dialect=dialect):
-                    try:
-                        await target_db.execute(idx_sql)
-                    except Exception as idx_exc:
-                        _orig = getattr(idx_exc, "__cause__", idx_exc)
-                        _args = getattr(_orig, "args", ())
-                        if _args and _args[0] == 1061:
-                            pass
-                        else:
-                            raise
-                    statements.append(idx_sql)
-
-                # Create M2M junction tables
-                for m2m_sql in model_cls.generate_m2m_sql(dialect=dialect):
-                    await target_db.execute(m2m_sql)
-                    statements.append(m2m_sql)
-
-        return statements
+        runner = MigrationRunner(target_db, dialect=getattr(target_db, "dialect", "sqlite"))
+        exec_stmts = await runner.create_initial_schema(ordered)
+        return [s.sql for s in exec_stmts if s.sql and not s.is_comment]
 
     @classmethod
     def _topological_sort(cls) -> list[type[Model]]:
         """
         Sort registered models topologically based on foreign key dependencies.
-
-        Purpose:
-            Ensure target models are created before referencing models in DDL statements.
-
-        Lifecycle:
-            Used internally by ``create_tables()``.
-
-        Execution Order:
-            Builds dependency DAG using Kahn's algorithm under thread lock.
-
-        Parameters:
-            None.
-
-        Return Value:
-            list[type[Model]]: Dependency-ordered list of model classes.
-
-        Exceptions:
-            None.
-
-        Notes:
-            Circular FK dependencies are broken gracefully.
-
-        Internal Behaviour:
-            Inspects ``ForeignKey`` and ``OneToOneField`` definitions.
-
-        Edge Cases:
-            Self-referencing models do not block topological ordering.
         """
         from .fields_module import ForeignKey, OneToOneField
 
@@ -525,32 +451,16 @@ class ModelRegistry:
         """
         Drop all registered model tables.
 
-        Purpose:
-            Teardown database schema for test cleanup or isolated environments.
-
-        Lifecycle:
-            Invoked in test suite teardowns.
-
-        Execution Order:
-            Iterates registered models in reverse order and executes ``DROP TABLE IF EXISTS``.
+        Delegates table teardown to MigrationRunner.
 
         Parameters:
             db (AquiliaDatabase | None): Optional database engine override.
 
         Return Value:
-            list[str]: List of executed ``DROP TABLE`` SQL statements.
+            list[str]: List of executed DROP TABLE SQL statements.
 
         Exceptions:
             DatabaseConnectionFault: If no database is available.
-
-        Notes:
-            Destructive action.
-
-        Internal Behaviour:
-            Issues DDL for each registered non-abstract model.
-
-        Edge Cases:
-            SQLite ignores foreign key drop constraints; database specific behaviors apply.
         """
         with cls._lock:
             target_db = db or cls._db
@@ -565,15 +475,11 @@ class ModelRegistry:
                 "Call ModelRegistry.set_database(db) before drop_tables().",
             )
 
-        statements: list[str] = []
-        for model_cls in reversed(models_snapshot):
-            if model_cls._meta.abstract:
-                continue
-            sql = f'DROP TABLE IF EXISTS "{model_cls._table_name}"'
-            await target_db.execute(sql)
-            statements.append(sql)
+        from .migration_runner import MigrationRunner
 
-        return statements
+        runner = MigrationRunner(target_db, dialect=getattr(target_db, "dialect", "sqlite"))
+        return await runner.drop_all_tables(models_snapshot)
+
 
     @classmethod
     def reset(cls) -> None:

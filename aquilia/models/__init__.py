@@ -136,6 +136,12 @@ from .base import (
 # ── Constraints & Indexes ────────────────────────────────────────────────────
 from .constraint import CheckConstraint, Deferrable, ExclusionConstraint
 from .cte import CTE, CTECol, CTEReference, RecursiveCTE
+from .ddl_executor import (
+    DDLExecutor,
+    ExecutableStatement,
+    ExecutionResult,
+    StatementType,
+)
 
 # ── Deletion constants ───────────────────────────────────────────────────────
 from .deletion import (
@@ -333,6 +339,12 @@ from .migration_dsl import (
 )
 from .migration_gen import (
     generate_dsl_migration,
+)
+from .migration_planner import (
+    InitialSchemaPlanner,
+    MigrationPlan,
+    MigrationPlanner,
+    MigrationStep,
 )
 from .migration_runner import (
     MigrationRunner as DSLMigrationRunner,
@@ -654,6 +666,14 @@ __all__ = [
     "SchemaDiff",
     "ModelDiff",
     "DSLMigrationRunner",
+    "DDLExecutor",
+    "ExecutableStatement",
+    "ExecutionResult",
+    "StatementType",
+    "InitialSchemaPlanner",
+    "MigrationPlan",
+    "MigrationPlanner",
+    "MigrationStep",
     "check_db_exists",
     "check_migrations_applied",
     "check_db_ready",

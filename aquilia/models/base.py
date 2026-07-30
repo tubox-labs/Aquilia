@@ -192,6 +192,16 @@ class ModelRegistry(metaclass=_ModelRegistryMeta):
         return await _CanonicalRegistry.create_tables(db)
 
     @classmethod
+    async def drop_tables(cls, db: AquiliaDatabase | None = None) -> list[str]:
+        """Drop all registered model tables."""
+        return await _CanonicalRegistry.drop_tables(db)
+
+    @classmethod
+    def _topological_sort(cls) -> list[type[Model]]:
+        """Sort registered models topologically based on foreign key dependencies."""
+        return _CanonicalRegistry._topological_sort()
+
+    @classmethod
     def reset(cls) -> None:
         """Clear all registered models and the default database (for tests)."""
         _CanonicalRegistry.reset()

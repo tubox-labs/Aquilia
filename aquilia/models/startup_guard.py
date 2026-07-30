@@ -34,6 +34,7 @@ _BOLD = "\033[1m"
 
 from enum import Enum
 
+
 class DatabaseState(Enum):
     """Clean state model for database startup readiness."""
     READY = "READY"
@@ -55,8 +56,9 @@ class DatabaseNotReadyError(SystemExit):
     def __init__(self, message: str):
         self.message = message
         try:
-            from ..faults.domains import SchemaFault
             import logging
+
+            from ..faults.domains import SchemaFault
 
             fault = SchemaFault(table="(startup)", reason=message)
             logging.getLogger("aquilia.models.startup_guard").warning(

@@ -422,6 +422,25 @@ class MySQLAdapter(DatabaseAdapter):
         )
         return [dict(r) for r in rows]
 
+    def should_ignore_ddl_error(self, exc: Exception, statement: Any = None) -> bool:
+        """
+        Ignore MySQL-specific ignorable DDL errors:
+        - Error 1061: Duplicate key name (index already exists)
+        - Error 1091: Can't DROP key/index; check that column/key exists
+        """
+        cause = getattr(exc, "__cause__", exc) or exc
+        code = getattr(cause, "errno", None)
+        if code is None:
+            args = getattr(cause, "args", ())
+            if args:
+                first = args[0]
+                if isinstance(first, int):
+                    code = first
+                elif isinstance(first, (list, tuple)) and first and isinstance(first[0], int):
+                    code = first[0]
+        return code in (1061, 1091)
+
+
     @property
     def is_connected(self) -> bool:
         return self._connected and self._pool is not None
@@ -429,6 +448,7 @@ class MySQLAdapter(DatabaseAdapter):
     @property
     def dialect(self) -> str:
         return "mysql"
+
 
 
 # ── URL parsing helper ──────────────────────────────────────────────

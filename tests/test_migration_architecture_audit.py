@@ -77,7 +77,7 @@ async def test_startup_guard_state_classification_and_warning(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_atomic_table_creation_rollback_on_failure(tmp_path):
+async def test_atomic_table_creation_rollback_on_failure(tmp_path, monkeypatch):
     """
     Verify ModelRegistry.create_tables() rolls back all created tables if an error occurs mid-way.
     """
@@ -91,15 +91,21 @@ async def test_atomic_table_creation_rollback_on_failure(tmp_path):
     await db.connect()
     ModelRegistry.set_database(db)
 
-    # Monkeypatch generate_index_sql on ValidModel to produce invalid SQL mid-creation
-    original_index_sql = ValidModel.generate_index_sql
-    ValidModel.generate_index_sql = lambda dialect="sqlite": ["CREATE TABLE invalid_table (id INT, id INT)"]
+    real_execute = db._adapter.execute
+    exec_count = 0
 
-    try:
-        with pytest.raises(Exception):
-            await ModelRegistry.create_tables(db)
-    finally:
-        ValidModel.generate_index_sql = original_index_sql
+    async def failing_execute(sql, params=None):
+        nonlocal exec_count
+        exec_count += 1
+        res = await real_execute(sql, params)
+        if exec_count >= 1:
+            raise RuntimeError("Simulated mid-way DDL execution failure")
+        return res
+
+    monkeypatch.setattr(db._adapter, "execute", failing_execute)
+
+    with pytest.raises(Exception):
+        await ModelRegistry.create_tables(db)
 
     conn = sqlite3.connect(str(db_file))
     cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [ValidModel._meta.table_name])

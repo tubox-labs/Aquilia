@@ -205,6 +205,34 @@ class DatabaseAdapter(ABC):
         """
         return sql
 
+    def should_ignore_ddl_error(self, exc: Exception, statement: Any = None) -> bool:
+        """
+        Determine whether a database error raised during DDL statement execution
+        should be safely ignored (e.g., MySQL error 1061 for duplicate key names
+        or 1091 for non-existent indexes during drop operations).
+
+        Args:
+            exc: The exception raised by the database driver.
+            statement: Optional ExecutableStatement or SQL string context.
+
+        Returns:
+            bool: True if the exception can be safely swallowed by the DDL executor.
+        """
+        return False
+
+    def translate_ddl_error(self, exc: Exception, statement: Any = None) -> Exception:
+        """
+        Translate a backend-specific DDL exception into a standardized Aquilia exception.
+
+        Args:
+            exc: The raw exception raised by the database driver.
+            statement: Optional ExecutableStatement context.
+
+        Returns:
+            Exception: A translated exception or the original exception if no translation applies.
+        """
+        return exc
+
     def last_insert_id(self, cursor: Any) -> int | None:
         """Extract last inserted ID from cursor."""
         if hasattr(cursor, "lastrowid"):
@@ -220,3 +248,4 @@ class DatabaseAdapter(ABC):
     def dialect(self) -> str:
         """Return the SQL dialect name."""
         return self.capabilities.name
+
