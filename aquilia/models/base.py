@@ -1447,7 +1447,6 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def _get_reverse_fk_refs(cls) -> list[tuple[type[Model], str, str]]:
-
         """
         Get all (model_cls, column_name, on_delete) tuples where other models
         have ForeignKey pointing to this model. Cached per class.

@@ -99,7 +99,6 @@ TModel = TypeVar("TModel", bound="Model")
 __all__ = ["Q", "QNode", "QCombination", "Prefetch"]
 
 
-
 # ── Q Combinator (for AND/OR composition) ────────────────────────────────────
 
 
