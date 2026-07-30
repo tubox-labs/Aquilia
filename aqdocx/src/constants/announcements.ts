@@ -8,6 +8,14 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Record<string, Announcement> = {
+  '1.3.9': {
+    version: '1.3.9',
+    badgeText: 'V1.3.9 Release',
+    title: 'Strict auto_migrate=False enforcement, non-fatal DatabaseState readiness model & atomic DDL transactions:',
+    highlightText: 'Database Sentinel',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.3.9',
+  },
   '1.3.8': {
     version: '1.3.8',
     badgeText: 'V1.3.8 Release',
@@ -86,5 +94,5 @@ export function getLatestAnnouncement(version?: string): Announcement {
   if (version && ANNOUNCEMENTS[version]) {
     return ANNOUNCEMENTS[version]
   }
-  return ANNOUNCEMENTS['1.3.8']
+  return ANNOUNCEMENTS['1.3.9']
 }

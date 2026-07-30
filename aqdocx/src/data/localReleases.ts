@@ -1,4 +1,56 @@
 export const localReleases: Record<string, Record<string, string>> = {
+  "1.3.9": {
+    "README.md": `# Aquilia v1.3.9 Release Notes — "Database Sentinel"
+
+Aquilia v1.3.9 introduces **Strict auto_migrate=False Enforcement**, **Non-Fatal Database Startup Readiness Model (DatabaseState)**, and **Atomic Transactional DDL & Migration Rollback Guarantees** across the Aquilia Database, ORM, and Server Startup lifecycle subsystems.
+
+Before this release, setting \`auto_migrate=False\` in \`DatabaseIntegration\` still caused \`ModelRegistry.create_tables()\` to execute \`CREATE TABLE\` DDL on startup because \`auto_create\` defaulted to \`True\`. Furthermore, when a database file did not exist or had unapplied migrations under \`auto_migrate=False\`, the server startup process crashed with a fatal \`SchemaFault\` rather than allowing safe application boot. Finally, multi-table schema creation and legacy migration steps executed statements without an atomic transaction wrapper, allowing partial schema changes to survive mid-execution failures.
+
+This release performs a complete architectural overhaul of database lifecycle initialization, introducing clean state classification (\`DatabaseState\`), explicit precedence rules for \`auto_migrate\`, yellow diagnostic warning banners for uninitialized databases, and transactional DDL execution across \`ModelRegistry.create_tables()\` and \`MigrationRunner\`.
+
+---
+
+## Table of Contents
+
+1. [Strict auto_migrate=False Enforcement](auto_migrate_enforcement.md)
+2. [Non-Fatal Database Startup Readiness (DatabaseState)](non_fatal_startup_guard.md)
+3. [Atomic Transactional DDL Execution](atomic_ddl_transactions.md)
+4. [Bug Fixes & Audit](bugfixes.md)
+5. [Migration Guide & Upgrade Checklist](migration.md)
+`,
+    "auto_migrate_enforcement.md": `# Strict auto_migrate=False Schema Enforcement
+
+In Aquilia v1.3.9, the framework strictly enforces the developer's \`auto_migrate=False\` setting across all startup phases.
+
+When \`auto_migrate=False\` is set, Aquilia strictly guarantees that **no tables will be created**, **no schema will be modified**, and **no DDL statements will execute** on startup—even if \`auto_create=True\` is set on the integration.
+`,
+    "non_fatal_startup_guard.md": `# Non-Fatal Database Readiness Model (DatabaseState)
+
+In Aquilia v1.3.9, database startup readiness checks no longer treat uninitialized databases as fatal process-crashing exceptions.
+
+Introduced the \`DatabaseState\` enum in \`aquilia.models.startup_guard\`:
+- \`READY\`
+- \`MISSING_DATABASE\`
+- \`PENDING_MIGRATIONS\`
+- \`CORRUPTED_HISTORY\`
+- \`SCHEMA_MISMATCH\`
+- \`UNAVAILABLE\`
+`,
+    "atomic_ddl_transactions.md": `# Atomic Transactional DDL & Migration Rollback
+
+In Aquilia v1.3.9, table creation (\`ModelRegistry.create_tables()\`) and migration application (\`MigrationRunner._apply_migration()\`) are executed within explicit database transaction blocks (\`async with db.transaction():\`).
+
+If any DDL statement fails, all changes roll back cleanly, guaranteeing 0 partial tables or columns are left behind.
+`,
+    "bugfixes.md": `# Bug Fixes & Deep Audit Report (v1.3.9)
+
+Resolved Bug 1 (auto_migrate=False bypassed by auto_create), Bug 2 (Database not ready fatal SchemaFault), and Bug 3 (Partial schema pollution on DDL failure).
+`,
+    "migration.md": `# Migration & Upgrade Guide for Aquilia v1.3.9
+
+Fully backward-compatible release. Run \`aq db migrate\` in CI/CD pipeline when deploying with \`auto_migrate=False\`.
+`
+  },
   "1.3.8": {
     "README.md": `# Aquilia v1.3.8 Release Notes — "Migration Architect"
 
