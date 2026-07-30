@@ -1434,6 +1434,7 @@ def _snapshot_field_to_column_def(name: str, data: dict[str, Any]) -> ColumnDef:
     default = data.get("default", _SENTINEL)
     if default is not _SENTINEL and default is not None:
         from enum import Enum
+
         if isinstance(default, Enum):
             default = default.value
         elif isinstance(default, str) and default.startswith("<callable:"):

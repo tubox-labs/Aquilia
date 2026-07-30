@@ -296,6 +296,7 @@ class EnumField(Field[E], Generic[E]):
         d["store_name"] = self.store_name
         if self.has_default() and not callable(self.default):
             from enum import Enum
+
             if isinstance(self.default, Enum):
                 d["default"] = self.to_db(self.default)
         return d

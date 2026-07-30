@@ -194,6 +194,7 @@ def _format_default(value: Any, dialect: str = "sqlite", col_type: str = "") -> 
     if value is None:
         return "NULL"
     from enum import Enum
+
     if isinstance(value, Enum):
         value = value.value
 
