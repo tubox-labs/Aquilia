@@ -146,29 +146,57 @@ _SENTINEL = _SentinelType()
 def _format_default(value: Any, dialect: str = "sqlite", col_type: str = "") -> str:
     """Format a Python value as a SQL ``DEFAULT`` literal for the given dialect.
 
-    Args:
-        value: The Python value to render (``None``, ``bool``, ``int``, ``float``,
-            ``str``, or any other object as a last resort).
-        dialect: Target SQL dialect -- only ``"postgresql"`` gets special
-            handling for booleans; all other dialects fall through to the
-            0/1 integer convention.
-        col_type: The resolved SQL column type (e.g. ``"BOOLEAN"``, ``"INTEGER"``),
-            used only to decide how to render Python ``bool`` values -- PostgreSQL
-            renders ``TRUE``/``FALSE`` for actual ``BOOLEAN`` columns but must use
-            ``0``/``1`` for boolean defaults stored in ``INTEGER`` columns (to avoid
-            a type-mismatch error).
+    Purpose:
+        Renders a Python scalar value (or Enum member) into a syntactically valid
+        SQL ``DEFAULT`` clause literal appropriate for the target database engine.
+
+    Lifecycle:
+        Invoked during operation SQL compilation (e.g., ``CreateModel.to_sql()``,
+        ``AddField.to_sql()``) when converting ColumnDefs to DDL SQL.
+
+    Execution Order:
+        1. Handle ``None`` -> "NULL".
+        2. Unwrap ``Enum`` instances to their scalar underlying values.
+        3. Check ``bool`` (with PG boolean type matching).
+        4. Render ``int`` / ``float`` numbers.
+        5. Escape and quote ``str`` literals.
+        6. Fallback to ``repr(value)``.
+
+    Parameters:
+        value (Any): The Python value or Enum member to format.
+        dialect (str): Target SQL engine dialect ("sqlite", "postgresql", "mysql").
+        col_type (str): SQL column type (e.g., "BOOLEAN", "INTEGER", "VARCHAR(50)").
 
     Returns:
-        A SQL literal fit for use directly after ``DEFAULT`` (already quoted for
-        strings, with embedded single quotes doubled for safe escaping).
+        str: SQL literal fragment ready for use after ``DEFAULT`` (e.g. ``"'active'"``, ``"1"``, ``"NULL"``).
 
-    Note:
-        ``bool`` is checked before ``int``/``float`` because in Python
-        ``isinstance(True, int)`` is also ``True`` -- the ordering here is load
-        bearing.
+    Exceptions:
+        None directly raised.
+
+    Notes:
+        Guarantees that Enum members (e.g., ``UserStatus.ACTIVE``) are unwrapped
+        to their underlying primitive values before generating SQL.
+
+    Internal Behaviour:
+        Checks ``isinstance(value, Enum)`` and replaces ``value`` with ``value.value``
+        prior to type checking.
+
+    Edge Cases:
+        - Booleans on PG INTEGER columns format as 0/1 to avoid type-mismatch errors.
+        - Single quotes in strings are doubled (``'`` -> ``''``).
+
+    Examples:
+        >>> _format_default(UserStatus.ACTIVE)
+        "'active'"
+        >>> _format_default(True, dialect="postgresql", col_type="BOOLEAN")
+        'TRUE'
     """
     if value is None:
         return "NULL"
+    from enum import Enum
+    if isinstance(value, Enum):
+        value = value.value
+
     if isinstance(value, bool):
         # Only use TRUE/FALSE on actual BOOLEAN columns in PostgreSQL;
         # for INTEGER columns (e.g. from C.integer(..., default=True)),

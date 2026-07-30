@@ -3514,7 +3514,12 @@ class Index:
                 ``idx_{table}_{field_names}`` when omitted.
             unique: Emit ``CREATE UNIQUE INDEX`` instead of a plain index.
         """
-        self.fields = fields
+        if isinstance(fields, str):
+            self.fields = [fields]
+        elif isinstance(fields, (tuple, set)):
+            self.fields = list(fields)
+        else:
+            self.fields = list(fields) if fields is not None else []
         self.name = name
         self.unique = unique
 

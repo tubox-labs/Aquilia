@@ -248,15 +248,54 @@ class EnumField(Field[E], Generic[E]):
         return f"VARCHAR({self.max_length})"
 
     def deconstruct(self) -> dict[str, Any]:
-        """
-        Serialize this field's definition for migrations.
+        """Serialize this field's definition for migration snapshotting and schema diffing.
 
-        Extends the base ``deconstruct()`` output with a dotted-path
-        reference to ``enum_class`` (``"module.QualName"``, so migrations
-        can re-import it), plus ``max_length`` and ``store_name``.
+        Purpose:
+            Serializes the full configuration of this ``EnumField`` instance into a
+            JSON-friendly dictionary format required by the migration generator.
+
+        Lifecycle:
+            Invoked during model snapshot generation (``create_snapshot()``) or field
+            deconstruction.
+
+        Execution Order:
+            1. Call ``super().deconstruct()`` to obtain base Field attributes.
+            2. Inject ``enum_class`` string reference (module + qualname).
+            3. Inject ``max_length`` and ``store_name`` options.
+            4. Unwrap Enum default instance into primitive database-storable value.
+
+        Parameters:
+            None.
+
+        Returns:
+            dict[str, Any]: Deconstructed metadata dictionary containing field definition.
+
+        Exceptions:
+            None directly raised.
+
+        Notes:
+            Extends base ``deconstruct()`` by unwrapping Enum member defaults via ``to_db()``
+            so migration snapshots receive scalar primitives (strings/ints).
+
+        Internal Behaviour:
+            Maps ``enum_class`` to dotted import path and calls ``to_db(self.default)``
+            if a non-callable default is defined.
+
+        Edge Cases:
+            - Unset or None defaults pass through without modification.
+            - Enum instance defaults are unwrapped via ``to_db()``.
+
+        Examples:
+            >>> field = EnumField(enum_class=UserStatus, default=UserStatus.ACTIVE)
+            >>> field.deconstruct()["default"]
+            'active'
         """
         d = super().deconstruct()
         d["enum_class"] = f"{self.enum_class.__module__}.{self.enum_class.__qualname__}"
         d["max_length"] = self.max_length
         d["store_name"] = self.store_name
+        if self.has_default() and not callable(self.default):
+            from enum import Enum
+            if isinstance(self.default, Enum):
+                d["default"] = self.to_db(self.default)
         return d

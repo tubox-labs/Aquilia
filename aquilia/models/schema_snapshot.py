@@ -138,6 +138,130 @@ def _make_serializable(val: Any, model_cls: type | None = None, dialect: str = "
     return val
 
 
+def _resolve_db_column_name(model_cls: type | None, field_or_name: Any) -> str:
+    """Resolve a model field name or expression to its underlying DB column name.
+
+    Purpose:
+        Maps model attribute names (e.g., 'user') to actual database column
+        names (e.g., 'user_id') when generating indexes and constraints.
+
+    Lifecycle:
+        Invoked during snapshot creation (``create_snapshot()``) when inspecting
+        indexes and constraints declared on a Model subclass.
+
+    Execution Order:
+        1. Check if field_or_name is a string matching an attribute in model_cls._fields.
+        2. Extract column_name, db_column, or name attribute from the Field instance.
+        3. Fall back to field_or_name verbatim if not an attribute or not a string.
+
+    Parameters:
+        model_cls (type | None): The Model class owning the field.
+        field_or_name (Any): Attribute name string or expression object.
+
+    Returns:
+        str: Actual database column name string (e.g., 'user_id').
+
+    Exceptions:
+        None directly raised.
+
+    Notes:
+        Ensures foreign keys and custom column names are correctly mapped for DDL generation.
+
+    Internal Behaviour:
+        Inspects model_cls._fields descriptor dictionary for column_name overrides.
+
+    Edge Cases:
+        - Non-string expressions pass through to str().
+        - Non-existent attribute names pass through unchanged.
+
+    Examples:
+        >>> _resolve_db_column_name(UserRoleModel, "user")
+        'user_id'
+    """
+    if isinstance(field_or_name, str):
+        if model_cls and hasattr(model_cls, "_fields") and field_or_name in model_cls._fields:
+            fld = model_cls._fields[field_or_name]
+            return (
+                getattr(fld, "column_name", None)
+                or getattr(fld, "db_column", None)
+                or getattr(fld, "name", None)
+                or field_or_name
+            )
+        return field_or_name
+    return str(field_or_name)
+
+
+def _resolve_target_table(to_ref: Any, model_classes: list | None = None) -> str:
+    """Resolve a foreign key target reference to its actual database table name.
+
+    Purpose:
+        Prevents FK reference mismatches (e.g., referencing 'usersmodel' instead of 'users')
+        by querying target model metadata or registry lookups.
+
+    Lifecycle:
+        Invoked during foreign key field serialization in ``_serialize_field()``.
+
+    Execution Order:
+        1. Check if to_ref is a Model class subclass -> return _meta.table_name.
+        2. Match string reference against model_classes list by class name or table_name.
+        3. Query ModelRegistry for matching class name.
+        4. Apply PascalCase to snake_case table name fallback.
+
+    Parameters:
+        to_ref (Any): Target reference (Model subclass or string like 'UserModel').
+        model_classes (list | None): List of Model classes passed to snapshot creation.
+
+    Returns:
+        str: Target database table name (e.g., 'users').
+
+    Exceptions:
+        None directly raised.
+
+    Notes:
+        Guarantees that foreign key references in DSL migration operations resolve
+        to actual DB table names rather than un-pluralized class name stubs.
+
+    Internal Behaviour:
+        Inspects _meta.table_name on resolved Model subclasses.
+
+    Edge Cases:
+        - Model classes ending in 'Model' (e.g. UserModel) strip 'Model' suffix in fallback.
+
+    Examples:
+        >>> _resolve_target_table("UserModel", [UserModel])
+        'users'
+    """
+    if isinstance(to_ref, type) and hasattr(to_ref, "_meta"):
+        return getattr(to_ref._meta, "table_name", to_ref.__name__.lower())
+
+    if isinstance(to_ref, str):
+        target_name = to_ref.split(".")[-1]
+        if model_classes:
+            for m in model_classes:
+                if m.__name__ == target_name:
+                    return getattr(m._meta, "table_name", target_name.lower())
+                if hasattr(m, "_meta") and getattr(m._meta, "table_name", None) == target_name:
+                    return target_name
+        try:
+            from .registry import ModelRegistry
+
+            reg_cls = ModelRegistry.get(target_name)
+            if reg_cls and hasattr(reg_cls, "_meta"):
+                return getattr(reg_cls._meta, "table_name", target_name.lower())
+        except Exception:
+            pass
+
+        import re
+
+        base_name = target_name[:-5] if target_name.endswith("Model") and len(target_name) > 5 else target_name
+        snake = re.sub(r"(?<!^)(?=[A-Z])", "_", base_name).lower()
+        if not snake.endswith("s"):
+            snake = f"{snake}s"
+        return snake
+
+    return str(to_ref).lower()
+
+
 def create_snapshot(model_classes: list) -> dict[str, Any]:
     """
     Create a schema snapshot from a list of Model subclasses.
@@ -184,38 +308,49 @@ def create_snapshot(model_classes: list) -> dict[str, Any]:
         # Serialize fields
         fields_data: dict[str, Any] = {}
         for field_name, fld in model_cls._fields.items():
-            fld_info = _serialize_field(fld)
+            fld_info = _serialize_field(fld, model_classes=model_classes)
             fields_data[field_name] = fld_info
 
         # Serialize indexes from Meta
         indexes_data: list[dict[str, Any]] = []
         for idx in getattr(meta, "indexes", []):
+            raw_fields = []
+            idx_name = None
             if hasattr(idx, "deconstruct"):
                 idx_data = idx.deconstruct()
-                indexes_data.append(_make_serializable(idx_data, model_cls))
+                raw_fields = idx_data.get("fields") or idx_data.get("columns", [])
+                idx_name = idx_data.get("name")
             elif isinstance(idx, ModelIndex):
-                idx_fields = list(idx.fields) if hasattr(idx, "fields") else []
-                serializable_fields = []
-                for f in idx_fields:
-                    from aquilia.models.expression import Expression
+                raw_fields = idx.fields if hasattr(idx, "fields") else []
+                idx_name = getattr(idx, "name", None)
 
-                    if isinstance(f, Expression):
-                        serializable_fields.append(_compile_schema_expression(f, model_cls))
-                    else:
-                        serializable_fields.append(str(f))
-                idx_name = getattr(idx, "name", None) or _auto_index_name(table, serializable_fields)
-                indexes_data.append(
-                    {
-                        "name": idx_name,
-                        "columns": serializable_fields,
-                        "unique": getattr(idx, "unique", False),
-                    }
-                )
+            if isinstance(raw_fields, str):
+                raw_fields = [raw_fields]
+            elif isinstance(raw_fields, (tuple, set)):
+                raw_fields = list(raw_fields)
+
+            resolved_cols = []
+            for f in raw_fields:
+                from aquilia.models.expression import Expression
+
+                if isinstance(f, Expression):
+                    resolved_cols.append(_compile_schema_expression(f, model_cls))
+                else:
+                    resolved_cols.append(_resolve_db_column_name(model_cls, f))
+
+            idx_name = idx_name or _auto_index_name(table, resolved_cols)
+            indexes_data.append(
+                {
+                    "name": idx_name,
+                    "columns": resolved_cols,
+                    "unique": getattr(idx, "unique", False),
+                }
+            )
 
         # Add indexes from individual field db_index=True
         for field_name, fld in model_cls._fields.items():
             if getattr(fld, "db_index", False) and not getattr(fld, "primary_key", False):
-                col_name = getattr(fld, "column_name", field_name)
+                col_name = getattr(fld, "column_name", None) or getattr(fld, "db_column", None) or field_name
                 idx_name = _auto_index_name(table, [col_name])
                 # Avoid duplicates
                 if not any(i["name"] == idx_name for i in indexes_data):
@@ -237,6 +372,13 @@ def create_snapshot(model_classes: list) -> dict[str, Any]:
                     "type": type(constraint).__name__,
                     "name": getattr(constraint, "name", None),
                 }
+            if c_data.get("type") == "UniqueConstraint" and "fields" in c_data:
+                c_fields = c_data["fields"]
+                if isinstance(c_fields, str):
+                    c_fields = [c_fields]
+                elif isinstance(c_fields, (tuple, set)):
+                    c_fields = list(c_fields)
+                c_data["fields"] = [_resolve_db_column_name(model_cls, f) for f in c_fields]
             constraints_data.append(_make_serializable(c_data, model_cls))
 
         meta_data = {
@@ -434,9 +576,57 @@ async def create_snapshot_from_db(db, model_classes: list | None = None) -> dict
     return snapshot
 
 
-def _serialize_field(fld) -> dict[str, Any]:
-    """Serialize a single Field instance to a snapshot dict."""
+def _serialize_field(fld, model_classes: list | None = None) -> dict[str, Any]:
+    """Serialize a single Field instance to a snapshot dict.
+
+    Purpose:
+        Transforms an ORM ``Field`` descriptor instance into a JSON-serializable
+        dictionary for schema snapshot storage and diff comparison.
+
+    Lifecycle:
+        Invoked during schema snapshot creation (``create_snapshot()``) when
+        inspecting registered model fields.
+
+    Execution Order:
+        1. Create dictionary with ``field_class`` name.
+        2. Resolve SQL type via ``_field_to_sql_type()``.
+        3. Extract boolean flags (``primary_key``, ``unique``, ``nullable``).
+        4. Normalize default values (unwrapping Enum members/EnumField defaults).
+        5. Extract field-specific options (``max_length``, FK references, decimal params).
+
+    Parameters:
+        fld (Field): The model field instance to serialize.
+        model_classes (list | None): List of Model classes passed to snapshot creation.
+
+    Returns:
+        dict[str, Any]: JSON-serializable dictionary containing field metadata.
+
+    Exceptions:
+        None directly raised. Serialization errors fallback gracefully.
+
+    Notes:
+        Guarantees that Enum defaults (e.g. ``UserStatus.ACTIVE``) are unwrapped to
+        primitive DB-storable scalars (string or int) rather than stringified enum reprs.
+
+    Internal Behaviour:
+        Calls ``fld.to_db(val)`` for ``EnumField`` or accesses ``val.value``/``val.name``
+        for raw ``Enum`` member instances before verifying JSON safety via ``json.dumps``.
+
+    Edge Cases:
+        - Callable defaults are serialized as ``<callable:name>``.
+        - Enum instances are unwrapped to underlying primitive values.
+        - Unset or None defaults are preserved or omitted.
+
+    Examples:
+        >>> field = EnumField(enum_class=UserStatus, default=UserStatus.ACTIVE)
+        >>> _serialize_field(field)["default"]
+        'active'
+    """
+    from enum import Enum
+
+    from .fields.enum_field import EnumField
     from .fields_module import (
+        UNSET,
         ForeignKey,
         OneToOneField,
     )
@@ -446,7 +636,7 @@ def _serialize_field(fld) -> dict[str, Any]:
     }
 
     # SQL type
-    sql_type = _field_to_sql_type(fld)
+    sql_type = _field_to_sql_type(fld, model_classes=model_classes)
     info["type"] = sql_type
 
     # Constraints
@@ -457,18 +647,27 @@ def _serialize_field(fld) -> dict[str, Any]:
     if getattr(fld, "null", False):
         info["nullable"] = True
     if hasattr(fld, "default") and fld.default is not None:
-        from .fields_module import UNSET
-
         if fld.default is not UNSET:
+            val = fld.default
+            if isinstance(fld, EnumField):
+                val = fld.to_db(val)
+            elif isinstance(val, Enum):
+                val = val.name if getattr(fld, "store_name", False) else val.value
+
+            if isinstance(val, Enum):
+                val = val.name if getattr(fld, "store_name", False) else val.value
+
             try:
                 # Only serialize JSON-safe defaults
-                json.dumps(fld.default)
-                info["default"] = fld.default
+                json.dumps(val)
+                info["default"] = val
             except (TypeError, ValueError):
-                if callable(fld.default):
-                    info["default"] = f"<callable:{fld.default.__name__}>"
+                if callable(val):
+                    info["default"] = f"<callable:{val.__name__}>"
+                elif isinstance(val, Enum):
+                    info["default"] = val.value
                 else:
-                    info["default"] = str(fld.default)
+                    info["default"] = str(val)
 
     # Max length
     if hasattr(fld, "max_length") and fld.max_length:
@@ -476,37 +675,26 @@ def _serialize_field(fld) -> dict[str, Any]:
 
     # FK reference
     if isinstance(fld, (ForeignKey, OneToOneField)):
-        to = fld.to
-        if isinstance(to, str):
-            # Resolve string reference → table name via the model registry.
-            # The related model class is resolved during metaclass init and
-            # stored on ``fld.related_model``.  If resolution hasn't happened
-            # yet (or failed), fall back to the Django convention of
-            # ``<ModelName> → <modelname>`` table name.
-            resolved = getattr(fld, "related_model", None)
-            if resolved is not None and hasattr(resolved, "_meta"):
-                ref_table = getattr(resolved._meta, "table_name", to.lower())
-            else:
-                # Best-effort: look up in all known model classes that were
-                # passed alongside this one during snapshot creation.
-                ref_table = None
-                try:
-                    from .base import ModelRegistry
+        ref_table = _resolve_target_table(fld.to, model_classes)
+        to_name = fld.to if isinstance(fld.to, str) else getattr(fld.to, "__name__", str(fld.to))
+        target_col = "id"
+        related = getattr(fld, "related_model", None)
+        if related is None and fld.to is not None:
+            if isinstance(fld.to, type):
+                related = fld.to
+            elif isinstance(fld.to, str) and model_classes:
+                target_cls_name = fld.to.split(".")[-1]
+                for m in model_classes:
+                    if m.__name__ == target_cls_name:
+                        related = m
+                        break
+        if related is not None and hasattr(related, "_fields") and hasattr(related, "_pk_attr"):
+            pk_attr = getattr(related, "_pk_attr", "id")
+            pk_fld = related._fields.get(pk_attr)
+            if pk_fld is not None:
+                target_col = getattr(pk_fld, "column_name", None) or getattr(pk_fld, "name", None) or "id"
 
-                    for _reg_cls in ModelRegistry.all_models().values():
-                        if _reg_cls.__name__ == to:
-                            ref_table = getattr(_reg_cls._meta, "table_name", to.lower())
-                            break
-                except Exception:
-                    pass
-                if ref_table is None:
-                    ref_table = to.lower()
-            info["references"] = {"model": to, "table": ref_table}
-        elif isinstance(to, type):
-            info["references"] = {
-                "model": to.__name__,
-                "table": getattr(to._meta, "table_name", to.__name__.lower()),
-            }
+        info["references"] = {"model": to_name, "table": ref_table, "column": target_col}
         info["on_delete"] = getattr(fld, "on_delete", "CASCADE")
         info["on_update"] = getattr(fld, "on_update", "CASCADE")
 
@@ -524,8 +712,48 @@ def _serialize_field(fld) -> dict[str, Any]:
     return info
 
 
-def _field_to_sql_type(fld) -> str:
-    """Map a Field instance to its SQL type string."""
+def _field_to_sql_type(fld, model_classes: list | None = None) -> str:
+    """Map a Field instance to its SQL type string.
+
+    Purpose:
+        Determines the canonical SQL data type representation for an ORM field.
+
+    Lifecycle:
+        Invoked during model field snapshotting in ``_serialize_field()``.
+
+    Execution Order:
+        1. Check if field is ForeignKey / OneToOneField (resolve related PK type).
+        2. Check if field is EnumField or implements ``sql_type()``.
+        3. Match field class against built-in type_map.
+        4. Match character fields with max_length.
+        5. Fallback to "TEXT".
+
+    Parameters:
+        fld (Field): The field instance whose SQL type is being resolved.
+        model_classes (list | None): List of Model classes passed to snapshot creation.
+
+    Returns:
+        str: SQL column type (e.g., "VARCHAR(50)", "INTEGER", "TEXT", "TIMESTAMP").
+
+    Exceptions:
+        None directly raised.
+
+    Notes:
+        Correctly delegates to ``EnumField.sql_type()`` for enum fields.
+
+    Internal Behaviour:
+        Invokes ``fld.sql_type()`` if available, falling back to class hierarchy checks.
+
+    Edge Cases:
+        - Unbound foreign keys fall back to "INTEGER".
+        - Custom user fields with ``sql_type()`` are supported automatically.
+
+    Examples:
+        >>> field = EnumField(enum_class=UserStatus, max_length=50)
+        >>> _field_to_sql_type(field)
+        'VARCHAR(50)'
+    """
+    from .fields.enum_field import EnumField
     from .fields_module import (
         AutoField,
         BigAutoField,
@@ -554,16 +782,38 @@ def _field_to_sql_type(fld) -> str:
     )
 
     if isinstance(fld, (ForeignKey, OneToOneField)):
-        related = fld.related_model
-        if related is None and isinstance(fld.to, str):
-            from .registry import ModelRegistry
+        related = getattr(fld, "related_model", None)
+        if related is None and fld.to is not None:
+            if isinstance(fld.to, type):
+                related = fld.to
+            elif isinstance(fld.to, str):
+                target_name = fld.to.split(".")[-1]
+                if model_classes:
+                    for m in model_classes:
+                        if m.__name__ == target_name:
+                            related = m
+                            break
+                if related is None:
+                    try:
+                        from .registry import ModelRegistry
 
-            related = ModelRegistry.get(fld.to)
-        if related is not None:
+                        related = ModelRegistry.get(target_name)
+                    except Exception:
+                        pass
+        if related is not None and hasattr(related, "_fields") and hasattr(related, "_pk_attr"):
             pk_field = related._fields.get(related._pk_attr)
             if pk_field is not None:
-                return _field_to_sql_type(pk_field)
+                return _field_to_sql_type(pk_field, model_classes=model_classes)
         return "INTEGER"
+
+    if isinstance(fld, EnumField):
+        return fld.sql_type()
+
+    if hasattr(fld, "sql_type") and callable(fld.sql_type):
+        try:
+            return fld.sql_type()
+        except Exception:
+            pass
 
     type_map = {
         AutoField: "INTEGER",
@@ -913,6 +1163,93 @@ def _field_changed(old_field: dict, new_field: dict) -> bool:
     return any(old_field.get(k) != new_field.get(k) for k in keys)
 
 
+def _topologically_sort_models(
+    added_models: list[str],
+    models_data: dict[str, Any],
+) -> list[str]:
+    """Topologically sort added model names so referenced tables are created before tables with FKs referencing them.
+
+    Purpose:
+        Prevents foreign key creation failures during migration execution by ordering
+        CreateModel operations dependency-first.
+
+    Lifecycle:
+        Invoked inside diff_to_operations() when generating CreateModel operations.
+
+    Execution Order:
+        1. Map table_name -> model_name for all added models.
+        2. Construct dependency graph by scanning fields' 'references' metadata.
+        3. Run post-order depth-first traversal to compute valid topological order.
+        4. Detect and break self-referential / cyclic dependencies gracefully.
+
+    Parameters:
+        added_models (list[str]): List of added model names.
+        models_data (dict[str, Any]): Dictionary of model schema metadata from snapshot.
+
+    Returns:
+        list[str]: Model names sorted in topological dependency order.
+
+    Exceptions:
+        None directly raised.
+
+    Notes:
+        Guarantees that tables referenced by foreign keys exist before dependent tables are created.
+
+    Internal Behaviour:
+        Builds an in-degree / adjacency graph of table references and applies post-order DFS.
+
+    Edge Cases:
+        - Self-referential models (Model A -> Model A) ignore self-loops.
+        - Circular dependencies (Model A -> Model B -> Model A) fall back gracefully without recursion error.
+
+    Examples:
+        >>> _topologically_sort_models(['UserEmailVerificationModel', 'UserModel'], models_data)
+        ['UserModel', 'UserEmailVerificationModel']
+    """
+    if len(added_models) <= 1:
+        return added_models
+
+    table_to_model = {}
+    for m_name in added_models:
+        m_info = models_data.get(m_name, {})
+        t_name = m_info.get("table", m_name.lower())
+        table_to_model[t_name] = m_name
+
+    deps: dict[str, set[str]] = {m: set() for m in added_models}
+    for m_name in added_models:
+        m_info = models_data.get(m_name, {})
+        fields = m_info.get("fields", {})
+        for f_info in fields.values():
+            ref = f_info.get("references")
+            if ref and isinstance(ref, dict):
+                ref_table = ref.get("table")
+                if ref_table and ref_table in table_to_model:
+                    target_m = table_to_model[ref_table]
+                    if target_m != m_name:
+                        deps[m_name].add(target_m)
+
+    sorted_models: list[str] = []
+    visited: set[str] = set()
+    visiting: set[str] = set()
+
+    def visit(node: str) -> None:
+        if node in visiting:
+            return
+        if node not in visited:
+            visiting.add(node)
+            for dep in sorted(deps[node]):
+                visit(dep)
+            visiting.remove(node)
+            visited.add(node)
+            sorted_models.append(node)
+
+    for m_name in sorted(added_models):
+        if m_name not in visited:
+            visit(m_name)
+
+    return sorted_models
+
+
 # ── Generate Operations from Diff ───────────────────────────────────────────
 
 
@@ -951,8 +1288,9 @@ def diff_to_operations(
         table = old_models[name]["table"]
         ops.append(DropModel(name=name, table=table))
 
-    # 3. Added models
-    for name in diff.added_models:
+    # 3. Added models (topologically sorted to respect foreign key dependencies)
+    sorted_added_models = _topologically_sort_models(diff.added_models, new_models)
+    for name in sorted_added_models:
         model_data = new_models[name]
         fields = _snapshot_fields_to_column_defs(model_data["fields"])
         ops.append(CreateModel(name=name, table=model_data["table"], fields=fields))
@@ -1094,8 +1432,12 @@ def _snapshot_field_to_column_def(name: str, data: dict[str, Any]) -> ColumnDef:
             on_update = _normalize_fk_action(data.get("on_update", "CASCADE"))
 
     default = data.get("default", _SENTINEL)
-    if default is not None and isinstance(default, str) and default.startswith("<callable:"):
-        default = _SENTINEL  # Can't serialize callables
+    if default is not _SENTINEL and default is not None:
+        from enum import Enum
+        if isinstance(default, Enum):
+            default = default.value
+        elif isinstance(default, str) and default.startswith("<callable:"):
+            default = _SENTINEL  # Can't serialize callables
 
     return ColumnDef(
         name=col_name,

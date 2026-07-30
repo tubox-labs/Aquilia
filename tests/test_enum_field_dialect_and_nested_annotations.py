@@ -202,3 +202,61 @@ async def test_user_model_imprint_with_enum_field(tmp_path):
     finally:
         await db.disconnect()
         AuditUserModel._db = None
+
+
+def test_enum_field_migration_generation_and_loading(tmp_path):
+    """
+    Verify that makemigrations/generate_dsl_migration generates valid Python source code
+    for models with EnumField and Enum defaults, and that the generated migration
+    can be loaded and executed cleanly without syntax errors.
+    """
+    import ast
+    from enum import Enum
+    from aquilia.models import Model
+    from aquilia.models.fields import EnumField, TextField, UUIDField
+    from aquilia.models.migration_gen import generate_dsl_migration
+    from aquilia.models.migration_runner import _load_migration_module
+
+    class StatusEnum(Enum):
+        ACTIVE = "active"
+        SUSPENDED = "suspended"
+
+    class PriorityEnum(Enum):
+        LOW = 1
+        HIGH = 2
+
+    class MigrationUserModel(Model):
+        table = "migration_users"
+
+        id = UUIDField(primary_key=True)
+        name = TextField()
+        status = EnumField(enum_class=StatusEnum, default=StatusEnum.ACTIVE, max_length=50)
+        priority = EnumField(enum_class=PriorityEnum, default=PriorityEnum.LOW)
+
+    migrations_dir = tmp_path / "migrations"
+    migration_file = generate_dsl_migration(
+        model_classes=[MigrationUserModel],
+        migrations_dir=migrations_dir,
+    )
+
+    assert migration_file is not None
+    assert migration_file.exists()
+
+    code = migration_file.read_text(encoding="utf-8")
+
+    # 1. Must be valid Python syntax
+    ast.parse(code)
+
+    # 2. Must not contain unquoted Enum repr like <StatusEnum.ACTIVE: 'active'>
+    assert "<StatusEnum" not in code
+    assert "<PriorityEnum" not in code
+
+    # 3. Must contain valid default='active' and default=1
+    assert "default='active'" in code or 'default="active"' in code
+    assert "default=1" in code
+
+    # 4. Must be loadable as a migration module without syntax error
+    module = _load_migration_module(migration_file, "0001_test")
+    assert hasattr(module, "operations")
+    assert len(module.operations) > 0
+

@@ -118,9 +118,19 @@ def generate_dsl_migration(
     if not operations:
         return None
 
-    # Build revision and slug
+    # Build revision, slug, and dependencies
     rev = _generate_revision()
     model_names = _affected_model_names(diff)
+
+    # Collect previous migration revision ID as dependency if available
+    dependencies: list[str] = []
+    existing_files = sorted(mdir.glob("*.py"))
+    for f in existing_files:
+        if f.name.endswith(".py") and not f.name.startswith("__"):
+            parts = f.name.split("_", 2)
+            if len(parts) >= 2 and parts[0].isdigit() and len(parts[0]) == 8:
+                prev_rev = f"{parts[0]}_{parts[1]}"
+                dependencies = [prev_rev]
 
     if not slug:
         if len(model_names) <= 3:
@@ -130,16 +140,12 @@ def generate_dsl_migration(
             slug += f"_and_{len(model_names) - 3}_more"
 
     # Generate file content
-    content = _render_migration_file(rev, slug, model_names, operations)
+    content = _render_migration_file(rev, slug, model_names, operations, dependencies=dependencies)
 
     filename = f"{rev}_{slug}.py"
     filepath = mdir / filename
 
     # TWO-PHASE WRITE FIX: save snapshot FIRST, then write migration file.
-    # If the process dies between these two writes, a stale-but-present
-    # snapshot is a strictly safer failure mode than a migration file
-    # with no matching snapshot update (which would generate duplicate
-    # migrations on the next run). Fixes §3.6 / §5.3 of the artifact audit.
     save_snapshot(new_snapshot, snap_path)
     filepath.write_text(content, encoding="utf-8")
 
@@ -173,27 +179,35 @@ def _render_migration_file(
     slug: str,
     model_names: list[str],
     operations: list[Operation],
+    dependencies: list[str] | None = None,
 ) -> str:
     """Render a complete DSL migration file as Python source text.
 
-    Produces a module with: a module docstring (revision/generated
-    timestamp/affected models), an import of every ``Operation`` subclass
-    actually used plus ``columns as C``, a ``Meta`` class carrying
-    ``revision``/``slug``/``models``, and a module-level ``operations`` list
-    with one rendered operation per entry (see ``_render_operation``).
+    Purpose:
+        Renders a full, syntactically valid Python source module for a DSL migration.
 
-    Args:
-        revision: Timestamp-based revision ID for the ``Meta.revision`` field.
-        slug: Migration slug for the ``Meta.slug`` field.
-        model_names: Affected model names, written verbatim into ``Meta.models``.
-        operations: The DSL operations to render into the ``operations`` list.
+    Lifecycle:
+        Invoked at the end of ``generate_dsl_migration()``.
+
+    Execution Order:
+        1. Format module docstring with revision, timestamp, and affected model names.
+        2. Deduplicate operation types and render imports.
+        3. Format ``Meta`` class carrying ``revision``, ``slug``, ``models``, and ``dependencies``.
+        4. Format ``operations`` list.
+
+    Parameters:
+        revision (str): Timestamp-based revision ID string.
+        slug (str): Migration slug identifier string.
+        model_names (list[str]): List of affected model names.
+        operations (list[Operation]): List of DSL operations.
+        dependencies (list[str] | None): List of prerequisite migration revision IDs.
 
     Returns:
-        The full migration file contents as a string, ready to be written
-        to disk.
+        str: Ready-to-write Python source code.
     """
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     models_str = ", ".join(model_names)
+    deps = dependencies or []
 
     # Build imports
     op_types = set(type(op).__name__ for op in operations)
@@ -217,6 +231,7 @@ def _render_migration_file(
         f'    revision = "{revision}"',
         f'    slug = "{slug}"',
         f"    models = {model_names!r}",
+        f"    dependencies = {deps!r}",
         "",
         "",
     ]
@@ -321,27 +336,53 @@ def _render_operation(op: Operation) -> str:
 def _render_column_def(col: ColumnDef) -> str:
     """Render a ``ColumnDef`` as the equivalent ``C.xxx(...)`` builder call.
 
-    Inverts the ``_ColumnBuilder``/``C`` helpers in ``migration_dsl.py``:
-    given a fully-formed ``ColumnDef``, infers which ``C.*`` factory method
-    would have produced it and renders that call with the relevant kwargs
-    (``null``, ``unique``, ``primary_key``, ``default``) reconstructed from
-    the column's attributes.
+    Purpose:
+        Inverts the ``_ColumnBuilder``/``C`` helpers in ``migration_dsl.py``:
+        given a fully-formed ``ColumnDef``, infers which ``C.*`` factory method
+        would have produced it and renders that call with the relevant kwargs
+        (``null``, ``unique``, ``primary_key``, ``default``) reconstructed from
+        the column's attributes.
 
-    Dispatch order: auto-increment primary keys render as ``C.auto(...)``;
-    a ``references`` tuple always renders as ``C.foreign_key(...)``
-    (regardless of ``col_type``) before any other check; otherwise dispatch
-    is by uppercased ``col_type`` (``BOOLEAN``, ``VARCHAR``, ``TEXT``,
-    ``INTEGER``, ``DECIMAL``, ``TIMESTAMP``, ``REAL``, ``BLOB``, ``DATE``,
-    ``TIME``, ``VARCHAR(36)``/``UUID``), falling back to ``C.text(...)``
-    for any unrecognized type.
+    Lifecycle:
+        Invoked by ``_render_operation()`` during migration file source code
+        rendering (``generate_dsl_migration()``).
 
-    Args:
-        col: The column definition to render.
+    Execution Order:
+        1. Check for auto-increment primary key -> ``C.auto()``.
+        2. Reconstruct column attribute kwargs (``null``, ``unique``, ``primary_key``, ``default``).
+        3. Unwrap Enum member defaults to scalar primitives.
+        4. Render foreign key references or match SQL column type to ``C.*`` builder method.
+
+    Parameters:
+        col (ColumnDef): The column definition instance to render.
 
     Returns:
-        A single-line string like ``'C.varchar("email", 255, unique=True)'``,
-        suitable for embedding directly in generated migration source.
+        str: A single-line Python code snippet such as ``'C.varchar("status", 50, default="active")'``.
+
+    Exceptions:
+        None directly raised.
+
+    Notes:
+        Guarantees that Enum defaults (e.g. ``UserStatus.ACTIVE``) are unwrapped to
+        valid Python scalar literals (e.g. ``'active'`` or ``1``) rather than invalid
+        repr strings like ``<UserStatus.ACTIVE: 'active'>``.
+
+    Internal Behaviour:
+        Checks ``isinstance(def_val, Enum)`` and unwraps to ``def_val.value`` before
+        applying string formatting via ``!r``.
+
+    Edge Cases:
+        - Auto-increment columns ignore explicit defaults.
+        - Enum instances are unwrapped to primitive values.
+        - Unknown column types fall back to ``C.text(...)``.
+
+    Examples:
+        >>> col = ColumnDef(name="status", col_type="VARCHAR(50)", default=UserStatus.ACTIVE)
+        >>> _render_column_def(col)
+        'C.varchar("status", 50, default=\\'active\\')'
     """
+    from enum import Enum
+
     if col.primary_key and col.autoincrement:
         return f'C.auto("{col.name}")'
 
@@ -356,7 +397,10 @@ def _render_column_def(col: ColumnDef) -> str:
     if col.primary_key:
         kwargs.append("primary_key=True")
     if col.default is not _SENTINEL:
-        kwargs.append(f"default={col.default!r}")
+        def_val = col.default
+        if isinstance(def_val, Enum):
+            def_val = def_val.value
+        kwargs.append(f"default={def_val!r}")
 
     kwargs_str = ", ".join(kwargs)
 

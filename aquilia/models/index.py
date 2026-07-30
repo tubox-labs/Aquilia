@@ -53,7 +53,10 @@ class _PostgresOnlyIndex:
                 ``"gin_trgm_ops"`` for trigram search on a GIN index),
                 aligned positionally with *fields*.
         """
-        self.fields = list(fields)
+        if isinstance(fields, str):
+            self.fields = [fields]
+        else:
+            self.fields = list(fields)
         self.name = name
         self.condition = condition
         self.opclasses = list(opclasses)
