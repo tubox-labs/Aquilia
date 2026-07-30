@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.9] — 2026-07-30 — "Database Sentinel"
+
+This release introduces strict `auto_migrate=False` schema enforcement, a non-fatal database startup readiness model (`DatabaseState`), and atomic transactional DDL & migration rollback guarantees across the Aquilia Database, ORM, and Server Startup lifecycle subsystems.
+
+Full notes: [`releases/1.3.9/`](releases/1.3.9/README.md)
+
+### Added
+
+#### Database & ORM — Startup Readiness & State Management
+- **DatabaseState Enum Model** (`aquilia.models.startup_guard.DatabaseState`) — Clean state classification (`READY`, `MISSING_DATABASE`, `PENDING_MIGRATIONS`, `CORRUPTED_HISTORY`, `SCHEMA_MISMATCH`, `UNAVAILABLE`) for structured readiness tracking.
+- **Database State Inspector** (`aquilia.models.startup_guard.get_db_state()`) — Helper function providing state inspection of target database connection URL and migrations directory.
+- **Non-Fatal Terminal Warning Banner** (`aquilia.models.startup_guard._warn_not_ready()`) — Formatted yellow terminal diagnostic banner instructing developers on required `aq db` commands without raising fatal `SchemaFault` process crashes.
+
+#### Tests
+- **Migration Subsystem Architecture Test Suite** (`tests/test_migration_architecture_audit.py`) — Comprehensive audit test suite verifying strict `auto_migrate=False` enforcement, non-fatal readiness warnings, and atomic DDL transaction rollbacks.
+- **Migration Subsystem Bug Reproduction Test Suite** (`tests/test_migration_architecture_repro.py`) — Minimal reproduction test suite isolating root causes for Bug 1, Bug 2, and Bug 3.
+
+### Refactored
+
+#### Server & Startup Execution
+- **Strict `auto_migrate=False` Enforcement** (`aquilia.server.AquiliaServer._register_models()`) — `auto_migrate=False` explicitly suppresses all `CREATE TABLE`, `ALTER TABLE`, and schema modification operations on startup, overriding default `auto_create=True` settings.
+- **Configuration Precedence Tracker** (`aquilia.server.AquiliaServer`) — Added `explicit_auto_migrate_false` tracking across workspace, integration, and environment variable configuration layers.
+
+#### Database & ORM — Transactional DDL & Integrity
+- **Atomic Multi-Table Schema Creation** (`aquilia.models.registry.ModelRegistry.create_tables()`) — Enclosed entire topological table, index, and junction table creation loop in `async with target_db.transaction():` context, guaranteeing 0 partial tables on DDL failure.
+- **Atomic Legacy Migration Runner** (`aquilia.models.migration_runner.MigrationRunner._apply_migration()`) — Wrapped legacy raw-SQL `upgrade()` calls in `async with self.db.transaction():` for atomic migration execution and clean transaction rollback on failure.
+
+### Fixed
+
+- **Implicit Table Creation under `auto_migrate=False`** — Fixed `auto_create=True` bypassing `auto_migrate=False` during server startup.
+- **Fatal Process Termination on Uninitialized Database** — Fixed `startup_guard.py` raising a fatal `SchemaFault` and process termination on missing databases or pending migrations under `auto_migrate=False`.
+- **Partial Schema Pollution on Migration Failure** — Fixed un-wrapper DDL execution in `create_tables()` and legacy migration runner by executing statements inside atomic database transactions.
+
 ## [1.3.8] — 2026-07-30 — "Migration Architect"
 
 This release introduces a complete architectural overhaul of the ORM Migration DSL Generator, post-order topological model dependency ordering for `CreateModel` DDL operations, character-split index normalization, strict foreign key target table name resolution, scalar Enum default serialization, and migration revision dependencies metadata.
