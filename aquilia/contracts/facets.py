@@ -98,28 +98,45 @@ UNSET = _Unset()
 
 class Secret:
     """
-    A string whose value is hidden from ``repr``, ``str``, and log output.
+    Sensitive string container hiding wrapped secret values from `repr`, `str`, and tracebacks.
 
-    Produced by :class:`SecretFacet`. The underlying value is available only
-    through :meth:`reveal`, so a secret cannot leak by being interpolated into
-    a log line, an f-string, or an exception message by accident.
+    Purpose:
+        Wraps passwords, API tokens, and secret keys to prevent accidental leakage in logging or string formatting.
 
-    Args:
-        value: The sensitive string to wrap.
+    Lifecycle:
+        1. **Instantiation**: Wraps raw sensitive string `value`.
+        2. **Protection Phase**: Overrides `__str__` and `__repr__` to output masked string `**********`.
+        3. **Access Phase**: Exposes raw secret only via explicit `.reveal()` call.
+
+    Execution Order:
+        1. Wrap string in `Secret` container.
+        2. Mask output on `str()` or `repr()`.
+        3. Evaluate constant-time comparison in `__eq__()`.
+
+    Parameters:
+        value (str): The sensitive secret string to wrap.
+
+    Return Values:
+        Secret: An initialized sensitive secret container instance.
+
+    Exceptions:
+        TypeError: Raised if non-string value is passed during initialization.
+
+    Notes:
+        - Security: Uses `hmac.compare_digest` for constant-time string comparison to prevent timing attacks.
+
+    Internal Behaviour:
+        Stores value in `__slots__ = ("_value",)` to minimize memory leaks.
+
+    Edge Cases:
+        - Comparing `Secret("a") == Secret("a")` evaluates using constant-time digest comparison.
 
     Examples:
         >>> token = Secret("sk-live-1234")
-        >>> print(f"token={token}")
-        token=**********
+        >>> str(token)
+        '**********'
         >>> token.reveal()
         'sk-live-1234'
-        >>> token == Secret("sk-live-1234")
-        True
-
-    Security:
-        Equality is constant-time, so comparing a submitted value against a
-        stored one does not leak the length of the shared prefix through timing.
-        Masking bounds accidental disclosure; it is not encryption.
     """
 
     __slots__ = ("_value",)
@@ -162,7 +179,43 @@ class Secret:
 
 
 class FacetMeta(type):
-    """Metaclass on Facet to support class property factory proxies."""
+    """
+    Metaclass on Facet enabling fluent property factory proxies (`Facet.text`, `Facet.int`, `Facet.email()`).
+
+    Purpose:
+        Provides class-level factory shortcuts on `Facet` for clean contract field declaration syntax.
+
+    Lifecycle:
+        1. **Class Creation**: Applied as metaclass for `Facet` base class.
+        2. **Property Access**: Returns `_FactoryProxy` or instantiates specialized Facet instances.
+
+    Execution Order:
+        1. Intercept class attribute property lookups (`Facet.text`, `Facet.int`).
+        2. Construct and return corresponding `_FactoryProxy` or Facet subclass instance.
+
+    Parameters:
+        *args: Standard Python metaclass creation parameters.
+
+    Return Values:
+        FacetMeta: The `FacetMeta` metaclass instance.
+
+    Exceptions:
+        AttributeError: Raised if requested factory property is invalid.
+
+    Notes:
+        - Supports subscript syntax like `Facet.text[3:50]`.
+
+    Internal Behaviour:
+        Instantiates `_FactoryProxy` wrapper around Facet subclasses.
+
+    Edge Cases:
+        - Accessing properties returns new proxy descriptors each time.
+
+    Examples:
+        >>> facet = Facet.text[3:50]
+        >>> facet.min_length, facet.max_length
+        (3, 50)
+    """
 
     @property
     def text(cls) -> _FactoryProxy:
@@ -246,7 +299,44 @@ class FacetMeta(type):
 
 
 class _FactoryProxy:
-    """Proxy descriptor to support slice-subscript bounds on Facet factory."""
+    """
+    Proxy descriptor supporting slice-subscript bounds on Facet factory properties.
+
+    Purpose:
+        Enables Python slice notation `Facet.text[3:50]` to configure Facet constraints concisely.
+
+    Lifecycle:
+        1. **Instantiation**: Wraps target `facet_class`.
+        2. **Subscript Pass**: Intercepts `__getitem__()` slice calls to return configured Facet.
+
+    Execution Order:
+        1. Parse slice `start`, `stop`, and `step`.
+        2. Map slice parameters to `min_length`, `max_length`, `min_value`, `max_value`.
+
+    Parameters:
+        facet_class (type[Facet]): Target Facet subclass to configure.
+
+    Return Values:
+        _FactoryProxy: An initialized factory proxy.
+
+    Exceptions:
+        TypeError: Raised if non-slice value is provided during subscripting.
+
+    Notes:
+        - `IntFacet[1:100:2]` maps `step=2` to `multiple_of=2`.
+
+    Internal Behaviour:
+        Calls target `facet_class` constructor with keyword arguments extracted from slice.
+
+    Edge Cases:
+        - Unsupported facet classes raise `TypeError`.
+
+    Examples:
+        >>> proxy = _FactoryProxy(TextFacet)
+        >>> facet = proxy[5:10]
+        >>> facet.min_length, facet.max_length
+        (5, 10)
+    """
 
     __slots__ = ("facet_class",)
 
@@ -297,24 +387,62 @@ class _FactoryProxy:
 
 class Facet(metaclass=FacetMeta):
     """
-    Base facet -- a single data point in a Contract.
+    Base facet descriptor class representing a single field, attribute, or property in a Contract.
 
-    Lifecycle::
+    Purpose:
+        Defines field-level casting (type coercion), molding (outbound formatting), and validation constraints.
+        Serves as the foundation for all Contract field primitives (e.g., `TextFacet`, `IntFacet`, `Lens`, `NestedContractFacet`).
 
-        inbound:   raw_value → cast() → seal() → validated_value
-        outbound:  model_attr → mold() → output_value
+    Lifecycle:
+        1. **Instantiation / Decoration**: Declared as a class attribute or generated from type annotations via `introspect_annotations()`.
+        2. **Binding Phase**: Bound to a host Contract class during `ContractMeta.__new__` via `bind(name, contract)`.
+        3. **Inbound Validation**: Processes incoming raw input data via `cast()` (coercion) and `seal()` (validation rules).
+        4. **Outbound Serialization**: Formats ORM model attributes into output values via `mold()`.
 
-    Attributes:
-        source:       Model attribute name (defaults to facet name)
-        required:     Must be present in input (default True)
-        read_only:    Only appears in output, never accepted as input
-        write_only:   Only accepted as input, never in output
-        default:      Default value if not provided
-        allow_null:   Accept None as a valid value
-        allow_blank:  Accept empty string (text facets)
-        label:        Human-readable label
-        help_text:    Documentation string
-        validators:   Extra validator callables
+    Execution Order:
+        - **Inbound Validation Pipeline**:
+          1. Check for `UNSET` or `None` values against `required`, `allow_null`, and `default`.
+          2. Coerce raw value to Python type via subclass `cast()`.
+          3. Apply subclass `seal()` constraint checks (min/max length, bounds, patterns).
+          4. Execute custom `self.validators` callables.
+          5. Return post-cast validated value.
+        - **Outbound Serialization Pipeline**:
+          1. Extract raw model value via `source` attribute lookup.
+          2. Coerce or format via subclass `mold()`.
+          3. Return output payload value.
+
+    Parameters:
+        source (str | None, optional): Model attribute name override. Defaults to field name.
+        required (bool | None, optional): Override auto-detected required status. If `None`, auto-detects from defaults/nullability.
+        read_only (bool, optional): If `True`, field appears only in outbound output; ignored during inbound validation. Defaults to `False`.
+        write_only (bool, optional): If `True`, field accepted as inbound input; omitted from outbound output. Defaults to `False`.
+        default (Any, optional): Static default value or default factory function when value is unprovided. Defaults to `UNSET`.
+        allow_null (bool, optional): Accept `None` as a valid value. Defaults to `False`.
+        allow_blank (bool, optional): Accept empty strings for text facets. Defaults to `False`.
+        label (str | None, optional): Human-readable label for UI rendering.
+        help_text (str | None, optional): Documentation description string.
+        validators (Sequence[Callable] | None, optional): Additional custom validator functions.
+
+    Return Values:
+        Facet: An initialized Facet descriptor instance.
+
+    Exceptions:
+        CastFault: Raised during `cast()` if value cannot be coerced to target type.
+        SealFault: Raised during `seal()` if validation constraints are violated.
+
+    Notes:
+        - Fluent Builder API: Facets support factory shortcuts (`Facet.text()`, `Facet.email()`) and `>>` composition.
+
+    Internal Behaviour:
+        Tracks static `_creation_order` to preserve declaration order on host contracts.
+
+    Edge Cases:
+        - Accessing un-bound facets defaults `name` to `<unbound>`.
+
+    Examples:
+        >>> field = TextFacet(min_length=3, max_length=50)
+        >>> field.cast("   alice   ")
+        'alice'
     """
 
     # Class-level ordering counter for stable field ordering
@@ -429,7 +557,7 @@ class Facet(metaclass=FacetMeta):
         were constructed — a list's child, an enum's class, a nested
         Contract's target — override this.
 
-        Returns:
+        Return Values:
             An annotation expression. Names of user-defined types (enums,
             Contracts) are fully qualified, so the stub writer can derive the
             import from the name alone rather than re-walking the facet tree.
@@ -556,7 +684,50 @@ class Facet(metaclass=FacetMeta):
 
 
 class TextFacet(Facet):
-    """Text/string facet with length constraints."""
+    """
+    Facet primitive representing text and string fields with length, trim, and pattern validation.
+
+    Purpose:
+        Coerces inbound primitive values to clean Python strings and enforces string character limits and regex constraints.
+
+    Lifecycle:
+        1. **Instantiation**: Configured with `min_length`, `max_length`, `trim`, and `pattern`.
+        2. **Casting Phase**: Coerces input values to string and strips whitespace if `trim=True`.
+        3. **Validation Pass**: Validates blank state, length boundaries, and regex match.
+
+    Execution Order:
+        1. Coerce input to `str` and strip whitespace if enabled in `cast()`.
+        2. Check for blank string against `allow_blank` in `seal()`.
+        3. Validate character count against `min_length` and `max_length`.
+        4. Validate against compiled regex `pattern`.
+
+    Parameters:
+        min_length (int | None, optional): Inclusive minimum string character count.
+        max_length (int | None, optional): Inclusive maximum string character count.
+        trim (bool, optional): If `True`, strips leading and trailing whitespace. Defaults to `True`.
+        pattern (str | None, optional): Regular expression pattern string. ReDoS-dangerous patterns are rejected.
+        **kwargs: Base Facet parameters (`required`, `allow_null`, `default`, etc.).
+
+    Return Values:
+        TextFacet: An initialized text facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if value cannot be coerced to string, violates length bounds, or fails regex match.
+
+    Notes:
+        - Security: Analyzes patterns to prevent Regular Expression Denial of Service (ReDoS) vulnerability.
+
+    Internal Behaviour:
+        Compiles and stores an internal `re.Pattern` object during initialization.
+
+    Edge Cases:
+        - Empty string `""` with `allow_blank=False` (default) raises `CastFault`.
+
+    Examples:
+        >>> facet = TextFacet(min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_]+$")
+        >>> facet.cast("   user_123   ")
+        'user_123'
+    """
 
     _type_name = "string"
     _python_type = "str"
@@ -637,7 +808,44 @@ class TextFacet(Facet):
 
 
 class EmailFacet(TextFacet):
-    """Email address facet with format validation."""
+    """
+    Specialized string facet for RFC-compliant email address validation and normalization.
+
+    Purpose:
+        Validates email formatting and automatically normalizes incoming email strings to lowercase.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces input string and applies `.lower()` normalization.
+        2. **Validation Pass**: Validates format against RFC email regular expression.
+
+    Execution Order:
+        1. Cast and lowercase string value in `cast()`.
+        2. Match value against internal email regex `_EMAIL_RE` in `seal()`.
+        3. Execute parent `TextFacet.seal()` checks.
+
+    Parameters:
+        **kwargs: Inherited parameters from `TextFacet`.
+
+    Return Values:
+        EmailFacet: An initialized email facet.
+
+    Exceptions:
+        CastFault: Raised if email format is invalid.
+
+    Notes:
+        - Output format in OpenAPI schema is set to `"email"`.
+
+    Internal Behaviour:
+        Uses compiled `_EMAIL_RE` regex for RFC syntax checking.
+
+    Edge Cases:
+        - Mixed-case emails like `User@Domain.COM` are converted to `user@domain.com`.
+
+    Examples:
+        >>> facet = EmailFacet()
+        >>> facet.cast("USER@EXAMPLE.COM")
+        'user@example.com'
+    """
 
     _EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
@@ -657,7 +865,43 @@ class EmailFacet(TextFacet):
 
 
 class URLFacet(TextFacet):
-    """URL facet with format validation."""
+    """
+    Specialized string facet for HTTP/HTTPS web URL validation.
+
+    Purpose:
+        Ensures string values conform to valid absolute HTTP or HTTPS URL formats.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces and trims string value.
+        2. **Validation Pass**: Enforces scheme (`http://` or `https://`), domain name, port, and path constraints.
+
+    Execution Order:
+        1. Cast string value via `TextFacet.cast()`.
+        2. Match against `_URL_RE` regex during `seal()`.
+
+    Parameters:
+        **kwargs: Inherited `TextFacet` arguments.
+
+    Return Values:
+        URLFacet: An initialized URL facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if string is not a valid HTTP/HTTPS URL.
+
+    Notes:
+        - Schema format is `"uri"`.
+
+    Internal Behaviour:
+        Uses regular expression matching for HTTP/HTTPS protocol scheme validation.
+
+    Edge Cases:
+        - Non-HTTP URLs (e.g. `ftp://`, `mailto:`) are rejected.
+
+    Examples:
+        >>> facet = URLFacet()
+        >>> facet.cast("https://example.com/api")
+        'https://example.com/api'
+    """
 
     _URL_RE = re.compile(
         r"^https?://"
@@ -679,7 +923,43 @@ class URLFacet(TextFacet):
 
 
 class SlugFacet(TextFacet):
-    """URL slug facet (lowercase alphanumeric + hyphens)."""
+    """
+    Specialized string facet for URL slug validation (lowercase alphanumeric characters, underscores, and hyphens).
+
+    Purpose:
+        Validates and lowercases string identifiers suitable for clean URL paths.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces and lowercases input string.
+        2. **Validation Pass**: Matches against `[-a-zA-Z0-9_]+`.
+
+    Execution Order:
+        1. Lowercase string in `cast()`.
+        2. Validate format using `_SLUG_RE` in `seal()`.
+
+    Parameters:
+        **kwargs: Inherited `TextFacet` arguments.
+
+    Return Values:
+        SlugFacet: An initialized slug facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if string contains invalid characters (spaces, punctuation).
+
+    Notes:
+        - Schema includes pattern matching string.
+
+    Internal Behaviour:
+        Applies `value.lower()` before pattern matching.
+
+    Edge Cases:
+        - Slugs with spaces (`"my post"`) are rejected.
+
+    Examples:
+        >>> facet = SlugFacet()
+        >>> facet.cast("My-First-Post")
+        'my-first-post'
+    """
 
     _SLUG_RE = re.compile(r"^[-a-zA-Z0-9_]+$")
 
@@ -699,7 +979,43 @@ class SlugFacet(TextFacet):
 
 
 class IPFacet(TextFacet):
-    """IP address facet (v4 or v6)."""
+    """
+    Specialized string facet for IPv4 and IPv6 address validation.
+
+    Purpose:
+        Validates string inputs using Python's stdlib `ipaddress` module to guarantee valid IP syntax.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces input string.
+        2. **Validation Pass**: Parses using `ipaddress.ip_address()`.
+
+    Execution Order:
+        1. Cast to string in `cast()`.
+        2. Pass to `ipaddress.ip_address()` in `seal()`.
+
+    Parameters:
+        **kwargs: Inherited `TextFacet` arguments.
+
+    Return Values:
+        IPFacet: An initialized IP facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if string is not a valid IPv4 or IPv6 address.
+
+    Notes:
+        - Schema format is `"ip-address"`.
+
+    Internal Behaviour:
+        Delegates parsing directly to stdlib `ipaddress`.
+
+    Edge Cases:
+        - Invalid IP formats like `"256.256.256.256"` raise `CastFault`.
+
+    Examples:
+        >>> facet = IPFacet()
+        >>> facet.cast("192.168.1.1")
+        '192.168.1.1'
+    """
 
     def seal(self, value: Any) -> str:
         import ipaddress
@@ -720,18 +1036,39 @@ class MACAddressFacet(TextFacet):
     """
     MAC address facet, normalized to lowercase colon-separated form.
 
-    Accepts the three common notations — ``aa:bb:cc:dd:ee:ff``,
-    ``aa-bb-cc-dd-ee-ff``, and Cisco-style ``aabb.ccdd.eeff`` — and normalizes
-    all of them, so equality comparisons and database lookups do not depend on
-    which notation a client happened to send.
+    Purpose:
+        Accepts any standard MAC address notation (`aa:bb:cc:dd:ee:ff`, `aa-bb-cc-dd-ee-ff`, `aabb.ccdd.eeff`)
+        and normalizes input to lowercase colon-separated hex pairs.
+
+    Lifecycle:
+        1. **Casting Phase**: Strips separators (`:`, `-`, `.`), converts to lowercase hex digits, and formats with colons.
+        2. **Validation Pass**: Validates digit count and hex character range.
+
+    Execution Order:
+        1. Normalize notation to `xx:xx:xx:xx:xx:xx` in `cast()`.
+        2. Re-validate normalized string in `seal()`.
+
+    Parameters:
+        **kwargs: Inherited `TextFacet` arguments.
+
+    Return Values:
+        MACAddressFacet: An initialized MAC address facet.
+
+    Exceptions:
+        CastFault: Raised if string is not a valid 12-digit hex MAC address.
+
+    Notes:
+        - Normalizes all input formats to a single canonical standard.
+
+    Internal Behaviour:
+        Uses `str.maketrans` to strip common delimiters before formatting.
+
+    Edge Cases:
+        - Inputs with non-hex characters (`"zz:bb:cc:dd:ee:ff"`) raise `CastFault`.
 
     Examples:
-        >>> class DeviceContract(Contract):
-        ...     mac = MACAddressFacet()
-        >>> bp = DeviceContract(data={"mac": "AA-BB-CC-DD-EE-FF"})
-        >>> bp.is_sealed()
-        True
-        >>> bp.validated_data["mac"]
+        >>> facet = MACAddressFacet()
+        >>> facet.cast("AA-BB-CC-DD-EE-FF")
         'aa:bb:cc:dd:ee:ff'
     """
 
@@ -748,8 +1085,6 @@ class MACAddressFacet(TextFacet):
         return ":".join(digits[i : i + 2] for i in range(0, 12, 2))
 
     def seal(self, value: Any) -> str:
-        # Re-validate: strict mode skips cast(), so seal() cannot assume the
-        # value has already been normalized.
         return super().seal(self.cast(value))
 
     def to_schema(self) -> dict[str, Any]:
@@ -761,36 +1096,45 @@ class MACAddressFacet(TextFacet):
 
 class PathFacet(TextFacet):
     """
-    Filesystem path facet, cast to :class:`pathlib.Path`.
+    Filesystem path facet, validating and casting string paths to :class:`pathlib.PurePosixPath`.
 
-    Args:
-        must_be_relative: Reject absolute paths. Default ``True`` — a path from
-            a client is almost always joined onto a server-controlled root, and
-            an absolute path silently discards that root when joined.
-        allow_traversal: Permit ``..`` segments. Default ``False``.
+    Purpose:
+        Safely processes client-supplied file paths while guarding against path traversal attacks (`..`)
+        and absolute root escape attempts.
 
-    Examples:
-        >>> class UploadContract(Contract):
-        ...     destination = PathFacet()
-        >>> bp = UploadContract(data={"destination": "reports/q3.pdf"})
-        >>> bp.is_sealed()
-        True
-        >>> bp.validated_data["destination"]
-        PurePosixPath('reports/q3.pdf')
+    Lifecycle:
+        1. **Casting Phase**: Parses string into `PurePosixPath`, normalizing Windows backslashes to forward slashes.
+        2. **Validation Pass**: Rejects null bytes, empty strings, absolute paths (if `must_be_relative=True`), and `..` segments.
 
-    Security:
-        The defaults reject the two ways a client-supplied path escapes its
-        intended root: an absolute path (``/etc/passwd``, which ``Path("/root")
-        / "/etc/passwd"`` resolves to ``/etc/passwd``) and traversal segments
-        (``../../etc/passwd``). Null bytes are rejected unconditionally — they
-        truncate the path at the OS layer, so a name that passes an extension
-        check can still open a different file. Relax these only for paths that
-        never originate from a request.
+    Execution Order:
+        1. Check for null bytes and empty string in `cast()`.
+        2. Convert to `PurePosixPath` and check relative/traversal flags.
+        3. Enforce string length constraints in `seal()`.
+
+    Parameters:
+        must_be_relative (bool, optional): If `True`, rejects absolute paths. Defaults to `True`.
+        allow_traversal (bool, optional): If `False`, rejects `..` path segments. Defaults to `False`.
+        **kwargs: Inherited `TextFacet` arguments.
+
+    Return Values:
+        PathFacet: An initialized path facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if path contains null bytes, absolute paths, or traversal segments.
 
     Notes:
-        Values are validated as :class:`pathlib.PurePosixPath`, so a payload
-        validates identically regardless of the server's platform. Convert with
-        ``Path(value)`` at the point of filesystem access.
+        - Returns `PurePosixPath` objects for cross-platform consistency.
+
+    Internal Behaviour:
+        Normalizes `\\` to `/` before inspecting path parts.
+
+    Edge Cases:
+        - Path containing null byte `"\x00"` raises `CastFault` immediately.
+
+    Examples:
+        >>> facet = PathFacet()
+        >>> facet.cast("docs/report.pdf")
+        PurePosixPath('docs/report.pdf')
     """
 
     _type_name = "string"
@@ -808,13 +1152,6 @@ class PathFacet(TextFacet):
         self.allow_traversal = allow_traversal
 
     def cast(self, value: Any) -> PurePosixPath:
-        """
-        Parse ``value`` into a :class:`pathlib.PurePosixPath`.
-
-        Raises:
-            CastFault: If the value is not path-like, contains a null byte, or
-                violates the configured traversal/absolute-path rules.
-        """
         if isinstance(value, PurePath):
             text = str(value)
         elif isinstance(value, str):
@@ -827,8 +1164,6 @@ class PathFacet(TextFacet):
         if not text.strip():
             raise CastFault(self.name or "<unbound>", contract_message("path_empty"))
 
-        # Normalize Windows separators so a backslash cannot smuggle a segment
-        # past the "..' check on a POSIX server.
         path = PurePosixPath(text.replace("\\", "/"))
 
         if self.must_be_relative and path.is_absolute():
@@ -838,13 +1173,11 @@ class PathFacet(TextFacet):
         return path
 
     def seal(self, value: Any) -> PurePosixPath:
-        """Enforce path rules, then the inherited length/pattern constraints."""
         path = self.cast(value)
         super().seal(str(path))
         return path
 
     def mold(self, value: Any) -> Any:
-        """Render a path back to a plain string."""
         if value is None:
             return None
         if isinstance(value, PurePath):
@@ -859,35 +1192,46 @@ class PathFacet(TextFacet):
 
 class SecretFacet(TextFacet):
     """
-    Sensitive string facet whose value never appears in output or tracebacks.
+    Sensitive string facet whose value is wrapped in a `Secret` object to prevent accidental logging or leakage.
 
-    Wraps the validated value in :class:`Secret`, whose ``repr`` is masked. The
-    facet is ``write_only`` by default, so it is accepted inbound and omitted
-    from every serialized representation.
+    Purpose:
+        Protects passwords, secret keys, and API tokens from leaking into tracebacks, log lines, or JSON outputs.
 
-    Args:
-        write_only: Omit from output. Default ``True``; setting it ``False``
-            emits the masked placeholder rather than the real value.
+    Lifecycle:
+        1. **Casting Phase**: Coerces string and wraps value inside a `Secret` instance.
+        2. **Validation Pass**: Applies string length constraints against the revealed secret value.
+        3. **Molding Phase**: Renders masked string (`"**********"`) rather than raw value.
+
+    Execution Order:
+        1. Wrap string in `Secret` container in `cast()`.
+        2. Unwrap value temporarily via `.reveal()` to validate length/pattern in `seal()`.
+        3. Return masked string representation in `mold()`.
+
+    Parameters:
+        **kwargs: Inherited `TextFacet` arguments. Defaults `write_only=True`.
+
+    Return Values:
+        SecretFacet: An initialized secret facet.
+
+    Exceptions:
+        CastFault: Raised if value fails string validation constraints.
+
+    Notes:
+        - Marked `write_only=True` by default.
+
+    Internal Behaviour:
+        Uses `Secret` class wrapper to intercept `__repr__` and `__str__`.
+
+    Edge Cases:
+        - Calling `mold()` on a `SecretFacet` returns masked placeholder rather than real value.
 
     Examples:
-        >>> class LoginContract(Contract):
-        ...     password = SecretFacet(min_length=8)
-        >>> bp = LoginContract(data={"password": "hunter2hunter2"})
-        >>> bp.is_sealed()
-        True
-        >>> repr(bp.validated_data["password"])
-        "Secret('**********')"
-        >>> bp.validated_data["password"].reveal()
-        'hunter2hunter2'
-
-    Security:
-        Masking is a defense against *accidental* disclosure — log lines,
-        exception reports, debug pages — not a substitute for hashing or
-        encryption at rest. Call :meth:`Secret.reveal` only at the point of use.
+        >>> facet = SecretFacet(min_length=8)
+        >>> secret = facet.cast("my_password_123")
+        >>> secret.reveal()
+        'my_password_123'
     """
 
-    # Not `str`: cast() wraps the validated value, so a stub that promised str
-    # would let `contract.password.lower()` type-check and fail at runtime.
     _python_type = "aquilia.contracts.facets.Secret"
 
     def __init__(self, **kwargs):
@@ -895,18 +1239,15 @@ class SecretFacet(TextFacet):
         super().__init__(**kwargs)
 
     def cast(self, value: Any) -> Secret:
-        """Wrap the value in :class:`Secret`, unwrapping first if already wrapped."""
         if isinstance(value, Secret):
             return value
         return Secret(super().cast(value))
 
     def seal(self, value: Any) -> Secret:
-        """Apply the inherited string constraints to the revealed value."""
         raw = value.reveal() if isinstance(value, Secret) else value
         return Secret(super().seal(raw))
 
     def mold(self, value: Any) -> Any:
-        """Render the masked placeholder — never the underlying value."""
         if value is None:
             return None
         return str(value)
@@ -923,40 +1264,45 @@ class SecretFacet(TextFacet):
 
 class BytesFacet(Facet):
     """
-    Binary data facet, transported as base64 over JSON.
+    Binary data facet, transported as base64 or hex strings over wire formats (JSON).
 
-    JSON has no native binary type, so inbound values arrive as base64 strings
-    and are decoded to ``bytes``; outbound ``bytes`` are re-encoded to base64.
-    Actual ``bytes``/``bytearray`` input (e.g. from a form or an internal
-    caller) passes through without a decode round-trip.
+    Purpose:
+        Decodes incoming base64 or hex string payloads into Python `bytes` and re-encodes outbound `bytes` back to wire safe strings.
 
-    Args:
-        min_length: Minimum decoded size in bytes.
-        max_length: Maximum decoded size in bytes. Set this on any field fed by
-            untrusted input — base64 expands ~33%, so a modest request body can
-            still decode to a large allocation.
-        encoding: Wire encoding. ``"base64"`` (default) or ``"hex"``.
+    Lifecycle:
+        1. **Casting Phase**: Decodes base64/hex string to `bytes`. Passes raw `bytes`/`bytearray` through directly.
+        2. **Validation Pass**: Enforces min and max byte size limits.
+
+    Execution Order:
+        1. Inspect input type in `cast()`, decoding string via base64 or hex.
+        2. Validate size limits (`min_length`, `max_length`) in `seal()`.
+        3. Re-encode bytes to string representation in `mold()`.
+
+    Parameters:
+        min_length (int | None, optional): Inclusive minimum decoded byte size.
+        max_length (int | None, optional): Inclusive maximum decoded byte size.
+        encoding (Literal["base64", "hex"], optional): Wire encoding format. Defaults to `"base64"`.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        BytesFacet: An initialized binary facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if string decoding fails or size bounds are violated.
+
+    Notes:
+        - Security: Bounding `max_length` prevents base64 memory exhaustion attacks.
+
+    Internal Behaviour:
+        Uses stdlib `base64` or `binascii` for decoding and encoding.
+
+    Edge Cases:
+        - Accepts raw `bytes` or `bytearray` without decoding overhead.
 
     Examples:
-        >>> class UploadContract(Contract):
-        ...     thumbnail = BytesFacet(max_length=64 * 1024)
-        >>> bp = UploadContract(data={"thumbnail": "aGVsbG8="})
-        >>> bp.is_sealed()
-        True
-        >>> bp.validated_data["thumbnail"]
+        >>> facet = BytesFacet(encoding="base64")
+        >>> facet.cast("aGVsbG8=")
         b'hello'
-
-        Round-tripping outbound::
-
-            UploadContract(instance=row).data["thumbnail"]  # -> 'aGVsbG8='
-
-    Security:
-        Always bound ``max_length`` on client-facing binary fields; an unbounded
-        base64 field is a memory-exhaustion vector.
-
-    See Also:
-        :class:`UploadFileFacet` — for streamed multipart file uploads, which
-        should be preferred over inlining large payloads in JSON.
     """
 
     _type_name = "string"
@@ -1042,20 +1388,45 @@ class BytesFacet(Facet):
 
 class IntFacet(Facet):
     """
-    Integer facet with range and divisibility constraints.
+    Integer numeric facet supporting range bounds and divisibility constraints.
 
-    Args:
-        min_value: Inclusive lower bound.
-        max_value: Inclusive upper bound.
-        multiple_of: Value must be an exact multiple of this.
+    Purpose:
+        Coerces numeric inputs to Python `int` while rejecting fractional floats and booleans.
 
-    Examples:
-        >>> quantity = IntFacet(min_value=1, max_value=999)
-        >>> page_size = IntFacet(default=25, multiple_of=25)
+    Lifecycle:
+        1. **Casting Phase**: Coerces ints, integral floats (`3.0`), and numeric strings (`"42"`) to `int`.
+        2. **Validation Pass**: Validates inclusive `min_value`, `max_value`, and `multiple_of` constraints.
+
+    Execution Order:
+        1. Reject booleans and non-integral numbers in `cast()`.
+        2. Enforce `min_value` and `max_value` limits in `seal()`.
+        3. Enforce `multiple_of` modulus check.
+
+    Parameters:
+        min_value (int | None, optional): Inclusive minimum integer bound.
+        max_value (int | None, optional): Inclusive maximum integer bound.
+        multiple_of (int | None, optional): Divisibility factor constraint.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        IntFacet: An initialized integer facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if value is boolean, fractional float, NaN, or out of bounds.
 
     Notes:
-        Coercion accepts integral floats (``3.0``) but rejects fractional ones
-        (``3.9``) — see :meth:`cast`.
+        - Integer precision: Accepts string integers to avoid JavaScript float loss.
+
+    Internal Behaviour:
+        Uses `value.is_integer()` to reject fractional float coercion.
+
+    Edge Cases:
+        - Fractional float `3.9` raises `CastFault`; integral float `3.0` casts to `3`.
+
+    Examples:
+        >>> facet = IntFacet(min_value=1, max_value=100)
+        >>> facet.cast("42")
+        42
     """
 
     _type_name = "integer"
@@ -1132,7 +1503,48 @@ class IntFacet(Facet):
 
 
 class FloatFacet(Facet):
-    """Floating-point facet."""
+    """
+    Floating-point numeric facet supporting range bounds, divisibility, and NaN/Infinity guards.
+
+    Purpose:
+        Coerces numeric inputs to Python `float` and enforces strict numerical boundary rules.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces numeric/string inputs to float and applies NaN/Inf guards.
+        2. **Validation Pass**: Validates `min_value`, `max_value`, and `multiple_of`.
+
+    Execution Order:
+        1. Parse float and check `math.isnan` / `math.isinf` in `cast()`.
+        2. Check range bounds and divisibility in `seal()`.
+
+    Parameters:
+        min_value (float | None, optional): Inclusive minimum bound.
+        max_value (float | None, optional): Inclusive maximum bound.
+        allow_nan (bool, optional): If `True`, permits `NaN` values. Defaults to `False`.
+        allow_infinity (bool, optional): If `True`, permits `inf` / `-inf`. Defaults to `False`.
+        multiple_of (float | None, optional): Divisibility factor constraint.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        FloatFacet: An initialized float facet.
+
+    Exceptions:
+        CastFault: Raised if value cannot be parsed as float, is NaN/Inf when disallowed, or is out of bounds.
+
+    Notes:
+        - Uses epsilon tolerance (`1e-9`) for `multiple_of` float division checks.
+
+    Internal Behaviour:
+        Calls stdlib `float(value)` with math safety checks.
+
+    Edge Cases:
+        - `NaN` input with `allow_nan=False` raises `CastFault`.
+
+    Examples:
+        >>> facet = FloatFacet(min_value=0.0, max_value=1.0)
+        >>> facet.cast("0.75")
+        0.75
+    """
 
     _type_name = "number"
     _python_type = "float"
@@ -1189,7 +1601,49 @@ class FloatFacet(Facet):
 
 
 class DecimalFacet(Facet):
-    """Decimal facet with precision constraints."""
+    """
+    Fixed-precision decimal numeric facet, preserving exact decimal representation using `decimal.Decimal`.
+
+    Purpose:
+        Prevents floating-point rounding errors on currency and precision metrics. Molded back to string for JSON safety.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces strings, ints, or floats to `Decimal`.
+        2. **Validation Pass**: Enforces `max_digits`, `decimal_places`, `min_value`, and `max_value`.
+        3. **Molding Phase**: Renders `Decimal` instance as string.
+
+    Execution Order:
+        1. Convert input to string and instantiate `Decimal` in `cast()`.
+        2. Check digit counts and bounds in `seal()`.
+        3. Format as `str(value)` in `mold()`.
+
+    Parameters:
+        max_digits (int | None, optional): Maximum permitted total digits.
+        decimal_places (int | None, optional): Maximum permitted decimal places.
+        min_value (Decimal | float | None, optional): Inclusive lower bound.
+        max_value (Decimal | float | None, optional): Inclusive upper bound.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        DecimalFacet: An initialized decimal facet.
+
+    Exceptions:
+        CastFault: Raised if value cannot be parsed as a valid decimal or violates precision limits.
+
+    Notes:
+        - Output format in OpenAPI schema is `"decimal"`.
+
+    Internal Behaviour:
+        Uses `Decimal.as_tuple()` to inspect total digits and fractional decimal places.
+
+    Edge Cases:
+        - Molding converts `Decimal('19.99')` to string `'19.99'` for lossless JSON transport.
+
+    Examples:
+        >>> facet = DecimalFacet(max_digits=5, decimal_places=2)
+        >>> facet.cast("19.99")
+        Decimal('19.99')
+    """
 
     _type_name = "string"  # JSON doesn't have decimal, use string
     _python_type = "decimal.Decimal"
@@ -1250,7 +1704,43 @@ class DecimalFacet(Facet):
 
 
 class BoolFacet(Facet):
-    """Boolean facet with truthy/falsy coercion."""
+    """
+    Boolean facet supporting boolean primitives and truthy/falsy string/numeric coercion (`"true"`, `"false"`, `1`, `0`).
+
+    Purpose:
+        Coerces diverse client boolean inputs into strict Python `bool` values.
+
+    Lifecycle:
+        1. **Casting Phase**: Maps booleans, strings (`"true"`, `"false"`, `"yes"`, `"no"`), and ints (`1`, `0`) to `bool`.
+        2. **Validation Pass**: Validates non-null boolean output.
+
+    Execution Order:
+        1. Match against `_TRUE_VALUES` and `_FALSE_VALUES` sets in `cast()`.
+        2. Return boolean result.
+
+    Parameters:
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        BoolFacet: An initialized boolean facet.
+
+    Exceptions:
+        CastFault: Raised if value cannot be coerced to a boolean.
+
+    Notes:
+        - Accepts string forms: `"true"`, `"1"`, `"yes"`, `"on"`, `"t"`, `"y"` (case-insensitive).
+
+    Internal Behaviour:
+        Uses lookup sets `_TRUE_VALUES` and `_FALSE_VALUES`.
+
+    Edge Cases:
+        - Arbitrary strings like `"maybe"` raise `CastFault`.
+
+    Examples:
+        >>> facet = BoolFacet()
+        >>> facet.cast("yes")
+        True
+    """
 
     _type_name = "boolean"
     _python_type = "bool"
@@ -1279,7 +1769,43 @@ class BoolFacet(Facet):
 
 
 class DateFacet(Facet):
-    """Date facet (ISO 8601)."""
+    """
+    Calendar date facet, parsing and validating ISO 8601 strings (`YYYY-MM-DD`) into `datetime.date`.
+
+    Purpose:
+        Ensures clean calendar date parsing and ISO string formatting.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces ISO string or `datetime` to `datetime.date`.
+        2. **Molding Phase**: Formats `date` to ISO string (`"YYYY-MM-DD"`).
+
+    Execution Order:
+        1. Parse ISO string via `date.fromisoformat()` in `cast()`.
+        2. Format using `.isoformat()` in `mold()`.
+
+    Parameters:
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        DateFacet: An initialized date facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if string is not a valid ISO 8601 date.
+
+    Notes:
+        - OpenAPI format is `"date"`.
+
+    Internal Behaviour:
+        Delegates to stdlib `datetime.date.fromisoformat`.
+
+    Edge Cases:
+        - Invalid date strings like `"2026-02-30"` raise `CastFault`.
+
+    Examples:
+        >>> facet = DateFacet()
+        >>> facet.cast("2026-07-30")
+        datetime.date(2026, 7, 30)
+    """
 
     _type_name = "string"
     _python_type = "datetime.date"
@@ -1310,7 +1836,43 @@ class DateFacet(Facet):
 
 
 class TimeFacet(Facet):
-    """Time facet (ISO 8601)."""
+    """
+    Time of day facet, parsing and validating ISO 8601 time strings (`HH:MM:SS`) into `datetime.time`.
+
+    Purpose:
+        Validates time component values independently of dates.
+
+    Lifecycle:
+        1. **Casting Phase**: Parses ISO time string into `datetime.time`.
+        2. **Molding Phase**: Formats `time` back to ISO string (`"HH:MM:SS"`).
+
+    Execution Order:
+        1. Parse using `time.fromisoformat()` in `cast()`.
+        2. Format using `.isoformat()` in `mold()`.
+
+    Parameters:
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        TimeFacet: An initialized time facet.
+
+    Exceptions:
+        CastFault: Raised if time string is invalid.
+
+    Notes:
+        - OpenAPI format is `"time"`.
+
+    Internal Behaviour:
+        Uses `datetime.time.fromisoformat()`.
+
+    Edge Cases:
+        - Accepts optional microsecond components (`"12:30:45.123456"`).
+
+    Examples:
+        >>> facet = TimeFacet()
+        >>> facet.cast("14:30:00")
+        datetime.time(14, 30)
+    """
 
     _type_name = "string"
     _python_type = "datetime.time"
@@ -1339,7 +1901,44 @@ class TimeFacet(Facet):
 
 
 class DateTimeFacet(Facet):
-    """DateTime facet (ISO 8601)."""
+    """
+    Timestamp facet, parsing ISO 8601 date-time strings into timezone-aware `datetime.datetime` instances.
+
+    Purpose:
+        Provides robust ISO 8601 timestamp parsing (including `Z` suffix normalization to `+00:00`).
+
+    Lifecycle:
+        1. **Casting Phase**: Normalizes `Z` suffix and parses string to `datetime.datetime`.
+        2. **Molding Phase**: Formats `datetime` back to ISO string.
+
+    Execution Order:
+        1. Strip and convert `Z` to `+00:00` in `cast()`.
+        2. Parse using `datetime.fromisoformat()`.
+        3. Format output via `.isoformat()` in `mold()`.
+
+    Parameters:
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        DateTimeFacet: An initialized date-time facet.
+
+    Exceptions:
+        CastFault: Raised if timestamp string is invalid.
+
+    Notes:
+        - OpenAPI format is `"date-time"`.
+
+    Internal Behaviour:
+        Handles timezone offset strings and UTC `Z` suffixes seamlessly.
+
+    Edge Cases:
+        - `Z` suffix is converted to `+00:00` for standard library compatibility.
+
+    Examples:
+        >>> facet = DateTimeFacet()
+        >>> facet.cast("2026-07-30T12:00:00Z")
+        datetime.datetime(2026, 7, 30, 12, 0, tzinfo=datetime.timezone.utc)
+    """
 
     _type_name = "string"
     _python_type = "datetime.datetime"
@@ -1371,7 +1970,44 @@ class DateTimeFacet(Facet):
 
 
 class DurationFacet(Facet):
-    """Duration/timedelta facet."""
+    """
+    Duration facet, parsing seconds (numeric/string) or `HH:MM:SS` strings into `datetime.timedelta`.
+
+    Purpose:
+        Represents elapsed time durations and molds values back to total seconds.
+
+    Lifecycle:
+        1. **Casting Phase**: Parses numeric seconds or `HH:MM:SS` string to `timedelta`.
+        2. **Molding Phase**: Converts `timedelta` to total seconds float.
+
+    Execution Order:
+        1. Inspect numeric or colon-separated duration string in `cast()`.
+        2. Calculate seconds and return `timedelta`.
+        3. Call `value.total_seconds()` in `mold()`.
+
+    Parameters:
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        DurationFacet: An initialized duration facet.
+
+    Exceptions:
+        CastFault: Raised if duration string format is unrecognized.
+
+    Notes:
+        - OpenAPI format is `"duration"`.
+
+    Internal Behaviour:
+        Splits colon notation into hours, minutes, seconds.
+
+    Edge Cases:
+        - Negative duration strings (e.g. `"-01:30:00"`) are supported.
+
+    Examples:
+        >>> facet = DurationFacet()
+        >>> facet.cast("01:30:00")
+        datetime.timedelta(seconds=5400)
+    """
 
     _type_name = "string"
     _python_type = "datetime.timedelta"
@@ -1416,7 +2052,43 @@ class DurationFacet(Facet):
 
 
 class UUIDFacet(Facet):
-    """UUID facet."""
+    """
+    UUID facet, parsing standard 36-character hexadecimal strings into `uuid.UUID` objects.
+
+    Purpose:
+        Validates Universally Unique Identifier strings and molds back to canonical string representations.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces string to `uuid.UUID`.
+        2. **Molding Phase**: Renders `UUID` instance to standard string (`"str(value)"`).
+
+    Execution Order:
+        1. Parse string using `uuid.UUID()` in `cast()`.
+        2. Format using `str()` in `mold()`.
+
+    Parameters:
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        UUIDFacet: An initialized UUID facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if string is not a valid 128-bit UUID hex representation.
+
+    Notes:
+        - OpenAPI format is `"uuid"`.
+
+    Internal Behaviour:
+        Delegates validation to `uuid.UUID(str(value))`.
+
+    Edge Cases:
+        - Accepts UUIDs with or without hyphens.
+
+    Examples:
+        >>> facet = UUIDFacet()
+        >>> facet.cast("123e4567-e89b-12d3-a456-426614174000")
+        UUID('123e4567-e89b-12d3-a456-426614174000')
+    """
 
     _type_name = "string"
     _python_type = "uuid.UUID"
@@ -1444,7 +2116,50 @@ class UUIDFacet(Facet):
 
 
 class ListFacet(Facet):
-    """List/array facet with optional child facet."""
+    """
+    List array facet primitive with optional element-level child facet validation and item count boundaries.
+
+    Purpose:
+        Validates, casts, and molds homogeneous or heterogeneous list collections of data.
+
+    Lifecycle:
+        1. **Instantiation**: Bound with optional `child` Facet and `min_items` / `max_items` constraints.
+        2. **Casting Phase**: Coerces iterable input into a list and executes `child.cast()` on each element.
+        3. **Validation Pass**: Validates length against `min_items` / `max_items` and calls `child.seal()` on each item.
+        4. **Molding Phase**: Transforms elements back via `child.mold()`.
+
+    Execution Order:
+        1. Verify collection type (list/tuple) in `cast()`.
+        2. Cast each element via `self.child.cast()` if child facet is present.
+        3. Check item count bounds (`min_items`, `max_items`) in `seal()`.
+        4. Seal each element via `self.child.seal()`.
+
+    Parameters:
+        child (Facet | None, optional): Backing Facet descriptor to validate each list element.
+        min_items (int | None, optional): Inclusive minimum allowed list element count.
+        max_items (int | None, optional): Inclusive maximum allowed list element count.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        ListFacet: An initialized list facet.
+
+    Exceptions:
+        CastFault: Raised if input is not a collection, element casting fails, or item limits are violated.
+
+    Notes:
+        - Subscript shortcut support: `Facet.list[TextFacet()]` or `list[str]` annotations.
+
+    Internal Behaviour:
+        Iterates over items using standard list comprehensions, embedding element indices into error path strings (`field[0]`).
+
+    Edge Cases:
+        - Empty list `[]` with `min_items > 0` raises `CastFault`.
+
+    Examples:
+        >>> facet = ListFacet(child=TextFacet(min_length=2), min_items=1)
+        >>> facet.cast(["alpha", "beta"])
+        ['alpha', 'beta']
+    """
 
     _type_name = "array"
     _python_type = "list[Any]"
@@ -1514,7 +2229,47 @@ class ListFacet(Facet):
 
 
 class SetFacet(Facet):
-    """Set/unique array facet with optional child facet."""
+    """
+    Set/unique collection facet primitive with optional element validation and item boundaries.
+
+    Purpose:
+        Coerces inputs to Python `set` collections, ensuring element uniqueness.
+
+    Lifecycle:
+        1. **Casting Phase**: Converts iterable input to Python `set` and casts items via `child.cast()`.
+        2. **Validation Pass**: Validates unique item count boundaries.
+
+    Execution Order:
+        1. Convert iterable input to `set` in `cast()`.
+        2. Enforce `min_items` and `max_items` boundaries in `seal()`.
+        3. Mold output back to list for JSON serialization.
+
+    Parameters:
+        child (Facet | None, optional): Element validation facet descriptor.
+        min_items (int | None, optional): Inclusive minimum unique item count.
+        max_items (int | None, optional): Inclusive maximum unique item count.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        SetFacet: An initialized set facet.
+
+    Exceptions:
+        CastFault: Raised if input is unhashable or fails child item validation.
+
+    Notes:
+        - Schema generates `uniqueItems: true`.
+
+    Internal Behaviour:
+        Molds `set` to `list` for JSON serializability.
+
+    Edge Cases:
+        - Duplicate items in input list are deduplicated automatically into the set.
+
+    Examples:
+        >>> facet = SetFacet(child=IntFacet())
+        >>> facet.cast([1, 2, 2, 3])
+        {1, 2, 3}
+    """
 
     _type_name = "array"
     _python_type = "set[Any]"
@@ -1585,7 +2340,46 @@ class SetFacet(Facet):
 
 
 class TupleFacet(Facet):
-    """Tuple array facet with optional child facet."""
+    """
+    Tuple array facet primitive supporting element validation and fixed sequence representations.
+
+    Purpose:
+        Validates and coerces collection inputs to immutable Python tuples.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces collection into `tuple` and casts items via `child.cast()`.
+        2. **Molding Phase**: Formats `tuple` into list for JSON output.
+
+    Execution Order:
+        1. Check collection type and cast to `tuple` in `cast()`.
+        2. Validate item bounds and seal elements in `seal()`.
+
+    Parameters:
+        child (Facet | None, optional): Element validation facet descriptor.
+        min_items (int | None, optional): Minimum item count.
+        max_items (int | None, optional): Maximum item count.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        TupleFacet: An initialized tuple facet.
+
+    Exceptions:
+        CastFault: Raised if input is not a collection.
+
+    Notes:
+        - Python type annotation produces `tuple[T, ...]`.
+
+    Internal Behaviour:
+        Converts tuple to list during `mold()`.
+
+    Edge Cases:
+        - Accepts inputs as lists or sets and coerces to tuple.
+
+    Examples:
+        >>> facet = TupleFacet(child=IntFacet())
+        >>> facet.cast([10, 20])
+        (10, 20)
+    """
 
     _type_name = "array"
     _python_type = "tuple[Any, ...]"
@@ -1655,7 +2449,46 @@ class TupleFacet(Facet):
 
 
 class DictFacet(Facet):
-    """Dictionary/object facet, optionally validating all values against a specific facet."""
+    """
+    Dictionary object facet primitive, optionally validating dictionary values against a value facet.
+
+    Purpose:
+        Validates key-value dictionary mappings and protects against hash-collision DoS attacks.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces dict or JSON object string into a dictionary, checking key limit `max_keys`.
+        2. **Validation Pass**: Validates each key value against `value_facet`.
+
+    Execution Order:
+        1. Parse JSON string if needed and verify dict type in `cast()`.
+        2. Enforce `max_keys` limit (default 1000).
+        3. Validate key string types and cast values using `value_facet`.
+
+    Parameters:
+        value_facet (Facet | None, optional): Facet descriptor applied to every dictionary value.
+        max_keys (int | None, optional): Maximum allowed key count (defaults to 1000).
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        DictFacet: An initialized dictionary facet.
+
+    Exceptions:
+        CastFault: Raised if value is not a dictionary or key count exceeds limit.
+
+    Notes:
+        - Thread safety: Key validation creates local variable paths rather than mutating shared facets.
+
+    Internal Behaviour:
+        Iterates over `value.items()` validating each entry individually.
+
+    Edge Cases:
+        - Non-string dictionary keys raise `CastFault`.
+
+    Examples:
+        >>> facet = DictFacet(value_facet=IntFacet())
+        >>> facet.cast({"a": "1", "b": "2"})
+        {'a': 1, 'b': 2}
+    """
 
     _type_name = "object"
     _python_type = "dict[str, Any]"
@@ -1744,7 +2577,45 @@ class DictFacet(Facet):
 
 
 class JSONFacet(Facet):
-    """Arbitrary JSON facet with configurable depth and type restrictions."""
+    """
+    Arbitrary JSON facet with configurable nesting depth and type allowlists.
+
+    Purpose:
+        Stores unstructured JSON structures while preventing infinite recursion and unsafe object injection.
+
+    Lifecycle:
+        1. **Casting Phase**: Parses JSON string if necessary and performs recursive depth and type safety checks.
+        2. **Validation Pass**: Confirms structure safety.
+
+    Execution Order:
+        1. Parse JSON string in `cast()`.
+        2. Execute `_check_depth()` recursively checking nesting levels and type allowlists.
+
+    Parameters:
+        max_depth (int | None, optional): Maximum allowed nesting depth (defaults to 32).
+        allowed_types (tuple | None, optional): Tuple of allowed primitive types in JSON payload.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        JSONFacet: An initialized JSON facet.
+
+    Exceptions:
+        CastFault: Raised if nesting depth exceeds limit or un-serializable object types are present.
+
+    Notes:
+        - Default safe allowlist includes: `str`, `int`, `float`, `bool`, `None`, `list`, `dict`.
+
+    Internal Behaviour:
+        Traverses nested dicts and lists recursively in `_check_depth()`.
+
+    Edge Cases:
+        - Attempting to pass complex objects (e.g. custom class instances) raises `CastFault`.
+
+    Examples:
+        >>> facet = JSONFacet(max_depth=5)
+        >>> facet.cast({"settings": {"theme": "dark"}})
+        {'settings': {'theme': 'dark'}}
+    """
 
     _type_name = "object"
     _python_type = "Any"
@@ -1799,11 +2670,44 @@ class JSONFacet(Facet):
         return value
 
 
-# ── File Facet ───────────────────────────────────────────────────────────
-
-
 class FileFacet(Facet):
-    """File reference facet -- stores path/URL string."""
+    """
+    File reference facet storing string path or URL references.
+
+    Purpose:
+        Represents file path or URL strings pointing to stored assets.
+
+    Lifecycle:
+        1. **Molding Phase**: Renders string path/URL representation.
+
+    Execution Order:
+        1. Cast via default facet string handling.
+        2. Mold value using `str(value)`.
+
+    Parameters:
+        allowed_types (list[str] | None, optional): Allowed file extensions or MIME types.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        FileFacet: An initialized file reference facet.
+
+    Exceptions:
+        CastFault: Raised if value fails standard facet casting.
+
+    Notes:
+        - OpenAPI schema format is `"binary"`.
+
+    Internal Behaviour:
+        Converts non-string file references using `str()`.
+
+    Edge Cases:
+        - `None` value molds to `None`.
+
+    Examples:
+        >>> facet = FileFacet()
+        >>> facet.mold("/var/storage/invoice.pdf")
+        '/var/storage/invoice.pdf'
+    """
 
     _type_name = "string"
 
@@ -1822,11 +2726,45 @@ class FileFacet(Facet):
         return schema
 
 
-# ── Choice Facet ─────────────────────────────────────────────────────────
-
-
 class ChoiceFacet(Facet):
-    """Facet with a fixed set of allowed values."""
+    """
+    Facet primitive restricting allowed field values to a fixed set of options.
+
+    Purpose:
+        Enforces choice validation against sets, lists, or dictionary keys.
+
+    Lifecycle:
+        1. **Instantiation**: Parses choices mapping/sequence into `_valid_values` set.
+        2. **Validation Pass**: Validates that inbound value exists in `_valid_values`.
+
+    Execution Order:
+        1. Match input value against `_valid_values` in `seal()`.
+        2. Return value on success, or raise `CastFault`.
+
+    Parameters:
+        choices (Sequence): Sequence or dict of allowed choices.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        ChoiceFacet: An initialized choice facet.
+
+    Exceptions:
+        CastFault: Raised if input value is not in `allowed_values`.
+
+    Notes:
+        - Generates OpenAPI `enum` schema array.
+
+    Internal Behaviour:
+        Stores valid choices inside internal set `_valid_values` for O(1) lookup.
+
+    Edge Cases:
+        - Supports tuple/list pairs `[("key", "label")]`.
+
+    Examples:
+        >>> facet = ChoiceFacet(choices=["active", "pending", "disabled"])
+        >>> facet.seal("active")
+        'active'
+    """
 
     _type_name = "string"
 
@@ -1848,13 +2786,6 @@ class ChoiceFacet(Facet):
         return tuple(self.choices.keys())
 
     def python_type(self) -> str:
-        """
-        ``Literal[...]`` of the allowed values when they are all literal-safe.
-
-        Only ``str``/``int``/``bool``/``None`` may appear inside ``Literal``.
-        Anything else (a date, a tuple, an arbitrary object) falls back to
-        ``Any`` rather than emitting a stub a type checker rejects.
-        """
         values = self.allowed_values
         if not values or not all(v is None or isinstance(v, (str, int, bool)) for v in values):
             return "Any"
@@ -1878,7 +2809,43 @@ class ChoiceFacet(Facet):
 
 
 class LiteralFacet(ChoiceFacet):
-    """Facet representing a single fixed literal value."""
+    """
+    Facet primitive representing a single exact literal value (e.g. discriminator fields).
+
+    Purpose:
+        Restricts acceptable values to a single specific literal constant.
+
+    Lifecycle:
+        1. **Instantiation**: Wraps single literal value inside `ChoiceFacet(choices=[value])`.
+        2. **Validation Pass**: Enforces strict equality match.
+
+    Execution Order:
+        1. Delegate matching to `ChoiceFacet.seal()`.
+
+    Parameters:
+        value (Any): The single literal constant value.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        LiteralFacet: An initialized literal facet.
+
+    Exceptions:
+        CastFault: Raised if value does not equal the target literal value.
+
+    Notes:
+        - Commonly used in discriminated union contracts.
+
+    Internal Behaviour:
+        Passes `[value]` list to parent `ChoiceFacet.__init__()`.
+
+    Edge Cases:
+        - Mismatched types (e.g., `"1"` vs `1`) raise `CastFault`.
+
+    Examples:
+        >>> facet = LiteralFacet("v1")
+        >>> facet.seal("v1")
+        'v1'
+    """
 
     def __init__(self, value: Any, **kwargs: Any):
         super().__init__(choices=[value], **kwargs)
@@ -1886,7 +2853,47 @@ class LiteralFacet(ChoiceFacet):
 
 
 class EnumFacet(Facet):
-    """Facet representing a Python Enum type."""
+    """
+    Facet primitive representing a Python `enum.Enum` type.
+
+    Purpose:
+        Validates, coerces, and molds values to and from Python Enum member instances.
+
+    Lifecycle:
+        1. **Casting Phase**: Coerces primitive values or string names to `enum_class` members.
+        2. **Molding Phase**: Converts Enum member to underlying `.value` primitive.
+
+    Execution Order:
+        1. Match Enum instance or coerce primitive value in `cast()`.
+        2. Enforce member membership in `seal()`.
+        3. Extract `value.value` in `mold()`.
+
+    Parameters:
+        enum_class (type): The target Python `Enum` subclass.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        EnumFacet: An initialized Enum facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if input value does not map to any valid Enum member or value.
+
+    Notes:
+        - Supports StringEnums, IntEnums, and standard Enums.
+
+    Internal Behaviour:
+        Inspects `enum_class.__members__` and member values during casting.
+
+    Edge Cases:
+        - Casting accepts either member name (`"ACTIVE"`) or raw enum value (`"active"`).
+
+    Examples:
+        >>> class Status(TextChoices):
+        ...     ACTIVE = "active", "Active"
+        >>> facet = EnumFacet(Status)
+        >>> facet.cast("active")
+        <Status.ACTIVE: 'active'>
+    """
 
     def __init__(self, enum_class: type, **kwargs: Any):
         super().__init__(**kwargs)
@@ -1899,7 +2906,6 @@ class EnumFacet(Facet):
         return tuple(m.value for m in self.enum_class)
 
     def python_type(self) -> str:
-        """Fully-qualified name of the enum class, which ``cast`` returns."""
         module = getattr(self.enum_class, "__module__", "")
         qualname = getattr(self.enum_class, "__qualname__", getattr(self.enum_class, "__name__", "Any"))
         if not module or module == "builtins" or "<locals>" in qualname:
@@ -1962,13 +2968,44 @@ class EnumFacet(Facet):
         return schema
 
 
-# ── PolymorphicFacet ───────────────────────────────────────────────────
-
-
 class PolymorphicFacet(Facet):
     """
-    A Facet that attempts to cast and seal through multiple candidate Facets.
-    Useful for Union types like `Union[CatContract, DogContract]`.
+    Polymorphic facet attempting casting and sealing through multiple candidate Facet options.
+
+    Purpose:
+        Enables union type handling (e.g. `Union[CatContract, DogContract]`).
+
+    Lifecycle:
+        1. **Casting Phase**: Iterates through `choices` attempting `cast()` until one succeeds.
+        2. **Validation Pass**: Validates matched choice via `seal()`.
+
+    Execution Order:
+        1. Try each `choice.cast(value)` sequentially.
+        2. If all choices fail, collect error messages and raise `CastFault`.
+
+    Parameters:
+        choices (list[Facet]): List of candidate Facet descriptors.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        PolymorphicFacet: An initialized polymorphic facet.
+
+    Exceptions:
+        CastFault: Raised if value fails to match any of the candidate facet choices.
+
+    Notes:
+        - Generates OpenAPI `anyOf` schema.
+
+    Internal Behaviour:
+        Traverses candidate choices in order of declaration.
+
+    Edge Cases:
+        - If first matching choice succeeds, remaining choices are skipped.
+
+    Examples:
+        >>> facet = PolymorphicFacet(choices=[IntFacet(), TextFacet()])
+        >>> facet.cast(42)
+        42
     """
 
     _type_name = "object"
@@ -2009,8 +3046,6 @@ class PolymorphicFacet(Facet):
             choice.name = self.name
             try:
                 molded = choice.mold(value)
-                # If molding didn't crash, we assume success.
-                # For dictionaries, we might want to ensure it's not None if value wasn't None.
                 if molded is not None or value is None:
                     return molded
             except Exception:
@@ -2028,41 +3063,42 @@ class PolymorphicFacet(Facet):
 
 class Computed(Facet):
     """
-    A facet whose value is computed at output time — never accepted as input.
+    Computed value facet primitive whose value is calculated dynamically at serialization time.
 
-    The compute callable receives the model instance (and, for methods declared
-    with ``@computed``, the live Contract instance as ``self``). This means
-    ``self.context``, ``self.instance``, and ``self._validated_data`` are all
-    available inside a ``@computed`` method.
+    Purpose:
+        Computes dynamic field values using callables or contract/model instance methods.
 
-    Args:
-        compute: Either a callable ``(instance) -> value`` or
-            ``(contract_self, instance) -> value``, or a string naming a method
-            on the Contract or the model instance.
+    Lifecycle:
+        1. **Instantiation**: Bound with `compute` callable or method string name, setting `read_only=True`.
+        2. **Extraction Pass**: Executes computation during `extract()`.
+        3. **Molding Phase**: Passes computed value through directly.
+
+    Execution Order:
+        1. Resolve string method or callable in `extract()`.
+        2. Supply live Contract instance `_owner` to `@computed` methods.
+        3. Pass computed return value through `mold()`.
+
+    Parameters:
+        compute (Callable | str): Callable `(instance) -> value` or string method name on Contract/Model.
+        **kwargs: Base Facet parameters (`read_only=True`).
+
+    Return Values:
+        Computed: An initialized computed facet.
+
+    Exceptions:
+        CastFault: Not raised directly as input is ignored (`read_only=True`).
+
+    Notes:
+        - Contract context `self.context` and validated data `self._validated_data` are accessible in computed methods.
+
+    Internal Behaviour:
+        Inspects signature of `self._compute` to detect unbound method signatures.
+
+    Edge Cases:
+        - If method target cannot be resolved on model or contract, returns `None`.
 
     Examples:
-    ```
-        Lambda (model-only)::
-
-            full_name = Computed(lambda user: f"{user.first_name} {user.last_name}")
-
-        Decorator (contract + model)::
-
-            @computed
-            def item_count(self, instance) -> int:
-                return len(self.context.get("cart", []))
-
-        String (method name on model)::
-
-            display_name = Computed("get_display_name")
-    ```
-    Notes:
-        Facets are class-level objects shared across all instances of a
-        Contract. ``self.contract`` on a facet is therefore unreliable as a
-        live instance reference. The live Contract instance is threaded in via
-        :meth:`extract`'s ``_owner`` parameter, which
-        :meth:`~aquilia.contracts.core.Contract._to_dict_instance` always
-        supplies.
+        >>> facet = Computed(lambda user: f"{user.first_name} {user.last_name}")
     """
 
     def __init__(self, compute: Callable | str, **kwargs):
@@ -2071,28 +3107,12 @@ class Computed(Facet):
         self._compute = compute
 
     def extract(self, instance: Any, _owner: Any = None) -> Any:
-        """
-        Compute the value from the model instance.
-
-        Args:
-            instance: The model instance being serialized.
-            _owner: The live Contract instance. Supplied by
-                :meth:`~aquilia.contracts.core.Contract._to_dict_instance` so
-                that ``@computed`` methods receive a fully initialized ``self``
-                with ``context``, ``instance``, and ``_validated_data`` set.
-
-        Returns:
-            The computed value, or ``None`` if the callable/method cannot be
-            resolved.
-        """
         if isinstance(self._compute, str):
-            # Method name on the contract
             owner = _owner if _owner is not None else self.contract
             if owner is not None:
                 method = getattr(owner, self._compute, None)
                 if method is not None:
                     return method(instance)
-            # Method name on the instance
             method = getattr(instance, self._compute, None)
             if method is not None:
                 return method()
@@ -2103,10 +3123,8 @@ class Computed(Facet):
         try:
             sig = inspect.signature(self._compute)
             if len(sig.parameters) >= 2:
-                # Unbound method: needs (contract_self, instance)
                 bp = _owner if _owner is not None else self.contract
                 if bp is None:
-                    # Last resort: construct a minimal shell from __qualname__
                     qualname = getattr(self._compute, "__qualname__", "")
                     if "." in qualname:
                         cls_name = qualname.rsplit(".", 1)[0]
@@ -2127,13 +3145,42 @@ class Computed(Facet):
 
 class Constant(Facet):
     """
-    A facet that always returns a fixed value -- useful for type
-    discriminators, API versioning, etc.
+    Fixed constant facet primitive returning a static value on serialization.
 
-    Usage::
+    Purpose:
+        Emits hardcoded API versioning identifiers or type discriminators.
 
-        api_version = Constant("v2")
-        type = Constant("user")
+    Lifecycle:
+        1. **Instantiation**: Bound with fixed constant value, setting `read_only=True`.
+        2. **Extraction Pass**: Returns stored constant during `extract()`.
+
+    Execution Order:
+        1. Return stored `_constant` in `extract()`.
+        2. Emit `const` property in OpenAPI schema.
+
+    Parameters:
+        value (Any): The fixed constant value.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        Constant: An initialized constant facet.
+
+    Exceptions:
+        CastFault: Not raised directly.
+
+    Notes:
+        - Output schema emits `"const": value`.
+
+    Internal Behaviour:
+        Overrides `extract()` and `mold()` to return `_constant`.
+
+    Edge Cases:
+        - User input during casting is ignored due to `read_only=True`.
+
+    Examples:
+        >>> facet = Constant("v2")
+        >>> facet.extract(None)
+        'v2'
     """
 
     def __init__(self, value: Any, **kwargs):
@@ -2160,11 +3207,40 @@ class Constant(Facet):
 
 class WriteOnly(TextFacet):
     """
-    Convenience: a text facet that is write-only (e.g., passwords).
+    Write-only text facet primitive (e.g. passwords).
 
-    Usage::
+    Purpose:
+        Accepts inbound client inputs during request casting but hides values from output serialization.
 
-        password = WriteOnly(min_length=8)
+    Lifecycle:
+        1. **Instantiation**: Sets `write_only=True` on underlying `TextFacet`.
+        2. **Casting Pass**: Validates incoming password string.
+        3. **Molding Pass**: Omitted from output payload.
+
+    Execution Order:
+        1. Execute `TextFacet.cast()` and `TextFacet.seal()`.
+        2. Exclude field from serialization output dictionary.
+
+    Parameters:
+        **kwargs: Arguments passed to `TextFacet`.
+
+    Return Values:
+        WriteOnly: An initialized write-only text facet.
+
+    Exceptions:
+        CastFault: Raised if password string fails length/pattern checks.
+
+    Notes:
+        - Schema generates `"writeOnly": true`.
+
+    Internal Behaviour:
+        Sets `write_only = True` flag in `__init__`.
+
+    Edge Cases:
+        - Field is completely omitted during `Contract.to_dict()`.
+
+    Examples:
+        >>> facet = WriteOnly(min_length=8)
     """
 
     def __init__(self, **kwargs):
@@ -2174,11 +3250,41 @@ class WriteOnly(TextFacet):
 
 class ReadOnly(Facet):
     """
-    A pass-through read-only facet.
+    Pass-through read-only facet primitive.
 
-    Usage::
+    Purpose:
+        Exposes model attributes on output payloads while ignoring incoming request body inputs.
 
-        created_at = ReadOnly()
+    Lifecycle:
+        1. **Instantiation**: Configured with `read_only=True`.
+        2. **Molding Pass**: Automatically serializes dates, UUIDs, Decimals, and timedeltas.
+
+    Execution Order:
+        1. Ignore inbound request input in `cast()`.
+        2. Format dates, UUIDs, Decimals in `mold()`.
+
+    Parameters:
+        **kwargs: Base Facet parameters (`read_only=True`).
+
+    Return Values:
+        ReadOnly: An initialized read-only facet.
+
+    Exceptions:
+        CastFault: Not raised directly as input is skipped.
+
+    Notes:
+        - Automatically converts `datetime`, `UUID`, `Decimal`, and `timedelta` to strings.
+
+    Internal Behaviour:
+        Checks `isinstance` in `mold()` for automatic scalar stringification.
+
+    Edge Cases:
+        - `None` passes through unchanged.
+
+    Examples:
+        >>> facet = ReadOnly()
+        >>> facet.mold(datetime(2026, 7, 30))
+        '2026-07-30T00:00:00'
     """
 
     def __init__(self, **kwargs):
@@ -2186,7 +3292,6 @@ class ReadOnly(Facet):
         super().__init__(**kwargs)
 
     def mold(self, value: Any) -> Any:
-        # Auto-serialize common types
         if isinstance(value, (datetime, date, time)):
             return value.isoformat()
         if isinstance(value, uuid.UUID):
@@ -2200,12 +3305,39 @@ class ReadOnly(Facet):
 
 class Hidden(Facet):
     """
-    A hidden facet -- populated from default/DI, never in input or output.
+    Hidden facet primitive, populated internally via DI or defaults, and excluded from inputs/outputs.
 
-    Usage::
+    Purpose:
+        Manages internal audit or state fields hidden from public API schema.
 
-        class AuditContract(Contract):
-            created_by = Hidden(default=CurrentUserDefault())
+    Lifecycle:
+        1. **Instantiation**: Configured with `write_only=True`.
+        2. **Execution**: Evaluates default or DI resolution internally.
+
+    Execution Order:
+        1. Populate from default or DI context.
+        2. Omit from OpenAPI schema and serialization outputs.
+
+    Parameters:
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        Hidden: An initialized hidden facet.
+
+    Exceptions:
+        CastFault: Not exposed externally.
+
+    Notes:
+        - Excluded from client input and response schemas.
+
+    Internal Behaviour:
+        Sets `write_only=True`.
+
+    Edge Cases:
+        - Never rendered in OpenAPI documentation.
+
+    Examples:
+        >>> facet = Hidden(default="internal_system")
     """
 
     def __init__(self, **kwargs):
@@ -2218,21 +3350,43 @@ class Hidden(Facet):
 
 class Inject(Facet):
     """
-    A facet that resolves its value from the DI container at validation time.
+    Dependency Injection facet primitive resolving values from the application DI container at runtime.
 
-    This is Aquilia's native approach to computed defaults -- the value
-    comes from a registered service rather than from user input.
+    Purpose:
+        Resolves contextual dependencies (current user, services, request objects) into contract fields.
 
-    Usage::
+    Lifecycle:
+        1. **Instantiation**: Configured with target DI token, `via` method name, or `attr` property.
+        2. **Resolution Pass**: Queries DI container or context mapping in `resolve_from_context()`.
 
-        class OrderContract(Contract):
-            total = Inject(PricingService, via="calculate")
-            audit_user = Inject("identity", attr="id")
+    Execution Order:
+        1. Query `context["container"]` for registered token service.
+        2. Fallback to direct key lookup in `context` dict.
+        3. Invoke `via` method or read `attr` attribute on resolved service.
 
-    Args:
-        token: DI token (type or string) to resolve.
-        via: Method to call on the resolved service (result becomes the value).
-        attr: Attribute to read from the resolved service.
+    Parameters:
+        token (Any): Target DI service token (type or string name).
+        via (str | None, optional): Service method to execute for value.
+        attr (str | None, optional): Service property attribute to read.
+        **kwargs: Base Facet parameters (`read_only=True`).
+
+    Return Values:
+        Inject: An initialized DI inject facet.
+
+    Exceptions:
+        CastFault: Not raised directly.
+
+    Notes:
+        - Solves dependency resolution without user input payload tampering.
+
+    Internal Behaviour:
+        Supports both full `container.resolve()` and lightweight `context[token]` lookups.
+
+    Edge Cases:
+        - If token is missing, returns `UNSET`.
+
+    Examples:
+        >>> facet = Inject("identity", attr="id")
     """
 
     def __init__(
@@ -2250,15 +3404,6 @@ class Inject(Facet):
         self.attr = attr
 
     def resolve_from_context(self, context: dict[str, Any]) -> Any:
-        """Resolve value from DI container or context in Contract context.
-
-        Resolution order:
-        1. DI container (container.resolve(token))
-        2. Direct context key (context[token]) -- handles "identity",
-           "request", and other context-injected objects without a
-           full DI container.
-        """
-        # Try DI container first
         container = context.get("container")
         if container is not None:
             try:
@@ -2276,8 +3421,6 @@ class Inject(Facet):
                     return getattr(service, self.attr, UNSET)
                 return service
 
-        # Fallback: resolve token directly from context dict
-        # (handles "identity", "request" etc. injected by the engine)
         if isinstance(self.token, str):
             obj = context.get(self.token)
             if obj is not None:
@@ -2294,7 +3437,45 @@ class Inject(Facet):
 
 
 class UploadFileFacet(FileFacet):
-    """Facet representing an uploaded file."""
+    """
+    Uploaded file facet primitive for multipart form file uploads.
+
+    Purpose:
+        Validates uploaded file instances (`UploadFile`), enforcing byte size limits and MIME content type allowlists.
+
+    Lifecycle:
+        1. **Casting Phase**: Asserts input is an `UploadFile` instance, checking `max_size` and `allowed_types`.
+        2. **Molding Phase**: Serializes metadata dictionary (`filename`, `content_type`, `size`).
+
+    Execution Order:
+        1. Verify `UploadFile` type in `cast()`.
+        2. Check byte size against `max_size`.
+        3. Match `content_type` against `allowed_types` list or wildcard patterns (`"image/*"`).
+        4. Return metadata dict in `mold()`.
+
+    Parameters:
+        max_size (int | None, optional): Maximum permitted file size in bytes.
+        allowed_types (list[str] | None, optional): List of allowed MIME types or wildcards.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        UploadFileFacet: An initialized upload file facet descriptor.
+
+    Exceptions:
+        CastFault: Raised if value is not an `UploadFile`, exceeds `max_size`, or has disallowed MIME type.
+
+    Notes:
+        - Supports wildcard MIME matching like `"image/*"`.
+
+    Internal Behaviour:
+        Inspects `UploadFile.content_type` and `UploadFile.size`.
+
+    Edge Cases:
+        - Molds `UploadFile` to dictionary metadata instead of raw bytes.
+
+    Examples:
+        >>> facet = UploadFileFacet(max_size=5_000_000, allowed_types=["image/png", "image/jpeg"])
+    """
 
     _type_name = "object"
 
@@ -2369,7 +3550,44 @@ class UploadFileFacet(FileFacet):
 
 
 class FormDataFacet(Facet):
-    """Facet representing form data input (from urlencoded or multipart fields)."""
+    """
+    Form data input facet primitive for urlencoded or multipart scalar fields.
+
+    Purpose:
+        Wraps and delegates validation to an inner child facet built from type annotations.
+
+    Lifecycle:
+        1. **Instantiation**: Builds inner `child_facet` from type annotation (`int`, `str`, etc.).
+        2. **Delegation Pass**: Delegates `cast()`, `seal()`, and `mold()` to inner `child_facet`.
+
+    Execution Order:
+        1. Construct `child_facet` using `_build_facet_from_annotation()`.
+        2. Delegate `cast()` and `seal()` execution to `child_facet`.
+
+    Parameters:
+        type (Any, optional): Type annotation for inner facet coercion. Defaults to `str`.
+        **kwargs: Base Facet parameters.
+
+    Return Values:
+        FormDataFacet: An initialized form data facet.
+
+    Exceptions:
+        CastFault: Raised if inner child facet casting fails.
+
+    Notes:
+        - Bridges web HTML form inputs with typed contract facets.
+
+    Internal Behaviour:
+        Calls `_build_facet_from_annotation()` on initialization.
+
+    Edge Cases:
+        - Falls back to `str(value)` if child facet resolution is unavailable.
+
+    Examples:
+        >>> facet = FormDataFacet(type=int)
+        >>> facet.cast("100")
+        100
+    """
 
     def __init__(
         self,
