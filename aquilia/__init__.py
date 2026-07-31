@@ -623,9 +623,8 @@ from .models import (
     IntegerField,
     JSONField,
     ManyToManyField,
-    MigrationOps,
     # Migrations
-    MigrationRunner,
+    MigrationEngine,
     # New pure-Python model system
     Model,
     ModelMeta,
@@ -1443,8 +1442,7 @@ __all__ = [
     "HStoreField",
     "GeneratedField",
     # Migrations
-    "MigrationRunner",
-    "MigrationOps",
+    "MigrationEngine",
     # Database
     "AquiliaDatabase",
     "configure_database",

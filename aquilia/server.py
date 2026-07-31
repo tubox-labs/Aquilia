@@ -3728,10 +3728,9 @@ class AquiliaServer:
                         await ModelRegistry.create_tables()
                 else:
                     try:
-                        from aquilia.models.migration_runner import MigrationRunner
+                        from aquilia.models.migration import MigrationEngine
 
-                        runner = MigrationRunner(db, migrations_dir)
-                        await runner.migrate()
+                        await MigrationEngine(migrations_dir).migrate(db)
                     except Exception as e:
                         self.logger.warning(f"Auto-migration failed: {e}")
             elif auto_create:

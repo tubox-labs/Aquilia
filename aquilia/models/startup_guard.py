@@ -77,14 +77,14 @@ def get_db_state(
     """
     Determine the detailed readiness state of the database.
     """
-    from .migration_runner import check_db_exists, check_migrations_applied
+    from .migration.probe import database_exists, migrations_applied
 
-    if not check_db_exists(db_url):
+    if not database_exists(db_url):
         return DatabaseState.MISSING_DATABASE
 
     mdir = Path(migrations_dir)
     has_migrations = mdir.exists() and any(mdir.glob("*.py"))
-    if has_migrations and not check_migrations_applied(db_url, migrations_dir):
+    if has_migrations and not migrations_applied(db_url, migrations_dir):
         return DatabaseState.PENDING_MIGRATIONS
 
     return DatabaseState.READY

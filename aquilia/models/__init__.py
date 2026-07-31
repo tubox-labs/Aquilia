@@ -23,7 +23,7 @@ Public API:
     - Fields: All field types (Char, Integer, DateTime, FK, M2M, etc.)
     - Q: Query builder
     - ModelRegistry: Global model registry
-    - Migrations: MigrationRunner, MigrationOps, generate_migration_file
+    - Migrations: MigrationEngine, Operation, ProjectState
     - Database: AquiliaDatabase (re-exported from aquilia.db)
     - Faults: ModelNotFoundFault, QueryFault, etc.
 
@@ -77,18 +77,13 @@ Map of this package's public surface (grouped by why you'd reach for it):
   ``Deferrable``, ``GinIndex``, ``GistIndex``, ``BrinIndex``,
   ``HashIndex``, ``FunctionalIndex``) -- declared on a model's ``Meta`` to
   add database-level constraints and specialized index types.
-- **Migrations** -- two parallel systems are exported: the original
-  (``MigrationOps``, ``MigrationRunner``, ``MigrationInfo``,
-  ``generate_migration_from_models``, ``op``) and the newer DSL
-  (``Migration``, ``Operation``, and the ``DSL``-prefixed operation
-  classes like ``DSLCreateModel``/``DSLAddField``/``DSLRunSQL``, plus
-  ``DSLMigrationRunner`` = ``migration_runner.MigrationRunner``,
-  ``check_db_exists``, ``check_migrations_applied``, ``check_db_ready``,
-  ``DatabaseNotReadyError``, ``generate_dsl_migration``, and the
-  ``ColumnDef``/``columns``/``C`` column-definition helpers). Snapshot/diff
-  tooling (``create_snapshot``, ``save_snapshot``, ``load_snapshot``,
-  ``compute_diff``, ``diff_to_operations``, ``SchemaDiff``, ``ModelDiff``)
-  supports autodetecting schema changes between snapshots.
+- **Migrations** (``MigrationEngine``, ``MigrationGraph``, ``MigrationNode``,
+  ``MigrationStatus``, ``Operation``, ``ProjectState``) -- the migration
+  system: ``MigrationEngine`` generates, plans, and applies migrations;
+  ``ProjectState`` is the schema state they transform. Operations and schema
+  state live in :mod:`aquilia.models.migration`, which generated migration
+  files import directly. ``check_db_ready``/``DatabaseNotReadyError`` guard
+  startup against an unmigrated database.
 - **Faults** (``ModelFault``, ``ModelNotFoundFault``,
   ``ModelRegistrationFault``, ``MigrationFault``,
   ``MigrationConflictFault``, ``QueryFault``, ``DatabaseConnectionFault``,
@@ -136,12 +131,6 @@ from .base import (
 # ── Constraints & Indexes ────────────────────────────────────────────────────
 from .constraint import CheckConstraint, Deferrable, ExclusionConstraint
 from .cte import CTE, CTECol, CTEReference, RecursiveCTE
-from .ddl_executor import (
-    DDLExecutor,
-    ExecutableStatement,
-    ExecutionResult,
-    StatementType,
-)
 
 # ── Deletion constants ───────────────────────────────────────────────────────
 from .deletion import (
@@ -289,76 +278,15 @@ from .index import (
     HashIndex,
 )
 from .manager import BaseManager, Manager, QuerySet
-from .migration_dsl import (
-    AddConstraint as DSLAddConstraint,
-)
-from .migration_dsl import (
-    AddField as DSLAddField,
-)
-from .migration_dsl import (
-    AlterField as DSLAlterField,
-)
 
-# ── New Migration DSL System ─────────────────────────────────────────────────
-from .migration_dsl import (
-    C,
-    ColumnDef,
-    Migration,
+# ── Migrations ───────────────────────────────────────────────────────────────
+from .migration import (
+    MigrationEngine,
+    MigrationGraph,
+    MigrationNode,
+    MigrationStatus,
     Operation,
-    columns,
-)
-from .migration_dsl import (
-    CreateIndex as DSLCreateIndex,
-)
-from .migration_dsl import (
-    CreateModel as DSLCreateModel,
-)
-from .migration_dsl import (
-    DropIndex as DSLDropIndex,
-)
-from .migration_dsl import (
-    DropModel as DSLDropModel,
-)
-from .migration_dsl import (
-    RemoveConstraint as DSLRemoveConstraint,
-)
-from .migration_dsl import (
-    RemoveField as DSLRemoveField,
-)
-from .migration_dsl import (
-    RenameField as DSLRenameField,
-)
-from .migration_dsl import (
-    RenameModel as DSLRenameModel,
-)
-from .migration_dsl import (
-    RunPython as DSLRunPython,
-)
-from .migration_dsl import (
-    RunSQL as DSLRunSQL,
-)
-from .migration_gen import (
-    generate_dsl_migration,
-)
-from .migration_planner import (
-    InitialSchemaPlanner,
-    MigrationPlan,
-    MigrationPlanner,
-    MigrationStep,
-)
-from .migration_runner import (
-    MigrationRunner as DSLMigrationRunner,
-)
-from .migration_runner import (
-    check_db_exists,
-    check_migrations_applied,
-)
-from .migrations import (
-    MigrationInfo,
-    MigrationOps,
-    MigrationRunner,
-    generate_migration_from_models,
-    op,
+    ProjectState,
 )
 from .options import Options as EnhancedOptions
 from .query import Prefetch, QCombination, QNode
@@ -367,15 +295,6 @@ from .query import Q as QueryBuilder
 # New split-module exports (available but not replacing base.py)
 from .registry import ModelRegistry as NewModelRegistry
 from .relations import Related, RelatedNotLoaded
-from .schema_snapshot import (
-    ModelDiff,
-    SchemaDiff,
-    compute_diff,
-    create_snapshot,
-    diff_to_operations,
-    load_snapshot,
-    save_snapshot,
-)
 
 # ── Signals ──────────────────────────────────────────────────────────────────
 from .signals import (
@@ -634,51 +553,14 @@ __all__ = [
     "HashIndex",
     "FunctionalIndex",
     # Migrations
-    "MigrationOps",
-    "MigrationRunner",
-    "MigrationInfo",
-    "generate_migration_from_models",
-    "op",
-    # New Migration DSL
-    "Migration",
+    "MigrationEngine",
+    "MigrationGraph",
+    "MigrationNode",
+    "MigrationStatus",
     "Operation",
-    "DSLCreateModel",
-    "DSLDropModel",
-    "DSLRenameModel",
-    "DSLAddField",
-    "DSLRemoveField",
-    "DSLAlterField",
-    "DSLRenameField",
-    "DSLCreateIndex",
-    "DSLDropIndex",
-    "DSLRunSQL",
-    "DSLRunPython",
-    "DSLAddConstraint",
-    "DSLRemoveConstraint",
-    "ColumnDef",
-    "columns",
-    "C",
-    "create_snapshot",
-    "save_snapshot",
-    "load_snapshot",
-    "compute_diff",
-    "diff_to_operations",
-    "SchemaDiff",
-    "ModelDiff",
-    "DSLMigrationRunner",
-    "DDLExecutor",
-    "ExecutableStatement",
-    "ExecutionResult",
-    "StatementType",
-    "InitialSchemaPlanner",
-    "MigrationPlan",
-    "MigrationPlanner",
-    "MigrationStep",
-    "check_db_exists",
-    "check_migrations_applied",
+    "ProjectState",
     "check_db_ready",
     "DatabaseNotReadyError",
-    "generate_dsl_migration",
     # Faults (re-exported)
     "ModelFault",
     "ModelNotFoundFault",

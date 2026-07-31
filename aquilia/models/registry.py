@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..db.engine import AquiliaDatabase
@@ -366,10 +366,12 @@ class ModelRegistry:
     @classmethod
     async def create_tables(cls, db: AquiliaDatabase | None = None) -> list[str]:
         """
-        Create tables, indexes, and M2M junction tables for all managed models.
+        Create tables, indexes, constraints, and M2M junction tables for all managed models.
 
-        Delegates schema planning and execution directly to MigrationRunner as the
-        sole execution authority in the framework.
+        Builds a :class:`~aquilia.models.migration.schema.ProjectState` from the
+        registered models and applies it through the migration operation and
+        backend layers, so the DDL produced here is identical to the DDL a
+        generated migration would produce for the same models.
 
         Parameters:
             db (AquiliaDatabase | None): Optional database engine override.
@@ -379,6 +381,8 @@ class ModelRegistry:
 
         Exceptions:
             DatabaseConnectionFault: Raised if no database engine is configured.
+            MigrationFault: Raised if a model declares schema the target
+                database cannot express.
         """
         with cls._lock:
             target_db = db or cls._db
@@ -393,11 +397,61 @@ class ModelRegistry:
                 "Call ModelRegistry.set_database(db) before create_tables().",
             )
 
-        from .migration_runner import MigrationRunner
+        from .migration import ProjectState
+        from .migration.executor import MigrationExecutor
+        from .migration.operations import CreateManyToManyTable, CreateModel
 
-        runner = MigrationRunner(target_db, dialect=getattr(target_db, "dialect", "sqlite"))
-        exec_stmts = await runner.create_initial_schema(ordered)
-        return [s.sql for s in exec_stmts if s.sql and not s.is_comment]
+        target_state = ProjectState.from_models(ordered)
+
+        operations: list = []
+        for model_name in target_state.creation_order():
+            table = target_state.tables[model_name]
+            operations.append(CreateModel(model=model_name, table=table))
+            for relation in table.m2m:
+                operations.append(CreateManyToManyTable(model=model_name, relation=relation))
+
+        # All DDL execution, transaction handling, and backend error tolerance
+        # live in MigrationExecutor; the registry only decides *what* to create.
+        executor = MigrationExecutor(target_db)
+        result = await executor.apply_operations(operations, ProjectState(), description="initial schema")
+
+        # Record the initial schema so a later `migrate` does not try to
+        # recreate tables that already exist.
+        await cls._record_initial_schema(target_db, target_state)
+        return [statement.sql for statement in result.executed if statement.sql]
+
+    @classmethod
+    async def _record_initial_schema(cls, db: AquiliaDatabase, state: Any) -> None:
+        """Record ``0000_initial_schema`` in the applied-migrations table.
+
+        Parameters:
+            db (AquiliaDatabase): The database whose tables were just created.
+            state (ProjectState): The schema that was created, whose checksum is
+                stored so drift can be detected later.
+
+        Return Value:
+            None.
+        """
+        from .migration.executor import MigrationExecutor
+
+        executor = MigrationExecutor(db)
+        await executor.ensure_tracking_table()
+
+        quoted_table = executor.backend.quote(executor.table)
+        quoted_revision = executor.backend.quote("revision")
+        existing = await db.fetch_all(
+            f"SELECT {quoted_revision} FROM {quoted_table} WHERE {quoted_revision} = ?",
+            ["0000_initial_schema"],
+        )
+        if existing:
+            return
+
+        await db.execute(
+            f"INSERT INTO {quoted_table} "
+            f"({quoted_revision}, {executor.backend.quote('slug')}, "
+            f"{executor.backend.quote('checksum')}) VALUES (?, ?, ?)",
+            ["0000_initial_schema", "initial_schema", state.checksum()],
+        )
 
     @classmethod
     def _topological_sort(cls) -> list[type[Model]]:
@@ -475,10 +529,43 @@ class ModelRegistry:
                 "Call ModelRegistry.set_database(db) before drop_tables().",
             )
 
-        from .migration_runner import MigrationRunner
+        return await cls._drop_via_executor(target_db, models_snapshot)
 
-        runner = MigrationRunner(target_db, dialect=getattr(target_db, "dialect", "sqlite"))
-        return await runner.drop_all_tables(models_snapshot)
+    @classmethod
+    async def _drop_via_executor(cls, db: AquiliaDatabase, models_snapshot: list) -> list[str]:
+        """Drop every managed model's table through the migration executor.
+
+        Tables are dropped in reverse dependency order so a referenced table is
+        never dropped while another still points at it, and junction tables go
+        before the models that own them.
+
+        Parameters:
+            db (AquiliaDatabase): The database to drop tables in.
+            models_snapshot (list): The model classes whose tables to drop.
+
+        Return Value:
+            list[str]: Executed DROP statements in order.
+
+        Exceptions:
+            MigrationFault: If a drop statement fails.
+        """
+        from .migration import ProjectState
+        from .migration.executor import MigrationExecutor
+        from .migration.operations import DeleteManyToManyTable, DeleteModel
+
+        concrete = [m for m in models_snapshot if not getattr(m._meta, "abstract", False)]
+        state = ProjectState.from_models(concrete)
+
+        operations: list = []
+        for model_name in state.deletion_order():
+            table = state.tables[model_name]
+            for relation in table.m2m:
+                operations.append(DeleteManyToManyTable(model=model_name, relation=relation))
+            operations.append(DeleteModel(model=model_name, table=table))
+
+        executor = MigrationExecutor(db)
+        result = await executor.apply_operations(operations, state, description="table teardown")
+        return [statement.sql for statement in result.executed if statement.sql]
 
     @classmethod
     def reset(cls) -> None:
