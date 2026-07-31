@@ -299,22 +299,29 @@ def cmd_makemigrations(
     app: str | None = None,
     migrations_dir: str = "migrations",
     verbose: bool = False,
-    use_dsl: bool = True,
-    migration_format: str = "json",
+    slug: str | None = None,
+    dry_run: bool = False,
 ) -> list[Path]:
-    """
-    Generate migration files from Python Model definitions.
-
-    If use_dsl=True (default), uses the new DSL system with schema
-    snapshot diffing and rename detection. Otherwise, uses the legacy
-    raw-SQL migration generator.
+    """Generate a migration for the difference between the snapshot and the models.
 
     Args:
-        migration_format: "json" (default) for JSON format,
-                          "python" for human-readable DSL files.
+        app: Restrict discovery to one module, by name.
+        migrations_dir: Where migration files and the state snapshot live.
+        verbose: Print each discovered model.
+        slug: Filename suffix. Derived from the affected models when omitted.
+        dry_run: Report what would be generated without writing anything.
 
     Returns:
-        List of generated migration file paths
+        The paths written -- a single-element list, or empty when the models
+        already match the snapshot or *dry_run* was set.
+
+    Raises:
+        MigrationFault: If the models cannot be snapshotted, or an operation
+            cannot be rendered as Python source.
+
+    Example:
+        >>> cmd_makemigrations(app="blog", slug="add_bio")
+        [PosixPath('migrations/20260730_143000_add_bio.py')]
     """
     if verbose:
         click.echo(click.style("Scanning for models...", fg="cyan"))
@@ -330,53 +337,24 @@ def cmd_makemigrations(
         )
         return []
 
-    if use_dsl:
-        # New DSL migration generation with snapshot diffing
-        from aquilia.models.migration_gen import generate_dsl_migration
+    from aquilia.models.migration import MigrationEngine
 
-        generated = generate_dsl_migration(
-            model_classes=models,
-            migrations_dir=migrations_dir,
+    engine = MigrationEngine(migrations_dir)
+    generated = engine.make_migrations(models, slug=slug, dry_run=dry_run)
+
+    if generated is None:
+        click.echo(click.style("No model changes detected.", fg="yellow"))
+        return []
+
+    model_names = ", ".join(m.__name__ for m in models)
+    click.echo(
+        click.style(
+            f"Generated migration: {generated.name} ({len(models)} model(s): {model_names})",
+            fg="green",
         )
-
-        if generated is None:
-            click.echo(click.style("No model changes detected.", fg="yellow"))
-            return []
-
-        # JSON snapshot is now saved by default within generate_dsl_migration
-
-        model_names = ", ".join(m.__name__ for m in models)
-        click.echo(
-            click.style(
-                f"Generated DSL migration: {generated.name} ({len(models)} model(s): {model_names})",
-                fg="green",
-            )
-        )
-        snap_path = Path(migrations_dir) / "schema_snapshot.json"
-        click.echo(
-            click.style(
-                f"  Schema snapshot: {snap_path}",
-                dim=True,
-            )
-        )
-        return [generated]
-    else:
-        # Legacy raw-SQL migration generation
-        from aquilia.models.migrations import generate_migration_from_models
-
-        generated = generate_migration_from_models(
-            model_classes=models,
-            migrations_dir=migrations_dir,
-        )
-
-        model_names = ", ".join(m.__name__ for m in models)
-        click.echo(
-            click.style(
-                f"Generated migration: {generated.name} ({len(models)} model(s): {model_names})",
-                fg="green",
-            )
-        )
-        return [generated]
+    )
+    click.echo(click.style(f"  Schema snapshot: {engine.snapshot_path}", dim=True))
+    return [generated]
 
 
 def cmd_migrate(
@@ -403,50 +381,48 @@ def cmd_migrate(
         List of applied revision IDs
     """
     from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration_runner import MigrationRunner
+    from aquilia.models.migration import MigrationEngine
 
     async def _run() -> list[str]:
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
-            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
+            engine = MigrationEngine(migrations_dir)
 
             if plan:
-                # Dry-run: just show SQL
-                stmts = await runner.plan(target=target)
-                if stmts:
+                statements = await engine.plan(db, target=target)
+                if statements:
                     click.echo(click.style("-- Migration Plan (dry-run):", fg="cyan"))
-                    for sql in stmts:
-                        click.echo(sql)
+                    for statement in statements:
+                        if statement.destructive:
+                            click.echo(click.style(f"-- DESTRUCTIVE: {statement.description}", fg="red"))
+                        click.echo(statement.sql)
                 else:
                     click.echo(click.style("No pending migrations.", fg="yellow"))
                 return []
 
             if target:
-                revs = await runner.migrate(target=target, fake=fake)
+                results = await engine.migrate(db, target=target, fake=fake)
                 action = "Faked rollback of" if fake else "Rolled back"
-                if revs:
-                    click.echo(
-                        click.style(
-                            f"{action} {len(revs)} migration(s) to {target}",
-                            fg="green",
-                        )
-                    )
+                if results:
+                    click.echo(click.style(f"{action} {len(results)} migration(s) to {target}", fg="green"))
                 else:
                     click.echo(click.style("Nothing to rollback.", fg="yellow"))
             else:
-                revs = await runner.migrate(fake=fake)
+                results = await engine.migrate(db, fake=fake)
                 action = "Faked" if fake else "Applied"
-                if revs:
-                    click.echo(
-                        click.style(
-                            f"{action} {len(revs)} migration(s)",
-                            fg="green",
-                        )
-                    )
+                if results:
+                    click.echo(click.style(f"{action} {len(results)} migration(s)", fg="green"))
                 else:
                     click.echo(click.style("No pending migrations.", fg="yellow"))
-            return revs
+
+            if verbose:
+                for result in results:
+                    for note in result.diagnostics:
+                        click.echo(click.style(f"  {note}", dim=True))
+
+            status = await engine.status(db)
+            return list(status.applied)
         finally:
             await db.disconnect()
 
@@ -779,7 +755,8 @@ def cmd_showmigrations(
         List of dicts with keys: name, file, applied
     """
     from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration_runner import MigrationRunner
+    from aquilia.models.migration.executor import MigrationExecutor
+    from aquilia.models.migration.serializer import revision_from_path
 
     migrations_path = Path(migrations_dir)
 
@@ -801,8 +778,7 @@ def cmd_showmigrations(
         db = AquiliaDatabase(database_url)
         try:
             await db.connect()
-            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
-            return set(await runner.get_applied())
+            return set(await MigrationExecutor(db).applied_revisions())
         except Exception:
             return set()
         finally:
@@ -815,7 +791,9 @@ def cmd_showmigrations(
     results: list[dict] = []
     for pyf in files:
         name = pyf.stem
-        is_applied = name in applied_set
+        # The tracking table stores revisions, not filenames, so match on the
+        # revision parsed out of the filename rather than on the stem.
+        is_applied = revision_from_path(pyf) in applied_set
         info = {
             "name": name,
             "file": str(pyf),
@@ -833,19 +811,22 @@ def cmd_sqlmigrate(
     migrations_dir: str = "migrations",
     verbose: bool = False,
     database: str | None = None,
+    dialect: str | None = None,
 ) -> str | None:
     """
     Display the SQL statements for a specific migration.
 
-    For DSL migrations the operations are compiled to SQL for the
-    current dialect (defaults to ``sqlite``).  For legacy migrations,
-    SQL is extracted from the source via regex or the raw source is
-    displayed.
+    Operations are compiled against the migration's own predecessor state, so
+    an ``AlterField`` shows the SQL it would really emit rather than SQL derived
+    from the current models. For a migration whose operations cannot be
+    compiled, the raw source is shown instead.
 
     Args:
         migration_name: Name of the migration file (without .py)
         migrations_dir: Directory containing migration files
         database: Database alias -- unused today, reserved for multi-db
+        dialect: Target SQL dialect. Defaults to ``sqlite``; pass the dialect the
+            migration will really run against to see backend-specific DDL.
 
     Returns:
         SQL string or None
@@ -866,58 +847,36 @@ def cmd_sqlmigrate(
             click.echo(click.style(f"Migration not found: {migration_name}", fg="red"))
             return None
 
-    # Try DSL compilation first
+    # Compile the migration's operations against the state its predecessors left
+    # behind. Anything that fails to compile falls through to the raw source.
     try:
-        from aquilia.models.migration_runner import (
-            _build_migration_from_module,
-            _extract_revision,
-            _load_migration_module,
-        )
+        from aquilia.models.migration import MigrationEngine
+        from aquilia.models.migration.backends import get_backend
+        from aquilia.models.migration.executor import compile_operations
+        from aquilia.models.migration.serializer import load_migration_module
 
-        rev = _extract_revision(target) or target.stem
-        module = _load_migration_module(target, rev)
-        if hasattr(module, "operations"):
-            migration_obj = _build_migration_from_module(module)
-            stmts = migration_obj.compile_upgrade("sqlite")
-            if stmts:
-                output = f"-- SQL for migration: {target.stem}\n\n"
-                output += "\n".join(stmts)
-                click.echo(output)
-                return output
-    except Exception:
-        pass
+        node = load_migration_module(target)
+        engine = MigrationEngine(migrations_dir)
+        graph = engine.load_graph()
+        # State before this migration: everything ordered ahead of it.
+        order = graph.order()
+        predecessors = order[: order.index(node.revision)] if node.revision in order else ()
+        state = engine.state_for(predecessors)
 
-    # Fallback: extract SQL from legacy migration source via regex
+        statements = compile_operations(node.operations, state, get_backend(dialect or "sqlite"))
+        if statements:
+            body = "\n".join(f"{statement.sql};" for statement in statements)
+            output = f"-- SQL for migration: {target.stem} ({dialect or 'sqlite'})\n\n{body}"
+            click.echo(output)
+            return output
+    except Exception as exc:
+        if verbose:
+            click.echo(click.style(f"  Could not compile operations: {exc}", fg="yellow"))
+
+    click.echo(click.style(f"-- Migration: {target.stem}", fg="cyan"))
     source = target.read_text(encoding="utf-8")
-
-    import re
-
-    sql_statements = re.findall(
-        r'(?:execute|executescript)\s*\(\s*["\']+(.*?)["\']+\s*\)',
-        source,
-        re.DOTALL,
-    )
-    sql_statements += re.findall(
-        r'(?:execute|executescript)\s*\(\s*"""(.*?)"""\s*\)',
-        source,
-        re.DOTALL,
-    )
-    sql_statements += re.findall(
-        r"(?:execute|executescript)\s*\(\s*'''(.*?)'''\s*\)",
-        source,
-        re.DOTALL,
-    )
-
-    if sql_statements:
-        output = f"-- SQL for migration: {target.stem}\n"
-        for sql in sql_statements:
-            output += f"\n{sql.strip()};\n"
-        click.echo(output)
-        return output
-    else:
-        click.echo(click.style(f"-- Migration: {target.stem}", fg="cyan"))
-        click.echo(source)
-        return source
+    click.echo(source)
+    return source
 
 
 def cmd_db_status(
@@ -1047,14 +1006,13 @@ def cmd_history(
 ) -> list[dict]:
     """Show migration history with application timestamps and checksums."""
     from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration_runner import MigrationRunner
+    from aquilia.models.migration.executor import MigrationExecutor
 
     async def _run():
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
-            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
-            records = await runner.get_applied_records()
+            records = await MigrationExecutor(db).applied_records()
             if not records:
                 click.echo(click.style("No migrations have been applied yet.", fg="yellow"))
                 return []
@@ -1128,100 +1086,134 @@ def cmd_rollback(
     plan: bool = False,
     verbose: bool = False,
 ) -> list[str]:
-    """Rollback migrations by target, step count, or timestamp."""
+    """Roll back migrations by target revision, step count, or timestamp.
+
+    Args:
+        database_url: Database to roll back.
+        migrations_dir: Directory holding the migration files.
+        target: Roll back everything applied after this revision. ``"zero"``
+            rolls back everything.
+        step: Roll back this many migrations from the most recent.
+        timestamp: Roll back everything applied after this time.
+        fake: Update the tracking table without executing any SQL.
+        plan: Show what would run without executing it.
+        verbose: Print per-migration diagnostics.
+
+    Returns:
+        The revisions that were rolled back.
+
+    Raises:
+        click.ClickException: If no rollback target can be determined, or the
+            requested target is not among the applied migrations.
+    """
     from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration_runner import MigrationRunner
+    from aquilia.models.migration import MigrationEngine
 
     async def _run() -> list[str]:
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
-            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
-            applied = await runner.get_applied()
+            engine = MigrationEngine(migrations_dir)
+            status = await engine.status(db)
+            applied = list(status.applied)
 
             if not applied:
                 click.echo(click.style("No applied migrations found to rollback.", fg="yellow"))
                 return []
 
-            final_target = None
-
-            if target is not None:
-                final_target = target
-            elif step is not None:
-                if step <= 0:
-                    raise click.ClickException("Step count must be greater than 0.")
-                if step >= len(applied):
-                    final_target = "zero"
-                else:
-                    final_target = applied[len(applied) - step - 1]
-            elif timestamp is not None:
-                try:
-                    target_time = parse_timestamp(timestamp)
-                except ValueError as e:
-                    raise click.ClickException(str(e))
-
-                applied_records = await runner.get_applied_records()
-                final_target = "zero"
-                for rec in applied_records:
-                    rec_time = normalize_db_timestamp(rec.applied_at)
-                    if rec_time <= target_time:
-                        final_target = rec.revision
-            else:
-                # Default rollback of 1 step
-                if len(applied) == 1:
-                    final_target = "zero"
-                else:
-                    final_target = applied[-2]
-
+            final_target = _resolve_rollback_target(applied, target, step, timestamp)
             if final_target is None:
                 raise click.ClickException("Could not determine rollback target.")
+            if final_target != "zero" and final_target not in applied:
+                raise click.ClickException(f"Target '{final_target}' is not in applied migrations.")
 
             if plan:
                 click.echo(click.style(f"-- Rollback Plan to target: '{final_target}' (dry-run):", fg="cyan"))
-                if final_target == "zero":
-                    to_rollback = list(reversed(applied))
-                else:
-                    if final_target not in applied:
-                        raise click.ClickException(f"Target '{final_target}' is not in applied migrations.")
-                    idx = applied.index(final_target)
-                    to_rollback = list(reversed(applied[idx + 1 :]))
-
-                if not to_rollback:
+                statements = await engine.plan(db, target=final_target)
+                if not statements:
                     click.echo("No migrations would be rolled back.")
                     return []
-
-                for rev in to_rollback:
-                    click.echo(f"  - Would rollback migration: {rev}")
-                    path = runner._find_migration_file(rev)
-                    if path:
-                        try:
-                            from aquilia.models.migration_runner import (
-                                _build_migration_from_module,
-                                _load_migration_module,
-                            )
-
-                            module = _load_migration_module(path, rev)
-                            if hasattr(module, "operations"):
-                                migration_obj = _build_migration_from_module(module)
-                                stmts = migration_obj.compile_downgrade(db.dialect)
-                                for sql in stmts:
-                                    click.echo(click.style(f"      {sql}", dim=True))
-                        except Exception:
-                            pass
+                for statement in statements:
+                    if statement.destructive:
+                        click.echo(click.style(f"-- DESTRUCTIVE: {statement.description}", fg="red"))
+                    click.echo(click.style(f"  {statement.sql}", dim=True))
                 return []
 
-            # Perform rollback
-            revs = await runner.migrate(target=final_target, fake=fake)
+            before = set(applied)
+            results = await engine.migrate(db, target=final_target, fake=fake)
+            after = set((await engine.status(db)).applied)
+            rolled_back = [revision for revision in applied if revision in before - after]
+
             action = "Faked rollback of" if fake else "Rolled back"
-            if revs:
-                click.echo(click.style(f"{action} {len(revs)} migration(s) to target '{final_target}'", fg="green"))
+            if rolled_back:
+                click.echo(
+                    click.style(
+                        f"{action} {len(rolled_back)} migration(s) to target '{final_target}'",
+                        fg="green",
+                    )
+                )
             else:
                 click.echo(click.style("Nothing to rollback.", fg="yellow"))
-            return revs
+
+            if verbose:
+                for result in results:
+                    for note in result.diagnostics:
+                        click.echo(click.style(f"  {note}", dim=True))
+
+            return rolled_back
         finally:
             await db.disconnect()
 
     return asyncio.run(_run())
+
+
+def _resolve_rollback_target(
+    applied: list[str],
+    target: str | None,
+    step: int | None,
+    timestamp: str | None,
+) -> str | None:
+    """Determine which revision to roll back to.
+
+    Exactly one of *target*, *step*, or *timestamp* selects the destination;
+    when none is given, a single migration is rolled back.
+
+    Args:
+        applied: Applied revisions, in application order.
+        target: An explicit target revision, or ``"zero"``.
+        step: Number of migrations to reverse from the most recent.
+        timestamp: Roll back everything applied after this time.
+
+    Returns:
+        The target revision, or ``"zero"`` to reverse everything.
+
+    Raises:
+        click.ClickException: If *step* is not positive, or *timestamp* cannot
+            be parsed.
+    """
+    if target is not None:
+        return target
+
+    if step is not None:
+        if step <= 0:
+            raise click.ClickException("Step count must be greater than 0.")
+        if step >= len(applied):
+            return "zero"
+        return applied[len(applied) - step - 1]
+
+    if timestamp is not None:
+        try:
+            target_time = parse_timestamp(timestamp)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        resolved = "zero"
+        for revision in applied:
+            revision_time = normalize_db_timestamp(revision.split("_", 2)[0] + "_" + revision.split("_", 2)[1])
+            if revision_time is not None and revision_time <= target_time:
+                resolved = revision
+        return resolved
+
+    return "zero" if len(applied) == 1 else applied[-2]
 
 
 def cmd_check(
@@ -1231,13 +1223,14 @@ def cmd_check(
 ) -> bool:
     """Validate migration integrity, naming conventions, and checksums."""
     from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration_runner import MigrationRunner, _extract_revision
+    from aquilia.models.migration import MigrationEngine
+    from aquilia.models.migration.serializer import revision_from_path
 
     async def _run() -> bool:
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
-            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
+            engine = MigrationEngine(migrations_dir)
             click.echo(click.style("Checking migration system health...", fg="cyan", bold=True))
 
             mdir = Path(migrations_dir)
@@ -1251,8 +1244,8 @@ def cmd_check(
             for path in migration_files:
                 if path.name.startswith("__"):
                     continue
-                rev = _extract_revision(path)
-                if not rev:
+                rev = revision_from_path(path)
+                if not rev or rev == path.stem:
                     invalid_names.append(path.name)
                 else:
                     if rev in rev_map:
@@ -1282,7 +1275,7 @@ def cmd_check(
             else:
                 click.echo(click.style("  [OK] No revision conflicts detected.", fg="green"))
 
-            mismatches = await runner.verify_checksums()
+            mismatches = await engine.verify_checksums(db)
             if mismatches:
                 click.secho("  [ERROR] Migration integrity/checksum verification failed:", fg="red", bold=True)
                 for m in mismatches:
@@ -1304,64 +1297,34 @@ def cmd_check(
     return asyncio.run(_run())
 
 
-def _serialize_snapshot_model_to_lines(model_name: str, model_data: dict) -> list[str]:
-    """Serialize snapshot model metadata to a list of Python class lines for diffing."""
-    lines = []
-    table = model_data.get("table", "")
-    lines.append(f"class {model_name}(Model):")
-    lines.append(f"    # Table: {table}")
-
-    # Fields
-    fields = model_data.get("fields", {})
-    # Sort fields alphabetically with 'id' first
-    sorted_fields = sorted(fields.keys(), key=lambda k: (0 if k == "id" else 1, k))
-    for fld_name in sorted_fields:
-        fld = fields[fld_name]
-        fld_cls = fld.get("field_class", "Field")
-        details = []
-        if fld.get("primary_key"):
-            details.append("primary_key=True")
-        if fld.get("max_length"):
-            details.append(f"max_length={fld['max_length']}")
-        if fld.get("nullable"):
-            details.append("nullable=True")
-        if fld.get("unique"):
-            details.append("unique=True")
-
-        default = fld.get("default")
-        if default is not None:
-            details.append(f"default={repr(default)}")
-
-        if fld.get("references"):
-            ref = fld["references"]
-            details.append(f"to='{ref.get('model')}'")
-
-        lines.append(f"    {fld_name} = {fld_cls}({', '.join(details)})")
-
-    # Indexes
-    indexes = model_data.get("indexes", [])
-    for idx in sorted(indexes, key=lambda i: i.get("name", "")):
-        uniq_str = ", unique=True" if idx.get("unique") else ""
-        cols = ", ".join(repr(c) for c in idx.get("columns", []))
-        lines.append(f"    # Index: {idx['name']} on [{cols}]{uniq_str}")
-
-    return lines
-
-
 def cmd_diff(
     database_url: str = "sqlite:///db.sqlite3",
     migrations_dir: str = "migrations",
     compare: str = "models",
     verbose: bool = False,
 ) -> bool:
-    """Compare database vs code models or database vs migration snapshot."""
+    """Report schema drift between the live database and the models or snapshot.
+
+    Introspects the database into a :class:`ProjectState` and diffs it against
+    the target state, then prints the operations that would close the gap. Those
+    are the same operations ``makemigrations`` would emit, so the report says
+    what to *do* about the drift rather than only that it exists.
+
+    Args:
+        database_url: Database to introspect.
+        migrations_dir: Where the state snapshot lives, for ``compare="snapshot"``.
+        compare: ``"models"`` to diff against the workspace models,
+            ``"snapshot"`` to diff against the recorded snapshot.
+        verbose: Print per-model discovery detail.
+
+    Returns:
+        ``True`` when the database matches the target, ``False`` on drift or when
+        the comparison could not be made.
+    """
     from aquilia.db import AquiliaDatabase
-    from aquilia.models.schema_snapshot import (
-        compute_diff,
-        create_snapshot,
-        create_snapshot_from_db,
-        load_snapshot,
-    )
+    from aquilia.models.migration import MigrationEngine
+    from aquilia.models.migration.autodetect import detect_changes
+    from aquilia.models.migration.schema import ProjectState
 
     models = _discover_models(verbose=verbose, ignore_errors=True)
 
@@ -1370,107 +1333,43 @@ def cmd_diff(
         await db.connect()
         try:
             click.echo(click.style(f"Computing schema diff ({compare} vs database)...", fg="cyan"))
-            db_snapshot = await create_snapshot_from_db(db, model_classes=models)
+            live = await ProjectState.from_database(db, model_classes=models)
 
             if compare == "models":
                 if not models:
                     click.secho("No models found in the workspace code to compare.", fg="yellow")
                     return False
-                target_snapshot = create_snapshot(models)
+                target = ProjectState.from_models(models)
             else:
-                snap_path = Path(migrations_dir) / "schema_snapshot.json"
-                if not snap_path.exists():
-                    click.secho(f"No schema snapshot file found at {snap_path}.", fg="yellow")
+                engine = MigrationEngine(migrations_dir)
+                if not engine.snapshot_path.exists():
+                    click.secho(f"No schema snapshot file found at {engine.snapshot_path}.", fg="yellow")
                     return False
-                target_snapshot = load_snapshot(snap_path)
-                if not target_snapshot:
-                    click.secho("Could not load schema snapshot.", fg="red")
+                target = engine.load_snapshot()
+                if not target.tables:
+                    click.secho("Schema snapshot is empty -- nothing to compare against.", fg="yellow")
                     return False
 
-            diff = compute_diff(db_snapshot, target_snapshot)
+            # Rename inference is off: a rename is indistinguishable from a
+            # drop-plus-add when one side was introspected, and guessing wrong
+            # here would report data-preserving drift as destructive.
+            operations = detect_changes(live, target, infer_renames=False)
 
-            if not diff.has_changes:
-                click.secho("Database and schema are completely in sync! No drift detected.", fg="green", bold=True)
+            if not operations:
+                click.secho("Database and schema are in sync. No drift detected.", fg="green", bold=True)
                 return True
 
-            click.secho("Drift/Diff detected between database and schema:\n", fg="yellow", bold=True)
-
+            click.secho(f"Drift detected -- {len(operations)} change(s) needed:\n", fg="yellow", bold=True)
             click.echo(click.style("--- database (active)", fg="red", bold=True))
             click.echo(click.style("+++ schema (target)", fg="green", bold=True))
             click.echo()
-
-            import difflib
-
-            # Print added models
-            if diff.added_models:
-                for m in diff.added_models:
-                    new_lines = _serialize_snapshot_model_to_lines(m, target_snapshot["models"][m])
-                    diff_lines = list(
-                        difflib.unified_diff([], new_lines, n=1000, fromfile="database", tofile="schema", lineterm="")
-                    )
-                    for line in diff_lines[3:]:
-                        if line.startswith("+"):
-                            click.echo(click.style(line, fg="green"))
-                        elif line.startswith("-"):
-                            click.echo(click.style(line, fg="red"))
-                        else:
-                            click.echo(click.style(line, fg="white"))
-                    click.echo()
-
-            # Print removed models
-            if diff.removed_models:
-                for m in diff.removed_models:
-                    old_lines = _serialize_snapshot_model_to_lines(m, db_snapshot["models"][m])
-                    diff_lines = list(
-                        difflib.unified_diff(old_lines, [], n=1000, fromfile="database", tofile="schema", lineterm="")
-                    )
-                    for line in diff_lines[3:]:
-                        if line.startswith("+"):
-                            click.echo(click.style(line, fg="green"))
-                        elif line.startswith("-"):
-                            click.echo(click.style(line, fg="red"))
-                        else:
-                            click.echo(click.style(line, fg="white"))
-                    click.echo()
-
-            # Print renamed models
-            if diff.renamed_models:
-                for old, new in diff.renamed_models:
-                    old_lines = _serialize_snapshot_model_to_lines(old, db_snapshot["models"][old])
-                    new_lines = _serialize_snapshot_model_to_lines(new, target_snapshot["models"][new])
-                    diff_lines = list(
-                        difflib.unified_diff(
-                            old_lines, new_lines, n=1000, fromfile="database", tofile="schema", lineterm=""
-                        )
-                    )
-                    for line in diff_lines[3:]:
-                        if line.startswith("+"):
-                            click.echo(click.style(line, fg="green"))
-                        elif line.startswith("-"):
-                            click.echo(click.style(line, fg="red"))
-                        else:
-                            click.echo(click.style(line, fg="white"))
-                    click.echo()
-
-            # Print altered models
-            if diff.altered_models:
-                for m in diff.altered_models:
-                    old_lines = _serialize_snapshot_model_to_lines(m, db_snapshot["models"][m])
-                    new_lines = _serialize_snapshot_model_to_lines(m, target_snapshot["models"][m])
-                    diff_lines = list(
-                        difflib.unified_diff(
-                            old_lines, new_lines, n=1000, fromfile="database", tofile="schema", lineterm=""
-                        )
-                    )
-                    for line in diff_lines[3:]:
-                        if line.startswith("+"):
-                            click.echo(click.style(line, fg="green"))
-                        elif line.startswith("-"):
-                            click.echo(click.style(line, fg="red"))
-                        else:
-                            click.echo(click.style(line, fg="white"))
-                    click.echo()
-
+            for operation in operations:
+                click.echo(f"  {click.style('+', fg='green')} {operation.describe()}")
+            click.echo()
+            click.secho(
+                "Run `aq db makemigrations` to record these changes as a migration.",
+                dim=True,
+            )
             return False
         finally:
             await db.disconnect()
@@ -1579,7 +1478,7 @@ def cmd_reset(
         )
 
     from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration_runner import MigrationRunner
+    from aquilia.models.migration import MigrationEngine
 
     async def _run():
         db = AquiliaDatabase(database_url)
@@ -1614,9 +1513,21 @@ def cmd_reset(
                 click.echo("No tables found to drop.")
 
             click.echo("Re-applying all migrations...")
-            runner = MigrationRunner(db, migrations_dir, dialect=dialect)
-            revs = await runner.migrate()
-            click.secho(f"Applied {len(revs)} migration(s). Database reset complete.", fg="green", bold=True)
+            # Dropping the tables also dropped the tracking table, so every
+            # migration is pending again. When the tracking table survived (a
+            # dialect where the drop was skipped), its rows must be cleared --
+            # otherwise `migrate` sees nothing pending and leaves an empty
+            # database that reports itself as fully migrated.
+            engine = MigrationEngine(migrations_dir)
+            remaining = await db.get_tables()
+            if "aquilia_migrations" in remaining:
+                await db.execute('DELETE FROM "aquilia_migrations"')
+            results = await engine.migrate(db)
+            click.secho(
+                f"Applied {len(results)} migration(s). Database reset complete.",
+                fg="green",
+                bold=True,
+            )
         finally:
             await db.disconnect()
 

@@ -1908,27 +1908,20 @@ def db():
 @db.command("makemigrations")
 @click.option("--app", type=str, default=None, help="Restrict to specific module/app")
 @click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
-@click.option("--dsl/--no-dsl", default=True, help="Use new DSL format (default: True)")
-@click.option(
-    "--format",
-    "fmt",
-    type=click.Choice(["python", "json"]),
-    default="json",
-    help="Migration file format -- json (default) or python",
-)
+@click.option("--slug", type=str, default=None, help="Filename suffix (derived from the models by default)")
+@click.option("--dry-run", is_flag=True, help="Report what would be generated without writing it")
 @click.pass_context
-def db_makemigrations(ctx, app: str | None, migrations_dir: str, dsl: bool, fmt: str):
+def db_makemigrations(ctx, app: str | None, migrations_dir: str, slug: str | None, dry_run: bool):
     """
     Generate migration files from Python Model definitions.
 
-    Uses JSON format by default for compact, efficient migration
-    storage.  Pass ``--format=python`` for human-readable DSL files.
+    Migrations are written as Python source naming real Aquilia field, index,
+    and operation objects -- readable, reviewable, and editable by hand.
 
     Examples:
       aq db makemigrations
       aq db makemigrations --app=products
-      aq db makemigrations --format=python
-      aq db makemigrations --no-dsl    # Legacy raw-SQL format
+      aq db makemigrations --slug=add_bio --dry-run
     """
     from .commands.model_cmds import cmd_makemigrations
 
@@ -1937,8 +1930,8 @@ def db_makemigrations(ctx, app: str | None, migrations_dir: str, dsl: bool, fmt:
             app=app,
             migrations_dir=migrations_dir,
             verbose=ctx.obj["verbose"],
-            use_dsl=dsl,
-            migration_format=fmt,
+            slug=slug,
+            dry_run=dry_run,
         )
     except Exception as e:
         error(f"  {_CROSS} makemigrations failed: {e}")
@@ -2115,17 +2108,23 @@ def db_showmigrations(ctx, migrations_dir: str, database_url: str | None, databa
 @click.argument("migration_name")
 @click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
 @click.option("--database", type=str, default=None, help="Database alias")
+@click.option(
+    "--dialect",
+    type=click.Choice(["sqlite", "postgresql", "mysql", "oracle"]),
+    default="sqlite",
+    help="Target SQL dialect to compile for",
+)
 @click.pass_context
-def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: str | None):
+def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: str | None, dialect: str):
     """
     Display SQL statements for a specific migration.
 
-    Supports both DSL and legacy migrations. For DSL migrations,
-    compiles operations to SQL for the target backend.
+    Compiles the migration's operations against the state its predecessors left
+    behind, for the requested dialect.
 
     Examples:
       aq db sqlmigrate 20260217_210454
-      aq db sqlmigrate 0002 --migrations-dir=db/migrations
+      aq db sqlmigrate 0002 --dialect=postgresql
     """
     from .commands.model_cmds import cmd_sqlmigrate
 
@@ -2134,6 +2133,8 @@ def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: str |
             migration_name=migration_name,
             migrations_dir=migrations_dir,
             verbose=ctx.obj["verbose"],
+            database=database,
+            dialect=dialect,
         )
     except Exception as e:
         error(f"  {_CROSS} sqlmigrate failed: {e}")
