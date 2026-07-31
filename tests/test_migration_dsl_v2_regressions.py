@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -645,14 +646,16 @@ class TestDeterminism:
             "for n in ('Alpha','Beta','Gamma','Delta','Epsilon')});"
             "print(json.dumps([op.describe() for op in detect_changes(before, after)]))"
         )
+        repo_root = str(Path(__file__).resolve().parent.parent)
         outputs = set()
         for seed in ("0", "1", "42", "12345"):
+            env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONPATH": repo_root}
             completed = subprocess.run(
                 [sys.executable, "-c", script],
                 capture_output=True,
                 text=True,
-                cwd=str(Path(__file__).resolve().parent.parent),
-                env={"PYTHONHASHSEED": seed, "PATH": "/usr/bin:/bin"},
+                cwd=repo_root,
+                env=env,
                 check=True,
             )
             outputs.add(completed.stdout.strip())
@@ -668,14 +671,16 @@ class TestDeterminism:
             "for c in ('z','y','x','w','v','u')};"
             "print(ProjectState({'M': TableState(model='M', db_table='m', columns=cols)}).checksum())"
         )
+        repo_root = str(Path(__file__).resolve().parent.parent)
         outputs = set()
         for seed in ("0", "7", "999"):
+            env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONPATH": repo_root}
             completed = subprocess.run(
                 [sys.executable, "-c", script],
                 capture_output=True,
                 text=True,
-                cwd=str(Path(__file__).resolve().parent.parent),
-                env={"PYTHONHASHSEED": seed, "PATH": "/usr/bin:/bin"},
+                cwd=repo_root,
+                env=env,
                 check=True,
             )
             outputs.add(completed.stdout.strip())
