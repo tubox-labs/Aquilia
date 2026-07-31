@@ -5,6 +5,121 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.10] — 2026-08-01 — "Migration Rewrite"
+
+This release replaces the entire previous migration subsystem — six separate modules (`migration_dsl`, `migration_gen`, `migration_planner`, `migration_runner`, `migrations`, `schema_snapshot`) plus `ddl_executor` — with a single coherent `aquilia.models.migration` sub-package. The new system is built around immutable schema state, typed backend-independent operations, a dependency-graph planner, a transactional executor, and deterministic real-Python-constructor migration files.
+
+Full notes: [`releases/1.3.10/`](releases/1.3.10/README.md)
+
+### Added
+
+#### Database & ORM — New Migration Sub-Package (`aquilia.models.migration`)
+
+- **`MigrationEngine`** (`aquilia.models.migration.engine`) — Single entry point for generating, planning, applying, rolling back, and verifying migrations. Replaces `MigrationRunner`, `DSLMigrationRunner`, `generate_dsl_migration`, and `generate_migration_from_models`.
+- **`MigrationStatus`** (`aquilia.models.migration.engine`) — Dataclass summarising applied and pending migrations, with `is_current`, `describe()`, and `leaves` for branch detection.
+- **`ProjectState`** (`aquilia.models.migration.schema`) — Immutable, fully-typed schema state built directly from `Field.deconstruct()` output, preserving generated-column expressions, M2M relationships, index methods, partial-index predicates, composite PKs, and all other model semantics. Replaces `SchemaDiff`/`ModelDiff` snapshot machinery.
+- **`TableState` / `ColumnState` / `IndexState` / constraint states** (`aquilia.models.migration.schema`) — Fine-grained per-table, per-column, per-index state objects with field-fidelity round-trips.
+- **Typed Operation Catalogue** (`aquilia.models.migration.operations`) — `CreateModel`, `DeleteModel`, `RenameModel`, `AlterModelOptions`, `AddField`, `RemoveField`, `AlterField`, `RenameField`, `AddIndex`, `RemoveIndex`, `AlterIndex`, `AddConstraint`, `RemoveConstraint`, `AlterConstraint`, `CreateManyToManyTable`, `DeleteManyToManyTable`, `RunSQL`, `RunPython`. All backend-independent with `state_forwards`/`state_backwards`/`database_forwards`/`database_backwards` protocol.
+- **`SchemaBackend` dialect layer** (`aquilia.models.migration.backends`) — SQLite, PostgreSQL, MySQL, Oracle backends. The only layer that knows about SQL dialects. Replaces `DDLExecutor`.
+- **`Autodetector`** (`aquilia.models.migration.autodetect`) — Deterministic state-to-state diffing with safe rename inference (`RENAME_CONFIDENCE_THRESHOLD = 0.85` requiring multi-signal agreement). `RenameHint` for explicit developer instructions. Replaces `compute_diff` / `diff_to_operations`.
+- **`MigrationGraph` / `MigrationNode`** (`aquilia.models.migration.graph`) — Dependency-aware DAG. Forward/backward topological planning. Conflict detection (duplicate revisions, forked history). Squash support via `replaces`. Replaces filename-sort ordering.
+- **`optimize()`** (`aquilia.models.migration.optimizer`) — Operation reduction before file write. Folds `CreateModel + AddField → CreateModel`, cancels `AddField + RemoveField`, collapses double alters, etc. `RunSQL`/`RunPython` act as opaque barriers.
+- **`MigrationExecutor`** (`aquilia.models.migration.executor`) — Transactional application with per-statement atomicity control. Tracking `INSERT` runs inside the same transaction as DDL. Non-transactional statements declared per-statement. MySQL/Oracle non-transactional warnings. Checksum recording per applied migration.
+- **`ExecutionResult`** (`aquilia.models.migration.executor`) — Per-migration outcome: `statements_executed`, `statements_skipped`, `duration_ms`, `diagnostics`.
+- **`AppliedMigration`** (`aquilia.models.migration.executor`) — One row of the tracking table: `revision`, `slug`, `checksum`, `applied_at`.
+- **`compile_operations()`** (`aquilia.models.migration.executor`) — Compiles operations + state → backend statements for dry-run/plan output.
+- **`render_migration_module()` / `load_migration_module()`** (`aquilia.models.migration.serializer`) — File writing and loading. `MIGRATION_TEMPLATE_VERSION = 3` for real-constructor files.
+- **`database_exists()` / `migrations_applied()`** (`aquilia.models.migration.probe`) — Read-only pre-connection SQLite readiness probes. Never creates WAL/SHM sidecar files. Replaces `check_db_exists` / `check_migrations_applied`.
+- **`ModelRegistry._record_initial_schema()`** (`aquilia.models.registry`) — Records `0000_initial_schema` in `aquilia_migrations` after `create_tables()`, ensuring a subsequent `aq db migrate` sees the initial schema as already applied.
+
+#### Fields
+
+- **`_resolve_enum_class()`** (`aquilia.models.fields.enum_field`) — Resolves a dotted-string `enum_class` path (e.g. `"myapp.models.Status"`) to the actual `Enum` subclass, enabling generated migration files to reconstruct `EnumField` on load.
+- **`GeneratedField.deconstruct()`** — Now includes `expression`, `db_persist`, and nested `output_field` dict, making generated columns visible to migration snapshotting and change detection.
+- **`compile_schema_expression()`** (`aquilia.models.expression`) — Public function (moved from `_compile_schema_expression` in `schema_snapshot`). Renders query-expression objects as inline SQL for DDL contexts.
+
+#### Tests
+
+- **`tests/test_migration_dialect_ddl.py`** — DDL output correctness across all four dialect backends.
+- **`tests/test_migration_dsl_v2_regressions.py`** — Regression suite for the new migration sub-package against the full DSL test matrix.
+- **`tests/test_migration_executor_dialects.py`** — Executor atomicity and tracking-table behaviour across dialects.
+- **`tests/test_migration_stress.py`** — Concurrent migration generation and application stress tests.
+
+### Changed
+
+#### API Changes (Breaking)
+
+- **`MigrationEngine`** replaces `MigrationRunner`, `DSLMigrationRunner`, `MigrationOps`, `MigrationInfo`, `generate_migration_from_models`, `op`, `generate_dsl_migration` in all public exports.
+- **`aquilia.models` top-level exports** — Removed `DSLCreateModel`, `DSLAddField`, `DSLRemoveField`, `DSLAlterField`, `DSLRenameField`, `DSLDropModel`, `DSLRenameModel`, `DSLCreateIndex`, `DSLDropIndex`, `DSLRunSQL`, `DSLRunPython`, `DSLAddConstraint`, `DSLRemoveConstraint`, `ColumnDef`, `columns`, `C`, `Migration`; added `MigrationEngine`, `MigrationGraph`, `MigrationNode`, `MigrationStatus`, `Operation`, `ProjectState`.
+- **`aquilia.__init__`** — Exports `MigrationEngine` instead of `MigrationRunner` / `MigrationOps`.
+- **`startup_guard.py`** — Probe imports updated from `migration_runner.{check_db_exists,check_migrations_applied}` to `migration.probe.{database_exists,migrations_applied}`.
+- **`server.py`** — Auto-migration uses `MigrationEngine` instead of `MigrationRunner`.
+
+#### CLI Changes (Breaking)
+
+- **`aq db makemigrations`** — Removed `--use-dsl` / `--no-use-dsl` / `--migration-format` flags. Added `--slug TEXT` and `--dry-run` flags.
+- **`aq db migrate`** — `--plan` output now shows `Statement.description` and marks destructive statements in red. `--verbose` emits `ExecutionResult.diagnostics`. Return value reflects full applied history from `engine.status()`.
+- **`aq db showmigrations`** — Updated to use `MigrationExecutor` + `revision_from_path`.
+- **`aq db diff`** — Now outputs semantic operation descriptions (one per line) instead of `difflib` unified-diff text. Rename inference disabled for database-vs-snapshot comparison.
+- **`aq db reset`** — Now explicitly clears `aquilia_migrations` tracking table if it survived the table drop, fixing reset on MySQL/certain PostgreSQL configs.
+
+### Improved
+
+#### ORM & Migrations
+
+- **Snapshot format v2** (`STATE_VERSION = 2`) — Uses `"tables"` key, stores full `Field.deconstruct()` dicts, supports M2M, generated columns, index methods, and partial predicates. Old `"models"` snapshots detected and discarded gracefully.
+- **Migration file format v3** (`MIGRATION_TEMPLATE_VERSION = 3`) — Real Python constructor calls instead of serialised dicts. Fully readable, editable, and type-checkable.
+- **Deterministic migration generation** — Every collection is a sorted `tuple`; byte-identical output for identical inputs regardless of `PYTHONHASHSEED`.
+- **Operation optimizer** — Reduces verbose autodetector output before file write; treats `RunSQL`/`RunPython` as opaque barriers.
+- **Checksum tamper detection** — Every applied migration records its source SHA-256; `engine.verify_checksums(db)` surfaces post-deployment tampering.
+- **`ProjectState.creation_order()`** — Topological sort ensures `CREATE TABLE` runs after all referenced tables exist.
+- **`BigAutoField.sql_type("mysql")`** — Now `"BIGINT"` (was `"INTEGER"`, silently losing 64-bit guarantee on MySQL).
+- **`SmallAutoField.sql_type("mysql")`** — Now `"SMALLINT"` (was `"INTEGER"`).
+
+### Fixed
+
+- **`_patched_create_tables_new` missing `db` parameter** — Faults integration patch now accepts `db=None` matching the real `ModelRegistry.create_tables` signature.
+- **`startup_guard.py` `ImportError`** — Probe functions renamed; updated import path prevents `ImportError` on server boot.
+- **`ModelRegistry.create_tables()` `ImportError`** — Updated to use `ProjectState` + `MigrationExecutor` from the new sub-package.
+- **`compile_schema_expression` `ImportError`** — `base.py` and `fields_module.py` updated to import from `expression.py` instead of deleted `schema_snapshot.py`.
+- **`server.py` auto-migration `ImportError`** — Updated import from deleted `migration_runner` to `migration.engine`.
+- **`aq db reset` tracking-table ghost** — Clears `aquilia_migrations` when it survives the table drop; prevents silent empty-database-appearing-fully-migrated state.
+
+### Removed
+
+#### Deleted Modules (Breaking)
+
+- `aquilia.models.ddl_executor` — replaced by `migration.executor` + `migration.backends`
+- `aquilia.models.migration_dsl` — replaced by `migration.operations`
+- `aquilia.models.migration_gen` — replaced by `migration.codegen` + `migration.serializer`
+- `aquilia.models.migration_planner` — replaced by `migration.graph` + `migration.engine`
+- `aquilia.models.migration_runner` — replaced by `migration.executor` + `migration.engine`
+- `aquilia.models.migrations` — replaced by `migration.engine`
+- `aquilia.models.schema_snapshot` — replaced by `migration.schema` + `migration.autodetect`
+
+#### Removed Public Symbols (Breaking)
+
+`MigrationRunner`, `DSLMigrationRunner`, `MigrationOps`, `MigrationInfo`, `generate_migration_from_models`, `op`, `generate_dsl_migration`, `Migration`, `DSLCreateModel`, `DSLAddField`, `DSLRemoveField`, `DSLAlterField`, `DSLRenameField`, `DSLDropModel`, `DSLRenameModel`, `DSLCreateIndex`, `DSLDropIndex`, `DSLRunSQL`, `DSLRunPython`, `DSLAddConstraint`, `DSLRemoveConstraint`, `ColumnDef`, `columns`, `C`, `create_snapshot`, `save_snapshot`, `load_snapshot`, `compute_diff`, `diff_to_operations`, `SchemaDiff`, `ModelDiff`, `DDLExecutor`, `ExecutableStatement`, `StatementType`, `InitialSchemaPlanner`, `MigrationPlan`, `MigrationPlanner`, `MigrationStep`, `check_db_exists`, `check_migrations_applied`, `check_db_ready`.
+
+### Performance
+
+- **Zero snapshot reads when no migration files exist** — `MigrationEngine.load_graph()` returns early when the migrations directory does not exist, avoiding a filesystem scan.
+- **Read-only SQLite probes** — Pre-connection readiness checks open SQLite in `mode=ro`, never creating WAL/SHM sidecar files.
+- **Operation optimizer** — Reduces the number of SQL statements compiled and executed for squash migrations.
+
+### Documentation
+
+- Added `releases/1.3.10/README.md` — Release overview and highlights.
+- Added `releases/1.3.10/migration_engine.md` — Full architecture documentation for the new sub-package.
+- Added `releases/1.3.10/operations.md` — Typed operation catalogue and optimizer interaction.
+- Added `releases/1.3.10/cli.md` — CLI changes for all `aq db` commands.
+- Added `releases/1.3.10/fields.md` — Field improvements (EnumField, BigAutoField, SmallAutoField, GeneratedField).
+- Added `releases/1.3.10/migration.md` — Breaking changes guide and upgrade checklist.
+- Added `releases/1.3.10/bugfixes.md` — Per-bug root cause and fix documentation.
+- Added `releases/1.3.10/architecture.md` — Design rationale, atomicity model, snapshot format, graph planning.
+
+---
+
 ## [1.3.9] — 2026-07-30 — "Database Sentinel"
 
 This release introduces strict `auto_migrate=False` schema enforcement, a non-fatal database startup readiness model (`DatabaseState`), a single-authority migration execution engine (`MigrationRunner`, `DDLExecutor`, `MigrationPlanner`), typed statement intermediate representations (`ExecutableStatement`), backend adapter DDL error encapsulation, and atomic transactional DDL & migration rollback guarantees across the Aquilia Database, ORM, and Server Startup lifecycle subsystems.
