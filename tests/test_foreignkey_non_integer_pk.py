@@ -25,7 +25,7 @@ import pytest_asyncio
 from aquilia.db.engine import configure_database
 from aquilia.models.base import Model, ModelRegistry
 from aquilia.models.fields_module import CharField, FieldValidationError, ForeignKey, OneToOneField, UUIDField
-from aquilia.models.schema_snapshot import _field_to_sql_type
+from aquilia.models.migration import ColumnState
 
 
 class FkUuidAuthor(Model):
@@ -110,10 +110,18 @@ class TestForeignKeySqlTypeMatchesRelatedPk:
         assert field.sql_type() != "INTEGER"
 
     @pytest.mark.asyncio
-    async def test_schema_snapshot_field_to_sql_type_resolves_related_pk(self, seeded_db):
-        field = FkUuidPost._fields["author"]
-        assert _field_to_sql_type(field) == _field_to_sql_type(FkUuidAuthor._fields[FkUuidAuthor._pk_attr])
-        assert _field_to_sql_type(field) != "INTEGER"
+    async def test_migration_state_sql_type_resolves_related_pk(self, seeded_db):
+        """The type a migration would emit must match the target's PK type too.
+
+        ``sql_type()`` on the field is one path; the state a migration is built
+        from is another. Both resolving to the related PK's type is what keeps a
+        generated schema loadable.
+        """
+        fk_column = ColumnState.of("author", FkUuidPost._fields["author"], column="author_id")
+        pk_column = ColumnState.of("id", FkUuidAuthor._fields[FkUuidAuthor._pk_attr])
+
+        assert fk_column.sql_type("sqlite") == pk_column.sql_type("sqlite")
+        assert fk_column.sql_type("sqlite") != "INTEGER"
 
 
 class TestOneToOneFieldForwardsKwargs:

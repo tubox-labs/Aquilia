@@ -1,29 +1,39 @@
 """
-Exhaustive verification test suite for the Aquilia Migration Engine Refactor.
+Verification suite for the migration engine's architectural invariants.
 
-Validates all 14 phases of the architectural refactor:
-1. ModelRegistry is no longer an execution authority.
-2. MigrationRunner & DDLExecutor are the sole execution engine.
-3. SQL strings are replaced by typed ExecutableStatement intermediate representations.
-4. Initial schema planning is owned by InitialSchemaPlanner without synthetic empty-snapshot diffing hacks.
-5. Backend adapters encapsulate database-specific DDL quirks (e.g. MySQL error 1061/1091).
-6. Initial schema creation is recorded consistently in aquilia_migrations.
-7. Atomic transactions and rollbacks work deterministically.
+Pins the boundaries the design depends on:
+
+1. ``ModelRegistry`` is not an execution authority -- it decides *what* to
+   create and delegates *how* to the executor.
+2. ``MigrationExecutor`` is the sole execution path for schema DDL.
+3. Operations compile to typed :class:`Statement` objects, never to bare
+   strings the caller has to interpret.
+4. Initial schema creation is planned from models directly, with no synthetic
+   empty-state diffing, and is recorded in ``aquilia_migrations``.
+5. Backend adapters own dialect-specific error tolerance (MySQL 1061/1091).
+6. A failing migration rolls back every statement that preceded it.
 """
 
 import inspect
 import sqlite3
-import pytest
-from pathlib import Path
 
-from aquilia.db.engine import AquiliaDatabase
+import pytest
+
 from aquilia.db.backends.mysql import MySQLAdapter
-from aquilia.models.base import Model, ModelRegistry
-from aquilia.models.fields_module import CharField, IntegerField, ForeignKey
-from aquilia.models.ddl_executor import DDLExecutor, ExecutableStatement, StatementType
-from aquilia.models.migration_planner import MigrationPlanner, InitialSchemaPlanner, MigrationPlan
-from aquilia.models.migration_runner import MigrationRunner, MIGRATION_TABLE
+from aquilia.db.engine import AquiliaDatabase
 from aquilia.faults.domains import MigrationFault
+from aquilia.models.base import Model, ModelRegistry
+from aquilia.models.fields_module import CharField, ForeignKey, IntegerField
+from aquilia.models.migration import (
+    MIGRATION_TABLE,
+    CreateModel,
+    MigrationExecutor,
+    ProjectState,
+    RunSQL,
+    Statement,
+    compile_operations,
+    get_backend,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -35,25 +45,23 @@ def reset_model_registry():
 
 @pytest.mark.asyncio
 async def test_model_registry_has_no_execution_authority():
-    """Verify ModelRegistry no longer contains DDL execution loops, transaction blocks, or SQL string parsing."""
+    """ModelRegistry must not run DDL, manage transactions, or parse SQL text."""
     import aquilia.models.registry as reg_module
 
     source = inspect.getsource(reg_module)
 
-    # ModelRegistry source must not contain hardcoded execute loops or comment parsing
-    assert 'for sql in statements:' not in source
+    assert "for sql in statements:" not in source
     assert 'if sql.startswith("--"):' not in source
     assert 'dialect == "mysql" and _args' not in source
 
-    # ModelRegistry source must delegate to MigrationRunner
-    assert "runner = MigrationRunner(" in source
-    assert "await runner.create_initial_schema(" in source
-    assert "await runner.drop_all_tables(" in source
+    assert "MigrationExecutor(" in source
+    assert "await executor.apply_operations(" in source
+    assert "await cls._drop_via_executor(" in source
 
 
 @pytest.mark.asyncio
-async def test_initial_schema_planner_direct_generation():
-    """Verify InitialSchemaPlanner creates typed operations directly from models without fake migrations."""
+async def test_initial_schema_planned_directly_from_models():
+    """State is built from models directly -- no fake migration, no empty-state diff."""
 
     class User(Model):
         username = CharField(max_length=50, unique=True)
@@ -63,43 +71,53 @@ async def test_initial_schema_planner_direct_generation():
         user = ForeignKey("User", on_delete="CASCADE")
         bio = CharField(max_length=200, null=True)
 
-    models = ModelRegistry._topological_sort()
-    step = InitialSchemaPlanner.plan_from_models(models)
+    state = ProjectState.from_models(ModelRegistry._topological_sort())
 
-    assert step.is_initial is True
-    assert step.revision == "0000_initial_schema"
-    assert len(step.operations) >= 2  # CreateModel User and Profile
+    assert {"User", "Profile"} <= set(state.tables)
+    users = state.tables["User"]
+    assert users.db_table == User._meta.table_name
+    assert users.columns["username"].unique is True
 
-    # Verify CreateModel operations
-    user_op = next(op for op in step.operations if getattr(op, "name", "") == "User")
-    assert user_op.table == User._meta.table_name
-    assert any(f.name == "username" and f.unique is True for f in user_op.fields)
+    # The foreign key resolves to the *table* it targets, not just a model name.
+    reference = state.tables["Profile"].columns["user"].reference
+    assert reference is not None
+    assert reference.model == "User"
+    assert reference.table == User._meta.table_name
+    assert reference.on_delete == "CASCADE"
 
 
 @pytest.mark.asyncio
-async def test_ddl_executor_typed_statements():
-    """Verify DDLExecutor compiles operations into typed ExecutableStatement objects."""
-    from aquilia.models.migration_dsl import CreateModel, C
+async def test_operations_compile_to_typed_statements():
+    """Compilation yields Statement objects carrying execution metadata."""
+    state = ProjectState()
+    table = ProjectState.from_models([]).tables  # empty, for clarity
+    assert table == {}
 
-    op = CreateModel(
-        name="Test",
-        table="tests",
-        fields=[C.auto("id"), C.varchar("title", 100)],
+    class Thing(Model):
+        title = CharField(max_length=100)
+
+        class Meta:
+            table_name = "typed_things"
+
+    target = ProjectState.from_models([Thing])
+    statements = compile_operations(
+        [CreateModel(model="Thing", table=target.tables["Thing"])],
+        state,
+        get_backend("sqlite"),
     )
 
-    statements = DDLExecutor.compile_operations([op], dialect="sqlite")
     assert len(statements) == 1
-    stmt = statements[0]
-
-    assert isinstance(stmt, ExecutableStatement)
-    assert stmt.statement_type == StatementType.CREATE_TABLE
-    assert stmt.is_comment is False
-    assert "CREATE TABLE" in stmt.sql
+    statement = statements[0]
+    assert isinstance(statement, Statement)
+    assert "CREATE TABLE" in statement.sql
+    assert statement.description
+    assert statement.destructive is False
+    assert statement.transactional is True
 
 
 @pytest.mark.asyncio
 async def test_mysql_adapter_encapsulates_error_tolerance():
-    """Verify MySQLAdapter encapsulates error 1061 and 1091 tolerance."""
+    """Dialect-specific error tolerance belongs to the adapter, not the executor."""
     adapter = MySQLAdapter()
 
     class FakeException(Exception):
@@ -113,85 +131,66 @@ async def test_mysql_adapter_encapsulates_error_tolerance():
 
 @pytest.mark.asyncio
 async def test_migration_history_recorded_on_initial_schema(tmp_path):
-    """Verify initial schema creation records history in aquilia_migrations."""
-    ModelRegistry.reset()
+    """Initial schema creation is recorded in aquilia_migrations like any migration."""
 
     class Order(Model):
         code = CharField(max_length=20)
 
     db_file = tmp_path / "initial_history.db"
-    db_url = f"sqlite:///{db_file}"
-
-    db = AquiliaDatabase(db_url)
+    db = AquiliaDatabase(f"sqlite:///{db_file}")
     await db.connect()
     ModelRegistry.set_database(db)
 
-    # Execute initial schema
     await ModelRegistry.create_tables(db)
 
-    # Verify tracking table exists and initial schema record is present
-    runner = MigrationRunner(db)
-    records = await runner.get_applied_records()
-
-    assert len(records) >= 1
-    assert any(r.revision == "0000_initial_schema" for r in records)
+    records = await MigrationExecutor(db).applied_records()
+    assert any(record.revision == "0000_initial_schema" for record in records)
+    # The record carries a checksum, which is what makes drift detectable.
+    initial = next(record for record in records if record.revision == "0000_initial_schema")
+    assert initial.checksum
 
     await db.disconnect()
 
 
 @pytest.mark.asyncio
-async def test_atomic_transaction_execution_and_rollback(tmp_path):
-    """Verify DDLExecutor and MigrationRunner execute statements transactionally and roll back on failure."""
-    ModelRegistry.reset()
+async def test_atomic_execution_rolls_back_on_failure(tmp_path):
+    """A failing statement undoes every statement that preceded it in the batch."""
 
-    class Item(Model):
+    class Good(Model):
         name = CharField(max_length=30)
 
+        class Meta:
+            table_name = "goods"
+
     db_file = tmp_path / "atomic_tx.db"
-    db_url = f"sqlite:///{db_file}"
-
-    db = AquiliaDatabase(db_url)
+    db = AquiliaDatabase(f"sqlite:///{db_file}")
     await db.connect()
-    ModelRegistry.set_database(db)
 
-    runner = MigrationRunner(db)
+    state = ProjectState.from_models([Good])
+    operations = [
+        CreateModel(model="Good", table=state.tables["Good"]),
+        RunSQL(sql="INVALID SQL SYNTAX THAT FAILS"),
+    ]
 
-    # Construct plan with a failing step containing a valid CreateModel and a broken RunSQL
-    from aquilia.models.migration_dsl import CreateModel, RunSQL, C
+    executor = MigrationExecutor(db)
+    await executor.ensure_tracking_table()
 
-    valid_op = CreateModel("Good", "goods", [C.auto("id")])
-    broken_op = RunSQL("INVALID SQL SYNTAX THAT FAILS")
+    with pytest.raises(MigrationFault):
+        await executor.apply_operations(operations, ProjectState(), description="failing batch")
 
-    from aquilia.models.migration_planner import MigrationStep
-    failing_step = MigrationStep(
-        revision="20260730_999999",
-        slug="broken",
-        operations=[valid_op, broken_op],
-    )
-    plan = MigrationPlan(steps=[failing_step])
-
-    with pytest.raises(Exception):
-        await runner.execute_plan(plan)
-
-    # Verify goods table does not exist due to transaction rollback
-    conn = sqlite3.connect(str(db_file))
-    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='goods'")
-    rows = cursor.fetchall()
-    conn.close()
+    connection = sqlite3.connect(str(db_file))
+    rows = connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='goods'").fetchall()
+    connection.close()
     await db.disconnect()
 
-    assert len(rows) == 0, "All DDL operations in failing plan step must roll back atomically!"
+    assert rows == [], "Every DDL statement in a failing batch must roll back."
 
 
 @pytest.mark.asyncio
-async def test_rollback_to_zero(tmp_path):
-    """Verify rollback_to('zero') undoes applied migrations."""
-    ModelRegistry.reset()
-
+async def test_drop_tables_tears_down_schema(tmp_path):
+    """Teardown goes through the executor and actually removes the tables."""
     db_file = tmp_path / "rollback_test.db"
-    db_url = f"sqlite:///{db_file}"
-
-    db = AquiliaDatabase(db_url)
+    db = AquiliaDatabase(f"sqlite:///{db_file}")
     await db.connect()
     ModelRegistry.set_database(db)
 
@@ -199,19 +198,30 @@ async def test_rollback_to_zero(tmp_path):
         label = CharField(max_length=40)
 
     await ModelRegistry.create_tables(db)
+    assert await MigrationExecutor(db).applied_revisions()
 
-    runner = MigrationRunner(db)
-    applied = await runner.get_applied()
-    assert len(applied) >= 1
-
-    # Roll back tables via drop_tables
     dropped = await ModelRegistry.drop_tables(db)
     assert len(dropped) >= 1
 
-    conn = sqlite3.connect(str(db_file))
-    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='widget'")
-    row = cursor.fetchone()
-    conn.close()
+    connection = sqlite3.connect(str(db_file))
+    row = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        [Widget._meta.table_name],
+    ).fetchone()
+    connection.close()
     await db.disconnect()
 
-    assert row is None, "Widget table must be dropped after drop_tables execution!"
+    assert row is None, "Widget table must be dropped after drop_tables()."
+
+
+@pytest.mark.asyncio
+async def test_tracking_table_name_is_shared_constant():
+    """Everything that reads or writes migration history agrees on the table name."""
+    assert MIGRATION_TABLE == "aquilia_migrations"
+
+    db = AquiliaDatabase("sqlite:///:memory:")
+    await db.connect()
+    try:
+        assert MigrationExecutor(db).table == MIGRATION_TABLE
+    finally:
+        await db.disconnect()

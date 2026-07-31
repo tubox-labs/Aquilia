@@ -1,27 +1,33 @@
 """
-Brutal test suite verifying DSL Migration Generator correctness fixes.
+Correctness of generated migration files.
 
-Validates:
-1. Index columns are NEVER character-split (['token'], ['expires_at'], not ['t','o','k','e','n']).
-2. Foreign key target tables resolve to actual DB table names ('users', not 'usersmodel').
-3. Enum defaults render as valid Python scalar literals ('active', 1) without repr noise.
-4. Auto index names use normalized column lists (idx_email_verification_token).
-5. Index columns map model field names ('user') to DB column names ('user_id').
-6. Unique constraints map model field names ('user', 'role') to DB column names ('user_id', 'role').
-7. Foreign key column types are consistently inferred from target PK type (VARCHAR(36)).
-8. Table naming consistency across model references.
-9. Foreign key metadata (on_delete, nullable) is preserved and rendered.
-10. Model dependency ordering (topological sort) places referenced tables before tables with FKs.
-11. Dependencies metadata (dependencies = [...]) is included in Meta.
-12. AST parsing of generated source succeeds with zero syntax errors.
-13. Migration loading and execution via MigrationRunner.
+Each assertion here pins a real defect the generator has had:
+
+1. Index columns were character-split -- ``['t','o','k','e','n']`` for ``token``.
+2. Foreign keys targeted the *model* name lowercased (``usersmodel``) instead of
+   the model's actual table (``users``).
+3. Enum defaults rendered as ``repr()`` noise (``<UserStatus.ACTIVE: 'active'>``)
+   rather than a Python literal.
+4. Auto index names were built from the split column list.
+5. Index and constraint columns used model attribute names (``user``) where the
+   database has column names (``user_id``).
+6. A foreign key's type was hardcoded to INTEGER regardless of the target's PK.
+7. Referenced tables were not ordered before the tables referencing them.
+
+The generated file is parsed with :mod:`ast`, re-loaded through the real loader,
+and applied to SQLite, so a file that reads correctly but does not execute --
+or executes but does not round-trip -- still fails.
 """
+
+from __future__ import annotations
 
 import ast
 from enum import Enum
+
 import pytest
 
-from aquilia.models import Model, Index, UniqueConstraint
+from aquilia.db import AquiliaDatabase
+from aquilia.models import Index, Model, UniqueConstraint
 from aquilia.models.fields import (
     BooleanField,
     DateTimeField,
@@ -31,9 +37,7 @@ from aquilia.models.fields import (
     UUIDField,
     VarcharField,
 )
-from aquilia.models.migration_gen import generate_dsl_migration
-from aquilia.models.migration_runner import _load_migration_module, MigrationRunner
-from aquilia.db import AquiliaDatabase
+from aquilia.models.migration import MigrationEngine, load_migration_module, render_migration_module
 
 
 class UserStatus(Enum):
@@ -79,7 +83,7 @@ class UserEmailVerificationModel(Model):
     table = "email_verification"
 
     id = UUIDField(primary_key=True)
-    user = ForeignKey(UserModel)  # DB col: user_id -> table: users
+    user = ForeignKey(UserModel)  # DB column: user_id -> table: users
     token = VarcharField(max_length=255)
     expires_at = DateTimeField()
     updated_at = DateTimeField(null=True)
@@ -96,7 +100,7 @@ class UserRoleModel(Model):
     table = "user_roles"
 
     id = UUIDField(primary_key=True)
-    user = ForeignKey(UserModel)  # DB col: user_id -> table: users
+    user = ForeignKey(UserModel)  # DB column: user_id -> table: users
     role = TextField()
     created_at = DateTimeField()
 
@@ -110,106 +114,123 @@ class UserRoleModel(Model):
         ]
 
 
-def test_generator_correctness_all_scenarios(tmp_path):
-    """
-    Verify all 19 correctness rules on generated DSL migration file.
-    """
-    migrations_dir = tmp_path / "migrations"
-    model_classes = [Post, UserEmailVerificationModel, UserModel, UserRoleModel]
+MODELS = [Post, UserEmailVerificationModel, UserModel, UserRoleModel]
 
-    migration_file = generate_dsl_migration(
-        model_classes=model_classes,
-        migrations_dir=migrations_dir,
-    )
 
-    assert migration_file is not None
-    assert migration_file.exists()
+@pytest.fixture
+def generated(tmp_path):
+    """Generate a migration for MODELS and return (path, source)."""
+    engine = MigrationEngine(tmp_path / "migrations")
+    path = engine.make_migrations(MODELS)
+    assert path is not None and path.exists()
+    return path, path.read_text(encoding="utf-8")
 
-    code = migration_file.read_text(encoding="utf-8")
 
-    # 1. AST Parsing - Must be 100% valid Python syntax
+def test_generated_source_is_valid_python(generated):
+    _, code = generated
     ast.parse(code)
 
-    # 2. No character splitting in index columns
-    assert "['t', 'o', 'k', 'e', 'n']" not in code
-    assert "['e', 'x', 'p', 'i', 'r', 'e', 's', '_', 'a', 't']" not in code
+
+def test_index_columns_are_not_character_split(generated):
+    _, code = generated
+
+    assert '"t", "o", "k", "e", "n"' not in code
     assert "idx_email_verification_t_o_k_e_n" not in code
-    assert "columns=['token']" in code or 'columns=["token"]' in code
-    assert "columns=['expires_at']" in code or 'columns=["expires_at"]' in code
+    assert 'columns=("token",)' in code
+    assert 'columns=("expires_at",)' in code
 
-    # 3. FK target table resolution ('users', not 'usersmodel')
-    assert '"usersmodel"' not in code
-    assert "'usersmodel'" not in code
-    assert 'C.foreign_key("user_id", "users", "id"' in code or "C.foreign_key('user_id', 'users', 'id'" in code
 
-    # 4. Enum default serialization (default='active', not repr)
+def test_auto_index_names_use_whole_columns(generated):
+    _, code = generated
+
+    assert 'IndexState(name="idx_email_verification_token"' in code
+    assert 'IndexState(name="idx_users_status_created_at", columns=("status", "created_at"))' in code
+
+
+def test_foreign_key_targets_table_not_model_name(generated):
+    _, code = generated
+
+    assert "usersmodel" not in code.lower()
+    assert 'Reference(model="UserModel", table="users")' in code
+    assert 'column="user_id"' in code
+
+
+def test_enum_default_renders_as_python_literal(generated):
+    _, code = generated
+
     assert "<UserStatus" not in code
-    assert "default='active'" in code or 'default="active"' in code
+    assert 'default="active"' in code
 
-    # 5. Index and constraint field name mapping ('user' -> 'user_id')
-    assert "columns=['user_id']" in code or 'columns=["user_id"]' in code
-    assert 'UNIQUE ("user_id", "role")' in code or 'UNIQUE ("user_id", "role")' in code
 
-    # 6. FK type consistency (col_type="VARCHAR(36)")
-    assert 'col_type="VARCHAR(36)"' in code
+def test_index_and_constraint_columns_use_database_names(generated):
+    _, code = generated
 
-    # 7. Model dependency ordering (UserModel created BEFORE UserEmailVerificationModel and UserRoleModel)
-    create_user_idx = code.find("name='UserModel'")
-    if create_user_idx == -1:
-        create_user_idx = code.find('name="UserModel"')
-    create_email_idx = code.find("name='UserEmailVerificationModel'")
-    if create_email_idx == -1:
-        create_email_idx = code.find('name="UserEmailVerificationModel"')
-    create_role_idx = code.find("name='UserRoleModel'")
-    if create_role_idx == -1:
-        create_role_idx = code.find('name="UserRoleModel"')
+    # Index on the `user` attribute must record the `user_id` column.
+    assert 'columns=("user_id",)' in code
+    # And so must the composite unique constraint.
+    assert 'UniqueConstraintState(name="user_role_unique", columns=("user_id", "role"))' in code
 
-    assert create_user_idx != -1
-    assert create_email_idx != -1
-    assert create_role_idx != -1
-    assert create_user_idx < create_email_idx, "UserModel must be created before UserEmailVerificationModel"
-    assert create_user_idx < create_role_idx, "UserModel must be created before UserRoleModel"
 
-    # 8. Dependencies metadata in Meta
+def test_referenced_tables_are_created_first(generated):
+    _, code = generated
+
+    user = code.find('model="UserModel"')
+    verification = code.find('model="UserEmailVerificationModel"')
+    role = code.find('model="UserRoleModel"')
+
+    assert -1 not in (user, verification, role)
+    assert user < verification, "UserModel must be created before UserEmailVerificationModel"
+    assert user < role, "UserModel must be created before UserRoleModel"
+
+
+def test_meta_declares_dependencies(generated):
+    _, code = generated
     assert "dependencies = []" in code
 
-    # 9. Load module via importlib
-    module = _load_migration_module(migration_file, "test_rev")
-    assert hasattr(module, "operations")
-    assert len(module.operations) > 0
+
+def test_generated_file_round_trips(generated):
+    """Loading the file and re-rendering it must reproduce it byte for byte."""
+    path, code = generated
+
+    node = load_migration_module(path)
+    assert node.operations
+
+    # The header carries a generation timestamp, which is deliberately not
+    # recoverable from the node -- compare everything after it.
+    reloaded = render_migration_module(node)
+    assert reloaded.split("TEMPLATE_VERSION")[1] == code.split("TEMPLATE_VERSION")[1]
+
+
+def test_regenerating_unchanged_models_detects_no_changes(tmp_path):
+    """A second run against unchanged models must generate nothing.
+
+    This is what makes "no changes detected" trustworthy: if generation were
+    non-deterministic, every run would look like a schema change.
+    """
+    engine = MigrationEngine(tmp_path / "migrations")
+    assert engine.make_migrations(MODELS) is not None
+    assert engine.make_migrations(MODELS) is None
 
 
 @pytest.mark.asyncio
-async def test_generated_migration_execution_on_sqlite(tmp_path):
-    """
-    Integration test: Execute the generated DSL migration on a real SQLite database
-    and verify table creation, foreign keys, and indexes succeed cleanly.
-    """
-    db_path = str(tmp_path / "test_dsl_execution.db")
-    db = AquiliaDatabase(f"sqlite:///{db_path}")
+async def test_generated_migration_applies_to_sqlite(tmp_path):
+    """The generated file must actually execute, creating tables and indexes."""
+    db = AquiliaDatabase(f"sqlite:///{tmp_path / 'test_dsl_execution.db'}")
     await db.connect()
+    try:
+        engine = MigrationEngine(tmp_path / "migrations")
+        assert engine.make_migrations(MODELS) is not None
 
-    migrations_dir = tmp_path / "migrations"
-    model_classes = [Post, UserEmailVerificationModel, UserModel, UserRoleModel]
+        results = await engine.migrate(db)
+        assert len(results) == 1
+        assert results[0].statements_executed > 0
 
-    migration_file = generate_dsl_migration(
-        model_classes=model_classes,
-        migrations_dir=migrations_dir,
-    )
-    assert migration_file is not None
+        tables = await db.get_tables()
+        for expected in ("users", "posts", "email_verification", "user_roles"):
+            assert expected in tables
 
-    runner = MigrationRunner(db, migrations_dir=migrations_dir)
-    await runner.ensure_tracking_table()
-
-    # Execute migrate
-    applied = await runner.migrate()
-    assert len(applied) == 1
-
-    # Verify tables created
-    tables = await db.get_tables()
-    assert "users" in tables
-    assert "posts" in tables
-    assert "email_verification" in tables
-    assert "user_roles" in tables
-
-    await db.disconnect()
+        # Nothing left pending once applied.
+        status = await engine.status(db)
+        assert status.is_current
+    finally:
+        await db.disconnect()

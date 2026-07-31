@@ -817,77 +817,72 @@ class TestAdminRouteCount:
 
 
 class TestMigrationFormat:
-    """Test that migration system uses SURP binary format exclusively."""
+    """The state snapshot is a JSON artifact written beside the migrations."""
 
-    def test_snapshot_save_surp_binary(self):
-        """save_snapshot should write SURP binary files."""
-        import os
+    def _engine(self, tmpdir):
+        from pathlib import Path
+
+        from aquilia.models.migration import MigrationEngine
+
+        return MigrationEngine(Path(tmpdir) / "migrations")
+
+    def test_snapshot_path_is_json(self):
+        """The snapshot is a JSON artifact, not a binary blob."""
         import tempfile
 
-        from aquilia.models.schema_snapshot import save_snapshot
-
         with tempfile.TemporaryDirectory() as tmpdir:
-            surp_path = os.path.join(tmpdir, "test.surp")
-            snapshot = {"version": 1, "models": {}, "checksum": "abc"}
-            save_snapshot(snapshot, surp_path)
-            assert os.path.exists(surp_path)
-            # Verify it is Surp-decodable binary, not JSON text.
-            surp = pytest.importorskip("surp")
+            assert self._engine(tmpdir).snapshot_path.name == "schema_snapshot.json"
 
-            assert surp.decode_from_file(surp_path) == snapshot
+    def test_missing_snapshot_reads_as_empty_state(self):
+        """No snapshot means no known state -- not an error.
 
-    def test_snapshot_roundtrip_surp(self):
-        """save_snapshot + load_snapshot should roundtrip data via SURP."""
-        pytest.importorskip("surp")
-
+        This is the first-run path: makemigrations diffs the models against an
+        empty state and generates the initial migration.
+        """
         import tempfile
 
-        from aquilia.models.schema_snapshot import load_snapshot, save_snapshot
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state = self._engine(tmpdir).load_snapshot()
+            assert state.tables == {}
+
+    def test_snapshot_round_trips(self):
+        """Saving then loading yields an equivalent state."""
+        import tempfile
+
+        from aquilia.models import fields
+        from aquilia.models.migration import ColumnState, ProjectState, TableState
+
+        table = TableState.of(
+            "User",
+            "users",
+            columns=[
+                ColumnState.of("id", fields.AutoField(primary_key=True)),
+                ColumnState.of("email", fields.CharField(max_length=254, unique=True)),
+            ],
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            json_path = Path(tmpdir) / "snapshot.json"
-            snapshot = {"version": 1, "models": {"User": {"table": "users"}}, "checksum": "abc"}
-            save_snapshot(snapshot, json_path)
-            loaded = load_snapshot(json_path)
-            assert loaded is not None
-            assert loaded["version"] == 1
-            assert "User" in loaded["models"]
-            assert loaded["models"]["User"]["table"] == "users"
+            engine = self._engine(tmpdir)
+            engine.save_snapshot(ProjectState(tables={"User": table}))
 
-    def test_load_snapshot_nonexistent_returns_none(self):
-        from aquilia.models.schema_snapshot import load_snapshot
+            loaded = engine.load_snapshot()
+            assert "User" in loaded.tables
+            assert loaded.tables["User"].db_table == "users"
+            assert loaded.tables["User"].columns["email"].unique is True
 
-        result = load_snapshot("/nonexistent/path/snapshot.json")
-        assert result is None
+    def test_snapshot_file_is_readable_json(self):
+        """The artifact is plain JSON, so it can be inspected and diffed."""
+        import json
+        import tempfile
 
-    def test_migration_gen_default_path_is_json(self):
-        """generate_dsl_migration should use .json extension by default."""
-        import inspect
+        from aquilia.models.migration import ProjectState
 
-        from aquilia.models.migration_gen import generate_dsl_migration
+        with tempfile.TemporaryDirectory() as tmpdir:
+            engine = self._engine(tmpdir)
+            engine.save_snapshot(ProjectState())
 
-        source = inspect.getsource(generate_dsl_migration)
-        assert "schema_snapshot.json" in source
-
-    def test_json_in_save(self):
-        """save_snapshot should write JSON format."""
-        import inspect
-
-        from aquilia.models.schema_snapshot import save_snapshot
-
-        source = inspect.getsource(save_snapshot)
-        assert "json" in source.lower() or "JSONFileBackend" in source
-
-    def test_uses_json(self):
-        """Both save and load should use JSON."""
-        import inspect
-
-        from aquilia.models.schema_snapshot import load_snapshot, save_snapshot
-
-        save_src = inspect.getsource(save_snapshot)
-        load_src = inspect.getsource(load_snapshot)
-        assert "json" in save_src
-        assert "json" in load_src
+            payload = json.loads(engine.snapshot_path.read_text(encoding="utf-8"))
+            assert isinstance(payload, dict)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -16,7 +16,7 @@ from aquilia.integrations.database import DatabaseIntegration
 from aquilia.models.base import Model, ModelRegistry
 from aquilia.models.fields_module import CharField, IntegerField
 from aquilia.models.startup_guard import DatabaseState, get_db_state, check_db_ready
-from aquilia.models.migration_runner import MigrationRunner
+from aquilia.models.migration import MigrationEngine
 from aquilia.faults.domains import SchemaFault, QueryFault, MigrationFault
 
 
@@ -117,26 +117,44 @@ async def test_atomic_table_creation_rollback_on_failure(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_atomic_migration_runner_rollback(tmp_path):
+async def test_atomic_migration_rollback(tmp_path):
     """
-    Verify MigrationRunner rolls back all DSL statements when a migration fails mid-way.
+    Verify a failing migration rolls back every statement that preceded the failure.
     """
     migrations_dir = tmp_path / "migrations"
     migrations_dir.mkdir()
 
-    # Create a migration file with a failing operation
+    # A migration whose second statement is invalid SQL (duplicate column name).
     mig_file = migrations_dir / "20260730_120000_failing_migration.py"
-    mig_file.write_text("""
-from aquilia.models.migration_dsl import Migration, CreateTable, ColumnDef, RawSQL
+    mig_file.write_text(
+        '''
+from aquilia.models.migration.operations import CreateModel, Operation, RunSQL
+from aquilia.models.migration.schema import ColumnState, TableState
+from aquilia.models import fields
 
-revision = "20260730_120000"
-slug = "failing_migration"
 
-operations = [
-    CreateTable("first_table", [ColumnDef("id", "INTEGER", primary_key=True)]),
-    RawSQL("CREATE TABLE second_table (col INT, col INT)"),
+class Meta:
+    revision = "20260730_120000"
+    slug = "failing_migration"
+    dependencies = []
+    replaces = []
+    atomic = True
+
+
+operations: list[Operation] = [
+    CreateModel(
+        model="FirstTable",
+        table=TableState.of(
+            "FirstTable",
+            "first_table",
+            columns=[ColumnState.of("id", fields.AutoField(primary_key=True))],
+        ),
+    ),
+    RunSQL(sql="CREATE TABLE second_table (col INT, col INT)"),
 ]
-""", encoding="utf-8")
+''',
+        encoding="utf-8",
+    )
 
     db_file = tmp_path / "mig_test.db"
     db_url = f"sqlite:///{db_file}"
@@ -144,10 +162,10 @@ operations = [
     db = AquiliaDatabase(db_url)
     await db.connect()
 
-    runner = MigrationRunner(db, migrations_dir)
+    engine = MigrationEngine(migrations_dir)
 
     with pytest.raises(MigrationFault):
-        await runner.migrate()
+        await engine.migrate(db)
 
     conn = sqlite3.connect(str(db_file))
     cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='first_table'")

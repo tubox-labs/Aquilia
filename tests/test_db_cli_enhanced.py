@@ -66,8 +66,6 @@ def test_db_cli_enhanced_workflow(temp_workspace):
             app=None,
             migrations_dir=str(migrations_dir),
             verbose=True,
-            use_dsl=True,
-            migration_format="surp",
         )
         assert len(generated) == 1
         migration_path = generated[0]

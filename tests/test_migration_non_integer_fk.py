@@ -1,65 +1,75 @@
+"""
+Regression: primary keys that are not auto-incrementing integers.
+
+A ``CharField(primary_key=True)`` or ``UUIDField(primary_key=True)`` must render
+as a primary key with no identity clause, and a foreign key pointing at one must
+adopt *its* storage type rather than defaulting to INTEGER. Getting the second
+part wrong yields a schema that creates cleanly and then fails on the first
+insert, so both are asserted against generated SQL rather than against state.
+"""
+
 from __future__ import annotations
 
-from aquilia.models.migration_dsl import ColumnDef, CreateModel
-from aquilia.models.migration_dsl import columns as C
-from aquilia.models.migration_gen import _render_column_def
+from aquilia.models.base import Model
+from aquilia.models.fields_module import CharField, ForeignKey, UUIDField
+from aquilia.models.migration.backends import get_backend
+from aquilia.models.migration.executor import compile_operations
+from aquilia.models.migration.operations import CreateModel
+from aquilia.models.migration.schema import ColumnState, ProjectState, TableState
 
 
-def test_uuid_primary_key_renders_primary_key_true():
-    """Verify that a non-autoincrement primary key (like a UUID VARCHAR) renders primary_key=True."""
-    col = ColumnDef(name="id", col_type="VARCHAR(36)", primary_key=True, autoincrement=False)
-    rendered = _render_column_def(col)
-    assert rendered == 'C.varchar("id", 36, primary_key=True)'
-
-
-def test_uuid_foreign_key_renders_custom_col_type():
-    """Verify that a foreign key referencing a VARCHAR primary key renders col_type='VARCHAR(36)'."""
-    col = ColumnDef(
-        name="user_id",
-        col_type="VARCHAR(36)",
-        primary_key=False,
-        references=("users", "id"),
-        on_delete="CASCADE",
-        on_update="CASCADE",
+def _create_sql(table: TableState, dialect: str = "sqlite") -> str:
+    return "\n".join(
+        statement.sql
+        for statement in compile_operations(
+            [CreateModel(model=table.model, table=table)], ProjectState(), get_backend(dialect)
+        )
     )
-    rendered = _render_column_def(col)
-    assert rendered == 'C.foreign_key("user_id", "users", "id", col_type="VARCHAR(36)")'
 
 
-def test_foreign_key_to_sql_with_custom_col_type():
-    """Verify that ColumnDef compiled to SQL matches the custom col_type for foreign keys."""
-    col = ColumnDef(
-        name="user_id",
-        col_type="VARCHAR(36)",
-        references=("users", "id"),
-        on_delete="CASCADE",
-        on_update="CASCADE",
-    )
-    sql = col.to_sql("sqlite")
-    assert '"user_id" VARCHAR(36) NOT NULL REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE' in sql
-
-
-def test_create_model_sql_with_uuid_pk_and_fk():
-    """Verify that CreateModel operation generates correct DDL for UUID primary keys and matching foreign keys."""
-    op_parent = CreateModel(
-        name="UsersModel",
-        table="users",
-        fields=[
-            C.varchar("id", 36, primary_key=True),
-            C.varchar("name", 100),
+def test_char_primary_key_has_no_autoincrement():
+    users = TableState.of(
+        "User",
+        "users",
+        columns=[
+            ColumnState.of("id", CharField(max_length=36, primary_key=True)),
+            ColumnState.of("name", CharField(max_length=100)),
         ],
     )
-    op_child = CreateModel(
-        name="UserEmailVerificationModel",
-        table="email_verification",
-        fields=[
-            C.auto("id"),
-            C.foreign_key("user_id", "users", "id", col_type="VARCHAR(36)"),
-        ],
+    sql = _create_sql(users)
+
+    assert '"id" VARCHAR(36) PRIMARY KEY' in sql
+    assert "AUTOINCREMENT" not in sql
+
+
+def test_uuid_primary_key_renders_uuid_storage_type():
+    tokens = TableState.of(
+        "Token",
+        "tokens",
+        columns=[ColumnState.of("id", UUIDField(primary_key=True))],
     )
 
-    parent_sql = op_parent.to_sql("sqlite")[0]
-    child_sql = op_child.to_sql("sqlite")[0]
+    assert "AUTOINCREMENT" not in _create_sql(tokens)
+    assert '"id" UUID PRIMARY KEY' in _create_sql(tokens, "postgresql")
 
-    assert '"id" VARCHAR(36) PRIMARY KEY' in parent_sql
-    assert '"user_id" VARCHAR(36) NOT NULL REFERENCES "users"("id")' in child_sql
+
+def test_foreign_key_adopts_non_integer_target_type():
+    class NonIntPkUser(Model):
+        id = CharField(max_length=36, primary_key=True)
+        name = CharField(max_length=100)
+
+        class Meta:
+            table_name = "non_int_pk_users"
+
+    class NonIntPkVerification(Model):
+        user = ForeignKey("NonIntPkUser", on_delete="CASCADE")
+
+        class Meta:
+            table_name = "non_int_pk_verifications"
+
+    state = ProjectState.from_models([NonIntPkUser, NonIntPkVerification])
+    sql = _create_sql(state.tables["NonIntPkVerification"])
+
+    assert '"user_id" VARCHAR(36)' in sql
+    assert 'REFERENCES "non_int_pk_users" ("id")' in sql
+    assert "ON DELETE CASCADE" in sql
