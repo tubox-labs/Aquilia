@@ -113,3 +113,6 @@ aqdocx/.agents
 elips/
 
 migrations/
+# The framework's own migration package is source, not a user project's
+# generated migrations directory.
+!aquilia/models/migration/

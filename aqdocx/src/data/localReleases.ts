@@ -1,4 +1,2154 @@
 export const localReleases: Record<string, Record<string, string>> = {
+  "1.3.10": {
+    "README.md": `# Aquilia v1.3.10 Release Notes — "Migration Rewrite"
+
+Aquilia v1.3.10 is the most significant migration-subsystem release in the framework's history. Every file that made up the previous multi-layer, multi-authority migration stack (\`migration_dsl.py\`, \`migration_gen.py\`, \`migration_planner.py\`, \`migration_runner.py\`, \`migrations.py\`, \`schema_snapshot.py\`, \`ddl_executor.py\`) has been **replaced** by a single, coherent \`aquilia.models.migration\` sub-package — designed ground-up around immutable schema state, typed operations, dialect-aware SQL backends, a dependency-graph planner, and a transactional executor.
+
+---
+
+## Table of Contents
+
+1. [Migration Engine Architecture](migration_engine.md)
+   - \`aquilia.models.migration\` sub-package layout
+   - \`MigrationEngine\` — the unified public entry point
+   - \`ProjectState\` — immutable, field-fidelity schema state
+   - \`MigrationGraph\` / \`MigrationNode\` — dependency-aware DAG ordering
+   - \`MigrationExecutor\` — transactional application with checksum verification
+   - \`Autodetector\` — deterministic, safe rename detection
+   - \`Optimizer\` — operation folding before file write
+   - \`SchemaBackend\` — dialect isolation layer
+   - \`Serializer\` / \`Codegen\` — real Python constructor files
+2. [Operations Reference](operations.md)
+   - Full typed operation catalogue
+   - State-forwards / state-backwards protocol
+   - Backend compilation contract
+3. [CLI Changes](cli.md)
+   - \`aq db makemigrations\` — new flags (\`--slug\`, \`--dry-run\`), removed flags
+   - \`aq db migrate\` — \`MigrationEngine\` integration, diagnostics output
+   - \`aq db showmigrations\` — updated executor/serializer path
+   - \`aq db diff\` — operation-based diff output
+   - \`aq db reset\` — tracking-table aware reset
+4. [Field Improvements](fields.md)
+   - \`EnumField\` — dotted-string \`enum_class\` for migration round-trips
+   - \`BigAutoField\` / \`SmallAutoField\` — MySQL \`BIGINT\`/\`SMALLINT\`
+   - \`GeneratedField\` — \`deconstruct()\` for snapshotting
+   - \`compile_schema_expression()\` — moved from \`schema_snapshot\` to \`expression\`
+5. [Breaking Changes & Migration Guide](migration.md)
+   - Removed symbols
+   - Import path changes
+   - Snapshot format upgrade
+   - Upgrade checklist
+6. [Bug Fixes](bugfixes.md)
+   - \`_patched_create_tables_new\` optional \`db\` parameter
+   - \`startup_guard\` probe function renames
+   - \`ModelRegistry.create_tables\` unified DDL path
+7. [Architecture Deep Dive](architecture.md)
+   - Design rationale
+   - Determinism guarantees
+   - Atomicity model
+   - Backward compatibility layers
+
+---
+
+## Highlights
+
+### 1. One Package, One Authority
+
+Six modules (\`migration_dsl\`, \`migration_gen\`, \`migration_planner\`, \`migration_runner\`, \`migrations\`, \`schema_snapshot\`, \`ddl_executor\`) are replaced by one sub-package:
+
+\`\`\`
+aquilia/models/migration/
+├── __init__.py        public API
+├── schema.py          ProjectState, TableState, ColumnState, ...
+├── operations/        typed, backend-independent operations
+├── backends/          SQLite, PostgreSQL, MySQL, Oracle DDL
+├── autodetect.py      state-to-state diffing
+├── graph.py           MigrationGraph, MigrationNode (dependency DAG)
+├── optimizer.py       operation reduction
+├── codegen.py         Python source rendering
+├── serializer.py      file writing / loading
+├── executor.py        transactional application
+├── probe.py           pre-connection readiness probes
+└── engine.py          MigrationEngine — public entry point
+\`\`\`
+
+### 2. \`MigrationEngine\` — Single Public Entry Point
+
+\`\`\`python
+from aquilia.models.migration import MigrationEngine
+
+engine = MigrationEngine("migrations")
+
+# Generate a migration from model changes
+path = engine.make_migrations([User, Post], slug="add_bio")
+
+# Apply pending migrations
+results = await engine.migrate(db)
+
+# Check status
+status = await engine.status(db)
+print(status.describe())
+
+# Roll back to a specific revision
+await engine.migrate(db, target="20260720_120000")
+
+# Dry-run: inspect SQL without applying
+statements = await engine.plan(db)
+for stmt in statements:
+    print(stmt.sql)
+\`\`\`
+
+### 3. Field-Fidelity Schema State
+
+\`ProjectState\` is built directly from live \`Field.deconstruct()\` output — not from reduced primitive mappings. Generated-column expressions, M2M relationships, index access methods, operator classes, partial predicates, and all other model semantics survive the snapshot round-trip intact.
+
+### 4. Deterministic, Reproducible Migrations
+
+Every collection in the pipeline is an ordered \`tuple\`; every mapping is iterated through \`sorted()\` at construction time. Two runs of \`makemigrations\` against the same models — in different processes, with different \`PYTHONHASHSEED\` values — produce byte-identical migration files.
+
+### 5. Real Python Constructor Files
+
+Generated migration files use the same \`Field\`, index, and constraint classes a developer writes in models — not serialized dictionaries. A reviewer sees exactly the schema they declared:
+
+\`\`\`python
+# migrations/20260801_103000_add_post.py
+from aquilia.models.migration import CreateModel, Operation, ProjectState
+from aquilia.models.migration.schema import ColumnState, TableState
+from aquilia.models import fields
+
+dependencies: tuple[str, ...] = ("20260730_120000",)
+
+operations: list[Operation] = [
+    CreateModel(
+        model="Post",
+        table=TableState.of(
+            "Post",
+            "posts",
+            columns=[
+                ColumnState.of("id", fields.AutoField(primary_key=True)),
+                ColumnState.of("title", fields.CharField(max_length=200)),
+                ColumnState.of("author_id", fields.ForeignKey("User", on_delete="CASCADE")),
+            ],
+        ),
+    ),
+]
+\`\`\`
+
+### 6. Operation Optimizer
+
+The autodetector emits a faithful but verbose diff. Before the migration is written, the optimizer folds redundant operations:
+
+\`\`\`
+CreateModel(User) + AddField(User.bio)    → CreateModel(User with bio)
+AddField(x) + RemoveField(x)             → nothing
+AddField(x) + AlterField(x)              → AddField with final definition
+CreateModel(User) + DeleteModel(User)    → nothing
+\`\`\`
+
+### 7. Checksum Tamper Detection
+
+Every applied migration records the SHA-256 digest of its source file. \`engine.verify_checksums(db)\` reports any migration whose file has been modified since application — enabling post-deployment integrity audits.
+
+---
+
+## Summary of Subsystem Changes
+
+| Component | Status | Summary |
+|---|---|---|
+| \`aquilia.models.migration\` | **New** | Unified migration sub-package; public API entry point |
+| \`aquilia.models.migration.engine\` | **New** | \`MigrationEngine\` — single entry point for generate/apply/rollback |
+| \`aquilia.models.migration.schema\` | **New** | \`ProjectState\`, \`TableState\`, \`ColumnState\`, field-fidelity state |
+| \`aquilia.models.migration.operations\` | **New** | Typed, backend-independent operations with state/database separation |
+| \`aquilia.models.migration.backends\` | **New** | \`SchemaBackend\` dialect isolation (SQLite, PostgreSQL, MySQL, Oracle) |
+| \`aquilia.models.migration.autodetect\` | **New** | Deterministic state diffing; safe rename inference with confidence scoring |
+| \`aquilia.models.migration.graph\` | **New** | \`MigrationGraph\`/\`MigrationNode\` dependency DAG with topological ordering |
+| \`aquilia.models.migration.optimizer\` | **New** | Operation reduction before file write |
+| \`aquilia.models.migration.codegen\` | **New** | Python source rendering (real constructors, not dicts) |
+| \`aquilia.models.migration.serializer\` | **New** | File writing/loading; \`MIGRATION_TEMPLATE_VERSION = 3\` |
+| \`aquilia.models.migration.executor\` | **New** | Transactional application; checksum recording; MySQL/Oracle warnings |
+| \`aquilia.models.migration.probe\` | **New** | Read-only pre-connection SQLite readiness probes |
+| \`aquilia.models.ddl_executor\` | **Removed** | Replaced by \`migration.executor\` + \`migration.backends\` |
+| \`aquilia.models.migration_dsl\` | **Removed** | Replaced by \`migration.operations\` |
+| \`aquilia.models.migration_gen\` | **Removed** | Replaced by \`migration.codegen\` + \`migration.serializer\` |
+| \`aquilia.models.migration_planner\` | **Removed** | Replaced by \`migration.graph\` + \`migration.engine\` |
+| \`aquilia.models.migration_runner\` | **Removed** | Replaced by \`migration.executor\` + \`migration.engine\` |
+| \`aquilia.models.migrations\` | **Removed** | Replaced by \`migration.engine\` |
+| \`aquilia.models.schema_snapshot\` | **Removed** | Replaced by \`migration.schema\` + \`migration.autodetect\` |
+| \`aquilia.models.fields.enum_field\` | **Improved** | Dotted-string \`enum_class\` for migration round-trips; \`_resolve_enum_class()\` |
+| \`aquilia.models.fields_module\` | **Improved** | \`BigAutoField\`/\`SmallAutoField\` MySQL types; \`GeneratedField.deconstruct()\` |
+| \`aquilia.models.expression\` | **Improved** | \`compile_schema_expression()\` moved here from \`schema_snapshot\` |
+| \`aquilia.models.registry\` | **Improved** | \`create_tables()\` uses \`ProjectState\` + \`MigrationExecutor\` |
+| \`aquilia.models.startup_guard\` | **Updated** | Uses \`migration.probe.database_exists/migrations_applied\` |
+| \`aquilia.server\` | **Updated** | Uses \`MigrationEngine\` for auto-migrate |
+| \`aquilia.__init__\` | **Updated** | Exports \`MigrationEngine\` instead of \`MigrationRunner\`/\`MigrationOps\` |
+`,
+    "migration_engine.md": `# Migration Engine Architecture — Aquilia v1.3.10
+
+Aquilia v1.3.10 replaces all previous migration modules with a single, coherent \`aquilia.models.migration\` sub-package. This document describes every layer, its responsibilities, design rationale, and public API.
+
+---
+
+## Package Layout
+
+\`\`\`
+aquilia/models/migration/
+├── __init__.py        # Public API re-exports
+├── schema.py          # Immutable schema state (ProjectState, TableState, ColumnState, …)
+├── operations/        # Typed, backend-independent operations
+│   ├── __init__.py
+│   ├── base.py        # Operation ABC, OperationCategory, register_operation
+│   ├── models.py      # CreateModel, DeleteModel, RenameModel, AlterModelOptions
+│   ├── fields.py      # AddField, RemoveField, AlterField, RenameField
+│   ├── indexes.py     # AddIndex, RemoveIndex, AlterIndex
+│   ├── constraints.py # AddConstraint, RemoveConstraint, AlterConstraint
+│   ├── relations.py   # CreateManyToManyTable, DeleteManyToManyTable
+│   └── special.py     # RunSQL, RunPython
+├── backends/          # Dialect-aware SQL generation
+│   ├── __init__.py    # SchemaBackend ABC, Statement, get_backend()
+│   ├── sqlite.py
+│   ├── postgresql.py
+│   ├── mysql.py
+│   └── oracle.py
+├── autodetect.py      # State-to-state diffing; RenameHint; Autodetector
+├── graph.py           # MigrationGraph, MigrationNode
+├── optimizer.py       # Operation reduction
+├── codegen.py         # Python source rendering
+├── serializer.py      # File writing / loading
+├── executor.py        # Transactional application against a live database
+├── probe.py           # Pre-connection SQLite readiness probes
+└── engine.py          # MigrationEngine — single public entry point
+\`\`\`
+
+---
+
+## \`MigrationEngine\` — Single Entry Point
+
+\`MigrationEngine\` is the single class the CLI, the server startup path, and application code all interact with. It delegates to every other layer and owns no SQL itself.
+
+\`\`\`python
+from aquilia.models.migration import MigrationEngine
+
+engine = MigrationEngine("migrations")   # dir that holds .py files + snapshot
+\`\`\`
+
+### \`make_migrations(model_classes, *, slug, hints, infer_renames, dry_run) → Path | None\`
+
+Generates a migration for the difference between the on-disk snapshot and the given models.
+
+**Process:**
+1. Loads the last recorded \`ProjectState\` from \`schema_snapshot.json\`
+2. Builds a new \`ProjectState\` from the live model classes
+3. Runs the \`Autodetector\` to compute a raw operation list
+4. Passes operations through the \`Optimizer\` to collapse redundancy
+5. Allocates a timestamp revision, stepping past collisions
+6. Renders the migration with \`codegen\` + \`serializer\` as a real Python file
+7. Writes the migration file **first**, then saves the updated snapshot
+
+**Why file before snapshot?** If the write fails, the snapshot still describes the last successful migration and the change can simply be regenerated. Writing the snapshot first would advance it past a migration that was never recorded on disk — the next \`makemigrations\` would then see no diff.
+
+\`\`\`python
+# Basic usage
+path = engine.make_migrations([User, Post])
+# → PosixPath('migrations/20260801_103000_user_post.py')
+
+# Named migration
+path = engine.make_migrations([User], slug="add_bio")
+# → PosixPath('migrations/20260801_103001_add_bio.py')
+
+# Dry-run: compute but write nothing
+path = engine.make_migrations([User, Post], dry_run=True)
+# → None  (no files written)
+
+# Explicit rename hint
+from aquilia.models.migration import RenameHint
+hint = RenameHint(model="User", old_name="bio", new_name="biography")
+path = engine.make_migrations([User], hints=(hint,))
+\`\`\`
+
+### \`async migrate(db, *, target, fake) → list[ExecutionResult]\`
+
+Applies pending migrations forward, or rolls back to \`target\`.
+
+\`\`\`python
+# Apply all pending migrations
+results = await engine.migrate(db)
+for r in results:
+    print(r.statements_executed, r.duration_ms)
+
+# Roll back to a specific revision
+await engine.migrate(db, target="20260720_120000")
+
+# Fake: record migrations without executing DDL
+await engine.migrate(db, fake=True)
+\`\`\`
+
+### \`async status(db) → MigrationStatus\`
+
+Reports which migrations are applied and which are pending.
+
+\`\`\`python
+status = await engine.status(db)
+print(status.describe())
+# Applied: 4
+# Pending: 1
+#   - 20260801_103000_add_bio
+# Last applied: 20260730_120000
+\`\`\`
+
+\`MigrationStatus\` attributes:
+- \`applied: tuple[str, ...]\` — revisions applied, in application order
+- \`pending: tuple[MigrationNode, ...]\` — pending nodes, in dependency order
+- \`leaves: tuple[str, ...]\` — tips of the graph (> 1 = branched history)
+- \`is_current: bool\` — True when nothing is pending
+
+### \`async plan(db, *, target) → list[Statement]\`
+
+Compiles pending migrations to SQL without executing anything. Useful for code review and deployment pipelines.
+
+\`\`\`python
+statements = await engine.plan(db)
+for stmt in statements:
+    if stmt.destructive:
+        print(f"DESTRUCTIVE: {stmt.description}")
+    print(stmt.sql)
+\`\`\`
+
+### \`async verify_checksums(db) → list[dict]\`
+
+Reports applied migrations whose source files have changed since they were applied.
+
+\`\`\`python
+mismatches = await engine.verify_checksums(db)
+for m in mismatches:
+    print(m["revision"], m["reason"])
+\`\`\`
+
+### \`state_at(revision) → ProjectState\`
+
+Replays migrations from disk up to and including \`revision\`, reconstructing the schema state without touching the database.
+
+### \`state_for(applied) → ProjectState\`
+
+Reconstructs the state produced by exactly the given set of applied revisions — the right method when applied and on-disk don't form a linear prefix.
+
+---
+
+## \`ProjectState\` — Immutable Schema State
+
+\`ProjectState\` is a fully-typed, immutable description of a database schema. It preserves model semantics — generated-column expressions, M2M relationships, index methods, partial-index predicates, composite PKs — rather than reducing them to primitive column definitions.
+
+### Design Rationale
+
+Reducing every \`Field\` to a handful of primitives (name, SQL type, a few booleans) destroys information at the very first hop. Nothing downstream can recover a generated-column expression or an operator class from a primitive snapshot. \`ProjectState\` therefore captures fields through \`Field.deconstruct()\`, retaining enough to reconstruct them faithfully.
+
+### Construction
+
+\`\`\`python
+from aquilia.models.migration.schema import ProjectState
+
+# From live model classes
+state = ProjectState.from_models([User, Post, Comment])
+
+# From a serialised dict (snapshot file)
+state = ProjectState.from_dict(raw_dict)
+
+# Empty state (before any migrations)
+state = ProjectState()
+\`\`\`
+
+### Key State Objects
+
+| Class | Description |
+|---|---|
+| \`ProjectState\` | Top-level container; \`tables: dict[str, TableState]\` |
+| \`TableState\` | One table; columns, indexes, constraints, M2M relations, db_table, ordering |
+| \`ColumnState\` | One column; field class + deconstruct kwargs + reference |
+| \`IndexState\` | One index; columns, method, unique, condition, include columns |
+| \`ConstraintState\` | Base for check, unique, exclusion, FK, PK constraint states |
+| \`ManyToManyState\` | M2M junction table descriptor |
+| \`Reference\` | A (table, column) pair used for FK wiring |
+
+### \`creation_order() → list[str]\`
+
+Returns table names topologically sorted so that referenced tables appear before their dependents — the order in which \`CREATE TABLE\` statements must run.
+
+\`\`\`python
+state = ProjectState.from_models([Post, User, Comment])
+order = state.creation_order()
+# ['User', 'Post', 'Comment']  — User before Post (FK), Post before Comment (FK)
+\`\`\`
+
+### \`from_database(db, model_classes) → ProjectState\`
+
+Introspects a live database to reconstruct its current state. Used by \`aq db diff\`.
+
+---
+
+## \`MigrationGraph\` and \`MigrationNode\` — Dependency DAG
+
+Every migration file on disk becomes a \`MigrationNode\` in a \`MigrationGraph\`. The graph provides topological ordering, conflict detection, forward and backward planning, and leaf discovery.
+
+### \`MigrationNode\`
+
+\`\`\`python
+@dataclass(frozen=True)
+class MigrationNode:
+    revision: str            # e.g. "20260801_103000"
+    slug: str                # e.g. "add_bio"
+    operations: tuple[Operation, ...]
+    dependencies: tuple[str, ...]   # revisions that must come first
+    replaces: tuple[str, ...]       # squashed revisions (safe on deployed DBs)
+    atomic: bool             # False when any op emits a non-transactional stmt
+    source_path: Path | None
+    checksum: str            # SHA-256 of the source file
+
+    @property
+    def name(self) -> str:   # "20260801_103000_add_bio"
+\`\`\`
+
+### Design: Why a Graph Matters
+
+An earlier design had \`dependencies\` in every generated file but never read them — ordering came from sorting filenames. That works only while every migration is generated on one machine in one linear sequence. Two developers generating a migration on the same day produce filenames that sort by timestamp into an order neither intended. A graph reads the declared dependencies and plans correctly regardless.
+
+### \`MigrationGraph.forward_plan(applied) → tuple[MigrationNode, ...]\`
+
+Returns pending nodes in the order they must be applied, respecting all declared dependencies.
+
+### \`MigrationGraph.backward_plan(applied, target) → tuple[MigrationNode, ...]\`
+
+Returns the nodes to roll back (in reverse dependency order) to reach \`target\`.
+
+### \`MigrationGraph.check_conflicts()\`
+
+Raises \`MigrationConflictFault\` if two migrations share a revision or if two leaf nodes share no common ancestor — i.e. the history has forked without a merge migration.
+
+### Squash Support
+
+A node with \`replaces = ("20260701_120000", "20260710_150000")\` is treated as already applied when every listed revision is in the applied set. This is how squashing is safe on a deployed database: the squash migration records itself as done without re-running DDL that is already in the schema.
+
+---
+
+## \`Autodetector\` — Deterministic, Safe Diffing
+
+The autodetector compares two \`ProjectState\` objects and emits the operations needed to transform one into the other.
+
+### Determinism
+
+Every collection is iterated in sorted order; results are ordered by explicit rules, never by set iteration. Two runs over the same states — in different processes with different \`PYTHONHASHSEED\` — produce identical operation lists. This is not an accident: iterating a \`set\` anywhere in the diff path makes the migration order change on every interpreter run.
+
+### Rename Detection
+
+A rename is a destructive guess. Emitting \`RENAME COLUMN\` when the developer actually dropped one column and added another silently rewrites the wrong column and loses its data. Rename is therefore inferred only from:
+
+1. An explicit \`RenameHint\` from the developer.
+2. A combined confidence score across multiple signals (\`RENAME_CONFIDENCE_THRESHOLD = 0.85\`). No single signal — not even an identical type — clears this threshold alone.
+
+\`\`\`python
+from aquilia.models.migration import RenameHint, detect_changes
+
+# Explicit rename instruction
+hint = RenameHint(model="User", old_name="bio", new_name="biography")
+ops = detect_changes(before, after, hints=(hint,))
+
+# Disable inference entirely (safe for db introspection comparisons)
+ops = detect_changes(live, target, infer_renames=False)
+\`\`\`
+
+---
+
+## \`Optimizer\` — Operation Reduction
+
+The optimizer collapses redundant operations before the migration is written:
+
+| Input | Output |
+|---|---|
+| \`CreateModel(U)\` + \`AddField(U.bio)\` | \`CreateModel(U with bio)\` |
+| \`AddField(U.bio)\` + \`RemoveField(U.bio)\` | *(nothing)* |
+| \`AddField(U.bio)\` + \`AlterField(U.bio)\` | \`AddField\` with final definition |
+| \`AlterField(x)\` + \`AlterField(x)\` | one \`AlterField\` |
+| \`CreateModel(U)\` + \`DeleteModel(U)\` | *(nothing)* |
+
+\`RunSQL\` and \`RunPython\` are treated as opaque barriers — a data migration may well depend on the exact intermediate schema, and merging across it would silently change what it sees.
+
+---
+
+## \`MigrationExecutor\` — Transactional Application
+
+The executor applies and rolls back migrations against a live database.
+
+### Atomicity
+
+Two atomicity hazards are handled:
+
+1. **History recorded outside the transaction** — the tracking \`INSERT\` is the last statement *inside* the same transaction, so schema and history commit or roll back together.
+2. **Non-transactional statements silently mixed in** — statements declare their own transactional requirement. SQLite table rebuilds need \`PRAGMA foreign_keys\` outside any transaction; PostgreSQL rejects \`CREATE INDEX CONCURRENTLY\` inside one. The executor splits accordingly.
+
+On MySQL and Oracle, DDL cannot participate in a transaction at all. The executor detects this from the backend's capability flags and warns rather than promising atomicity it cannot deliver.
+
+### \`apply(node, state, fake) → ExecutionResult\`
+
+Applies one \`MigrationNode\` forward. When \`fake=True\`, records the migration without executing any DDL.
+
+### \`rollback(node, state, fake) → ExecutionResult\`
+
+Rolls back one \`MigrationNode\`. Requires every operation to implement \`state_backwards\` and \`database_backwards\`.
+
+### \`ExecutionResult\`
+
+\`\`\`python
+@dataclass
+class ExecutionResult:
+    statements_executed: int
+    statements_skipped: int
+    duration_ms: float
+    diagnostics: list[str]
+\`\`\`
+
+---
+
+## \`SchemaBackend\` — Dialect Isolation
+
+\`backends/\` is the **only** layer that knows about SQL dialects. Nothing in \`schema.py\`, \`operations/\`, or \`engine.py\` imports a backend.
+
+\`\`\`python
+from aquilia.models.migration.backends import get_backend, SchemaBackend
+
+backend = get_backend("postgresql")
+stmt = backend.create_table(table_state)
+print(stmt.sql)
+\`\`\`
+
+Four backends ship: \`sqlite\`, \`postgresql\`, \`mysql\`, \`oracle\`.
+
+\`Statement\` carries:
+- \`sql: str\` — the SQL text
+- \`description: str\` — human-readable description for \`aq db migrate --plan\`
+- \`destructive: bool\` — whether it could cause data loss
+- \`transactional: bool\` — whether it must run inside a transaction
+
+---
+
+## \`Codegen\` and \`Serializer\` — Real Python Constructor Files
+
+The generated migration file uses the same \`Field\`, index, and constraint classes the developer writes in models — not serialized dictionaries.
+
+### Why Not Dicts?
+
+A dict-serialized migration is unreadable and uneditable. No editor completes a dict key, no type checker catches a misspelled one, and a reviewer cannot see whether a column is nullable. A migration is a permanent, reviewable artifact — often the only record of *why* a schema looks the way it does — and it should be written in the same vocabulary as the models it came from.
+
+### \`MIGRATION_TEMPLATE_VERSION = 3\`
+
+Bumped to 3 when generated files moved to real constructor calls. Both old and new formats load correctly — the version is informational.
+
+### Generated File Format
+
+\`\`\`python
+# Generated by Aquilia Migration Engine v1.3.10 at 2026-08-01T10:30:00+00:00
+# Template version: 3
+
+from aquilia.models.migration import CreateModel, AddField, Operation, ProjectState
+from aquilia.models.migration.schema import ColumnState, IndexState, TableState
+from aquilia.models import fields
+
+# Metadata
+revision: str = "20260801_103000"
+slug: str = "add_bio"
+dependencies: tuple[str, ...] = ("20260730_120000",)
+atomic: bool = True
+
+# Schema changes
+operations: list[Operation] = [
+    AddField(
+        model="User",
+        field=ColumnState.of("bio", fields.TextField(null=True, blank=True)),
+    ),
+]
+\`\`\`
+
+---
+
+## \`Probe\` — Read-Only Readiness Checks
+
+The probe module answers "is this database ready?" **before** the application opens a connection.
+
+### Why Not Just Connect?
+
+Opening a SQLite database creates its \`-wal\` and \`-shm\` sidecar files — even when the connection is immediately closed. A startup check that does this has changed the thing it was checking: a developer who ran a check against a non-existent database now has one that half-exists. Probes open SQLite read-only (\`mode=ro\`), which never creates a file and never writes a journal.
+
+For non-SQLite backends the probe reports "ready" and lets the normal connection path surface any error. A false "not ready" would block a working deployment; a false "ready" costs only the error the application raises anyway.
+
+\`\`\`python
+from aquilia.models.migration.probe import database_exists, migrations_applied
+
+if not database_exists("sqlite:///app.db"):
+    print("Run: aq db migrate")
+
+if not migrations_applied("sqlite:///app.db", "migrations"):
+    print("Pending migrations — run: aq db migrate")
+\`\`\`
+
+---
+
+## API Reference Summary
+
+| Symbol | Module | Description |
+|---|---|---|
+| \`MigrationEngine\` | \`migration.engine\` | Generate, plan, apply, roll back |
+| \`MigrationStatus\` | \`migration.engine\` | Applied / pending summary |
+| \`SNAPSHOT_FILENAME\` | \`migration.engine\` | \`"schema_snapshot.json"\` |
+| \`ProjectState\` | \`migration.schema\` | Immutable schema state |
+| \`TableState\` | \`migration.schema\` | Per-table state |
+| \`ColumnState\` | \`migration.schema\` | Per-column state |
+| \`IndexState\` | \`migration.schema\` | Per-index state |
+| \`MigrationGraph\` | \`migration.graph\` | Dependency DAG |
+| \`MigrationNode\` | \`migration.graph\` | One migration in the DAG |
+| \`Autodetector\` | \`migration.autodetect\` | State-to-state diffing |
+| \`RenameHint\` | \`migration.autodetect\` | Explicit rename instruction |
+| \`detect_changes\` | \`migration.autodetect\` | Convenience function |
+| \`optimize\` | \`migration.optimizer\` | Operation reduction |
+| \`SchemaBackend\` | \`migration.backends\` | Dialect backend ABC |
+| \`Statement\` | \`migration.backends\` | Compiled SQL statement |
+| \`get_backend\` | \`migration.backends\` | Backend factory |
+| \`MigrationExecutor\` | \`migration.executor\` | Transactional application |
+| \`ExecutionResult\` | \`migration.executor\` | Per-migration outcome |
+| \`AppliedMigration\` | \`migration.executor\` | One tracking-table row |
+| \`MIGRATION_TABLE\` | \`migration.executor\` | \`"aquilia_migrations"\` |
+| \`compile_operations\` | \`migration.executor\` | Operations → statements |
+| \`render_migration_module\` | \`migration.serializer\` | MigrationNode → Python source |
+| \`load_migration_module\` | \`migration.serializer\` | Python file → MigrationNode |
+| \`serialize_operations\` | \`migration.serializer\` | Operations → source fragment |
+| \`revision_from_path\` | \`migration.serializer\` | Extract revision from filename |
+| \`slug_from_path\` | \`migration.serializer\` | Extract slug from filename |
+| \`database_exists\` | \`migration.probe\` | SQLite existence check |
+| \`migrations_applied\` | \`migration.probe\` | Pending-migration check |
+| \`Operation\` | \`migration.operations\` | Base operation ABC |
+| \`CreateModel\` | \`migration.operations\` | Create a new model/table |
+| \`DeleteModel\` | \`migration.operations\` | Drop a model/table |
+| \`RenameModel\` | \`migration.operations\` | Rename a model/table |
+| \`AlterModelOptions\` | \`migration.operations\` | Change \`Meta\` options |
+| \`AddField\` | \`migration.operations\` | Add a column |
+| \`RemoveField\` | \`migration.operations\` | Remove a column |
+| \`AlterField\` | \`migration.operations\` | Change a column's definition |
+| \`RenameField\` | \`migration.operations\` | Rename a column |
+| \`AddIndex\` | \`migration.operations\` | Add an index |
+| \`RemoveIndex\` | \`migration.operations\` | Remove an index |
+| \`AlterIndex\` | \`migration.operations\` | Modify an index |
+| \`AddConstraint\` | \`migration.operations\` | Add a table constraint |
+| \`RemoveConstraint\` | \`migration.operations\` | Remove a table constraint |
+| \`AlterConstraint\` | \`migration.operations\` | Modify a constraint |
+| \`CreateManyToManyTable\` | \`migration.operations\` | Create M2M junction table |
+| \`DeleteManyToManyTable\` | \`migration.operations\` | Drop M2M junction table |
+| \`RunSQL\` | \`migration.operations\` | Execute raw SQL |
+| \`RunPython\` | \`migration.operations\` | Execute a Python callable |
+`,
+    "operations.md": `# Operations Reference — Aquilia v1.3.10
+
+Every change to a database schema is represented as a typed \`Operation\` object. Operations are backend-independent: they carry semantic intent (e.g. "add a column called \`bio\` to \`User\`"), and a \`SchemaBackend\` turns that intent into SQL at execution time.
+
+---
+
+## Operation Protocol
+
+Every \`Operation\` subclass implements:
+
+| Method | Description |
+|---|---|
+| \`state_forwards(state)\` | Update \`ProjectState\` as if the operation has been applied. Used to replay history without touching the database. |
+| \`state_backwards(state)\` | Update \`ProjectState\` as if the operation has been rolled back. |
+| \`database_forwards(executor, state)\` | Apply the operation to a live database. |
+| \`database_backwards(executor, state)\` | Roll back the operation from a live database. |
+| \`describe() → str\` | Human-readable one-line summary shown in \`aq db makemigrations\` output. |
+| \`atomic: bool\` | Whether the operation requires a transaction. |
+
+### \`OperationCategory\`
+
+\`\`\`python
+class OperationCategory(str, Enum):
+    DDL = "ddl"           # Table/column/index changes
+    DATA = "data"         # RunSQL, RunPython with data changes
+    MIXED = "mixed"       # Operations that combine DDL and data
+\`\`\`
+
+---
+
+## Model Operations
+
+### \`CreateModel\`
+
+Create a new table and all its indexes, constraints, and M2M junction tables.
+
+\`\`\`python
+CreateModel(
+    model="Post",
+    table=TableState.of(
+        "Post",
+        "posts",
+        columns=[
+            ColumnState.of("id", fields.AutoField(primary_key=True)),
+            ColumnState.of("title", fields.CharField(max_length=200)),
+            ColumnState.of("author_id", fields.ForeignKey("User", on_delete="CASCADE")),
+        ],
+        indexes=[
+            IndexState(name="idx_post_author", columns=("author_id",)),
+        ],
+    ),
+)
+\`\`\`
+
+**State forward:** Adds \`model\` to \`ProjectState.tables\`.
+**State backward:** Removes \`model\` from \`ProjectState.tables\`.
+
+### \`DeleteModel\`
+
+Drop a table and all its indexes, constraints, and M2M junction tables.
+
+\`\`\`python
+DeleteModel(model="Post")
+\`\`\`
+
+**Irreversible** unless a corresponding \`CreateModel\` is in the rollback plan.
+
+### \`RenameModel\`
+
+Rename a model and its underlying table.
+
+\`\`\`python
+RenameModel(model="OldName", new_model="NewName")
+\`\`\`
+
+### \`AlterModelOptions\`
+
+Change \`Meta\` options without touching columns (e.g. \`ordering\`, \`verbose_name\`).
+
+\`\`\`python
+AlterModelOptions(model="Post", options={"ordering": ["-created_at"]})
+\`\`\`
+
+---
+
+## Field Operations
+
+### \`AddField\`
+
+Add a column to an existing table.
+
+\`\`\`python
+AddField(
+    model="User",
+    field=ColumnState.of("bio", fields.TextField(null=True, blank=True)),
+)
+\`\`\`
+
+**Reversible** via \`RemoveField\`.
+
+### \`RemoveField\`
+
+Remove a column from an existing table.
+
+\`\`\`python
+RemoveField(model="User", field_name="bio")
+\`\`\`
+
+> [!WARNING]
+> Irreversible in the sense that the data is deleted. The operation itself can generate \`ALTER TABLE ... DROP COLUMN\`.
+
+### \`AlterField\`
+
+Change a column's type, constraints, or default.
+
+\`\`\`python
+AlterField(
+    model="User",
+    field_name="bio",
+    field=ColumnState.of("bio", fields.CharField(max_length=500)),
+)
+\`\`\`
+
+**Compatibility note:** Narrowing a type (e.g. \`TextField\` → \`CharField(max_length=100)\`) may truncate data. The backend marks such statements as \`destructive=True\`.
+
+### \`RenameField\`
+
+Rename a column.
+
+\`\`\`python
+RenameField(model="User", old_name="bio", new_name="biography")
+\`\`\`
+
+---
+
+## Index Operations
+
+### \`AddIndex\`
+
+\`\`\`python
+AddIndex(
+    model="Post",
+    index=IndexState(
+        name="idx_post_title",
+        columns=("title",),
+        unique=False,
+    ),
+)
+\`\`\`
+
+### \`RemoveIndex\`
+
+\`\`\`python
+RemoveIndex(model="Post", index_name="idx_post_title")
+\`\`\`
+
+### \`AlterIndex\`
+
+Replace an existing index definition (drop + recreate).
+
+\`\`\`python
+AlterIndex(
+    model="Post",
+    old_index=IndexState(name="idx_post_title", columns=("title",)),
+    new_index=IndexState(name="idx_post_title", columns=("title",), unique=True),
+)
+\`\`\`
+
+---
+
+## Constraint Operations
+
+### \`AddConstraint\`
+
+\`\`\`python
+from aquilia.models.migration.schema import CheckConstraintState
+
+AddConstraint(
+    model="Post",
+    constraint=CheckConstraintState(
+        name="chk_post_title_nonempty",
+        condition="length(title) > 0",
+    ),
+)
+\`\`\`
+
+### \`RemoveConstraint\`
+
+\`\`\`python
+RemoveConstraint(model="Post", constraint_name="chk_post_title_nonempty")
+\`\`\`
+
+### \`AlterConstraint\`
+
+Drop and recreate a constraint with a new definition.
+
+---
+
+## Relation Operations
+
+### \`CreateManyToManyTable\`
+
+Create the junction table for a \`ManyToManyField\`. Emitted automatically by \`CreateModel\` when the model declares M2M fields; also emitted standalone when a M2M field is added to an existing model.
+
+\`\`\`python
+CreateManyToManyTable(
+    model="Post",
+    relation=ManyToManyState(
+        field_name="tags",
+        through_table="post_tags",
+        source_column="post_id",
+        target_column="tag_id",
+        target_table="tags",
+    ),
+)
+\`\`\`
+
+### \`DeleteManyToManyTable\`
+
+Drop a M2M junction table.
+
+---
+
+## Special Operations
+
+### \`RunSQL\`
+
+Execute raw SQL forward and (optionally) backward.
+
+\`\`\`python
+RunSQL(
+    sql="UPDATE posts SET published = TRUE WHERE created_at < '2026-01-01'",
+    reverse_sql="UPDATE posts SET published = FALSE WHERE created_at < '2026-01-01'",
+    atomic=True,
+)
+\`\`\`
+
+> [!IMPORTANT]
+> \`RunSQL\` and \`RunPython\` act as **optimizer barriers** — the optimizer never merges operations across them, since a data migration may depend on the exact intermediate schema.
+
+### \`RunPython\`
+
+Execute a Python callable.
+
+\`\`\`python
+def backfill_slugs(executor, state):
+    """Populate slug from title for existing posts."""
+    # Access the database through executor
+    ...
+
+RunPython(
+    code=backfill_slugs,
+    reverse_code=None,   # irreversible data migration
+    atomic=True,
+)
+\`\`\`
+
+---
+
+## Custom Operations
+
+Register a custom operation class so the serializer can find it by name when loading generated files:
+
+\`\`\`python
+from aquilia.models.migration.operations import register_operation, Operation
+
+class PartitionTable(Operation):
+    def __init__(self, model: str, partition_key: str):
+        self.model = model
+        self.partition_key = partition_key
+
+    def state_forwards(self, state): ...
+    def state_backwards(self, state): ...
+    def database_forwards(self, executor, state): ...
+    def database_backwards(self, executor, state): ...
+    def describe(self): return f"Partition {self.model} by {self.partition_key}"
+
+register_operation(PartitionTable)
+\`\`\`
+
+\`resolve_operation("PartitionTable")\` will then return the class when loading a migration that uses it.
+
+---
+
+## Operation Interactions with the Optimizer
+
+The optimizer folds operations in multiple passes until no further reduction is possible (capped at \`MAX_OPTIMIZER_PASSES = 32\`):
+
+| Rule | Input | Output |
+|---|---|---|
+| Fold field into create | \`CreateModel(U)\` + \`AddField(U.x)\` | \`CreateModel(U with x)\` |
+| Cancel field add/remove | \`AddField(U.x)\` + \`RemoveField(U.x)\` | *(nothing)* |
+| Collapse field alter | \`AddField(U.x)\` + \`AlterField(U.x)\` | \`AddField\` with final definition |
+| Collapse double alter | \`AlterField(x)\` + \`AlterField(x)\` | one \`AlterField\` |
+| Cancel model create/delete | \`CreateModel(U)\` + \`DeleteModel(U)\` | *(nothing)* |
+| Absorb rename into add | \`AddField(U.x)\` + \`RenameField(x→y)\` | \`AddField(U.y)\` |
+| Merge option changes | \`AlterModelOptions(a)\` + \`AlterModelOptions(b)\` | one \`AlterModelOptions\` with merged options |
+| Collapse index add/remove | \`AddIndex(i)\` + \`RemoveIndex(i)\` | *(nothing)* |
+`,
+    "cli.md": `# CLI Changes — Aquilia v1.3.10
+
+The migration-related \`aq db\` commands have been updated to use \`MigrationEngine\` throughout. Legacy \`MigrationRunner\`, \`DSLMigrationRunner\`, and \`generate_dsl_migration\` paths are removed from the CLI layer.
+
+---
+
+## \`aq db makemigrations\`
+
+### Removed Flags
+
+| Flag | Previous behaviour | Status |
+|---|---|---|
+| \`--use-dsl\` / \`--no-use-dsl\` | Toggle between DSL and legacy raw-SQL generator | **Removed** |
+| \`--migration-format\` | Choose \`"json"\` or \`"python"\` output format | **Removed** |
+
+### New Flags
+
+| Flag | Description | Default |
+|---|---|---|
+| \`--slug TEXT\` | Human-readable suffix appended to the filename | Derived from affected models |
+| \`--dry-run\` | Compute and print the migration without writing any files | \`False\` |
+
+### New Behaviour
+
+- The generated migration always uses the new sub-package format (real Python constructors, \`MIGRATION_TEMPLATE_VERSION = 3\`).
+- The snapshot file is now always written alongside the migration at \`<migrations_dir>/schema_snapshot.json\`.
+- \`--dry-run\` prints what would be generated (including the operation list) without touching the filesystem.
+
+### Examples
+
+\`\`\`bash
+# Generate a migration for all models in the workspace
+aq db makemigrations
+
+# Generate a migration for a specific module only
+aq db makemigrations --app blog
+
+# Named migration
+aq db makemigrations --slug add_biography
+
+# Verbose: see every model that was scanned
+aq db makemigrations --verbose
+
+# Dry-run: print operations without writing
+aq db makemigrations --dry-run
+
+# Custom migrations directory
+aq db makemigrations --migrations-dir src/migrations
+\`\`\`
+
+### Before / After Comparison
+
+\`\`\`bash
+# v1.3.9 (old flags)
+aq db makemigrations --use-dsl --migration-format python
+
+# v1.3.10 (removed — equivalent is just)
+aq db makemigrations
+\`\`\`
+
+---
+
+## \`aq db migrate\`
+
+### Changes
+
+The CLI now drives \`MigrationEngine\` instead of the old \`MigrationRunner\`:
+
+- \`--plan\` output now shows \`Statement.description\` and marks destructive statements in red:
+  \`\`\`
+  -- DESTRUCTIVE: Drop column 'legacy_id' from 'users'
+  ALTER TABLE "users" DROP COLUMN "legacy_id";
+  \`\`\`
+- \`--verbose\` now emits per-migration \`ExecutionResult.diagnostics\`.
+- The return value is now built from \`engine.status(db).applied\` — a complete, ordered list of all applied revisions — rather than just the revisions applied in the current run.
+
+### Examples
+
+\`\`\`bash
+# Apply all pending migrations
+aq db migrate
+
+# Apply against a specific database URL
+aq db migrate --database-url postgresql+asyncpg://user:pass@localhost/mydb
+
+# Dry-run: show SQL without executing
+aq db migrate --plan
+
+# Roll back to a specific revision
+aq db migrate --target 20260720_120000
+
+# Fake: mark migrations as applied without executing DDL
+aq db migrate --fake
+
+# Verbose diagnostics
+aq db migrate --verbose
+\`\`\`
+
+---
+
+## \`aq db showmigrations\`
+
+### Changes
+
+Updated to use \`MigrationExecutor\` and \`revision_from_path\` from the new sub-package:
+
+\`\`\`python
+# Internal change (not visible to users)
+# Old: from aquilia.models.migration_runner import MigrationRunner
+# New:
+from aquilia.models.migration.executor import MigrationExecutor
+from aquilia.models.migration.serializer import revision_from_path
+\`\`\`
+
+Output format and flags are unchanged.
+
+### Example
+
+\`\`\`bash
+aq db showmigrations
+# [x] 20260701_120000_initial
+# [x] 20260730_120000_add_user
+# [ ] 20260801_103000_add_bio      ← pending
+\`\`\`
+
+---
+
+## \`aq db diff\`
+
+### Changes
+
+The \`diff\` command now uses \`detect_changes\` from \`migration.autodetect\` and \`ProjectState.from_database\` instead of the old snapshot-diffing machinery from \`schema_snapshot\`.
+
+**New output format:** Instead of a \`difflib\` unified-diff text block, \`diff\` now prints one line per operation:
+
+\`\`\`
+Drift detected -- 2 change(s) needed:
+
+--- database (active)
++++ schema (target)
+
+  + AddField: Add 'biography' (TextField) to 'User'
+  + CreateIndex: Create index 'idx_user_biography' on 'User'
+
+Run \`aq db makemigrations\` to record these changes as a migration.
+\`\`\`
+
+The old format printed raw SQL fragments; the new format prints semantic operation descriptions.
+
+### Rename inference off by default for \`diff\`
+
+When comparing a live database against the snapshot, rename inference is disabled (\`infer_renames=False\`). A rename is indistinguishable from a drop-plus-add when one side was introspected; guessing wrong would report data-preserving drift as destructive.
+
+### Examples
+
+\`\`\`bash
+# Compare live database against the snapshot
+aq db diff
+
+# Compare live database against model definitions
+aq db diff --compare models
+
+# Specify migrations directory
+aq db diff --migrations-dir src/migrations
+\`\`\`
+
+---
+
+## \`aq db reset\`
+
+### Changes
+
+The reset command now correctly handles the case where the tracking table survived the drop:
+
+\`\`\`python
+# v1.3.10: After dropping tables, clear the tracking table if it still exists
+# before re-applying migrations — otherwise migrate() sees nothing pending.
+engine = MigrationEngine(migrations_dir)
+remaining = await db.get_tables()
+if "aquilia_migrations" in remaining:
+    await db.execute('DELETE FROM "aquilia_migrations"')
+results = await engine.migrate(db)
+\`\`\`
+
+This fixes a bug where \`reset\` on certain dialects (MySQL, some PostgreSQL configurations) could leave the tracking table intact after a drop, causing \`migrate()\` to report "Nothing to do" on a completely empty database.
+
+### Example
+
+\`\`\`bash
+aq db reset --database-url sqlite:///dev.db
+\`\`\`
+
+---
+
+## \`aq db status\`
+
+No changes to the CLI interface. The underlying \`MigrationStatus\` object is now returned by \`MigrationEngine.status()\`.
+
+---
+
+## Common Migration Workflow
+
+\`\`\`bash
+# 1. Define or modify your models
+# 2. Generate a migration
+aq db makemigrations --slug describe_your_change
+
+# 3. Review the generated migration
+cat migrations/20260801_103000_describe_your_change.py
+
+# 4. Preview the SQL
+aq db migrate --plan
+
+# 5. Apply
+aq db migrate
+
+# 6. Verify
+aq db showmigrations
+aq db status
+\`\`\`
+
+---
+
+## Anti-Patterns
+
+\`\`\`bash
+# ❌ Don't edit migration files after applying them to any environment.
+# The checksum recorded in aquilia_migrations will no longer match,
+# and verify_checksums will report a mismatch.
+
+# ❌ Don't delete migration files that have been applied.
+# The engine will report the revision as "missing from disk".
+
+# ✅ To squash migrations, use the replaces metadata:
+#    Set node.replaces = ("old_rev_1", "old_rev_2") in your squash migration.
+\`\`\`
+`,
+    "fields.md": `# Field Improvements — Aquilia v1.3.10
+
+---
+
+## \`EnumField\` — Dotted-String \`enum_class\` for Migration Round-Trips
+
+### Problem
+
+Generated migration files must be valid Python that can be imported by the migration executor. An \`EnumField\` declaration requires the actual \`Enum\` class to be present at import time. When \`EnumField.deconstruct()\` serializes the field for a migration file, it must write the class reference in a form that can be reconstructed.
+
+### Solution: \`_resolve_enum_class()\`
+
+\`EnumField\` now accepts a dotted-string path as \`enum_class\` in addition to the class itself:
+
+\`\`\`python
+# Both of these are now valid:
+status = EnumField(enum_class=UserStatus)                      # direct class reference
+status = EnumField(enum_class="myapp.models.UserStatus")       # dotted-string path
+\`\`\`
+
+The dotted-string form is what \`deconstruct()\` writes into generated migration files. At load time, \`_resolve_enum_class()\` imports the module and resolves the class.
+
+### \`_resolve_enum_class()\` Behaviour
+
+| Input | Result |
+|---|---|
+| \`UserStatus\` (an Enum subclass) | Returns \`UserStatus\` unchanged |
+| \`"myapp.models.UserStatus"\` | Imports \`myapp.models\`, returns \`UserStatus\` |
+| \`"UserStatus"\` (no module) | Raises \`FieldValidationError\` with clear message |
+| \`"myapp.models.NotAnEnum"\` | Raises \`FieldValidationError\` after confirming it is not \`Enum\` |
+| Import fails | Raises \`FieldValidationError\` with message including the original \`ImportError\` |
+
+### Error Messages
+
+The error message from \`_resolve_enum_class()\` includes the instruction to keep the enum importable:
+
+\`\`\`
+FieldValidationError: enum_class: cannot import 'myapp.models.OldStatus':
+No module named 'myapp.models'. The enum must remain importable for any
+migration referencing it to load.
+\`\`\`
+
+### Migration Round-Trip
+
+\`\`\`python
+# Model definition
+class Post(Model):
+    status = EnumField(enum_class=PostStatus)
+
+# What deconstruct() produces (written to migration file)
+{
+    "enum_class": "myapp.models.PostStatus",
+    "max_length": 50,
+    ...
+}
+
+# When the migration file is loaded, _resolve_enum_class("myapp.models.PostStatus")
+# imports the module and returns the PostStatus class.
+\`\`\`
+
+### Breaking Change
+
+\`EnumField(enum_class=...)\` now validates the argument immediately at field construction time. Previously, passing an invalid \`enum_class\` would fail lazily (e.g. when accessing choices). This means invalid declarations fail loudly at import time instead of silently at runtime.
+
+---
+
+## \`BigAutoField\` — MySQL \`BIGINT\`
+
+### Previous Behaviour
+
+\`BigAutoField.sql_type("mysql")\` returned \`"INTEGER"\` (the SQLite fallback), which on MySQL is a 32-bit type — silently losing the 64-bit guarantee the field exists to provide.
+
+### New Behaviour
+
+\`\`\`python
+BigAutoField().sql_type("mysql")    # → "BIGINT"
+BigAutoField().sql_type("sqlite")   # → "INTEGER"  (unchanged — SQLite INTEGER is 64-bit)
+BigAutoField().sql_type("postgresql")  # → "BIGSERIAL"  (unchanged)
+BigAutoField().sql_type("oracle")   # → "NUMBER(19)"  (unchanged)
+\`\`\`
+
+**Why not \`BIGINT\` on SQLite?** Only the exact type string \`INTEGER\` aliases the 64-bit rowid on SQLite; \`BIGINT\` would silently lose the auto-increment behaviour.
+
+---
+
+## \`SmallAutoField\` — MySQL \`SMALLINT\`
+
+Same fix as \`BigAutoField\`. \`SmallAutoField.sql_type("mysql")\` now returns \`"SMALLINT"\` instead of \`"INTEGER"\`.
+
+\`\`\`python
+SmallAutoField().sql_type("mysql")       # → "SMALLINT"
+SmallAutoField().sql_type("sqlite")      # → "INTEGER"  (unchanged)
+SmallAutoField().sql_type("postgresql")  # → "SMALLSERIAL"  (unchanged)
+SmallAutoField().sql_type("oracle")      # → "NUMBER(5)"  (unchanged)
+\`\`\`
+
+---
+
+## \`GeneratedField\` — \`deconstruct()\` for Snapshotting
+
+### Problem
+
+\`GeneratedField\` did not override \`deconstruct()\`. Without \`expression\`, \`db_persist\`, and \`output_field\` in the deconstructed dict, migration snapshotting was invisible to generated columns: a change to the expression would not be detected as a schema change, and the \`GENERATED ALWAYS AS (...)\` clause would be dropped from generated DDL entirely.
+
+### Solution
+
+\`GeneratedField\` now overrides \`deconstruct()\` to include:
+
+\`\`\`python
+{
+    "expression": "UPPER(name)",   # the SQL expression
+    "db_persist": True,            # STORED vs VIRTUAL
+    "output_field": {              # nested deconstruct() of the output field
+        "__class__": "CharField",
+        "max_length": 200,
+        ...
+    },
+    ...
+}
+\`\`\`
+
+\`output_field\` is serialized as its own nested \`deconstruct()\` dict, keeping the result JSON-safe while still naming the concrete field class needed to resolve the column's SQL type.
+
+### Before / After
+
+\`\`\`python
+# Before v1.3.10: GeneratedField.deconstruct() returned only base Field fields
+# Changes to expression or db_persist were invisible to the migration system
+
+# After v1.3.10:
+class Article(Model):
+    title = CharField(max_length=200)
+    title_upper = GeneratedField(
+        expression="UPPER(title)",
+        output_field=CharField(max_length=200),
+        db_persist=True,
+    )
+
+# Running makemigrations now correctly captures the generated column.
+# Changing the expression produces an AlterField operation.
+\`\`\`
+
+---
+
+## \`compile_schema_expression()\` — Moved to \`expression\` Module
+
+### Change
+
+The function \`_compile_schema_expression\` was previously defined in \`aquilia.models.schema_snapshot\` (now deleted). It has been reimplemented as the public function \`compile_schema_expression\` in \`aquilia.models.expression\`.
+
+### New Import Path
+
+\`\`\`python
+# Old (no longer exists)
+from aquilia.models.schema_snapshot import _compile_schema_expression
+
+# New
+from aquilia.models.expression import compile_schema_expression
+\`\`\`
+
+### What It Does
+
+Renders a query-expression object (\`F\`, \`Value\`, \`Func\`, \`CombinedExpression\`, \`RawSQL\`, or any \`Expression\` with \`as_sql\`) as inline SQL text for use in schema artifacts (index/constraint DDL, snapshot diffing).
+
+Unlike normal query compilation, this produces a single self-contained SQL string with parameters inlined (via naive \`'\` doubling) rather than a \`(sql, params)\` pair — appropriate for DDL contexts like \`CREATE INDEX ... (expression)\` where there is no query executor to bind parameters.
+
+\`\`\`python
+from aquilia.models.expression import compile_schema_expression, F, Value, Func
+
+compile_schema_expression(F("title"))               # → '"title"'
+compile_schema_expression(Value("hello"))           # → "'hello'"
+compile_schema_expression(F("author__name"))        # → '"author"."name"'
+compile_schema_expression(Func("UPPER", F("title")))  # → 'UPPER("title")'
+\`\`\`
+
+This function is used internally by \`base.py\` (unique constraint DDL), \`fields_module.py\` (Index DDL), and the new migration backends.
+
+---
+
+## Summary
+
+| Field / Function | Change | Impact |
+|---|---|---|
+| \`EnumField.enum_class\` | Accepts dotted-string path for migration round-trips | Enables generated migration files to reconstruct \`EnumField\` |
+| \`BigAutoField.sql_type("mysql")\` | Now \`"BIGINT"\` instead of \`"INTEGER"\` | Fixes silent 32-bit truncation on MySQL |
+| \`SmallAutoField.sql_type("mysql")\` | Now \`"SMALLINT"\` instead of \`"INTEGER"\` | Fixes incorrect type on MySQL |
+| \`GeneratedField.deconstruct()\` | Now includes \`expression\`, \`db_persist\`, \`output_field\` | Makes generated columns visible to migration snapshotting |
+| \`compile_schema_expression\` | Moved to \`expression.py\` (public); removed from \`schema_snapshot\` | Updated import path required |
+`,
+    "migration.md": `# Breaking Changes & Migration Guide — Aquilia v1.3.10
+
+This guide documents every breaking change introduced in v1.3.10 and provides step-by-step instructions for upgrading.
+
+---
+
+## Summary of Breaking Changes
+
+| Category | Breaking Change |
+|---|---|
+| **Removed modules** | \`migration_dsl\`, \`migration_gen\`, \`migration_planner\`, \`migration_runner\`, \`migrations\`, \`schema_snapshot\`, \`ddl_executor\` |
+| **Removed public symbols** | \`MigrationRunner\`, \`MigrationOps\`, \`DSLMigrationRunner\`, \`Migration\`, \`DSLCreateModel\`, \`DSLAddField\`, \`DSLRemoveField\`, \`DSLAlterField\`, \`DSLRenameField\`, \`DSLDropModel\`, \`DSLRenameModel\`, \`DSLCreateIndex\`, \`DSLDropIndex\`, \`DSLRunSQL\`, \`DSLRunPython\`, \`DSLAddConstraint\`, \`DSLRemoveConstraint\`, \`MigrationInfo\`, \`generate_migration_from_models\`, \`op\`, \`generate_dsl_migration\`, \`InitialSchemaPlanner\`, \`MigrationPlan\`, \`MigrationPlanner\`, \`MigrationStep\`, \`DDLExecutor\`, \`ExecutableStatement\`, \`StatementType\`, \`C\`, \`ColumnDef\`, \`columns\`, \`create_snapshot\`, \`save_snapshot\`, \`load_snapshot\`, \`compute_diff\`, \`diff_to_operations\`, \`SchemaDiff\`, \`ModelDiff\` |
+| **CLI flags removed** | \`aq db makemigrations --use-dsl\`, \`--no-use-dsl\`, \`--migration-format\` |
+| **Snapshot format** | Old \`"models"\` key is no longer written; new format uses \`"tables"\`. Old snapshots are detected and discarded gracefully. |
+| **Probe function renames** | \`check_db_exists\` → \`database_exists\`; \`check_migrations_applied\` → \`migrations_applied\`; \`check_db_ready\` removed |
+
+---
+
+## Removed Modules
+
+The following modules have been deleted. Any direct import of them will raise \`ImportError\`:
+
+| Old Module | Replacement |
+|---|---|
+| \`aquilia.models.ddl_executor\` | \`aquilia.models.migration.executor\` + \`aquilia.models.migration.backends\` |
+| \`aquilia.models.migration_dsl\` | \`aquilia.models.migration.operations\` |
+| \`aquilia.models.migration_gen\` | \`aquilia.models.migration.codegen\` + \`aquilia.models.migration.serializer\` |
+| \`aquilia.models.migration_planner\` | \`aquilia.models.migration.graph\` + \`aquilia.models.migration.engine\` |
+| \`aquilia.models.migration_runner\` | \`aquilia.models.migration.executor\` + \`aquilia.models.migration.engine\` |
+| \`aquilia.models.migrations\` | \`aquilia.models.migration.engine\` |
+| \`aquilia.models.schema_snapshot\` | \`aquilia.models.migration.schema\` + \`aquilia.models.migration.autodetect\` |
+
+---
+
+## Import Path Changes
+
+### Top-Level \`aquilia.models\` Exports
+
+**Removed exports:**
+
+\`\`\`python
+# These no longer exist in aquilia.models:
+from aquilia.models import (
+    MigrationRunner,       # removed
+    MigrationOps,          # removed
+    MigrationInfo,         # removed
+    generate_migration_from_models,  # removed
+    op,                    # removed
+    Migration,             # removed
+    DSLMigrationRunner,    # removed
+    DSLCreateModel,        # removed
+    DSLAddField,           # removed
+    DSLRemoveField,        # removed
+    DSLAlterField,         # removed
+    DSLRenameField,        # removed
+    DSLDropModel,          # removed
+    DSLRenameModel,        # removed
+    DSLCreateIndex,        # removed
+    DSLDropIndex,          # removed
+    DSLRunSQL,             # removed
+    DSLRunPython,          # removed
+    DSLAddConstraint,      # removed
+    DSLRemoveConstraint,   # removed
+    ColumnDef,             # removed
+    columns,               # removed
+    C,                     # removed
+    create_snapshot,       # removed
+    save_snapshot,         # removed
+    load_snapshot,         # removed
+    compute_diff,          # removed
+    diff_to_operations,    # removed
+    SchemaDiff,            # removed
+    ModelDiff,             # removed
+    DDLExecutor,           # removed
+    ExecutableStatement,   # removed
+    ExecutionResult,       # removed (old one)
+    StatementType,         # removed
+    InitialSchemaPlanner,  # removed
+    MigrationPlan,         # removed
+    MigrationPlanner,      # removed
+    MigrationStep,         # removed
+    check_db_exists,       # removed
+    check_migrations_applied,  # removed
+    check_db_ready,        # removed
+    generate_dsl_migration, # removed
+)
+\`\`\`
+
+**New exports (via \`aquilia.models\`):**
+
+\`\`\`python
+from aquilia.models import (
+    MigrationEngine,   # replaces MigrationRunner, DSLMigrationRunner
+    MigrationGraph,    # new
+    MigrationNode,     # new
+    MigrationStatus,   # new
+    Operation,         # new unified base (replaces DSL* operations)
+    ProjectState,      # replaces SchemaDiff/ModelDiff snapshot machinery
+)
+\`\`\`
+
+### Top-Level \`aquilia\` Exports
+
+\`\`\`python
+# Old
+from aquilia import MigrationRunner, MigrationOps
+
+# New
+from aquilia import MigrationEngine
+\`\`\`
+
+---
+
+## Code Migration Examples
+
+### Generating Migrations
+
+**Before (v1.3.9 — DSL path):**
+
+\`\`\`python
+from aquilia.models.migration_gen import generate_dsl_migration
+
+result = generate_dsl_migration(
+    model_classes=[User, Post],
+    migrations_dir="migrations",
+)
+\`\`\`
+
+**Before (v1.3.9 — legacy path):**
+
+\`\`\`python
+from aquilia.models.migrations import generate_migration_from_models
+
+result = generate_migration_from_models(
+    model_classes=[User, Post],
+    migrations_dir="migrations",
+)
+\`\`\`
+
+**After (v1.3.10):**
+
+\`\`\`python
+from aquilia.models.migration import MigrationEngine
+
+engine = MigrationEngine("migrations")
+path = engine.make_migrations([User, Post])
+# path is None when no changes are detected
+\`\`\`
+
+---
+
+### Applying Migrations
+
+**Before (v1.3.9 — MigrationRunner):**
+
+\`\`\`python
+from aquilia.models.migration_runner import MigrationRunner
+
+runner = MigrationRunner(db, "migrations", dialect=db.dialect)
+applied_revisions = await runner.migrate()
+\`\`\`
+
+**After (v1.3.10):**
+
+\`\`\`python
+from aquilia.models.migration import MigrationEngine
+
+engine = MigrationEngine("migrations")
+results = await engine.migrate(db)
+# results is list[ExecutionResult], one per migration
+\`\`\`
+
+---
+
+### Snapshot Operations
+
+**Before (v1.3.9):**
+
+\`\`\`python
+from aquilia.models.schema_snapshot import (
+    create_snapshot, save_snapshot, load_snapshot,
+    compute_diff, diff_to_operations, SchemaDiff, ModelDiff
+)
+
+snapshot = create_snapshot([User, Post])
+save_snapshot(snapshot, "migrations/schema_snapshot.json")
+
+old_snap = load_snapshot("migrations/schema_snapshot.json")
+diff = compute_diff(old_snap, snapshot)
+ops = diff_to_operations(diff)
+\`\`\`
+
+**After (v1.3.10):**
+
+\`\`\`python
+from aquilia.models.migration import MigrationEngine, ProjectState
+
+engine = MigrationEngine("migrations")
+
+# Snapshot is managed automatically by make_migrations.
+# For manual access:
+state = ProjectState.from_models([User, Post])
+engine.save_snapshot(state)
+
+before = engine.load_snapshot()
+after = ProjectState.from_models([User, Post])
+
+from aquilia.models.migration import detect_changes
+ops = detect_changes(before, after)
+\`\`\`
+
+---
+
+### DDL Executor Usage
+
+**Before (v1.3.9):**
+
+\`\`\`python
+from aquilia.models import DDLExecutor, CreateModel, C
+
+ops = [CreateModel("User", "users", [C.auto("id"), C.varchar("email", 255)])]
+statements = DDLExecutor.compile_operations(ops, dialect="postgresql")
+result = await DDLExecutor.execute_statements(db, statements, in_transaction=True)
+\`\`\`
+
+**After (v1.3.10):**
+
+\`\`\`python
+from aquilia.models.migration import MigrationEngine
+
+engine = MigrationEngine("migrations")
+# Let the engine manage creation; or use MigrationExecutor directly:
+
+from aquilia.models.migration.executor import MigrationExecutor
+from aquilia.models.migration.operations import CreateModel
+from aquilia.models.migration.schema import ProjectState, TableState, ColumnState
+from aquilia.models import fields
+
+executor = MigrationExecutor(db)
+result = await executor.apply_operations(
+    [CreateModel(model="User", table=TableState.of("User", "users", columns=[
+        ColumnState.of("id", fields.AutoField(primary_key=True)),
+        ColumnState.of("email", fields.EmailField(unique=True)),
+    ]))],
+    ProjectState(),
+    description="create user table",
+)
+\`\`\`
+
+---
+
+### Probe Functions
+
+**Before (v1.3.9 — \`migration_runner\`):**
+
+\`\`\`python
+from aquilia.models.migration_runner import check_db_exists, check_migrations_applied
+
+if not check_db_exists(db_url):
+    ...
+if not check_migrations_applied(db_url, migrations_dir):
+    ...
+\`\`\`
+
+**After (v1.3.10 — \`migration.probe\`):**
+
+\`\`\`python
+from aquilia.models.migration.probe import database_exists, migrations_applied
+# Also available via:
+from aquilia.models.migration import database_exists, migrations_applied
+
+if not database_exists(db_url):
+    ...
+if not migrations_applied(db_url, migrations_dir):
+    ...
+\`\`\`
+
+---
+
+### Direct DSL Operations
+
+**Before (v1.3.9 — DSL prefix):**
+
+\`\`\`python
+from aquilia.models import (
+    DSLCreateModel, DSLAddField, DSLRemoveField,
+    DSLAlterField, DSLRenameField, DSLRunSQL,
+)
+\`\`\`
+
+**After (v1.3.10 — unified operations):**
+
+\`\`\`python
+from aquilia.models.migration import (
+    CreateModel, AddField, RemoveField,
+    AlterField, RenameField, RunSQL,
+)
+# or via aquilia.models:
+from aquilia.models import Operation
+\`\`\`
+
+---
+
+## Snapshot Format Upgrade
+
+The v1.3.10 snapshot format uses \`"tables"\` as the top-level key instead of \`"models"\`. Old snapshots with \`"models"\` are detected at load time:
+
+\`\`\`python
+# In MigrationEngine.load_snapshot():
+if "tables" not in raw and "models" in raw:
+    logger.info(
+        "Schema snapshot at %s is in a superseded format and cannot describe "
+        "many-to-many relations, generated columns, or index methods. It will be "
+        "replaced on the next makemigrations.",
+        path,
+    )
+    return ProjectState()
+\`\`\`
+
+**What happens:** The old snapshot is silently discarded, and the engine treats the state as empty. The next \`makemigrations\` will diff against an empty state, producing a full \`CreateModel\` for every model — essentially a new initial migration.
+
+**Action required:** If you have an existing \`schema_snapshot.json\` in the old \`"models"\` format:
+
+1. Delete \`migrations/schema_snapshot.json\`
+2. Run \`aq db makemigrations\` — it will regenerate the snapshot in the new format
+
+> [!NOTE]
+> Your existing migration *files* are not affected. The snapshot is purely a caching artefact for the autodetector. The migration graph (your \`.py\` files) remains the authoritative record.
+
+---
+
+## CLI Flag Removal
+
+\`\`\`bash
+# These flags are no longer accepted:
+aq db makemigrations --use-dsl          # → error: no such option
+aq db makemigrations --no-use-dsl       # → error: no such option
+aq db makemigrations --migration-format python  # → error: no such option
+
+# Use instead:
+aq db makemigrations                    # always uses new engine
+aq db makemigrations --slug my_change   # optional human-readable name
+aq db makemigrations --dry-run          # new: preview without writing
+\`\`\`
+
+---
+
+## Upgrade Checklist
+
+- [ ] Update \`aquilia\` dependency to \`v1.3.10\`
+- [ ] Replace all imports of removed modules (see table above)
+- [ ] Replace \`MigrationRunner\` with \`MigrationEngine\` throughout application code
+- [ ] Replace \`DSL*\` operation imports with unified \`migration.operations\` imports
+- [ ] Remove \`--use-dsl\`, \`--no-use-dsl\`, \`--migration-format\` from any scripts or CI that call \`aq db makemigrations\`
+- [ ] Replace \`check_db_exists\`/\`check_migrations_applied\` with \`database_exists\`/\`migrations_applied\`
+- [ ] Replace \`from aquilia.models.schema_snapshot import _compile_schema_expression\` with \`from aquilia.models.expression import compile_schema_expression\`
+- [ ] Delete old \`schema_snapshot.json\` and regenerate with \`aq db makemigrations\` (if format was \`"models"\`)
+- [ ] Run \`aq db status\` to verify the migration tracking table is intact
+- [ ] Run \`aq db migrate\` if any migrations are pending
+- [ ] Run your full test suite: \`pytest tests/\`
+
+---
+
+## Compatibility Notes
+
+- **Generated migration files from v1.3.8 / v1.3.9** that use the old DSL (\`Migration\`, \`C.varchar(...)\`, \`ColumnDef\`, etc.) will **not** be loadable by the new engine. You must either squash and regenerate, or rewrite them to use the new operation format.
+- **Migration tracking table** (\`aquilia_migrations\`) is unchanged. Existing applied-migration rows are preserved.
+- **All other Aquilia subsystems** (controllers, contracts, DI, sessions, auth, cache, storage, tasks, WebSockets, mail, templates, admin, artifacts) are unaffected by this release.
+- **Python version** requirement unchanged (3.11+).
+- **Database support** unchanged: SQLite, PostgreSQL, MySQL, Oracle.
+`,
+    "bugfixes.md": `# Bug Fixes — Aquilia v1.3.10
+
+---
+
+## Bug 1 — \`_patched_create_tables_new\` — Optional \`db\` Parameter
+
+### Previous Behaviour
+
+In the faults integration module (\`aquilia/faults/integrations/models.py\`), the patched \`_patched_create_tables_new\` function had a signature that did not accept an optional \`db\` parameter. When \`ModelRegistry.create_tables(db=some_db)\` was called with an explicit database argument, the patched version raised a \`TypeError\` because it only accepted no arguments.
+
+### Root Cause
+
+The patch was written against the original \`create_tables()\` signature before the optional \`db\` override was added to \`ModelRegistry\`. The patch was not updated when the parameter was introduced.
+
+### Fix
+
+The \`_patched_create_tables_new\` signature now accepts \`db=None\` as an optional keyword argument, matching the real \`ModelRegistry.create_tables\` signature:
+
+\`\`\`python
+# Before
+async def _patched_create_tables_new():
+    ...
+
+# After
+async def _patched_create_tables_new(db=None):
+    ...
+\`\`\`
+
+### User Impact
+
+Users calling \`ModelRegistry.create_tables(db=my_db)\` explicitly — common in test setups — would have seen an unexpected \`TypeError\`. This is now fixed.
+
+---
+
+## Bug 2 — \`startup_guard.py\` — Probe Function Renames
+
+### Previous Behaviour
+
+\`startup_guard.py\` imported probe functions from \`migration_runner\`:
+
+\`\`\`python
+from .migration_runner import check_db_exists, check_migrations_applied
+\`\`\`
+
+After \`migration_runner.py\` was deleted in this release, the import raised an \`ImportError\` at runtime, crashing any server boot that reached the startup guard.
+
+### Fix
+
+Updated to import the renamed functions from \`migration.probe\`:
+
+\`\`\`python
+# Before
+from .migration_runner import check_db_exists, check_migrations_applied
+
+if not check_db_exists(db_url): ...
+if not check_migrations_applied(db_url, migrations_dir): ...
+
+# After
+from .migration.probe import database_exists, migrations_applied
+
+if not database_exists(db_url): ...
+if not migrations_applied(db_url, migrations_dir): ...
+\`\`\`
+
+### User Impact
+
+Any application that used \`startup_guard.py\`'s readiness checking (i.e. any application with \`auto_migrate=False\` and a SQLite database) would have seen an \`ImportError\` on server startup. This is now fixed.
+
+---
+
+## Bug 3 — \`ModelRegistry.create_tables()\` — Unified DDL Path
+
+### Previous Behaviour
+
+\`ModelRegistry.create_tables()\` called \`MigrationRunner\` from \`migration_runner.py\`:
+
+\`\`\`python
+from .migration_runner import MigrationRunner
+
+runner = MigrationRunner(target_db, dialect=getattr(target_db, "dialect", "sqlite"))
+exec_stmts = await runner.create_initial_schema(ordered)
+return [s.sql for s in exec_stmts if s.sql and not s.is_comment]
+\`\`\`
+
+After \`migration_runner.py\` was deleted, this import raised \`ImportError\`.
+
+### Fix
+
+\`ModelRegistry.create_tables()\` now uses \`ProjectState\` and \`MigrationExecutor\` from the new sub-package:
+
+\`\`\`python
+from .migration import ProjectState
+from .migration.executor import MigrationExecutor
+from .migration.operations import CreateManyToManyTable, CreateModel
+
+target_state = ProjectState.from_models(ordered)
+operations = []
+for model_name in target_state.creation_order():
+    table = target_state.tables[model_name]
+    operations.append(CreateModel(model=model_name, table=table))
+    for relation in table.m2m:
+        operations.append(CreateManyToManyTable(model=model_name, relation=relation))
+
+executor = MigrationExecutor(target_db)
+result = await executor.apply_operations(operations, ProjectState(), description="initial schema")
+await cls._record_initial_schema(target_db, target_state)
+return [statement.sql for statement in result.executed if statement.sql]
+\`\`\`
+
+### Additional Improvement
+
+\`create_tables()\` now records \`0000_initial_schema\` in the \`aquilia_migrations\` table (via the new \`_record_initial_schema\` class method), so a subsequent \`aq db migrate\` correctly sees the initial schema as already applied. Previously, running \`create_tables()\` and then \`migrate()\` would attempt to re-apply the initial migration and fail with "table already exists".
+
+### User Impact
+
+Applications using \`auto_create=True\` (the default) or calling \`ModelRegistry.create_tables()\` directly would have seen an \`ImportError\` at startup. This is now fixed, and the initial schema is now properly tracked.
+
+---
+
+## Bug 4 — \`compile_schema_expression\` Import in \`base.py\` and \`fields_module.py\`
+
+### Previous Behaviour
+
+\`base.py\` and \`fields_module.py\` imported \`_compile_schema_expression\` from \`schema_snapshot\`:
+
+\`\`\`python
+from .schema_snapshot import _compile_schema_expression
+\`\`\`
+
+After \`schema_snapshot.py\` was deleted, these imports raised \`ImportError\`, breaking unique constraint DDL generation and index DDL generation.
+
+### Fix
+
+Updated to import from \`expression.py\`:
+
+\`\`\`python
+from .expression import compile_schema_expression as _compile_schema_expression
+\`\`\`
+
+The function is now public (\`compile_schema_expression\`) rather than private (\`_compile_schema_expression\`).
+
+### User Impact
+
+Any model with expression-based unique constraints or functional indexes would have raised \`ImportError\` when generating \`CREATE TABLE\` SQL. This is now fixed.
+
+---
+
+## Bug 5 — \`server.py\` — Auto-Migration Path
+
+### Previous Behaviour
+
+\`AquiliaServer\` used \`MigrationRunner\` from \`migration_runner.py\` for auto-migration:
+
+\`\`\`python
+from aquilia.models.migration_runner import MigrationRunner
+
+runner = MigrationRunner(db, migrations_dir)
+await runner.migrate()
+\`\`\`
+
+### Fix
+
+Updated to use \`MigrationEngine\`:
+
+\`\`\`python
+from aquilia.models.migration import MigrationEngine
+
+await MigrationEngine(migrations_dir).migrate(db)
+\`\`\`
+
+This is a one-line functional change — the behaviour is identical, but the implementation now routes through the new unified engine.
+
+---
+
+## Bug 6 — \`aq db reset\` — Tracking Table Survives Table Drop
+
+### Previous Behaviour
+
+On dialects where the \`DROP TABLE\` loop did not drop the \`aquilia_migrations\` tracking table (MySQL with foreign key checks, certain PostgreSQL configurations), \`reset\` would leave the tracking table intact with all its rows. The subsequent \`migrate()\` call would then see every migration as already applied (because the rows still existed) and do nothing — leaving the database completely empty but reporting itself as fully migrated.
+
+### Fix
+
+After dropping tables, \`reset\` now explicitly checks whether \`aquilia_migrations\` still exists and clears it if so:
+
+\`\`\`python
+engine = MigrationEngine(migrations_dir)
+remaining = await db.get_tables()
+if "aquilia_migrations" in remaining:
+    await db.execute('DELETE FROM "aquilia_migrations"')
+results = await engine.migrate(db)
+\`\`\`
+
+### User Impact
+
+\`aq db reset\` on MySQL or certain PostgreSQL configurations would silently produce an empty database that claimed to be fully migrated. After the reset, the next \`aq db status\` would show everything as applied. Queries against the (empty) database would fail with "table does not exist". This is now fixed.
+`,
+    "architecture.md": `# Architecture Deep Dive — Aquilia v1.3.10
+
+This document explains the design decisions, trade-offs, and guarantees behind the new migration subsystem for readers who want to understand the internals or contribute to the framework.
+
+---
+
+## Design Principles
+
+### 1. No Information Loss at the First Hop
+
+Previous systems reduced every \`Field\` to a handful of primitives (name, SQL type, a few booleans) at snapshotting time. No amount of care downstream can recover a generated-column expression, a partial-index predicate, an operator class, or an M2M relationship from that reduced set.
+
+\`ProjectState\` therefore captures fields through \`Field.deconstruct()\` and retains enough to reconstruct them faithfully. SQL generation is deferred to \`backends/\` — the *only* layer permitted to know about dialects.
+
+### 2. Strict Layering
+
+\`\`\`
+Model classes → schema.py → operations/ → backends/
+               state          state deltas    SQL text
+\`\`\`
+
+Nothing in \`schema.py\` emits SQL. Nothing in \`operations/\` imports a backend. Nothing in \`engine.py\` constructs a SQL string. This separation makes operations backend-independent, serialization deterministic, and testing tractable.
+
+### 3. Determinism Above All
+
+A migration is a permanent, reviewable artifact. Two developers generating a migration against the same models on different machines must get the same file. Every collection in the pipeline is an ordered \`tuple\`; every mapping is iterated through \`sorted()\`. The \`codegen\` layer emits sorted key-order, omits default-valued arguments, and accepts no clock or hostname into the rendered body.
+
+Consequence: "No changes detected" is trustworthy. Regenerating from unchanged models produces a byte-identical file.
+
+### 4. Safe Rename Detection
+
+A rename is a destructive guess. Emitting \`RENAME COLUMN\` when the developer actually dropped one column and added another silently overwrites the wrong column and loses its data.
+
+The autodetector scores rename candidates across multiple independent signals. The \`RENAME_CONFIDENCE_THRESHOLD = 0.85\` is set so that no single signal — not even an identical type — can clear it alone. The combination of type match, name similarity, position, and constraints must all agree before a rename is inferred automatically. The developer can always provide an explicit \`RenameHint\` to override the inference.
+
+### 5. File Before Snapshot
+
+\`make_migrations\` writes the migration file first, then saves the updated snapshot:
+
+\`\`\`python
+path.write_text(source, encoding="utf-8")
+self.save_snapshot(after)           # ← snapshot written AFTER file
+\`\`\`
+
+If the snapshot write fails, the file still exists and the snapshot still describes the last successful migration. The next \`makemigrations\` will compute the same diff and regenerate the same file — the developer just reruns the command.
+
+Writing snapshot first would advance it past a migration file that was never recorded on disk. The next \`makemigrations\` would see no diff and generate nothing, losing the change entirely.
+
+### 6. Tracking Inside the Transaction
+
+\`\`\`
+┌─ transaction ─────────────────────────────────────┐
+│  DDL statement 1                                  │
+│  DDL statement 2                                  │
+│  ...                                              │
+│  INSERT INTO aquilia_migrations (revision, ...)   │
+└───────────────────────────────────────────────────┘
+\`\`\`
+
+The tracking \`INSERT\` is the last statement *inside* the same transaction. Schema and history commit or roll back together, closing the window where a crash could change the schema without recording it.
+
+### 7. Non-transactional Statements
+
+Some DDL cannot participate in a transaction:
+
+- **SQLite table rebuilds** need \`PRAGMA foreign_keys\` toggled outside any transaction.
+- **PostgreSQL \`CREATE INDEX CONCURRENTLY\`** is rejected inside a transaction.
+- **MySQL and Oracle DDL** cannot participate in a transaction at all.
+
+Statements declare their own requirement (\`transactional: bool\`). The executor splits the batch at non-transactional statements, warns on MySQL/Oracle rather than promising atomicity it cannot deliver, and emits \`diagnostics\` entries to \`ExecutionResult\` for both cases.
+
+---
+
+## Atomicity Model
+
+\`\`\`
+Transactional (SQLite, PostgreSQL):
+  ✓ DDL rolls back on failure
+  ✓ Tracking row commits with DDL or not at all
+  ✓ No partial schema artifacts
+
+Non-transactional (MySQL, Oracle):
+  ⚠ DDL committed immediately (per statement)
+  ⚠ Failure may leave partial schema
+  ✓ Tracking row not written on failure
+  ✓ Warning logged via ExecutionResult.diagnostics
+\`\`\`
+
+---
+
+## Snapshot Format v2 (STATE_VERSION = 2)
+
+The snapshot stores the current \`ProjectState\` as a JSON artifact:
+
+\`\`\`json
+{
+  "format": "aquilia-artifact",
+  "artifact_type": "schema_snapshot",
+  "key": "main",
+  "schema_version": "2.0",
+  "payload": {
+    "state_version": 2,
+    "tables": {
+      "User": {
+        "db_table": "users",
+        "columns": { ... },
+        "indexes": [ ... ],
+        "constraints": [ ... ],
+        "m2m": [ ... ]
+      }
+    }
+  },
+  "fingerprint": "sha256:..."
+}
+\`\`\`
+
+Key differences from the old \`"models"\` format (v1):
+
+| Feature | v1 (\`"models"\`) | v2 (\`"tables"\`) |
+|---|---|---|
+| Top-level key | \`"models"\` | \`"tables"\` |
+| Field storage | Primitive strings | \`Field.deconstruct()\` dicts |
+| M2M support | ❌ | ✓ |
+| Generated columns | ❌ | ✓ |
+| Index methods | ❌ | ✓ |
+| Partial predicates | ❌ | ✓ |
+| Determinism | Set-ordered | Sorted tuple |
+| Format detection | None | \`STATE_VERSION\` field |
+
+Old snapshots with \`"models"\` key are detected and discarded: the engine logs an informational message and returns an empty \`ProjectState\`, triggering a full regeneration on the next \`makemigrations\`.
+
+---
+
+## Migration File Format v3 (MIGRATION_TEMPLATE_VERSION = 3)
+
+Version 3 files use real constructor calls:
+
+\`\`\`python
+# MIGRATION_TEMPLATE_VERSION = 3
+from aquilia.models.migration import CreateModel, AddField, Operation, ProjectState
+from aquilia.models.migration.schema import ColumnState, TableState
+from aquilia.models import fields
+
+revision: str = "20260801_103000"
+slug: str = "add_bio"
+dependencies: tuple[str, ...] = ("20260730_120000",)
+atomic: bool = True
+
+operations: list[Operation] = [
+    AddField(
+        model="User",
+        field=ColumnState.of("bio", fields.TextField(null=True)),
+    ),
+]
+\`\`\`
+
+Version 2 files (old DSL with \`Migration\`, \`C.*\`, \`ColumnDef\`) are **not** loadable by the new engine. Version 1 files (legacy raw-SQL with \`upgrade(db)\`) are also not loadable. A \`MigrationFault\` is raised when loading either.
+
+---
+
+## Graph Planning
+
+### Forward Plan
+
+Given the set of applied revisions, \`MigrationGraph.forward_plan(applied)\` returns pending nodes in topological order:
+
+1. Build the dependency DAG from all nodes on disk.
+2. Remove any node already in \`applied\`.
+3. Return nodes in topological order where all dependencies are satisfied.
+
+A node with \`replaces = ("a", "b")\` is skipped in the forward plan when every revision in \`replaces\` is in \`applied\` — the squash migration is treated as already done.
+
+### Backward Plan
+
+\`backward_plan(applied, target)\` returns the nodes to roll back to reach \`target\`:
+
+1. Find the path from the current leaves back to \`target\`.
+2. Return nodes in reverse dependency order (deepest first).
+3. Each operation must implement \`state_backwards\` and \`database_backwards\`; irreversible operations (\`RunPython\` without \`reverse_code\`) raise \`MigrationFault\`.
+
+### Conflict Detection
+
+\`check_conflicts()\` raises \`MigrationConflictFault\` when:
+- Two migration files claim the same revision.
+- Two leaf nodes have no common ancestor (forked history without a merge migration).
+
+Forked history is the expected result of two developers generating migrations on the same branch simultaneously. The resolution is to generate a merge migration that explicitly depends on both leaves.
+
+---
+
+## Optimizer Passes
+
+The optimizer iterates the operation list repeatedly until no pass reduces its length (or \`MAX_OPTIMIZER_PASSES = 32\` is reached):
+
+\`\`\`
+Pass 1: [CreateModel(U), AddField(U.x), AddField(U.y)] → [CreateModel(U with x, y)]
+Pass 2: no further reduction
+→ done in 2 passes
+\`\`\`
+
+\`RunSQL\` and \`RunPython\` are opaque barriers. The optimizer never merges across them because a data migration may well depend on the exact intermediate schema, and merging across it would silently change what it sees. This is not a safety "nice to have" — it is a correctness requirement.
+
+---
+
+## Checksum Verification
+
+Every \`AppliedMigration\` row now stores a SHA-256 digest of the migration source file (\`MigrationNode.checksum\`). \`engine.verify_checksums(db)\` reads all applied rows from the tracking table and checks each against the corresponding file on disk:
+
+| Mismatch type | Reason |
+|---|---|
+| File missing from disk | Migration was applied but the file was deleted |
+| Checksum mismatch | File was edited after being applied |
+
+This is not a blocking check — the engine does not refuse to run with mismatches — but the output can be used in CI to enforce that production migrations have not been tampered with.
+`,
+  },
   "1.3.9": {
     "README.md": `# Aquilia v1.3.9 Release Notes — "Database Sentinel"
 

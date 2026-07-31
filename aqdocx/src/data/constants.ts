@@ -1,3 +1,5 @@
+export const AQUILIA_VERSION = '1.3.10';
+
 export const CONSTANTS = {
   DOMAIN: 'tubox.cloud',
   BASE_URL: 'https://tubox.cloud',

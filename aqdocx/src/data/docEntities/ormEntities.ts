@@ -624,34 +624,154 @@ async def cleanup_sessions(sender, instance, **kwargs):
     source: { file: 'aquilia/models/options.py' },
   },
 
-  // ── Migration DSL ────────────────────────────────────────────────────
+  // ── Migration Engine ──────────────────────────────────────────────────
   {
-    id: 'orm.migration',
+    id: 'orm.migration_engine',
     type: 'class',
-    title: 'Migration',
+    title: 'MigrationEngine',
     description:
-      'A single versioned schema change. Declare dependencies and a list of DSL Operations. The runner applies them in dependency order with automatic rollback on failure.',
-    signature: 'class Migration:\n    dependencies: list[str]\n    operations: list[Operation]',
+      'Single entry point for generating, planning, applying, rolling back, and verifying migrations. Replaces MigrationRunner, DSLMigrationRunner, generate_dsl_migration, and generate_migration_from_models. Introduced in v1.3.10.',
+    signature: 'class MigrationEngine:\n    migrations_dir: Path\n    def make_migrations(self, model_classes, *, slug, hints, infer_renames, dry_run) -> Path | None\n    async def migrate(self, db, *, target, fake) -> list[ExecutionResult]\n    async def status(self, db) -> MigrationStatus\n    async def plan(self, db, *, target) -> list[Statement]\n    async def verify_checksums(self, db) -> list[dict]\n    def load_snapshot(self) -> ProjectState\n    def save_snapshot(self, state: ProjectState) -> None\n    def load_graph(self) -> MigrationGraph\n    def state_at(self, revision) -> ProjectState\n    def state_for(self, applied) -> ProjectState',
     language: 'python',
+    parameters: [
+      { name: 'migrations_dir', type: 'str | Path', optional: true, default: '"migrations"', description: 'Directory holding migration files and the snapshot.' },
+    ],
     example: {
-      code: `from aquilia.models import Migration, DSLCreateModel, DSLAddField, ColumnDef as C
+      code: `from aquilia.models.migration import MigrationEngine
 
-class Migration_0001(Migration):
-    dependencies = []
-    operations = [
-        DSLCreateModel("users", columns=[
-            C.int("id", primary_key=True),
-            C.text("email", unique=True),
-            C.bool("active", default=True),
-        ]),
-    ]`,
+engine = MigrationEngine("migrations")
+
+# Generate a migration
+path = engine.make_migrations([User, Post], slug="add_bio")
+
+# Apply pending migrations
+results = await engine.migrate(db)
+
+# Check status
+status = await engine.status(db)
+print(status.is_current, status.describe())
+
+# Dry-run: inspect SQL without applying
+statements = await engine.plan(db)
+for stmt in statements:
+    if stmt.destructive:
+        print(f"DESTRUCTIVE: {stmt.description}")
+    print(stmt.sql)
+
+# Roll back to a revision
+await engine.migrate(db, target="20260720_120000")
+
+# Verify file checksums against applied records
+mismatches = await engine.verify_checksums(db)`,
       language: 'python',
     },
-    related: [{ label: 'Migrations', href: '/docs/models/migrations' }],
+    related: [
+      { label: 'ProjectState', id: 'orm.project_state' },
+      { label: 'MigrationGraph', id: 'orm.migration_graph' },
+      { label: 'MigrationStatus', id: 'orm.migration_status' },
+      { label: 'Migrations', href: '/docs/models/migrations' },
+    ],
     status: 'stable',
-    version: 'v1.0+',
+    version: 'v1.3.10+',
     docsHref: '/docs/models/migrations',
-    source: { file: 'aquilia/models/migration_dsl.py' },
+    source: { file: 'aquilia/models/migration/engine.py' },
+  },
+
+  {
+    id: 'orm.project_state',
+    type: 'class',
+    title: 'ProjectState',
+    description:
+      'Immutable, fully-typed description of a database schema. Built directly from Field.deconstruct() output, preserving generated-column expressions, M2M relationships, index methods, partial predicates, and all other model semantics. The state layer of the migration pipeline — nothing in it emits SQL. Introduced in v1.3.10.',
+    signature: 'class ProjectState:\n    tables: dict[str, TableState]\n    @classmethod\n    def from_models(cls, model_classes: list[type[Model]]) -> ProjectState\n    @classmethod\n    def from_dict(cls, data: dict) -> ProjectState\n    @classmethod\n    async def from_database(cls, db, model_classes) -> ProjectState\n    def creation_order(self) -> list[str]\n    def to_dict(self) -> dict',
+    language: 'python',
+    example: {
+      code: `from aquilia.models.migration.schema import ProjectState
+
+state = ProjectState.from_models([User, Post, Comment])
+order = state.creation_order()   # topologically sorted
+table = state.tables["Post"]
+col = table.columns["title"]`,
+      language: 'python',
+    },
+    related: [
+      { label: 'MigrationEngine', id: 'orm.migration_engine' },
+      { label: 'Autodetector', id: 'orm.autodetector' },
+    ],
+    status: 'stable',
+    version: 'v1.3.10+',
+    docsHref: '/docs/models/migrations',
+    source: { file: 'aquilia/models/migration/schema.py' },
+  },
+
+  {
+    id: 'orm.migration_graph',
+    type: 'class',
+    title: 'MigrationGraph',
+    description:
+      'Dependency-aware DAG of migration files. Provides topological ordering for forward and backward plans, conflict detection (duplicate revisions, forked history), and squash support via replaces. Replaces filename-sort ordering. Introduced in v1.3.10.',
+    signature: 'class MigrationGraph:\n    nodes: dict[str, MigrationNode]\n    def add(self, node: MigrationNode) -> None\n    def forward_plan(self, applied: set[str]) -> tuple[MigrationNode, ...]\n    def backward_plan(self, applied, target: str) -> tuple[MigrationNode, ...]\n    def check_conflicts(self) -> None\n    def leaves(self) -> tuple[str, ...]\n    def order(self) -> list[str]',
+    language: 'python',
+    example: {
+      code: `from aquilia.models.migration import MigrationEngine
+
+engine = MigrationEngine("migrations")
+graph = engine.load_graph()
+pending = graph.forward_plan(applied_revisions)
+graph.check_conflicts()   # raises MigrationConflictFault on fork`,
+      language: 'python',
+    },
+    related: [{ label: 'MigrationEngine', id: 'orm.migration_engine' }],
+    status: 'stable',
+    version: 'v1.3.10+',
+    docsHref: '/docs/models/migrations',
+    source: { file: 'aquilia/models/migration/graph.py' },
+  },
+
+  {
+    id: 'orm.migration_status',
+    type: 'class',
+    title: 'MigrationStatus',
+    description:
+      'Summary of applied and pending migrations returned by MigrationEngine.status(). Introduced in v1.3.10.',
+    signature: 'class MigrationStatus:\n    applied: tuple[str, ...]\n    pending: tuple[MigrationNode, ...]\n    leaves: tuple[str, ...]\n    @property\n    def is_current(self) -> bool\n    def describe(self) -> str',
+    language: 'python',
+    example: {
+      code: `status = await engine.status(db)
+print(status.is_current)    # True when nothing is pending
+print(status.describe())    # Human-readable multi-line summary`,
+      language: 'python',
+    },
+    related: [{ label: 'MigrationEngine', id: 'orm.migration_engine' }],
+    status: 'stable',
+    version: 'v1.3.10+',
+    docsHref: '/docs/models/migrations',
+    source: { file: 'aquilia/models/migration/engine.py' },
+  },
+
+  {
+    id: 'orm.autodetector',
+    type: 'class',
+    title: 'Autodetector',
+    description:
+      'Compares two ProjectState objects and emits the operations needed to transform one into the other. Deterministic (sorted tuples throughout) and safe (rename inference requires multi-signal confidence >= 0.85). Introduced in v1.3.10.',
+    signature: 'class Autodetector:\n    def changes(self, before: ProjectState, after: ProjectState, hints, infer_renames) -> list[Operation]\n\ndef detect_changes(before, after, *, hints=(), infer_renames=True) -> list[Operation]',
+    language: 'python',
+    example: {
+      code: `from aquilia.models.migration import RenameHint, detect_changes
+
+hint = RenameHint(model="User", old_name="bio", new_name="biography")
+ops = detect_changes(before, after, hints=(hint,))
+
+# Disable rename inference for db-vs-snapshot comparison
+ops = detect_changes(live, target, infer_renames=False)`,
+      language: 'python',
+    },
+    related: [{ label: 'MigrationEngine', id: 'orm.migration_engine' }, { label: 'ProjectState', id: 'orm.project_state' }],
+    status: 'stable',
+    version: 'v1.3.10+',
+    docsHref: '/docs/models/migrations',
+    source: { file: 'aquilia/models/migration/autodetect.py' },
   },
 
   // ── Aggregates ───────────────────────────────────────────────────────
@@ -714,67 +834,26 @@ users = await User.objects.annotate(posts=Count("post")).all()`,
     type: 'class',
     title: 'ModelRegistry',
     description:
-      'Global model registry managing Model class registration, forward reference resolution, dependency topology, and delegating table creation and teardown to MigrationRunner.',
+      'Global model registry managing Model class registration, forward reference resolution, and dependency topology. As of v1.3.10, create_tables() uses ProjectState and MigrationExecutor from aquilia.models.migration, and records the initial schema in aquilia_migrations via _record_initial_schema().',
     signature: 'class ModelRegistry:\n    @classmethod\n    def get(cls, name: str) -> type[Model]\n    @classmethod\n    async def create_tables(cls, db: AquiliaDatabase | None = None) -> list[str]\n    @classmethod\n    async def drop_tables(cls, db: AquiliaDatabase | None = None) -> list[str]',
     language: 'python',
     example: {
       code: `from aquilia.models.registry import ModelRegistry
 
 UserModel = ModelRegistry.get("User")
-# Delegates DDL compilation and execution directly to MigrationRunner
+# Uses ProjectState + MigrationExecutor (v1.3.10+)
+# Records 0000_initial_schema in aquilia_migrations automatically
 statements = await ModelRegistry.create_tables(db)`,
       language: 'python',
     },
+    related: [
+      { label: 'MigrationEngine', id: 'orm.migration_engine' },
+      { label: 'ProjectState', id: 'orm.project_state' },
+    ],
     status: 'stable',
     version: 'v1.0+',
     docsHref: '/docs/models/migrations',
     source: { file: 'aquilia/models/registry.py' },
-  },
-
-  // ── DDLExecutor ──────────────────────────────────────────────────────
-  {
-    id: 'orm.ddl_executor',
-    type: 'class',
-    title: 'DDLExecutor',
-    description:
-      'Single-authority DDL statement compiler and execution engine. Converts DSL operations to typed ExecutableStatement objects and executes them within atomic transactions.',
-    signature: 'class DDLExecutor:\n    @classmethod\n    def compile_operations(cls, operations: list[Operation], dialect: str = "sqlite") -> list[ExecutableStatement]\n    @classmethod\n    async def execute_statements(cls, db: AquiliaDatabase, statements: list[ExecutableStatement], in_transaction: bool = True) -> ExecutionResult',
-    language: 'python',
-    example: {
-      code: `from aquilia.models import DDLExecutor, CreateModel, C
-
-ops = [CreateModel("User", "users", [C.auto("id"), C.varchar("email", 255)])]
-statements = DDLExecutor.compile_operations(ops, dialect="postgresql")
-result = await DDLExecutor.execute_statements(db, statements, in_transaction=True)`,
-      language: 'python',
-    },
-    status: 'stable',
-    version: 'v1.3.9+',
-    docsHref: '/docs/models/migrations',
-    source: { file: 'aquilia/models/ddl_executor.py' },
-  },
-
-  // ── MigrationPlanner ─────────────────────────────────────────────────
-  {
-    id: 'orm.migration_planner',
-    type: 'class',
-    title: 'MigrationPlanner',
-    description:
-      'Dedicated planning authority for initial schema setup and incremental snapshot diffing. Features InitialSchemaPlanner for direct zero-revision DDL generation.',
-    signature: 'class MigrationPlanner:\n    @classmethod\n    def plan_initial_schema(cls, model_classes: list[type[Model]] | None = None) -> MigrationPlan\n    @classmethod\n    def plan_incremental(cls, old_snapshot: dict, new_snapshot: dict, revision: str, slug: str) -> MigrationPlan',
-    language: 'python',
-    example: {
-      code: `from aquilia.models import MigrationPlanner
-
-# Plan initial schema directly from model metadata
-plan = MigrationPlanner.plan_initial_schema()
-# plan.steps[0].revision == "0000_initial_schema"`,
-      language: 'python',
-    },
-    status: 'stable',
-    version: 'v1.3.9+',
-    docsHref: '/docs/models/migrations',
-    source: { file: 'aquilia/models/migration_planner.py' },
   },
 
   // ── Missing QuerySet methods ──────────────────────────────────────────
