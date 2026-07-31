@@ -2195,7 +2195,7 @@ class Model(metaclass=ModelMeta):
             if hasattr(constraint, "sql"):
                 builder.constraint(constraint.sql(cls._table_name, dialect))
             elif hasattr(constraint, "fields"):
-                from .schema_snapshot import _compile_schema_expression
+                from .expression import compile_schema_expression as _compile_schema_expression
 
                 # Check if this unique constraint contains expressions.
                 # If so, do NOT generate it as a table constraint (it will fail on CREATE TABLE).
@@ -2259,7 +2259,7 @@ class Model(metaclass=ModelMeta):
                 if has_expression:
                     import re
 
-                    from .schema_snapshot import _compile_schema_expression
+                    from .expression import compile_schema_expression as _compile_schema_expression
 
                     cols = []
                     for f in constraint.fields:

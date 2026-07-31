@@ -635,11 +635,18 @@ class BigAutoField(Field[int]):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
-        """``BIGSERIAL`` on PostgreSQL, ``NUMBER(19)`` on Oracle, ``INTEGER`` elsewhere (SQLite ``INTEGER`` is 64-bit)."""
+        """``BIGSERIAL`` on PostgreSQL, ``NUMBER(19)`` on Oracle, ``BIGINT`` on MySQL.
+
+        SQLite is the exception: only the exact type ``INTEGER`` aliases the
+        64-bit rowid there, so ``BIGINT`` would silently *lose* the
+        auto-increment behaviour this field exists to provide.
+        """
         if dialect == "postgresql":
             return "BIGSERIAL"
         if dialect == "oracle":
             return "NUMBER(19)"
+        if dialect == "mysql":
+            return "BIGINT"
         return "INTEGER"
 
 
@@ -669,11 +676,17 @@ class SmallAutoField(AutoField):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
-        """``SMALLSERIAL`` on PostgreSQL, ``NUMBER(5)`` on Oracle, ``INTEGER`` elsewhere."""
+        """``SMALLSERIAL`` on PostgreSQL, ``NUMBER(5)`` on Oracle, ``SMALLINT`` on MySQL.
+
+        SQLite keeps ``INTEGER`` for the same reason :class:`BigAutoField` does:
+        only that exact type aliases the rowid and auto-increments.
+        """
         if dialect == "postgresql":
             return "SMALLSERIAL"
         if dialect == "oracle":
             return "NUMBER(5)"
+        if dialect == "mysql":
+            return "SMALLINT"
         return "INTEGER"
 
 
@@ -3431,6 +3444,26 @@ class GeneratedField(Field[Any]):
         mode = "STORED" if self.db_persist else "VIRTUAL"
         return f'"{self.column_name}" {col_type} GENERATED ALWAYS AS ({self.expression}) {mode}'
 
+    def deconstruct(self) -> dict[str, Any]:
+        """Extend ``Field.deconstruct()`` with ``expression``, ``db_persist``, and ``output_field``.
+
+        Without these keys the generated-column definition is invisible to
+        migration snapshotting and to ``Model.fingerprint()``, so a change to
+        the expression would not be detected as a schema change and the
+        ``GENERATED ALWAYS AS (...)`` clause would be dropped from generated
+        DDL entirely.
+
+        ``output_field`` is serialized as its own nested ``deconstruct()`` dict
+        so the result stays JSON-safe while still naming the concrete field
+        class needed to resolve the column's SQL type.
+        """
+        d = super().deconstruct()
+        d["expression"] = self.expression
+        d["db_persist"] = self.db_persist
+        if self.output_field is not None:
+            d["output_field"] = self.output_field.deconstruct()
+        return d
+
 
 class OrderWrt(IntegerField):
     """
@@ -3534,7 +3567,7 @@ class Index:
         ``IF NOT EXISTS`` since it doesn't support that clause on
         ``CREATE INDEX``.
         """
-        from .schema_snapshot import _compile_schema_expression
+        from .expression import compile_schema_expression as _compile_schema_expression
 
         model_cls = getattr(self, "model", None)
 

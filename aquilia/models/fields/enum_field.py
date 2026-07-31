@@ -26,12 +26,61 @@ __all__ = ["EnumField"]
 #: Bound to Enum -- inferred from EnumField's own `enum_class` constructor
 #: argument (`EnumField(enum_class=Color)` binds E=Color), the same
 #: convention ForeignKey uses for TModel via its `to` argument
-#: (aquilia/models/fields_module.py). Unlike ForeignKey's `to`, `enum_class`
-#: never accepts a string forward-reference -- enums don't have the
-#: circular-import problem models do -- so this generic binding has none of
-#: FK's string-ref caveat: a plain, unannotated `color = EnumField(enum_class=Color)`
-#: always resolves `instance.color` to `Color`, not `Any`.
+#: (aquilia/models/fields_module.py). Passing the class itself -- the form model
+#: code should use -- resolves `instance.color` to `Color` rather than `Any`. A
+#: dotted string is also accepted, for reconstructing a field from a generated
+#: migration file, but carries no type information.
 E = TypeVar("E", bound=Enum)
+
+
+def _resolve_enum_class(enum_class: type[Enum] | str) -> type[Enum]:
+    """Return the Enum class, importing it when given as a dotted path.
+
+    :meth:`EnumField.deconstruct` writes ``enum_class`` as
+    ``"module.QualName"``, since an Enum class has no literal source form. This
+    is the inverse, so a generated migration reconstructs the same field.
+
+    Args:
+        enum_class: An ``Enum`` subclass, or a ``"module.QualName"`` path to one.
+
+    Returns:
+        The resolved ``Enum`` subclass.
+
+    Raises:
+        FieldValidationError: If the path has no module component, cannot be
+            imported, names a missing attribute, or resolves to something that
+            is not an ``Enum`` subclass. Raising here surfaces the problem when
+            the field is declared, rather than as an ``AttributeError`` from the
+            middle of choices generation.
+    """
+    if not isinstance(enum_class, str):
+        if isinstance(enum_class, type) and issubclass(enum_class, Enum):
+            return enum_class
+        raise FieldValidationError("enum_class", f"expected an Enum subclass, got {enum_class!r}")
+
+    module_path, _, qualname = enum_class.rpartition(".")
+    if not module_path:
+        raise FieldValidationError(
+            "enum_class",
+            f"{enum_class!r} is not importable: expected a 'module.QualName' path, which is what deconstruct() writes",
+        )
+
+    import importlib
+
+    try:
+        resolved: Any = importlib.import_module(module_path)
+        for part in qualname.split("."):
+            resolved = getattr(resolved, part)
+    except (ImportError, AttributeError) as exc:
+        raise FieldValidationError(
+            "enum_class",
+            f"cannot import {enum_class!r}: {exc}. The enum must remain importable "
+            f"for any migration referencing it to load",
+        ) from exc
+
+    if not (isinstance(resolved, type) and issubclass(resolved, Enum)):
+        raise FieldValidationError("enum_class", f"{enum_class!r} resolved to {resolved!r}, not an Enum")
+    return resolved
 
 
 class EnumField(Field[E], Generic[E]):
@@ -63,7 +112,7 @@ class EnumField(Field[E], Generic[E]):
     def __init__(
         self,
         *,
-        enum_class: type[E],
+        enum_class: type[E] | str,
         max_length: int = 50,
         store_name: bool = False,
         **kwargs,
@@ -74,6 +123,13 @@ class EnumField(Field[E], Generic[E]):
                 Also binds the field's generic type parameter ``E`` (see
                 the ``E`` ``TypeVar`` above), so ``instance.<field>``
                 type-checks as ``enum_class``, not ``Any``.
+
+                A ``"module.QualName"`` string is also accepted and imported
+                on the spot. This is the form :meth:`deconstruct` writes, so
+                that a generated migration file naming
+                ``EnumField(enum_class="myapp.models.Status")`` reconstructs
+                the same field. Prefer passing the class itself in model code,
+                where it type-checks.
             max_length: Column width used for string storage when the
                 enum's values are not all integers (see ``sql_type``).
                 Ignored when ``sql_type()`` resolves to ``INTEGER``.
@@ -87,12 +143,12 @@ class EnumField(Field[E], Generic[E]):
                 supplied, it's auto-derived from ``enum_class`` as
                 ``[(member.value, member.name), ...]``.
         """
-        self.enum_class = enum_class
+        self.enum_class = _resolve_enum_class(enum_class)
         self.max_length = max_length
         self.store_name = store_name
 
         # Auto-generate choices from enum
-        choices = [(m.value, m.name) for m in enum_class]
+        choices = [(m.value, m.name) for m in self.enum_class]
         kwargs.setdefault("choices", choices)
 
         super().__init__(**kwargs)

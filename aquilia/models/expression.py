@@ -1227,3 +1227,81 @@ def _check_window_support(dialect: str) -> None:
     Validate that the dialect supports window functions.
     """
     pass
+
+
+# ── Schema expression compilation ───────────────────────────────────────────
+
+
+def compile_schema_expression(expr: Any, model_cls: type | None = None, dialect: str = "sqlite") -> str:
+    """Render a query-expression object (``F``, ``Value``, ``Func``, ``CombinedExpression``, ``RawSQL``, or any ``Expression`` with ``as_sql``) as inline SQL text for use in a schema artifact (index/constraint DDL, snapshot diffing).
+
+    Unlike normal query compilation, this produces a single self-contained
+    SQL string with parameters inlined (quoted/escaped in place, via naive
+    ``'`` doubling) rather than a ``(sql, params)`` pair -- appropriate for
+    DDL contexts like ``CREATE INDEX ... (expression)`` where there's no
+    query executor to bind parameters against. A bare string is treated as
+    a field name if it matches one on *model_cls* (quoted as an
+    identifier), otherwise returned as-is. Any other non-``Expression``
+    value is stringified. Falls back to ``str(expr)`` if a generic
+    expression's own ``as_sql()`` raises.
+    """
+    from aquilia.models.expression import CombinedExpression, Expression, F, Func, RawSQL, Value
+
+    if isinstance(expr, str):
+        if model_cls and hasattr(model_cls, "_fields") and expr in model_cls._fields:
+            return f'"{expr}"'
+        return expr
+
+    if not isinstance(expr, Expression):
+        return str(expr)
+
+    if isinstance(expr, F):
+        if "__" in expr.name:
+            parts = expr.name.split("__")
+            if len(parts) == 2:
+                return f'"{parts[0]}"."{parts[1]}"'
+        return f'"{expr.name}"'
+
+    if isinstance(expr, Value):
+        val = expr.value
+        if val is None:
+            return "NULL"
+        if isinstance(val, str):
+            if model_cls and hasattr(model_cls, "_fields") and val in model_cls._fields:
+                return f'"{val}"'
+            escaped = val.replace("'", "''")
+            return f"'{escaped}'"
+        return str(val)
+
+    if isinstance(expr, Func):
+        arg_sqls = [compile_schema_expression(arg, model_cls, dialect) for arg in expr.args]
+        return f"{expr.function}({', '.join(arg_sqls)})"
+
+    if isinstance(expr, CombinedExpression):
+        lhs = compile_schema_expression(expr.lhs, model_cls, dialect)
+        rhs = compile_schema_expression(expr.rhs, model_cls, dialect)
+        return f"({lhs} {expr.connector} {rhs})"
+
+    if isinstance(expr, RawSQL):
+        sql = expr.sql
+        if expr.params:
+            for param in expr.params:
+                if isinstance(param, str):
+                    escaped = param.replace("'", "''")
+                    sql = sql.replace("?", f"'{escaped}'", 1)
+                else:
+                    sql = sql.replace("?", str(param), 1)
+        return sql
+
+    try:
+        sql, params = expr.as_sql(dialect)
+        if params:
+            for p in params:
+                if isinstance(p, str):
+                    escaped = p.replace("'", "''")
+                    sql = sql.replace("?", f"'{escaped}'", 1)
+                else:
+                    sql = sql.replace("?", str(p), 1)
+        return sql
+    except Exception:
+        return str(expr)
