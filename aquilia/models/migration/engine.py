@@ -30,20 +30,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ...faults.domains import MigrationFault
-from .autodetect import RenameHint, detect_changes
-from .graph import MigrationGraph, MigrationNode
-from .optimizer import optimize
-from .schema import ProjectState
-from .serializer import load_migration_module, render_migration_module
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.canonical import bare_fingerprint
+from aquilia.artifacts.envelope import ArtifactEnvelope
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.autodetect import RenameHint, detect_changes
+from aquilia.models.migration.graph import MigrationGraph, MigrationNode
+from aquilia.models.migration.optimizer import optimize
+from aquilia.models.migration.schema import ProjectState
+from aquilia.models.migration.serializer import load_migration_module, render_migration_module
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ...db.engine import AquiliaDatabase
-    from ..base import Model
-    from .backends import Statement
-    from .executor import ExecutionResult
+    from aquilia.db.engine import AquiliaDatabase
+    from aquilia.models.base import Model
+    from aquilia.models.migration.backends import Statement
+    from aquilia.models.migration.executor import ExecutionResult
 
 logger = logging.getLogger("aquilia.models.migration.engine")
 
@@ -239,9 +242,6 @@ class MigrationEngine:
         if not path.exists():
             return ProjectState()
 
-        from ...artifacts.backends.json_file import JSONFileBackend
-        from ...artifacts.envelope import ArtifactEnvelope
-
         try:
             raw = JSONFileBackend().read_sync(path)
         except Exception as exc:
@@ -273,9 +273,6 @@ class MigrationEngine:
         Args:
             state: The state to record.
         """
-        from ...artifacts.backends.json_file import JSONFileBackend
-        from ...artifacts.canonical import bare_fingerprint
-        from ...artifacts.envelope import ArtifactEnvelope
 
         payload = state.to_dict()
         self.migrations_dir.mkdir(parents=True, exist_ok=True)
@@ -383,7 +380,7 @@ class MigrationEngine:
         Returns:
             The status summary.
         """
-        from .executor import MigrationExecutor
+        from aquilia.models.migration.executor import MigrationExecutor
 
         executor = MigrationExecutor(db)
         applied = await executor.applied_revisions()
@@ -408,7 +405,7 @@ class MigrationEngine:
             MigrationFault: If the plan cannot be compiled -- for instance an
                 irreversible operation in a rollback plan.
         """
-        from .executor import MigrationExecutor, compile_operations
+        from aquilia.models.migration.executor import MigrationExecutor, compile_operations
 
         executor = MigrationExecutor(db)
         applied = await executor.applied_revisions()
@@ -451,7 +448,7 @@ class MigrationEngine:
             >>> await engine.migrate(db)
             [ExecutionResult(statements_executed=4, ...)]
         """
-        from .executor import MigrationExecutor
+        from aquilia.models.migration.executor import MigrationExecutor
 
         executor = MigrationExecutor(db)
         await executor.ensure_tracking_table()
@@ -483,7 +480,7 @@ class MigrationEngine:
         Returns:
             One entry per mismatch, with ``revision`` and ``reason``.
         """
-        from .executor import MigrationExecutor
+        from aquilia.models.migration.executor import MigrationExecutor
 
         executor = MigrationExecutor(db)
         await executor.ensure_tracking_table()

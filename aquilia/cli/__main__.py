@@ -51,8 +51,67 @@ import re as _re
 
 import click
 
-from . import RELEASE_NAME, __cli_name__, __version__
-from .utils.colors import (
+from aquilia.admin import AdminAction, AdminSite, autodiscover
+from aquilia.admin.models import (
+    AdminAPIKey,
+    AdminAuditEntry,
+    AdminGroup,
+    AdminLogEntry,
+    AdminPermission,
+    AdminPreference,
+    AdminSession,
+    AdminUser,
+    ContentType,
+)
+from aquilia.auth.hashing import PasswordHasher
+from aquilia.cli import RELEASE_NAME, __cli_name__, __version__
+from aquilia.cli.commands.add import add_module as _add_module
+from aquilia.cli.commands.analytics import DiscoveryAnalytics, print_analysis_report
+from aquilia.cli.commands.aquilary_cmds import run_app_registry, run_freeze, run_graph, run_inspect, run_validate
+from aquilia.cli.commands.cache import cmd_cache_check, cmd_cache_clear, cmd_cache_inspect, cmd_cache_stats
+from aquilia.cli.commands.discover import DiscoveryInspector
+from aquilia.cli.commands.doctor import diagnose_workspace
+from aquilia.cli.commands.i18n import (
+    cmd_i18n_check,
+    cmd_i18n_compile,
+    cmd_i18n_coverage,
+    cmd_i18n_extract,
+    cmd_i18n_init,
+    cmd_i18n_inspect,
+)
+from aquilia.cli.commands.init import create_workspace
+from aquilia.cli.commands.inspect import inspect_config as _inspect_config
+from aquilia.cli.commands.inspect import inspect_di as _inspect_di
+from aquilia.cli.commands.inspect import inspect_faults as _inspect_faults
+from aquilia.cli.commands.inspect import inspect_modules as _inspect_modules
+from aquilia.cli.commands.inspect import inspect_routes as _inspect_routes
+from aquilia.cli.commands.mail import cmd_mail_check, cmd_mail_inspect, cmd_mail_send_test
+from aquilia.cli.commands.manifest import update_manifest
+from aquilia.cli.commands.migrate import migrate_legacy
+from aquilia.cli.commands.model_cmds import (
+    cmd_check,
+    cmd_db_status,
+    cmd_diff,
+    cmd_flush,
+    cmd_history,
+    cmd_inspectdb,
+    cmd_makemigrations,
+    cmd_migrate,
+    cmd_model_dump,
+    cmd_reset,
+    cmd_rollback,
+    cmd_seed,
+    cmd_shell,
+    cmd_showmigrations,
+    cmd_sqlmigrate,
+)
+from aquilia.cli.commands.run import run_dev_server
+from aquilia.cli.commands.serve import serve_production
+from aquilia.cli.commands.test import run_tests
+from aquilia.cli.commands.validate import validate_workspace
+from aquilia.cli.commands.ws import cmd_ws_broadcast, cmd_ws_gen_client, cmd_ws_inspect, cmd_ws_kick, cmd_ws_purge_room
+from aquilia.cli.generators.controller import generate_controller as _generate_controller
+from aquilia.cli.utils.colors import (
     _BULLET,
     _CHECK,
     _CROSS,
@@ -73,14 +132,10 @@ from .utils.colors import (
     tree_item,
     warning,
 )
-from .utils.prompts import (
-    ask,
-    confirm,
-    flow_header,
-    multi_select,
-    recap,
-    select,
-)
+from aquilia.cli.utils.prompts import ask, confirm, flow_header, multi_select, recap, select
+from aquilia.db.engine import configure_database
+from aquilia.di.cli import cmd_di_check, cmd_di_graph, cmd_di_manifest, cmd_di_profile, cmd_di_tree
+from aquilia.faults.domains import DatabaseConnectionFault
 
 _DEFAULT_DB_URL = "sqlite:///db.sqlite3"
 
@@ -450,7 +505,6 @@ def init_workspace(ctx, name: str | None, minimal: bool, template: str | None, y
       aq init workspace my-api --minimal   # Non-interactive minimal
       aq init workspace my-api -y          # Non-interactive with defaults
     """
-    from .commands.init import create_workspace
 
     interactive = not yes and sys.stdin.isatty()
 
@@ -739,7 +793,6 @@ def add_module(
       aq add module products --depends-on=users
       aq add module admin --fault-domain=ADMIN --route-prefix=/api/admin
     """
-    from .commands.add import add_module as _add_module
 
     interactive = not yes and sys.stdin.isatty()
 
@@ -929,7 +982,6 @@ def generate_controller(
       aq generate controller Test --test
       aq generate controller Admin --output=apps/admin/
     """
-    from .generators.controller import generate_controller as _generate_controller
 
     try:
         file_path = _generate_controller(
@@ -988,7 +1040,6 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool, deprecated: b
       aq validate --json
       aq validate --deprecated
     """
-    from .commands.validate import validate_workspace
 
     try:
         result = validate_workspace(
@@ -1090,7 +1141,6 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
       aq run --mode=test --no-reload
       aq run --skip-checks
     """
-    from .commands.run import run_dev_server
 
     # ── Admin pre-flight checks ──────────────────────────────────────
     if not skip_checks:
@@ -1158,7 +1208,6 @@ def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout
       aq serve --use-gunicorn --workers=4
       aq serve --bind=0.0.0.0:8080 --use-gunicorn --timeout=180
     """
-    from .commands.serve import serve_production
 
     try:
         serve_production(
@@ -1202,7 +1251,6 @@ def manifest_update(ctx, module: str, check: bool, freeze: bool):
       aq manifest update mymod --check   # For CI
       aq manifest update mymod --freeze  # For Prod
     """
-    from .commands.manifest import update_manifest
 
     try:
         # Resolve workspace root (assume cwd)
@@ -1234,7 +1282,6 @@ def inspect():
 @click.pass_context
 def inspect_routes(ctx):
     """Show compiled routes."""
-    from .commands.inspect import inspect_routes as _inspect_routes
 
     try:
         _inspect_routes(verbose=ctx.obj["verbose"])
@@ -1247,7 +1294,6 @@ def inspect_routes(ctx):
 @click.pass_context
 def inspect_di(ctx):
     """Show DI graph."""
-    from .commands.inspect import inspect_di as _inspect_di
 
     try:
         _inspect_di(verbose=ctx.obj["verbose"])
@@ -1260,7 +1306,6 @@ def inspect_di(ctx):
 @click.pass_context
 def inspect_modules(ctx):
     """List all modules."""
-    from .commands.inspect import inspect_modules as _inspect_modules
 
     try:
         _inspect_modules(verbose=ctx.obj["verbose"])
@@ -1273,7 +1318,6 @@ def inspect_modules(ctx):
 @click.pass_context
 def inspect_faults(ctx):
     """Show fault domains."""
-    from .commands.inspect import inspect_faults as _inspect_faults
 
     try:
         _inspect_faults(verbose=ctx.obj["verbose"])
@@ -1286,7 +1330,6 @@ def inspect_faults(ctx):
 @click.pass_context
 def inspect_config(ctx):
     """Show resolved configuration."""
-    from .commands.inspect import inspect_config as _inspect_config
 
     try:
         _inspect_config(verbose=ctx.obj["verbose"])
@@ -1307,7 +1350,6 @@ def migrate(ctx, source: str, dry_run: bool):
       aq migrate legacy --dry-run
       aq migrate legacy
     """
-    from .commands.migrate import migrate_legacy
 
     try:
         result = migrate_legacy(
@@ -1345,7 +1387,6 @@ def doctor(ctx, as_json: bool):
       aq doctor -v
       aq doctor --json
     """
-    from .commands.doctor import diagnose_workspace
 
     try:
         issues = diagnose_workspace(verbose=ctx.obj["verbose"])
@@ -1407,7 +1448,6 @@ def ws():
 @click.pass_context
 def ws_inspect(ctx):
     """Inspect WebSocket namespaces."""
-    from .commands.ws import cmd_ws_inspect
 
     try:
         cmd_ws_inspect({})
@@ -1424,7 +1464,6 @@ def ws_inspect(ctx):
 @click.pass_context
 def ws_broadcast(ctx, namespace: str, room: str | None, event: str, payload: str):
     """Broadcast message to namespace or room."""
-    from .commands.ws import cmd_ws_broadcast
 
     try:
         cmd_ws_broadcast({"namespace": namespace, "room": room, "event": event, "payload": payload})
@@ -1439,7 +1478,6 @@ def ws_broadcast(ctx, namespace: str, room: str | None, event: str, payload: str
 @click.pass_context
 def ws_gen_client(ctx, lang: str, out: str):
     """Generate TypeScript client SDK from workspace socket controllers."""
-    from .commands.ws import cmd_ws_gen_client
 
     try:
         cmd_ws_gen_client({"lang": lang, "out": out})
@@ -1458,7 +1496,6 @@ def ws_purge_room(ctx, namespace: str, room: str, redis_url: str | None):
 
     Examples:\n      aq ws purge-room --namespace /chat --room room1
     """
-    from .commands.ws import cmd_ws_purge_room
 
     try:
         cmd_ws_purge_room({"namespace": namespace, "room": room, "redis_url": redis_url})
@@ -1477,7 +1514,6 @@ def ws_kick(ctx, conn: str, reason: str, redis_url: str | None):
 
     Examples:\n      aq ws kick --conn abc-123 --reason "violated rules"
     """
-    from .commands.ws import cmd_ws_kick
 
     try:
         cmd_ws_kick({"conn": conn, "reason": reason, "redis_url": redis_url})
@@ -1530,7 +1566,6 @@ def discover(
       aq discover --clean
       aq discover --graph=deps.dot
     """
-    from .commands.discover import DiscoveryInspector
 
     try:
         workspace_root = Path(path) if path else Path.cwd()
@@ -1565,7 +1600,6 @@ def discover(
 @click.pass_context
 def analytics(ctx, path: str | None):
     """Run discovery analytics and show health report."""
-    from .commands.analytics import DiscoveryAnalytics, print_analysis_report
 
     try:
         workspace_root = Path(path) if path else Path.cwd()
@@ -1597,7 +1631,6 @@ def mail_check(ctx):
     Examples:
       aq mail check
     """
-    from .commands.mail import cmd_mail_check
 
     try:
         cmd_mail_check(verbose=ctx.obj["verbose"])
@@ -1619,7 +1652,6 @@ def mail_send_test(ctx, to: str, subject: str | None, body: str | None):
       aq mail send-test user@example.com
       aq mail send-test user@example.com --subject="Hello"
     """
-    from .commands.mail import cmd_mail_send_test
 
     try:
         cmd_mail_send_test(
@@ -1642,7 +1674,6 @@ def mail_inspect(ctx):
     Examples:
       aq mail inspect
     """
-    from .commands.mail import cmd_mail_inspect
 
     try:
         cmd_mail_inspect(verbose=ctx.obj["verbose"])
@@ -1671,7 +1702,6 @@ def cache_check(ctx):
     Examples:
       aq cache check
     """
-    from .commands.cache import cmd_cache_check
 
     try:
         cmd_cache_check(verbose=ctx.obj["verbose"])
@@ -1689,7 +1719,6 @@ def cache_inspect(ctx):
     Examples:
       aq cache inspect
     """
-    from .commands.cache import cmd_cache_inspect
 
     try:
         cmd_cache_inspect(verbose=ctx.obj["verbose"])
@@ -1707,7 +1736,6 @@ def cache_stats(ctx):
     Examples:
       aq cache stats
     """
-    from .commands.cache import cmd_cache_stats
 
     try:
         cmd_cache_stats(verbose=ctx.obj["verbose"])
@@ -1727,7 +1755,6 @@ def cache_clear(ctx, namespace: str | None):
       aq cache clear
       aq cache clear --namespace http
     """
-    from .commands.cache import cmd_cache_clear
 
     try:
         cmd_cache_clear(namespace=namespace, verbose=ctx.obj["verbose"])
@@ -1769,7 +1796,6 @@ def i18n_init(ctx, locales: str, directory: str, format: str):
       aq i18n init --locales en,fr,de,ja
       aq i18n init --directory translations --format yaml
     """
-    from .commands.i18n import cmd_i18n_init
 
     try:
         cmd_i18n_init(
@@ -1792,7 +1818,6 @@ def i18n_check(ctx):
     Examples:
       aq i18n check
     """
-    from .commands.i18n import cmd_i18n_check
 
     try:
         cmd_i18n_check(verbose=ctx.obj["verbose"])
@@ -1810,7 +1835,6 @@ def i18n_inspect(ctx):
     Examples:
       aq i18n inspect
     """
-    from .commands.i18n import cmd_i18n_inspect
 
     try:
         cmd_i18n_inspect()
@@ -1834,7 +1858,6 @@ def i18n_extract(ctx, source_dirs: str, output: str, no_merge: bool):
       aq i18n extract
       aq i18n extract --source-dirs modules,templates --output locales/en/messages.json
     """
-    from .commands.i18n import cmd_i18n_extract
 
     try:
         cmd_i18n_extract(
@@ -1859,7 +1882,6 @@ def i18n_coverage(ctx):
     Examples:
       aq i18n coverage
     """
-    from .commands.i18n import cmd_i18n_coverage
 
     try:
         cmd_i18n_coverage(verbose=ctx.obj["verbose"])
@@ -1881,7 +1903,6 @@ def i18n_compile(ctx, directory: str, output: str | None):
       aq i18n compile --directory locales
       aq i18n compile --directory locales --output artifacts/locales
     """
-    from .commands.i18n import cmd_i18n_compile
 
     try:
         cmd_i18n_compile(
@@ -1923,7 +1944,6 @@ def db_makemigrations(ctx, app: str | None, migrations_dir: str, slug: str | Non
       aq db makemigrations --app=products
       aq db makemigrations --slug=add_bio --dry-run
     """
-    from .commands.model_cmds import cmd_makemigrations
 
     try:
         cmd_makemigrations(
@@ -1961,7 +1981,6 @@ def db_migrate(
       aq db migrate --plan                # Preview SQL only
       aq db migrate --target=zero
     """
-    from .commands.model_cmds import cmd_migrate
 
     # Auto-detect database URL from workspace.py if not provided
     if database_url is None:
@@ -1995,7 +2014,6 @@ def db_dump(ctx, emit: str, output_dir: str | None):
       aq db dump --emit=sql
       aq db dump --output-dir=generated/
     """
-    from .commands.model_cmds import cmd_model_dump
 
     try:
         cmd_model_dump(
@@ -2022,7 +2040,6 @@ def db_shell(ctx, database_url: str | None):
       aq db shell
       aq db shell --database-url=sqlite:///prod.db
     """
-    from .commands.model_cmds import cmd_shell
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2054,7 +2071,6 @@ def db_inspectdb(ctx, database_url: str | None, table: tuple, output: str | None
       aq db inspectdb --table=users --table=orders
       aq db inspectdb --output=models/generated.py
     """
-    from .commands.model_cmds import cmd_inspectdb
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2088,7 +2104,6 @@ def db_showmigrations(ctx, migrations_dir: str, database_url: str | None, databa
       aq db showmigrations
       aq db showmigrations --migrations-dir=db/migrations
     """
-    from .commands.model_cmds import cmd_showmigrations
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2126,7 +2141,6 @@ def db_sqlmigrate(ctx, migration_name: str, migrations_dir: str, database: str |
       aq db sqlmigrate 20260217_210454
       aq db sqlmigrate 0002 --dialect=postgresql
     """
-    from .commands.model_cmds import cmd_sqlmigrate
 
     try:
         cmd_sqlmigrate(
@@ -2152,7 +2166,6 @@ def db_status(ctx, database_url: str | None):
       aq db status
       aq db status --database-url=sqlite:///prod.db
     """
-    from .commands.model_cmds import cmd_db_status
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2179,7 +2192,6 @@ def db_history(ctx, migrations_dir: str, database_url: str | None):
       aq db history
       aq db history --migrations-dir=db/migrations
     """
-    from .commands.model_cmds import cmd_history
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2222,7 +2234,6 @@ def db_rollback(
       aq db rollback --target=20260217_210454
       aq db rollback --timestamp="2026-06-30 12:00:00"
     """
-    from .commands.model_cmds import cmd_rollback
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2254,7 +2265,6 @@ def db_check(ctx, migrations_dir: str, database_url: str | None):
     Examples:
       aq db check
     """
-    from .commands.model_cmds import cmd_check
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2292,7 +2302,6 @@ def db_diff(ctx, migrations_dir: str, database_url: str | None, compare: str):
       aq db diff
       aq db diff --compare=migrations
     """
-    from .commands.model_cmds import cmd_diff
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2323,7 +2332,6 @@ def db_seed(ctx, database_url: str | None, seed_file: str | None):
       aq db seed
       aq db seed --file=db/custom_seeds.py
     """
-    from .commands.model_cmds import cmd_seed
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2352,7 +2360,6 @@ def db_reset(ctx, migrations_dir: str, database_url: str | None, yes: bool):
       aq db reset
       aq db reset -y
     """
-    from .commands.model_cmds import cmd_reset
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2381,7 +2388,6 @@ def db_flush(ctx, database_url: str | None, yes: bool):
       aq db flush
       aq db flush -y
     """
-    from .commands.model_cmds import cmd_flush
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -2401,7 +2407,7 @@ def db_flush(ctx, database_url: str | None, yes: bool):
 # Deploy / Production file generators
 # ============================================================================
 
-from .commands.deploy_gen import deploy_gen_group
+from aquilia.cli.commands.deploy_gen import deploy_gen_group
 
 cli.add_command(deploy_gen_group)
 
@@ -2412,7 +2418,7 @@ cli.add_command(deploy_gen_group)
 
 import contextlib
 
-from .commands.provider import provider_group
+from aquilia.cli.commands.provider import provider_group
 
 cli.add_command(provider_group)
 
@@ -2421,7 +2427,7 @@ cli.add_command(provider_group)
 # MCP server commands
 # ============================================================================
 
-from .commands.mcp import mcp_group
+from aquilia.cli.commands.mcp import mcp_group
 
 cli.add_command(mcp_group)
 
@@ -2430,7 +2436,7 @@ cli.add_command(mcp_group)
 # Contract developer tooling (aq contracts stubs)
 # ============================================================================
 
-from .commands.contracts import contracts_group
+from aquilia.cli.commands.contracts import contracts_group
 
 cli.add_command(contracts_group)
 
@@ -2439,7 +2445,7 @@ cli.add_command(contracts_group)
 # Artifact store management (aq artifacts status/verify/clean)
 # ============================================================================
 
-from .commands.artifacts import artifacts_group
+from aquilia.cli.commands.artifacts import artifacts_group
 
 cli.add_command(artifacts_group)
 
@@ -2473,7 +2479,6 @@ def test(
       aq test --coverage
       aq test --failfast -v
     """
-    from .commands.test import run_tests
 
     exit_code = run_tests(
         paths=list(paths) if paths else None,
@@ -2664,7 +2669,6 @@ def admin_check(ctx, fix: bool, as_json: bool):
         database_url = _detect_workspace_db_url()
 
         async def _check_su():
-            from aquilia.db.engine import configure_database
 
             db = configure_database(database_url)
             await db.connect()
@@ -2970,16 +2974,7 @@ def admin_createsuperuser(
             db = None
 
         try:
-            from aquilia.admin.models import (
-                AdminAPIKey,
-                AdminAuditEntry,
-                AdminPreference,
-                AdminUser,
-            )
-
             if db is None:
-                from aquilia.faults.domains import DatabaseConnectionFault
-
                 raise DatabaseConnectionFault(
                     backend="unknown",
                     reason=("No database connection available. Run 'aq db migrate' first to set up the database."),
@@ -3291,16 +3286,7 @@ def admin_createstaff(
             db = None
 
         try:
-            from aquilia.admin.models import (
-                AdminAPIKey,
-                AdminAuditEntry,
-                AdminPreference,
-                AdminUser,
-            )
-
             if db is None:
-                from aquilia.faults.domains import DatabaseConnectionFault
-
                 raise DatabaseConnectionFault(
                     backend="unknown",
                     reason=("No database connection available. Run 'aq db migrate' first to set up the database."),
@@ -3482,7 +3468,6 @@ def admin_listusers(ctx, database_url: str | None, as_json: bool, active_only: b
         database_url = _detect_workspace_db_url()
 
     async def _list():
-        from aquilia.db.engine import configure_database
 
         db = configure_database(database_url)
         await db.connect()
@@ -3582,8 +3567,6 @@ def admin_changepassword(ctx, username: str, password: str, database_url: str | 
         sys.exit(1)
 
     async def _change():
-        from aquilia.auth.hashing import PasswordHasher
-        from aquilia.db.engine import configure_database
 
         db = configure_database(database_url)
         await db.connect()
@@ -4022,15 +4005,6 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
             return False, f"Database connection failed: {e}"
 
         try:
-            from aquilia.admin.models import (
-                AdminGroup,
-                AdminLogEntry,
-                AdminPermission,
-                AdminSession,
-                AdminUser,
-                ContentType,
-            )
-
             _admin_models = [
                 ContentType,
                 AdminPermission,
@@ -4126,7 +4100,6 @@ def admin_status(ctx, database_url: str | None):
     Examples:
       aq admin status
     """
-    from aquilia.admin import AdminSite, autodiscover
 
     if database_url is None:
         database_url = _detect_workspace_db_url()
@@ -4173,7 +4146,6 @@ def admin_audit(ctx, limit: int, action: str | None, user: str | None):
       aq admin audit --action=CREATE
       aq admin audit --user=admin
     """
-    from aquilia.admin import AdminAction, AdminSite
 
     site = AdminSite.default()
 
@@ -4243,8 +4215,6 @@ def di_check(ctx, settings: str, no_cross_app_check: bool, quiet: bool, verbose:
     """
     from types import SimpleNamespace
 
-    from aquilia.di.cli import cmd_di_check
-
     args = SimpleNamespace(
         settings=settings,
         no_cross_app_check=no_cross_app_check,
@@ -4268,8 +4238,6 @@ def di_tree(ctx, settings: str, root: str | None, out: str | None, verbose: bool
     """
     from types import SimpleNamespace
 
-    from aquilia.di.cli import cmd_di_tree
-
     args = SimpleNamespace(
         settings=settings,
         root=root,
@@ -4291,8 +4259,6 @@ def di_graph(ctx, settings: str, out: str, verbose: bool):
     Useful for visualization with `dot -Tpng graph.dot -o graph.png`.
     """
     from types import SimpleNamespace
-
-    from aquilia.di.cli import cmd_di_graph
 
     args = SimpleNamespace(
         settings=settings,
@@ -4316,8 +4282,6 @@ def di_profile(ctx, settings: str, bench: str, runs: int, verbose: bool):
     """
     from types import SimpleNamespace
 
-    from aquilia.di.cli import cmd_di_profile
-
     args = SimpleNamespace(
         settings=settings,
         bench=bench,
@@ -4339,8 +4303,6 @@ def di_manifest(ctx, settings: str, out: str, verbose: bool):
     Contains provider metadata for IDE features.
     """
     from types import SimpleNamespace
-
-    from aquilia.di.cli import cmd_di_manifest
 
     args = SimpleNamespace(
         settings=settings,
@@ -4373,7 +4335,6 @@ def aquilary_validate(ctx, manifests, config, mode, autodiscover):
 
     Verifies manifest structure, types, dependency cycles, and route conflicts.
     """
-    from .commands.aquilary_cmds import run_validate
 
     run_validate(manifests, config, mode, autodiscover)
 
@@ -4391,7 +4352,6 @@ def aquilary_inspect(ctx, manifests, config, mode, autodiscover, json_path):
 
     Displays summary of apps, versions, load order, dependency graph, and route registry.
     """
-    from .commands.aquilary_cmds import run_inspect
 
     run_inspect(manifests, config, mode, autodiscover, json_path)
 
@@ -4408,7 +4368,6 @@ def aquilary_freeze(ctx, manifests, config, output, autodiscover):
 
     Generates a deterministic configuration fingerprint for reproducible builds.
     """
-    from .commands.aquilary_cmds import run_freeze
 
     run_freeze(manifests, config, output, autodiscover)
 
@@ -4426,7 +4385,6 @@ def aquilary_graph(ctx, manifests, config, mode, output, autodiscover):
 
     Generates parallel loading layers and exports DOT representation for Graphviz.
     """
-    from .commands.aquilary_cmds import run_graph
 
     run_graph(manifests, config, mode, output, autodiscover)
 
@@ -4444,7 +4402,6 @@ def aquilary_run(ctx, frozen, manifests, config, mode, autodiscover):
 
     Initializes dependency injection containers and compiles routes.
     """
-    from .commands.aquilary_cmds import run_app_registry
 
     run_app_registry(frozen, manifests, config, mode, autodiscover)
 

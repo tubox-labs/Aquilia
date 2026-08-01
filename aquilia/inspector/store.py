@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Any
 
-from .config import InspectorConfig
-from .trace import ExceptionNode, RequestTrace, ResponseSummary, Span
+from aquilia.inspector.config import InspectorConfig
+from aquilia.inspector.trace import ExceptionNode, RequestTrace, ResponseSummary, Span
 
 
 class TraceStore(ABC):

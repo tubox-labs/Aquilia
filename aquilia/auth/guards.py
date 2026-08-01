@@ -26,8 +26,10 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from aquilia.faults.domains import DIResolutionFault
+
 if TYPE_CHECKING:
-    from .core import Identity
+    from aquilia.auth.core import Identity
 
 
 # ============================================================================
@@ -159,7 +161,7 @@ class AuthGuard:
         """
         identity = _get_identity(ctx)
         if identity is None and not self.optional:
-            from .faults import AUTH_REQUIRED
+            from aquilia.auth.faults import AUTH_REQUIRED
 
             raise AUTH_REQUIRED()
 
@@ -175,12 +177,11 @@ class AuthGuard:
         if container is None:
             if self.optional:
                 return
-            from .faults import AUTH_REQUIRED
+            from aquilia.auth.faults import AUTH_REQUIRED
 
             raise AUTH_REQUIRED()
 
-        from ..faults.domains import DIResolutionFault
-        from .manager import AuthManager
+        from aquilia.auth.manager import AuthManager
 
         auth_manager = self.auth_manager
         if auth_manager is None:
@@ -214,7 +215,7 @@ class AuthGuard:
         if request is None:
             if self.optional:
                 return
-            from .faults import AUTH_REQUIRED
+            from aquilia.auth.faults import AUTH_REQUIRED
 
             raise AUTH_REQUIRED()
 
@@ -228,13 +229,13 @@ class AuthGuard:
         if not auth_header.startswith("Bearer "):
             if self.optional:
                 return
-            from .faults import AUTH_REQUIRED
+            from aquilia.auth.faults import AUTH_REQUIRED
 
             raise AUTH_REQUIRED()
 
         token = auth_header[7:]
 
-        from .faults import AUTH_TOKEN_INVALID
+        from aquilia.auth.faults import AUTH_TOKEN_INVALID
 
         try:
             identity = await auth_manager.get_identity_from_token(token)
@@ -318,7 +319,7 @@ class RoleGuard:
             ``AUTH_REQUIRED``:          No identity found.
             ``AUTHZ_INSUFFICIENT_ROLE``: Required role(s) are absent.
         """
-        from .faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_ROLE
+        from aquilia.auth.faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_ROLE
 
         identity = _get_identity(ctx)
         if identity is None:
@@ -330,7 +331,7 @@ class RoleGuard:
             if container is None and isinstance(ctx, dict):
                 container = ctx.get("container")
             if container is not None:
-                from .permissions import PermissionEngine
+                from aquilia.auth.permissions import PermissionEngine
 
                 try:
                     if hasattr(container, "resolve"):
@@ -397,7 +398,7 @@ class ScopeGuard:
             ``AUTH_REQUIRED``:            No identity found.
             ``AUTHZ_INSUFFICIENT_SCOPE``: Required scope(s) are absent.
         """
-        from .faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_SCOPE
+        from aquilia.auth.faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_SCOPE
 
         identity = _get_identity(ctx)
         if identity is None:
@@ -457,7 +458,7 @@ class PolicyGuard:
             ``AUTH_REQUIRED``:       No identity found.
             ``AUTHZ_POLICY_DENIED``: Policy returned ``False``.
         """
-        from .faults import AUTH_REQUIRED
+        from aquilia.auth.faults import AUTH_REQUIRED
 
         identity = _get_identity(ctx)
         if identity is None:

@@ -34,9 +34,11 @@ from typing import (
     overload,
 )
 
+from aquilia.faults.domains import RelatedTypeMismatchFault, SchemaFault
+
 if TYPE_CHECKING:
-    from .base import Model
-    from .relations import Related
+    from aquilia.models.base import Model
+    from aquilia.models.relations import Related
 
 #: Bound to Model -- lets ForeignKey/OneToOneField infer *which* model
 #: they point to from their own constructor argument (`ForeignKey(User)`
@@ -85,7 +87,7 @@ def _normalize_fk_action(action: str) -> str:
 # ── Field Errors ─────────────────────────────────────────────────────────────
 
 # Import the Fault base so field validation errors flow through the fault pipeline
-from ..faults.domains import FieldValidationFault as _FieldValidationFault
+from aquilia.faults.domains import FieldValidationFault as _FieldValidationFault
 
 
 class FieldValidationError(_FieldValidationFault, ValueError):
@@ -360,7 +362,6 @@ class Field(Generic[T]):
         throughout this module are ``"sqlite"`` (default), ``"postgresql"``,
         ``"mysql"``, and ``"oracle"``.
         """
-        from ..faults.domains import SchemaFault
 
         raise SchemaFault(
             table=getattr(self, "name", None) or self.__class__.__name__,
@@ -2472,7 +2473,7 @@ class RelationField(Field[Any]):
         """
         model = self.related_model
         if model is None and isinstance(self.to, str):
-            from .registry import ModelRegistry
+            from aquilia.models.registry import ModelRegistry
 
             model = ModelRegistry.get(self.to)
             if model is not None:
@@ -2634,7 +2635,7 @@ class ForeignKey(RelationField, Generic[TModel]):
         to duck-typing when ``related_model`` is still an unresolved lazy
         string reference -- best-effort, not a regression from before.
         """
-        from .relations import RelatedNotLoaded
+        from aquilia.models.relations import RelatedNotLoaded
 
         if isinstance(value, RelatedNotLoaded):
             return value.pk
@@ -2642,8 +2643,6 @@ class ForeignKey(RelationField, Generic[TModel]):
         if hasattr(value, "pk") and hasattr(value, "_fields"):
             related_model = self.related_model
             if related_model is not None and not isinstance(value, related_model):
-                from ..faults.domains import RelatedTypeMismatchFault
-
                 raise RelatedTypeMismatchFault(
                     field_name=self.name,
                     expected_model=related_model.__name__,
@@ -3567,7 +3566,7 @@ class Index:
         ``IF NOT EXISTS`` since it doesn't support that clause on
         ``CREATE INDEX``.
         """
-        from .expression import compile_schema_expression as _compile_schema_expression
+        from aquilia.models.expression import compile_schema_expression as _compile_schema_expression
 
         model_cls = getattr(self, "model", None)
 
@@ -3762,7 +3761,7 @@ class GenericForeignKey:
 
     async def resolve(self, instance: Model) -> Model | None:
         """Look up the target row for *instance*, or ``None`` if either column is unset or the row is gone."""
-        from .registry import ModelRegistry
+        from aquilia.models.registry import ModelRegistry
 
         label = getattr(instance, self.ct_field)
         pk = getattr(instance, self.fk_field)

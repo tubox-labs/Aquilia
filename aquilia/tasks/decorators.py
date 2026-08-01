@@ -24,11 +24,11 @@ from __future__ import annotations
 import functools
 from typing import TYPE_CHECKING, Any
 
-from .faults import TaskNotBoundFault
-from .job import Priority
+from aquilia.tasks.faults import TaskNotBoundFault
+from aquilia.tasks.job import Priority
 
 if TYPE_CHECKING:
-    from .schedule import Schedule
+    from aquilia.tasks.schedule import Schedule
 
 
 class _TaskDescriptor:
@@ -148,7 +148,7 @@ class _TaskDescriptor:
             :func:`aquilia.tasks.workflow.group`,
             :func:`aquilia.tasks.workflow.chord`.
         """
-        from .workflow import Signature
+        from aquilia.tasks.workflow import Signature
 
         return Signature(self, args, kwargs)
 

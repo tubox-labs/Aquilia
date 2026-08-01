@@ -7,7 +7,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Any
 
-from .handler_wrapper import wrap_handler
+from aquilia.aquilary.handler_wrapper import wrap_handler
 
 
 @dataclass

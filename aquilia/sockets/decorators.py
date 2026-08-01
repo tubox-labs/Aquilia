@@ -15,7 +15,7 @@ Provides Aquilia-first decorator syntax:
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from .envelope import Schema
+from aquilia.sockets.envelope import Schema
 
 F = TypeVar("F", bound=Callable[..., Any])
 

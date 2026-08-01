@@ -26,7 +26,7 @@ from typing import (
     BinaryIO,
 )
 
-from ..base import (
+from aquilia.storage.base import (
     BackendUnavailableError,
     FileNotFoundError,
     StorageBackend,
@@ -34,8 +34,8 @@ from ..base import (
     StorageFile,
     StorageMetadata,
 )
-from ..configs import AzureBlobConfig
-from ..executor import run_blocking
+from aquilia.storage.configs import AzureBlobConfig
+from aquilia.storage.executor import run_blocking
 
 
 class AzureBlobStorage(StorageBackend):

@@ -10,13 +10,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ._transport import HTTPTransport, create_transport
-from .config import HTTPClientConfig, TimeoutConfig
-from .cookies import CookieJar
-from .interceptors import HTTPInterceptor
-from .middleware import HTTPClientMiddleware
-from .request import HTTPClientRequest, HTTPMethod, RequestBuilder
-from .response import HTTPClientResponse
+from aquilia.http._transport import HTTPTransport, create_transport
+from aquilia.http.config import HTTPClientConfig, TimeoutConfig
+from aquilia.http.cookies import CookieJar
+from aquilia.http.interceptors import HTTPInterceptor
+from aquilia.http.middleware import HTTPClientMiddleware
+from aquilia.http.request import HTTPClientRequest, HTTPMethod, RequestBuilder
+from aquilia.http.response import HTTPClientResponse
 
 logger = logging.getLogger("aquilia.http.session")
 
@@ -214,7 +214,7 @@ class HTTPSession:
         """Follow redirect responses."""
         from urllib.parse import urljoin
 
-        from .faults import TooManyRedirectsFault
+        from aquilia.http.faults import TooManyRedirectsFault
 
         history: list[HTTPClientResponse] = []
         current_response = response

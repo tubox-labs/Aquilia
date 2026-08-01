@@ -18,10 +18,10 @@ from contextlib import asynccontextmanager
 from functools import wraps
 from typing import Any, TypeVar
 
-from aquilia.faults import Fault
+from aquilia.faults import Fault, FaultDomain
 
 # FIX: Use relative import to avoid circular import through __init__.py
-from .core import Session
+from aquilia.sessions.core import Session
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -30,7 +30,6 @@ class SessionRequiredFault(Fault):
     """Raised when session is required but missing."""
 
     def __init__(self):
-        from aquilia.faults import FaultDomain
 
         super().__init__(
             code="SESSION_REQUIRED",
@@ -151,7 +150,7 @@ class SessionDecorators:
 
                     if ctx:
                         try:
-                            from .engine import SessionEngine
+                            from aquilia.sessions.engine import SessionEngine
 
                             engine = await ctx.container.resolve_async(SessionEngine)
                             sess = await engine.resolve(ctx.request)
@@ -160,7 +159,7 @@ class SessionDecorators:
                         except Exception:
                             from datetime import datetime, timezone
 
-                            from .core import SessionID
+                            from aquilia.sessions.core import SessionID
 
                             session_id = SessionID()
                             sess = Session(
@@ -241,7 +240,7 @@ def stateful(func: F) -> F:
         if "state" in sig.parameters:
             import typing
 
-            from .state import SessionState
+            from aquilia.sessions.state import SessionState
 
             type_hints = typing.get_type_hints(func)
             state_cls = type_hints.get("state", SessionState)

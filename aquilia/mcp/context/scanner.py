@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from aquilia.faults.domains import ConfigInvalidFault
-
-from ..security import is_binary_path
+from aquilia.mcp.security import is_binary_path
 
 _EXCLUDED_DIRS = {
     ".git",

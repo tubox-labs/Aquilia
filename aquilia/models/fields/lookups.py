@@ -41,6 +41,8 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from aquilia.faults.domains import RegistryFault
+
 __all__ = [
     "Lookup",
     "Exact",
@@ -537,8 +539,6 @@ def resolve_lookup(field_name: str, lookup_name: str, value: Any) -> Lookup:
     """
     cls = _REGISTRY.get(lookup_name)
     if cls is None:
-        from aquilia.faults.domains import RegistryFault
-
         raise RegistryFault(
             name=lookup_name,
             message=f"Unknown lookup '{lookup_name}'. Available: {sorted(_REGISTRY.keys())}",

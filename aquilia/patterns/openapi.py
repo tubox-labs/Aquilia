@@ -4,7 +4,7 @@ OpenAPI schema generation from compiled patterns.
 
 from typing import Any
 
-from .compiler.compiler import CompiledPattern
+from aquilia.patterns.compiler.compiler import CompiledPattern
 
 
 def generate_openapi_params(pattern: CompiledPattern) -> list[dict[str, Any]]:
@@ -25,7 +25,7 @@ def generate_openapi_path(pattern: CompiledPattern) -> str:
     parts = []
 
     for segment in pattern.ast.segments:
-        from .compiler.ast_nodes import OptionalGroup, SplatSegment, StaticSegment, TokenSegment
+        from aquilia.patterns.compiler.ast_nodes import OptionalGroup, SplatSegment, StaticSegment, TokenSegment
 
         if isinstance(segment, StaticSegment):
             parts.append(segment.value)

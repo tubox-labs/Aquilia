@@ -117,7 +117,7 @@ class SocketTransport:
         sys.stderr.flush()
 
     def _handle_client(self, client_sock: socket.socket) -> None:
-        from .stdio import StdioTransport
+        from aquilia.mcp.transport.stdio import StdioTransport
 
         stdio_helper = StdioTransport(self.server)
 

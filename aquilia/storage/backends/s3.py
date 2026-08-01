@@ -38,7 +38,7 @@ from typing import (
     BinaryIO,
 )
 
-from ..base import (
+from aquilia.storage.base import (
     BackendUnavailableError,
     FileNotFoundError,
     StorageBackend,
@@ -46,8 +46,8 @@ from ..base import (
     StorageFile,
     StorageMetadata,
 )
-from ..configs import S3Config
-from ..executor import run_blocking
+from aquilia.storage.configs import S3Config
+from aquilia.storage.executor import run_blocking
 
 #: S3 requires every part except the last to be at least 5 MiB.
 _MIN_PART_SIZE = 5 * 1024 * 1024

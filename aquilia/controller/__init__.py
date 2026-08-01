@@ -31,14 +31,10 @@ Example:
             return self.repo.get(id)
 """
 
-from .attrs import Attributes
-from .base import Controller, ExceptionFilter, Interceptor, RequestCtx, Throttle
-from .compiler import (
-    CompiledController,
-    CompiledRoute,
-    ControllerCompiler,
-)
-from .decorators import (
+from aquilia.controller.attrs import Attributes
+from aquilia.controller.base import Controller, ExceptionFilter, Interceptor, RequestCtx, Throttle
+from aquilia.controller.compiler import CompiledController, CompiledRoute, ControllerCompiler
+from aquilia.controller.decorators import (
     DELETE,
     GET,
     HEAD,
@@ -51,12 +47,9 @@ from .decorators import (
     WS,
     route,
 )
-from .engine import ControllerEngine
-from .factory import (
-    ControllerFactory,
-    InstantiationMode,
-)
-from .filters import (
+from aquilia.controller.engine import ControllerEngine
+from aquilia.controller.factory import ControllerFactory, InstantiationMode
+from aquilia.controller.filters import (
     BaseFilterBackend,
     FilterSet,
     FilterSetMeta,
@@ -68,20 +61,20 @@ from .filters import (
     filter_data,
     filter_queryset,
 )
-from .metadata import (
+from aquilia.controller.metadata import (
     ControllerMetadata,
     ParameterMetadata,
     RouteMetadata,
     extract_controller_metadata,
 )
-from .pagination import (
+from aquilia.controller.pagination import (
     BasePagination,
     CursorPagination,
     LimitOffsetPagination,
     NoPagination,
     PageNumberPagination,
 )
-from .renderers import (
+from aquilia.controller.renderers import (
     BaseRenderer,
     ContentNegotiator,
     HTMLRenderer,
@@ -92,20 +85,15 @@ from .renderers import (
     YAMLRenderer,
     negotiate,
 )
-from .resource import (
-    CRUDResource,
-    ReadOnlyResource,
-    Resource,
-    action,
-)
-from .router import ControllerRouter
-from .throttle import (
+from aquilia.controller.resource import CRUDResource, ReadOnlyResource, Resource, action
+from aquilia.controller.router import ControllerRouter
+from aquilia.controller.throttle import (
     MemoryThrottleBackend,
     RedisThrottleBackend,
     ThrottleBackend,
     ThrottleBackendFactory,
 )
-from .validation import RequestBodyValidationFault, ValidationFault, validate_body
+from aquilia.controller.validation import RequestBodyValidationFault, ValidationFault, validate_body
 
 __all__ = [
     # Base

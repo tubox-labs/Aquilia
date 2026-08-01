@@ -12,8 +12,7 @@ import logging
 from typing import Any
 
 from aquilia.contracts import Contract, generate_schema
-
-from ..faults import SchemaResolutionFault
+from aquilia.specula.faults import SchemaResolutionFault
 
 logger = logging.getLogger("aquilia.specula.contract")
 

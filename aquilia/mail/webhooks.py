@@ -50,8 +50,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from .faults import MailConfigFault, MailValidationFault
-from .suppression import SuppressionList, SuppressionReason, normalize_email
+from aquilia.mail.faults import MailConfigFault, MailValidationFault
+from aquilia.mail.suppression import SuppressionList, SuppressionReason, normalize_email
 
 logger = logging.getLogger("aquilia.mail.webhooks")
 
@@ -590,7 +590,7 @@ async def process_webhook(
         summary = await process_webhook(events, suppression=mail.suppression)
         # {"suppressed": 2, "delivered": 5, "ignored": 1}
     """
-    from .envelope import EnvelopeStatus
+    from aquilia.mail.envelope import EnvelopeStatus
 
     counts = {"suppressed": 0, "delivered": 0, "ignored": 0}
 

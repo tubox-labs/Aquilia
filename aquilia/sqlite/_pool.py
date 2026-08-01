@@ -28,17 +28,14 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from ._config import SqlitePoolConfig
-from ._connection import AsyncConnection
-from ._errors import (
-    PoolExhaustedError,
-    SqliteConnectionError,
-    SqliteSecurityError,
-)
-from ._metrics import SqliteMetrics
-from ._pragma import apply_pragmas, build_pragmas
-from ._rows import Row, row_factory
-from ._transaction import TransactionContext
+from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.sqlite._config import SqlitePoolConfig
+from aquilia.sqlite._connection import AsyncConnection
+from aquilia.sqlite._errors import PoolExhaustedError, SqliteConnectionError, SqliteSecurityError
+from aquilia.sqlite._metrics import SqliteMetrics
+from aquilia.sqlite._pragma import apply_pragmas, build_pragmas
+from aquilia.sqlite._rows import Row, row_factory
+from aquilia.sqlite._transaction import TransactionContext
 
 logger = logging.getLogger("aquilia.sqlite.pool")
 
@@ -347,8 +344,6 @@ class ConnectionPool:
         """
         mode = mode.upper()
         if mode not in ("PASSIVE", "FULL", "RESTART", "TRUNCATE"):
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="sqlite.checkpoint_mode",
                 reason=f"Invalid checkpoint mode: {mode!r}",

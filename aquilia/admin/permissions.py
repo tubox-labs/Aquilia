@@ -297,7 +297,7 @@ def require_admin_access(identity: Identity | None) -> None:
 
     Use as a guard at the top of admin controller methods.
     """
-    from .faults import AdminAuthorizationFault
+    from aquilia.admin.faults import AdminAuthorizationFault
 
     role = get_admin_role(identity)
     if role is None:
@@ -335,7 +335,7 @@ def update_role_permissions(
     """
     if role == AdminRole.SUPERADMIN:
         if not granted:
-            from .faults import AdminAuthorizationFault
+            from aquilia.admin.faults import AdminAuthorizationFault
 
             raise AdminAuthorizationFault(
                 action="revoke permissions",

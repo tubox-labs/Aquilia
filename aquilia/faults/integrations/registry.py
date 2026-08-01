@@ -9,8 +9,13 @@ Integrates fault handling with Aquilary Registry system:
 This module patches the RuntimeRegistry to use AquilaFaults.
 """
 
+from aquilia.aquilary.core import RuntimeRegistry
 from aquilia.faults import (
+    FaultContext,
     FaultDomain,
+    FaultHandler,
+    FaultResult,
+    Resolved,
     Severity,
 )
 from aquilia.faults.domains import (
@@ -74,7 +79,6 @@ def patch_runtime_registry():
     - RuntimeError (dependencies) → DependencyResolutionFault
     - DependencyCycleError → DependencyCycleFault (already exists)
     """
-    from aquilia.aquilary.core import RuntimeRegistry
 
     # Store original methods
     original_compile_routes = RuntimeRegistry.compile_routes
@@ -119,7 +123,6 @@ def create_registry_fault_handler():
 
     Returns a handler that converts registry faults to structured responses.
     """
-    from aquilia.faults import FaultContext, FaultHandler, FaultResult, Resolved
 
     class RegistryFaultHandler(FaultHandler):
         """Handle registry-specific faults."""

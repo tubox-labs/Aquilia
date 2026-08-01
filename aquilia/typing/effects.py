@@ -96,12 +96,7 @@ class EffectProviderProtocol(Protocol[EffectResourceT_co]):
 # ---------------------------------------------------------------------------
 
 if TYPE_CHECKING:
-    from ..effects import (
-        CacheHandle,
-        CacheServiceHandle,
-        QueueHandle,
-        TaskQueueHandle,
-    )
+    from aquilia.effects import CacheHandle, CacheServiceHandle, QueueHandle, TaskQueueHandle
 
     # The canonical union types for each built-in effect
     CacheResource: TypeAlias = CacheHandle | CacheServiceHandle

@@ -2,7 +2,7 @@ import json
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from .config import InspectorConfig
+from aquilia.inspector.config import InspectorConfig
 
 
 def redact_headers(headers: dict[str, str], config: InspectorConfig) -> dict[str, str]:

@@ -32,8 +32,9 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from ..envelope import MailEnvelope
-from ..providers import ProviderResult, ProviderResultStatus
+from aquilia.http import AsyncHTTPClient
+from aquilia.mail.envelope import MailEnvelope
+from aquilia.mail.providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.sendgrid")
 
@@ -128,8 +129,6 @@ class SendGridProvider:
         """Initialize the native AsyncHTTPClient."""
         if self._initialized:
             return
-
-        from aquilia.http import AsyncHTTPClient
 
         if not self.api_key:
             logger.warning(f"SendGrid provider '{self.name}' has no API key configured")

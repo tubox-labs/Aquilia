@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from .trace import RequestTrace
+from aquilia.inspector.trace import RequestTrace
 
 
 class SSEStreamManager:

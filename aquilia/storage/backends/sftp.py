@@ -28,15 +28,15 @@ from typing import (
     BinaryIO,
 )
 
-from ..base import (
+from aquilia.storage.base import (
     BackendUnavailableError,
     FileNotFoundError,
     StorageBackend,
     StorageFile,
     StorageMetadata,
 )
-from ..configs import SFTPConfig
-from ..executor import run_blocking
+from aquilia.storage.configs import SFTPConfig
+from aquilia.storage.executor import run_blocking
 
 
 class SFTPStorage(StorageBackend):

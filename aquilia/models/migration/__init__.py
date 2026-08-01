@@ -33,18 +33,18 @@ Example::
 
 from __future__ import annotations
 
-from .autodetect import Autodetector, RenameHint, detect_changes
-from .backends import SchemaBackend, Statement, get_backend
-from .engine import SNAPSHOT_FILENAME, MigrationEngine, MigrationStatus
-from .executor import (
+from aquilia.models.migration.autodetect import Autodetector, RenameHint, detect_changes
+from aquilia.models.migration.backends import SchemaBackend, Statement, get_backend
+from aquilia.models.migration.engine import SNAPSHOT_FILENAME, MigrationEngine, MigrationStatus
+from aquilia.models.migration.executor import (
     MIGRATION_TABLE,
     AppliedMigration,
     ExecutionResult,
     MigrationExecutor,
     compile_operations,
 )
-from .graph import MigrationGraph, MigrationNode
-from .operations import (
+from aquilia.models.migration.graph import MigrationGraph, MigrationNode
+from aquilia.models.migration.operations import (
     AddConstraint,
     AddField,
     AddIndex,
@@ -69,9 +69,9 @@ from .operations import (
     registered_operations,
     resolve_operation,
 )
-from .optimizer import optimize
-from .probe import database_exists, migrations_applied
-from .schema import (
+from aquilia.models.migration.optimizer import optimize
+from aquilia.models.migration.probe import database_exists, migrations_applied
+from aquilia.models.migration.schema import (
     NOT_PROVIDED,
     STATE_VERSION,
     CheckConstraintState,
@@ -90,7 +90,7 @@ from .schema import (
     auto_index_name,
     normalize_referential_action,
 )
-from .serializer import (
+from aquilia.models.migration.serializer import (
     MIGRATION_TEMPLATE_VERSION,
     load_migration_module,
     render_migration_module,

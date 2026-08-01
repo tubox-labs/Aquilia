@@ -14,11 +14,11 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Any
 
-from .exceptions import LensCycleFault, LensUnresolvedFault
-from .facets import Facet
+from aquilia.contracts.exceptions import LensCycleFault, LensUnresolvedFault
+from aquilia.contracts.facets import Facet
 
 if TYPE_CHECKING:
-    from .core import Contract
+    from aquilia.contracts.core import Contract
 
 
 __all__ = ["Lens"]

@@ -19,6 +19,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 # ═══════════════════════════════════════════════════════════════════════════
 # BCP 47 Regex  (RFC 5646 §2.1)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -178,8 +180,6 @@ def parse_locale(tag: str) -> Locale:
         ValueError: If the tag cannot be parsed
     """
     if not tag or not isinstance(tag, str):
-        from aquilia.faults.domains import ConfigInvalidFault
-
         raise ConfigInvalidFault(
             key="i18n.locale",
             reason=f"Invalid locale tag: {tag!r}",
@@ -193,7 +193,6 @@ def parse_locale(tag: str) -> Locale:
         # Try simple 2-3 letter language code
         if re.match(r"^[a-zA-Z]{2,3}$", tag):
             return Locale(language=tag)
-        from aquilia.faults.domains import ConfigInvalidFault
 
         raise ConfigInvalidFault(
             key="i18n.locale",

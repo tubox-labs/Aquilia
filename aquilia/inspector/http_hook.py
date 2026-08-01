@@ -2,9 +2,8 @@ import time
 
 from aquilia.http.client import HTTPClientRequest, HTTPClientResponse
 from aquilia.http.middleware import HTTPClientMiddleware, MiddlewareHandler
-
-from .redaction import redact_url
-from .trace import Lane, SpanStatus, current_trace
+from aquilia.inspector.redaction import redact_url
+from aquilia.inspector.trace import Lane, SpanStatus, current_trace
 
 
 class InspectorHTTPClientMiddleware(HTTPClientMiddleware):

@@ -22,14 +22,14 @@ import importlib
 import importlib.util
 from typing import TYPE_CHECKING
 
-from ...faults.domains import MigrationFault
-from .codegen import collect_imports, render_operations, render_string, render_value
-from .operations import Operation
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.codegen import collect_imports, render_operations, render_string, render_value
+from aquilia.models.migration.operations import Operation
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from .graph import MigrationNode
+    from aquilia.models.migration.graph import MigrationNode
 
 __all__ = [
     "serialize_operations",
@@ -192,7 +192,7 @@ def load_migration_module(path: Path) -> MigrationNode:
     """
     import hashlib
 
-    from .graph import MigrationNode
+    from aquilia.models.migration.graph import MigrationNode
 
     revision = revision_from_path(path)
     spec = importlib.util.spec_from_file_location(f"aquilia_migration_{revision}", path)

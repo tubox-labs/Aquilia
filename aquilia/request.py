@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, TypeVar, ca
 from urllib.parse import parse_qsl
 
 if TYPE_CHECKING:
-    from .effects import (
+    from aquilia.effects import (
         CacheHandle,
         CacheServiceHandle,
         DBTxHandle,
@@ -53,7 +53,7 @@ else:
     HTTPHandle = Any
     StorageHandle = Any
 
-from ._datastructures import (
+from aquilia._datastructures import (
     URL,
     Headers,
     MultiDict,
@@ -62,16 +62,17 @@ from ._datastructures import (
     parse_authorization_header,
     parse_date_header,
 )
-from ._uploads import (
+from aquilia._uploads import (
     FormData,
     UploadFile,
     UploadStore,
     create_upload_file_from_bytes,
     create_upload_file_from_path,
 )
-from .faults import Fault, FaultDomain, Severity
-from .typing import ASGIReceive, ASGIScope, RequestState
-from .typing.container import AsyncResolvableContainer, SyncResolvableContainer
+from aquilia.faults import Fault, FaultDomain, Severity
+from aquilia.faults.domains import DIResolutionFault, EffectNotAcquiredFault
+from aquilia.typing import ASGIReceive, ASGIScope, RequestState
+from aquilia.typing.container import AsyncResolvableContainer, SyncResolvableContainer
 
 # Import python-multipart
 try:
@@ -1340,7 +1341,6 @@ class Request:
         identity = self.identity
         if not identity:
             # Import here to avoid circular dependency
-            from aquilia.faults import Fault, Severity
 
             raise Fault(
                 code="AUTH_REQUIRED",
@@ -1406,8 +1406,6 @@ class Request:
         """
         session = self.session
         if not session:
-            from aquilia.faults import Fault, Severity
-
             raise Fault(
                 code="SESSION_REQUIRED",
                 message="Session required",
@@ -1461,7 +1459,6 @@ class Request:
         if not container:
             if optional:
                 return None
-            from .faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=str(service_type),
@@ -1481,7 +1478,6 @@ class Request:
         else:
             if optional:
                 return None
-            from .faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=str(service_type),
@@ -1662,7 +1658,6 @@ class Request:
                     pass
 
             # Build rich diagnostics
-            from .faults.domains import EffectNotAcquiredFault
 
             middleware_active = bool(self.state.get("_effect_middleware_active", False))
             # Try to get the list of registered effects from the flow_context or state

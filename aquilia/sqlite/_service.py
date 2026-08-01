@@ -11,10 +11,10 @@ from __future__ import annotations
 import logging
 
 from aquilia.di.decorators import service
-
-from ._config import SqlitePoolConfig
-from ._metrics import SqliteMetrics
-from ._pool import ConnectionPool
+from aquilia.faults.domains import DatabaseConnectionFault
+from aquilia.sqlite._config import SqlitePoolConfig
+from aquilia.sqlite._metrics import SqliteMetrics
+from aquilia.sqlite._pool import ConnectionPool
 
 logger = logging.getLogger("aquilia.sqlite.service")
 
@@ -91,8 +91,6 @@ class SqliteService:
             RuntimeError: If the service has not been started.
         """
         if self._pool is None:
-            from aquilia.faults.domains import DatabaseConnectionFault
-
             raise DatabaseConnectionFault(
                 backend="sqlite",
                 reason=("SqliteService not started. Call startup() first or register with the lifecycle coordinator."),

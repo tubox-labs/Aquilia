@@ -276,7 +276,7 @@ class ApiVersion:
         - ``"v2.1"`` → (2, 1, 0)
         - ``"2025-01"`` → (2025, 1, 0) with label="2025-01"
         """
-        from .parser import SemanticVersionParser
+        from aquilia.versioning.parser import SemanticVersionParser
 
         return SemanticVersionParser().parse(raw)
 

@@ -38,7 +38,19 @@ from pathlib import Path
 
 import click
 
-from ..utils.colors import (
+from aquilia.cli.generators.deployment import (
+    CIGenerator,
+    ComposeGenerator,
+    DockerfileGenerator,
+    EnvGenerator,
+    GrafanaGenerator,
+    KubernetesGenerator,
+    MakefileGenerator,
+    NginxGenerator,
+    PrometheusGenerator,
+    WorkspaceIntrospector,
+)
+from aquilia.cli.utils.colors import (
     _ARROW,
     _BOLT,
     _CHECK,
@@ -71,14 +83,11 @@ from ..utils.colors import (
     table,
     warning,
 )
-from ..utils.prompts import (
-    ask,
-    confirm,
-    flow_done,
-    multi_select,
-    recap,
-    select,
-)
+from aquilia.cli.utils.prompts import ask, confirm, flow_done, multi_select, recap, select
+from aquilia.providers.render.client import RenderClient
+from aquilia.providers.render.deployer import RenderDeployer
+from aquilia.providers.render.store import RenderCredentialStore
+from aquilia.providers.render.types import RenderDeployConfig, RenderPlan
 
 
 def _load_workspace_render_config(workspace_root: Path) -> dict[str, Any]:
@@ -162,7 +171,6 @@ def _is_docker_logged_in(image: str) -> bool:
 
 def _get_ctx(workspace_root: Path) -> dict:
     """Introspect the live workspace and return a deployment context."""
-    from ..generators.deployment import WorkspaceIntrospector
 
     return WorkspaceIntrospector(workspace_root).introspect()
 
@@ -433,17 +441,6 @@ def _interactive_deploy(
       5. Generate files
       6. Optionally execute deployment
     """
-    from ..generators.deployment import (
-        CIGenerator,
-        ComposeGenerator,
-        DockerfileGenerator,
-        EnvGenerator,
-        GrafanaGenerator,
-        KubernetesGenerator,
-        MakefileGenerator,
-        NginxGenerator,
-        PrometheusGenerator,
-    )
 
     workspace_root = Path.cwd()
     verbose = ctx.obj.get("verbose", False)
@@ -950,7 +947,6 @@ def deploy_dockerfile(ctx, dev_mode: bool, output: str, force: bool, dry_run: bo
       aq deploy dockerfile --dev
       aq deploy -f dockerfile              # Force overwrite
     """
-    from ..generators.deployment import DockerfileGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1035,7 +1031,6 @@ def deploy_compose(ctx, dev_mode: bool, monitoring: bool, output: str, force: bo
       aq deploy compose --dev
       aq deploy -f compose   # Force overwrite
     """
-    from ..generators.deployment import ComposeGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1105,7 +1100,6 @@ def deploy_kubernetes(ctx, output: str, force: bool, dry_run: bool):
       aq deploy kubernetes
       aq deploy kubernetes -o deploy/k8s
     """
-    from ..generators.deployment import KubernetesGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1184,7 +1178,6 @@ def deploy_nginx(ctx, output: str, force: bool, dry_run: bool):
       aq deploy nginx
       aq deploy nginx -o config/nginx
     """
-    from ..generators.deployment import NginxGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1261,7 +1254,6 @@ def deploy_ci(ctx, provider: str, output: str | None, force: bool, dry_run: bool
       aq deploy ci --provider=github
       aq deploy ci --provider=gitlab
     """
-    from ..generators.deployment import CIGenerator
 
     workspace_root = Path.cwd()
     verbose = ctx.obj.get("verbose", False)
@@ -1334,7 +1326,6 @@ def deploy_monitoring(ctx, output: str, force: bool, dry_run: bool):
       aq deploy monitoring -o infra/
       aq deploy monitoring --force
     """
-    from ..generators.deployment import GrafanaGenerator, PrometheusGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1412,7 +1403,6 @@ def deploy_env(ctx, output: str, force: bool, dry_run: bool):
       aq deploy env
       aq deploy env --force
     """
-    from ..generators.deployment import EnvGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1475,17 +1465,6 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
       aq deploy all -o deploy/
       aq deploy all --ci-provider=both --force
     """
-    from ..generators.deployment import (
-        CIGenerator,
-        ComposeGenerator,
-        DockerfileGenerator,
-        EnvGenerator,
-        GrafanaGenerator,
-        KubernetesGenerator,
-        MakefileGenerator,
-        NginxGenerator,
-        PrometheusGenerator,
-    )
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1776,7 +1755,6 @@ def deploy_makefile(ctx, output: str, force: bool, dry_run: bool):
       aq deploy makefile
       aq deploy makefile --force
     """
-    from ..generators.deployment import MakefileGenerator
 
     workspace_root = Path.cwd()
     out = Path(output)
@@ -1874,13 +1852,6 @@ def deploy_render(
       aq deploy render --destroy                       # Tear down service
       aq deploy render --dry-run                       # Preview without deploying
     """
-    from aquilia.providers.render.client import RenderClient
-    from aquilia.providers.render.deployer import RenderDeployer
-    from aquilia.providers.render.store import RenderCredentialStore
-    from aquilia.providers.render.types import (
-        RenderDeployConfig,
-        RenderPlan,
-    )
 
     workspace_root = Path.cwd()
     dry_run = dry_run or ctx.obj.get("dry_run", False)
@@ -1935,7 +1906,7 @@ def deploy_render(
     click.echo()
 
     # 1. Run Doctor diagnostics
-    from .doctor import diagnose_workspace
+    from aquilia.cli.commands.doctor import diagnose_workspace
 
     status_line(_GEAR, "diagnostics", "Running aq doctor diagnostics...")
     doctor_issues = diagnose_workspace(verbose=False)
@@ -1947,7 +1918,7 @@ def deploy_render(
     success(f"  {_CHECK} Workspace doctor checks passed")
 
     # 2. Run Manifest Validation
-    from .validate import validate_workspace
+    from aquilia.cli.commands.validate import validate_workspace
 
     status_line(_GEAR, "validate", "Running aq validate...")
     validation_res = validate_workspace(strict=True, verbose=False)
@@ -2170,8 +2141,6 @@ def deploy_render(
 
 def _render_show_status(client, wctx: dict, service_name: str) -> None:
     """Show deployment status for the Render service."""
-    from aquilia.providers.render.deployer import RenderDeployer
-    from aquilia.providers.render.types import RenderDeployConfig
 
     config = RenderDeployConfig(service_name=service_name)
     deployer = RenderDeployer(client, Path.cwd(), config)
@@ -2241,8 +2210,6 @@ def _render_show_status(client, wctx: dict, service_name: str) -> None:
 
 def _render_destroy(client, service_name: str) -> None:
     """Destroy a deployed Render service."""
-    from aquilia.providers.render.deployer import RenderDeployer
-    from aquilia.providers.render.types import RenderDeployConfig
 
     click.echo()
     banner(f"Destroy · {service_name}", subtitle="Permanently delete service and all resources", icon=_WARN, fg="red")

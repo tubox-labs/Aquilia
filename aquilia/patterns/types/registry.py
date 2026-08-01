@@ -7,6 +7,8 @@ import uuid as uuid_lib
 from collections.abc import Callable
 from typing import Any
 
+from aquilia.faults.domains import ConfigInvalidFault, RegistryFault
+
 
 class TypeRegistry:
     """Registry of type castors for pattern parameters."""
@@ -40,7 +42,6 @@ class TypeRegistry:
             return True
         elif lower in ("false", "0", "no", "off"):
             return False
-        from aquilia.faults.domains import ConfigInvalidFault
 
         raise ConfigInvalidFault(
             key="type_cast.bool",
@@ -56,8 +57,6 @@ class TypeRegistry:
     def _cast_slug(value: str) -> str:
         """Validate and return slug."""
         if not value.replace("-", "").replace("_", "").isalnum():
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="type_cast.slug",
                 reason=f"Invalid slug: {value}",
@@ -76,8 +75,6 @@ class TypeRegistry:
     def get_castor(self, type_name: str) -> Callable[[str], Any]:
         """Get castor for type."""
         if type_name not in self.castors:
-            from aquilia.faults.domains import RegistryFault
-
             raise RegistryFault(
                 name=type_name,
                 message=f"Unknown type: {type_name}",

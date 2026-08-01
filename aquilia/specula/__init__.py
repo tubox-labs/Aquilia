@@ -29,9 +29,9 @@ Configure::
 Then visit http://localhost:8000/specula.
 """
 
-from .config import SpeculaConfig
-from .controller import SpeculaController
-from .faults import (
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.controller import SpeculaController
+from aquilia.specula.faults import (
     SPECULA_DOMAIN,
     MockServerFault,
     ObservatoryForbiddenFault,
@@ -41,15 +41,15 @@ from .faults import (
     SpeculaFault,
     VersionNotFoundFault,
 )
-from .manifest import bind_specula_routes, create_specula_manifest, specula_route_table
-from .schema.builder import SpeculaBuilder
-from .schema.contract import contract_components, contract_to_schema
-from .schema.fault import aquilia_error_schema, aquilia_validation_error_schema, fault_to_response
-from .schema.model import model_components, model_to_schema
-from .schema.standard import STANDARD_SCHEMAS
-from .schema.types import python_type_to_schema
-from .service import SpeculaService
-from .ui.renderer import SpeculaRenderer
+from aquilia.specula.manifest import bind_specula_routes, create_specula_manifest, specula_route_table
+from aquilia.specula.schema.builder import SpeculaBuilder
+from aquilia.specula.schema.contract import contract_components, contract_to_schema
+from aquilia.specula.schema.fault import aquilia_error_schema, aquilia_validation_error_schema, fault_to_response
+from aquilia.specula.schema.model import model_components, model_to_schema
+from aquilia.specula.schema.standard import STANDARD_SCHEMAS
+from aquilia.specula.schema.types import python_type_to_schema
+from aquilia.specula.service import SpeculaService
+from aquilia.specula.ui.renderer import SpeculaRenderer
 
 __all__ = [
     # Config

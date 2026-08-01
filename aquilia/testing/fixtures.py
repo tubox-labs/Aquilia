@@ -17,16 +17,17 @@ from __future__ import annotations
 
 import pytest
 
-from .auth import TestIdentityFactory
-from .cache import MockCacheBackend
-from .client import TestClient, WebSocketTestClient
-from .config import TestConfig, override_settings, set_active_config
-from .di import TestContainer
-from .effects import MockEffectRegistry
-from .faults import MockFaultEngine
-from .mail import clear_outbox, get_outbox
-from .server import TestServer
-from .utils import make_test_request, make_test_scope
+from aquilia.config import ConfigLoader
+from aquilia.testing.auth import TestIdentityFactory
+from aquilia.testing.cache import MockCacheBackend
+from aquilia.testing.client import TestClient, WebSocketTestClient
+from aquilia.testing.config import TestConfig, override_settings, set_active_config
+from aquilia.testing.di import TestContainer
+from aquilia.testing.effects import MockEffectRegistry
+from aquilia.testing.faults import MockFaultEngine
+from aquilia.testing.mail import clear_outbox, get_outbox
+from aquilia.testing.server import TestServer
+from aquilia.testing.utils import make_test_request, make_test_scope
 
 
 def aquilia_fixtures():
@@ -55,7 +56,6 @@ def aquilia_fixtures():
 @pytest.fixture
 def test_config():
     """A blank :class:`TestConfig` for unit tests."""
-    from aquilia.config import ConfigLoader
 
     loader = ConfigLoader()
     loader.config_data = {"debug": True, "runtime": {"mode": "test"}}

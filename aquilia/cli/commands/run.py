@@ -6,6 +6,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from aquilia.cli.discovery_utils import EnhancedDiscovery
+from aquilia.cli.generators.workspace import WorkspaceGenerator
+from aquilia.discovery.engine import AutoDiscoveryEngine
+from aquilia.faults.domains import ConfigMissingFault
+
 
 def _load_workspace_runtime_config(workspace_root: Path) -> dict[str, Any]:
     """
@@ -267,9 +272,6 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
     import sys
     from pathlib import Path
 
-    from aquilia.cli.generators.workspace import WorkspaceGenerator
-    from aquilia.discovery.engine import AutoDiscoveryEngine
-
     workspace_root = Path(workspace_root)
     modules_dir = workspace_root / "modules"
     if not modules_dir.exists():
@@ -317,8 +319,6 @@ def _discover_and_display_routes(workspace_root: Path, verbose: bool = False) ->
     """
     import sys
     from pathlib import Path
-
-    from aquilia.cli.discovery_utils import EnhancedDiscovery
 
     workspace_root = Path(workspace_root)
 
@@ -410,7 +410,6 @@ def _discover_and_display_routes(workspace_root: Path, verbose: bool = False) ->
         return
 
     # Now display the results
-    from ..generators.workspace import WorkspaceGenerator
 
     try:
         generator = WorkspaceGenerator(name=workspace_root.name, path=workspace_root)
@@ -684,8 +683,6 @@ def run_dev_server(
         app_module = _find_app_module(workspace_root, verbose)
 
         if not app_module:
-            from aquilia.faults.domains import ConfigMissingFault
-
             raise ConfigMissingFault(
                 key="asgi.application",
                 metadata={

@@ -9,8 +9,14 @@ Integrates fault handling with Dependency Injection system:
 This module patches the DI Container to use AquilaFaults.
 """
 
+from aquilia.di.core import Container
+from aquilia.di.errors import ProviderNotFoundError as OldProviderNotFoundError
 from aquilia.faults import (
+    FaultContext,
     FaultDomain,
+    FaultHandler,
+    FaultResult,
+    Resolved,
     Severity,
 )
 from aquilia.faults.domains import (
@@ -75,8 +81,6 @@ def patch_di_container():
 
         patch_di_container()
     """
-    from aquilia.di.core import Container
-    from aquilia.di.errors import ProviderNotFoundError as OldProviderNotFoundError
 
     if getattr(Container.resolve, "__aquilia_fault_patched__", False):
         return
@@ -167,7 +171,6 @@ def create_di_fault_handler():
 
     Returns a handler that converts DI faults to structured responses.
     """
-    from aquilia.faults import FaultContext, FaultHandler, FaultResult, Resolved
 
     class DIFaultHandler(FaultHandler):
         """Handle DI-specific faults."""

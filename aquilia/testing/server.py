@@ -15,10 +15,10 @@ from typing import Any
 
 from aquilia.aquilary.core import RegistryMode
 from aquilia.config import ConfigLoader
+from aquilia.faults.domains import ConfigMissingFault
 from aquilia.manifest import AppManifest
 from aquilia.server import AquiliaServer
-
-from .config import TestConfig, set_active_config
+from aquilia.testing.config import TestConfig, set_active_config
 
 logger = logging.getLogger("aquilia.testing.server")
 
@@ -213,8 +213,6 @@ class TestServer:
         """Reverse a named route to its URL."""
         router = self.controller_router
         if router is None:
-            from aquilia.faults.domains import ConfigMissingFault
-
             raise ConfigMissingFault(
                 key="test_server.controller_router",
                 metadata={"hint": "No controller router available"},

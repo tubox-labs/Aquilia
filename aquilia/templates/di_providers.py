@@ -20,16 +20,12 @@ from typing import TYPE_CHECKING
 
 from aquilia.config import Config
 from aquilia.di.decorators import factory, service
-
-from .bytecode_cache import (
-    BytecodeCache,
-    InMemoryBytecodeCache,
-    JSONBytecodeCache,
-)
-from .engine import TemplateEngine
-from .loader import TemplateLoader
-from .manager import TemplateManager
-from .security import SandboxPolicy, TemplateSandbox
+from aquilia.di.providers import ClassProvider, FactoryProvider, ValueProvider
+from aquilia.templates.bytecode_cache import BytecodeCache, InMemoryBytecodeCache, JSONBytecodeCache
+from aquilia.templates.engine import TemplateEngine
+from aquilia.templates.loader import TemplateLoader
+from aquilia.templates.manager import TemplateManager
+from aquilia.templates.security import SandboxPolicy, TemplateSandbox
 
 if TYPE_CHECKING:
     from aquilia.auth.manager import AuthManager
@@ -76,7 +72,7 @@ class TemplateLoaderProvider:
 
         # From manifest auto-discovery
         try:
-            from .manifest_integration import discover_template_directories
+            from aquilia.templates.manifest_integration import discover_template_directories
 
             manifest_paths = discover_template_directories(root_path=Path.cwd(), scan_manifests=True)
             paths.extend(manifest_paths)
@@ -205,7 +201,7 @@ class TemplateEngineProvider:
     def _register_session_helpers(self, engine: TemplateEngine) -> None:
         """Register session access helpers in templates."""
         try:
-            from .sessions_integration import enhance_engine_with_sessions
+            from aquilia.templates.sessions_integration import enhance_engine_with_sessions
 
             enhance_engine_with_sessions(engine, self.session_engine)
         except ImportError:
@@ -214,7 +210,7 @@ class TemplateEngineProvider:
     def _register_auth_helpers(self, engine: TemplateEngine) -> None:
         """Register auth/identity helpers in templates."""
         try:
-            from .auth_integration import enhance_engine_with_auth
+            from aquilia.templates.auth_integration import enhance_engine_with_auth
 
             enhance_engine_with_auth(engine, self.auth_manager)
         except ImportError:
@@ -242,9 +238,6 @@ def register_template_providers(container, engine: TemplateEngine | None = None)
     """
     Register all template providers with DI container.
     """
-    from aquilia.di.providers import ClassProvider, ValueProvider
-
-    from .engine import TemplateEngine
 
     if hasattr(container, "is_registered") and container.is_registered(TemplateEngine):
         return
@@ -257,12 +250,6 @@ def register_template_providers(container, engine: TemplateEngine | None = None)
     container.register(ClassProvider(TemplateManagerProvider, scope="app"))
 
     # Register factories for core types that developers actually inject
-    from aquilia.di.providers import FactoryProvider
-
-    from .bytecode_cache import BytecodeCache
-    from .engine import TemplateEngine
-    from .loader import TemplateLoader
-    from .security import TemplateSandbox
 
     # If engine instance provided (e.g. from server setup), use it directly
     if engine:

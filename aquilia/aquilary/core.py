@@ -10,6 +10,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal
 
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.canonical import bare_fingerprint
+from aquilia.artifacts.envelope import ArtifactEnvelope
+from aquilia.di import Container
+from aquilia.di.decorators import ConditionContext, should_register
+from aquilia.di.plugins import run_container_built
+from aquilia.di.providers import ClassProvider, ValueProvider
+from aquilia.di.settings import get_di_settings
+from aquilia.faults.domains import ConfigInvalidFault, DIResolutionFault, RoutingFault
+from aquilia.utils.scanner import PackageScanner
+
 logger = logging.getLogger("aquilia.aquilary")
 
 
@@ -30,9 +41,6 @@ def _di_condition_passes(target: Any, config: Any) -> bool:
         return True
 
     import os as _os
-
-    from aquilia.di.decorators import ConditionContext, should_register
-    from aquilia.di.settings import get_di_settings
 
     if not get_di_settings().enable_conditional_providers:
         return True
@@ -89,15 +97,11 @@ class AppContext:
     def __post_init__(self):
         """Validate app context."""
         if not self.name:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="app_context.name",
                 reason="AppContext must have a name",
             )
         if not self.version:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="app_context.version",
                 reason="AppContext must have a version",
@@ -173,7 +177,7 @@ class AquilaryRegistry:
         Returns:
             RuntimeRegistry instance
         """
-        from ..aquilary import RuntimeRegistry as RT
+        from aquilia.aquilary import RuntimeRegistry as RT
 
         return RT.from_metadata(
             registry_meta=self,
@@ -277,9 +281,6 @@ class AquilaryRegistry:
 
         # Delegate atomic write + serialization to ArtifactStore backend
         # (removed inline tempfile/os.replace; JSONFileBackend owns that concern)
-        from aquilia.artifacts.backends.json_file import JSONFileBackend
-        from aquilia.artifacts.canonical import bare_fingerprint
-        from aquilia.artifacts.envelope import ArtifactEnvelope
 
         fp = bare_fingerprint(frozen, exclude_keys=frozenset())
         envelope = ArtifactEnvelope.build(
@@ -332,10 +333,10 @@ class Aquilary:
             ManifestValidationError: If manifest validation fails
             ConfigValidationError: If config validation fails
         """
-        from .fingerprint import FingerprintGenerator
-        from .graph import DependencyGraph
-        from .loader import ManifestLoader
-        from .validator import RegistryValidator
+        from aquilia.aquilary.fingerprint import FingerprintGenerator
+        from aquilia.aquilary.graph import DependencyGraph
+        from aquilia.aquilary.loader import ManifestLoader
+        from aquilia.aquilary.validator import RegistryValidator
 
         # Parse mode
         registry_mode = RegistryMode(mode)
@@ -378,7 +379,7 @@ class Aquilary:
         try:
             load_order = dep_graph.topological_sort()
         except Exception as e:
-            from .errors import DependencyCycleError
+            from aquilia.aquilary.errors import DependencyCycleError
 
             cycle = dep_graph.find_cycle()
             raise DependencyCycleError(cycle=cycle) from e
@@ -508,13 +509,11 @@ class Aquilary:
         manifest_path = Path(path)
 
         # Load via ArtifactStore backend (replaces raw json.loads + read_text)
-        from aquilia.artifacts.backends.json_file import JSONFileBackend
-        from aquilia.artifacts.envelope import ArtifactEnvelope
 
         try:
             raw = JSONFileBackend().read_sync(manifest_path, signed=True, artifact_path_for_key=manifest_path)
         except ValueError as exc:
-            from .errors import FrozenManifestMismatchError
+            from aquilia.aquilary.errors import FrozenManifestMismatchError
 
             raise FrozenManifestMismatchError(
                 expected_fingerprint="<unknown>",
@@ -560,13 +559,13 @@ class Aquilary:
         # FrozenManifestMismatchError was defined but never raised.
         if not skip_verify:
             try:
-                from .fingerprint import FingerprintGenerator
+                from aquilia.aquilary.fingerprint import FingerprintGenerator
 
                 fg = FingerprintGenerator()
                 actual_fingerprint = fg.generate(app_contexts, config, mode)
 
                 if actual_fingerprint != stored_fingerprint:
-                    from .errors import FrozenManifestMismatchError
+                    from aquilia.aquilary.errors import FrozenManifestMismatchError
 
                     raise FrozenManifestMismatchError(
                         expected_fingerprint=stored_fingerprint,
@@ -574,7 +573,7 @@ class Aquilary:
                     )
             except Exception as verify_exc:
                 # Re-raise registry errors; log and continue for unexpected errors
-                from .errors import FrozenManifestMismatchError
+                from aquilia.aquilary.errors import FrozenManifestMismatchError
 
                 if isinstance(verify_exc, FrozenManifestMismatchError):
                     raise
@@ -661,7 +660,6 @@ class RuntimeRegistry:
         Uses PackageScanner to find classes in standard locations if
         auto-discovery is enabled for the app.
         """
-        from aquilia.utils.scanner import PackageScanner
 
         scanner = PackageScanner()
 
@@ -843,8 +841,8 @@ class RuntimeRegistry:
         if self._compiled:
             return
 
-        from .handler_wrapper import wrap_handler
-        from .route_compiler import RouteCompiler
+        from aquilia.aquilary.handler_wrapper import wrap_handler
+        from aquilia.aquilary.route_compiler import RouteCompiler
 
         # First, register services in DI containers
         self._register_services()
@@ -879,8 +877,6 @@ class RuntimeRegistry:
         # Validate routes
         errors = compiler.validate_routes()
         if errors:
-            from aquilia.faults.domains import RoutingFault
-
             raise RoutingFault(
                 message="Route compilation failed:\n" + "\n".join(errors),
             )
@@ -1047,9 +1043,6 @@ class RuntimeRegistry:
 
                 # ModelRegistry is a global singleton -- models self-register via metaclass
                 if ModelRegistry._models:
-                    from aquilia.di import Container
-                    from aquilia.di.providers import ValueProvider
-
                     for ctx in self.meta.app_contexts:
                         if ctx.name not in self.di_containers:
                             self.di_containers[ctx.name] = Container(scope="app")
@@ -1126,8 +1119,6 @@ class RuntimeRegistry:
         import logging as _log
         from typing import Any, get_type_hints
 
-        from aquilia.di import Container
-        from aquilia.di.providers import ClassProvider, ValueProvider
         from aquilia.faults.domains import DIFault
 
         _svc_logger = _log.getLogger("aquilia.aquilary")
@@ -1165,7 +1156,7 @@ class RuntimeRegistry:
             return None, None
 
         def _make_provider_adapter(service_cls: type, invoke: str):
-            from ..di.core import Container
+            from aquilia.di.core import Container
 
             async def adapter(provider_instance, container: Container):
                 import inspect
@@ -1446,7 +1437,6 @@ class RuntimeRegistry:
                     consumer.add_dependency_link(dep_app, provider_container)
 
         # Plugin hook: notify each fully-built app container (§5).
-        from aquilia.di.plugins import run_container_built
 
         for container in self.di_containers.values():
             run_container_built(container)
@@ -1459,8 +1449,6 @@ class RuntimeRegistry:
         maintain global state or configuration.
         """
         import importlib
-
-        from aquilia.di.providers import ClassProvider
 
         for ctx in self.meta.app_contexts:
             # Get container for this app
@@ -1519,8 +1507,6 @@ class RuntimeRegistry:
                 errors.append(f"App '{app_name}' service '{service_name}': {e}")
 
         if errors:
-            from aquilia.faults.domains import DIResolutionFault
-
             raise DIResolutionFault(
                 message="Dependency resolution failed:\n" + "\n".join(errors),
             )
@@ -1681,8 +1667,6 @@ class RuntimeRegistry:
                 all_errors.extend(f"  - {err}" for err in errors)
 
         if all_errors:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="runtime_validation",
                 reason="Runtime validation failed:\n" + "\n".join(all_errors),

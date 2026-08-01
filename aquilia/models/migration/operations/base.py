@@ -14,11 +14,11 @@ from dataclasses import fields as dataclass_fields
 from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from ....faults.domains import MigrationFault
+from aquilia.faults.domains import MigrationFault
 
 if TYPE_CHECKING:
-    from ..backends import SchemaBackend, Statement
-    from ..schema import ProjectState
+    from aquilia.models.migration.backends import SchemaBackend, Statement
+    from aquilia.models.migration.schema import ProjectState
 
 __all__ = [
     "OperationCategory",
@@ -307,7 +307,14 @@ def _ensure_builtins() -> None:
     if _BUILTINS_LOADED:
         return
     _BUILTINS_LOADED = True
-    from . import constraints, fields, indexes, models, relations, special  # noqa: F401
+    from aquilia.models.migration.operations import (  # noqa: F401
+        constraints,
+        fields,
+        indexes,
+        models,
+        relations,
+        special,
+    )
 
 
 # ── Serialization helpers ───────────────────────────────────────────────────
@@ -355,7 +362,7 @@ def _deserialize(field_name: str, value: Any, owner: type[Operation]) -> Any:
     Returns:
         The reconstructed value.
     """
-    from .. import schema as schema_module
+    from aquilia.models.migration import schema as schema_module
 
     state_class = _STATE_FIELDS.get(field_name)
     if state_class is None or value is None:

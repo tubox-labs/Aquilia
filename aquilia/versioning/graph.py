@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .core import ApiVersion, VersionChannel, VersionStatus
+from aquilia.versioning.core import ApiVersion, VersionChannel, VersionStatus
 
 
 @dataclass

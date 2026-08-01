@@ -50,10 +50,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from ....faults.domains import MigrationFault
+from aquilia.faults.domains import MigrationFault
 
 if TYPE_CHECKING:
-    from ..schema import ColumnState, IndexState, TableState
+    from aquilia.models.migration.schema import ColumnState, IndexState, TableState
 
 __all__ = [
     "BackendCapabilities",
@@ -441,7 +441,7 @@ class SchemaBackend:
 
     def _default_clause(self, column: ColumnState) -> str:
         """Render the ``DEFAULT ...`` clause, or ``""`` when there is none."""
-        from ..schema import NOT_PROVIDED
+        from aquilia.models.migration.schema import NOT_PROVIDED
 
         if column.default is NOT_PROVIDED:
             return ""
@@ -479,7 +479,7 @@ class SchemaBackend:
         Returns:
             The statements, in execution order.
         """
-        from ..schema import (
+        from aquilia.models.migration.schema import (
             CheckConstraintState,
             ForeignKeyConstraintState,
             PrimaryKeyConstraintState,
@@ -583,7 +583,7 @@ class SchemaBackend:
                 explains the problem, rather than emitting the statement and letting
                 it fail against production.
         """
-        from ..schema import NOT_PROVIDED
+        from aquilia.models.migration.schema import NOT_PROVIDED
 
         if not column.null and column.default is NOT_PROVIDED and column.generated is None:
             raise MigrationFault(
@@ -675,7 +675,7 @@ class SchemaBackend:
             MigrationFault: If a required alteration is unsupported and cannot
                 be emulated.
         """
-        from ..schema import NOT_PROVIDED
+        from aquilia.models.migration.schema import NOT_PROVIDED
 
         statements: list[str] = []
         quoted_table = self.quote(table.db_table)
@@ -718,7 +718,7 @@ class SchemaBackend:
         # definition, so no ALTER COLUMN clause can toggle it. It is added and
         # dropped as a unique index instead.
         if old.unique != new.unique and not new.primary_key:
-            from ..schema import IndexState, auto_index_name
+            from aquilia.models.migration.schema import IndexState, auto_index_name
 
             index = IndexState(
                 name=auto_index_name(table.db_table, (new.column,), unique=True),
@@ -837,7 +837,7 @@ class SchemaBackend:
         Raises:
             MigrationFault: If the dialect cannot express this constraint kind.
         """
-        from ..schema import (
+        from aquilia.models.migration.schema import (
             CheckConstraintState,
             ExclusionConstraintState,
             ForeignKeyConstraintState,
@@ -912,7 +912,7 @@ class SchemaBackend:
             MigrationFault: If the dialect cannot add constraints after table
                 creation and no index-based equivalent exists.
         """
-        from ..schema import IndexState, UniqueConstraintState
+        from aquilia.models.migration.schema import IndexState, UniqueConstraintState
 
         if isinstance(constraint, UniqueConstraintState) and constraint.requires_index:
             return self.create_index(
@@ -1097,4 +1097,9 @@ def _ensure_builtins() -> None:
     if _BUILTINS_LOADED:
         return
     _BUILTINS_LOADED = True
-    from . import mysql, oracle, postgresql, sqlite  # noqa: F401  -- registration side effect
+    from aquilia.models.migration.backends import (  # noqa: F401  -- registration side effect
+        mysql,
+        oracle,
+        postgresql,
+        sqlite,
+    )

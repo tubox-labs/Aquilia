@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .core import Contract
+    from aquilia.contracts.core import Contract
 
 
 __all__ = ["generate_schema", "generate_component_schemas"]

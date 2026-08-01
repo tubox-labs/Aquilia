@@ -16,16 +16,16 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TypeVar
 
-from .config import RetryConfig
-from .faults import (
+from aquilia.http.config import RetryConfig
+from aquilia.http.faults import (
     ConnectionClosedFault,
     ConnectionFault,
     HTTPClientFault,
     RetryExhaustedFault,
     TimeoutFault,
 )
-from .request import HTTPClientRequest
-from .response import HTTPClientResponse
+from aquilia.http.request import HTTPClientRequest
+from aquilia.http.response import HTTPClientResponse
 
 logger = logging.getLogger("aquilia.http.retry")
 

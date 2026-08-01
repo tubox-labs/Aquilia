@@ -26,9 +26,10 @@ import sys
 import time
 from pathlib import Path
 
-from ._config import FileSystemConfig
-from ._errors import FileSystemFault, wrap_os_error
-from ._pool import FileSystemPool
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._errors import FileSystemFault, wrap_os_error
+from aquilia.filesystem._path import _get_default_pool as _get
+from aquilia.filesystem._pool import FileSystemPool
 
 # Platform-specific imports
 if sys.platform == "win32":
@@ -247,6 +248,5 @@ class _WouldBlock(Exception):
 
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
-    from ._path import _get_default_pool as _get
 
     return _get()

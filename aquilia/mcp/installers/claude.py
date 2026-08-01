@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from .common import JSONConfigInstaller
+from aquilia.mcp.installers.common import JSONConfigInstaller
 
 
 def default_claude_config_path() -> Path:

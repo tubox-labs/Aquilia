@@ -23,11 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from aquilia.faults.domains import ConfigInvalidFault, ConflictFault, TooManyRequestsFault
-from aquilia.sessions import SessionScope
-from aquilia.typing import JSONObject
-
-from .core import (
+from aquilia.auth.core import (
     ApiKeyCredential,
     AuthResult,
     CredentialStatus,
@@ -39,7 +35,7 @@ from .core import (
     PasswordCredential,
     TokenClaims,
 )
-from .faults import (
+from aquilia.auth.faults import (
     AUTH_ACCOUNT_LOCKED,
     AUTH_ACCOUNT_SUSPENDED,
     AUTH_INVALID_CREDENTIALS,
@@ -49,9 +45,12 @@ from .faults import (
     AUTH_REQUIRED,
     AUTH_SESSION_REQUIRED,
 )
-from .hashing import PasswordHasher
-from .stores import MemoryCredentialStore, MemoryIdentityStore
-from .tokens import TokenManager
+from aquilia.auth.hashing import PasswordHasher
+from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore
+from aquilia.auth.tokens import TokenManager
+from aquilia.faults.domains import ConfigInvalidFault, ConflictFault, TooManyRequestsFault
+from aquilia.sessions import SessionScope
+from aquilia.typing import JSONObject
 
 # ============================================================================
 # Rate Limiter
@@ -329,7 +328,7 @@ class AuthManager:
         This keeps AuthManager decoupled from sessions when integrations are not enabled.
         """
         try:
-            from .integration.runtime_context import get_auth_runtime_context
+            from aquilia.auth.integration.runtime_context import get_auth_runtime_context
 
             runtime_ctx = get_auth_runtime_context()
             if runtime_ctx is None:
@@ -357,7 +356,7 @@ class AuthManager:
             return None
 
         try:
-            from .integration.aquila_sessions import get_identity_id
+            from aquilia.auth.integration.aquila_sessions import get_identity_id
 
             return get_identity_id(session)
         except Exception:
@@ -389,7 +388,7 @@ class AuthManager:
             return
 
         try:
-            from .integration.aquila_sessions import bind_identity
+            from aquilia.auth.integration.aquila_sessions import bind_identity
 
             bind_identity(runtime_session, identity)
         except Exception:
@@ -652,7 +651,7 @@ class AuthManager:
             runtime_session = self.current_session()
             runtime_ctx_identity = None
             try:
-                from .integration.runtime_context import get_auth_runtime_context
+                from aquilia.auth.integration.runtime_context import get_auth_runtime_context
 
                 runtime_ctx = get_auth_runtime_context()
                 if runtime_ctx is not None:
@@ -962,7 +961,7 @@ class AuthManager:
             key="auth.authenticate_api_key.required_scopes",
         )
         if normalized_required_scopes:
-            from .faults import AUTHZ_INSUFFICIENT_SCOPE
+            from aquilia.auth.faults import AUTHZ_INSUFFICIENT_SCOPE
 
             missing_scopes = set(normalized_required_scopes) - set(credential.scopes)
             if missing_scopes:
@@ -1108,7 +1107,7 @@ class AuthManager:
         """Clear request/session auth state for current runtime context."""
         runtime_ctx = None
         try:
-            from .integration.runtime_context import get_auth_runtime_context
+            from aquilia.auth.integration.runtime_context import get_auth_runtime_context
 
             runtime_ctx = get_auth_runtime_context()
         except Exception:

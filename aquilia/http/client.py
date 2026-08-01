@@ -11,15 +11,15 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from ._transport import HTTPTransport
-from .config import HTTPClientConfig, TimeoutConfig
-from .cookies import CookieJar
-from .interceptors import HTTPInterceptor
-from .middleware import HTTPClientMiddleware
-from .multipart import MultipartFormData
-from .request import HTTPClientRequest, HTTPMethod, RequestBuilder
-from .response import HTTPClientResponse
-from .session import HTTPSession
+from aquilia.http._transport import HTTPTransport
+from aquilia.http.config import HTTPClientConfig, TimeoutConfig
+from aquilia.http.cookies import CookieJar
+from aquilia.http.interceptors import HTTPInterceptor
+from aquilia.http.middleware import HTTPClientMiddleware
+from aquilia.http.multipart import MultipartFormData
+from aquilia.http.request import HTTPClientRequest, HTTPMethod, RequestBuilder
+from aquilia.http.response import HTTPClientResponse
+from aquilia.http.session import HTTPSession
 
 logger = logging.getLogger("aquilia.http.client")
 

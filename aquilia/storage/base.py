@@ -603,7 +603,7 @@ class StorageBackend(ABC):
         if isinstance(content, StorageFile):
             return await content.read()
         if hasattr(content, "read"):
-            from .executor import run_blocking
+            from aquilia.storage.executor import run_blocking
 
             return await run_blocking(content.read)  # type: ignore[union-attr]
         # AsyncIterator[bytes]

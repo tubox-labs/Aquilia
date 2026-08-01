@@ -44,17 +44,14 @@ from pathlib import Path
 from typing import Any
 
 from aquilia._version import __version__ as _AQUILIA_VERSION  # noqa: N812
-
-from .backends.json_file import JSONFileBackend
-from .backends.memory import MemoryBackend
-from .canonical import bare_fingerprint
-from .envelope import ArtifactEnvelope
-from .faults import (
-    ArtifactCorruptFault,
-    ArtifactLockTimeoutFault,
-    ArtifactTransactionFault,
-)
-from .registry import ArtifactTypeDescriptor, get_all_descriptors, get_descriptor
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.backends.memory import MemoryBackend
+from aquilia.artifacts.canonical import bare_fingerprint
+from aquilia.artifacts.envelope import ArtifactEnvelope
+from aquilia.artifacts.faults import ArtifactCorruptFault, ArtifactLockTimeoutFault, ArtifactTransactionFault
+from aquilia.artifacts.registry import ArtifactTypeDescriptor, get_all_descriptors, get_descriptor
+from aquilia.filesystem._lock import AsyncFileLock, LockAcquisitionError
+from aquilia.filesystem._pool import FileSystemPool as _FSPool
 
 logger = logging.getLogger("aquilia.artifacts.store")
 
@@ -352,8 +349,6 @@ class ArtifactStore:
         def _scan():
             return list(self._root.rglob("*.json"))
 
-        from aquilia.filesystem._pool import FileSystemPool as _FSPool
-
         _pool = _FSPool()
         all_files = await _pool.run(_scan)
 
@@ -407,11 +402,9 @@ class ArtifactStore:
 
         Used by ``aq artifacts status``.
         """
-        from .registry import ArtifactRegistry
+        from aquilia.artifacts.registry import ArtifactRegistry
 
         reg = ArtifactRegistry(self._root)
-
-        from aquilia.filesystem._pool import FileSystemPool as _FSPool
 
         _pool = _FSPool()
         report = await _pool.run(reg.scan)
@@ -438,7 +431,6 @@ class ArtifactStore:
 
     def _make_lock(self, path: Path, *, shared: bool):
         """Create an AsyncFileLock for an artifact path."""
-        from aquilia.filesystem._lock import AsyncFileLock, LockAcquisitionError
 
         lock_path = path.with_suffix(".lock")
 
@@ -549,7 +541,6 @@ class ArtifactTransaction:
 
     async def __aenter__(self) -> ArtifactTransaction:
         # Acquire locks in alphabetical path order
-        from aquilia.filesystem._lock import AsyncFileLock, LockAcquisitionError
 
         lock_targets: list[tuple[Path, Any]] = []
         for artifact_type, key in self._refs:

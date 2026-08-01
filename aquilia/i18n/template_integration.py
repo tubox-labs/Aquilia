@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from jinja2 import Environment
 
-    from .service import I18nService
+    from aquilia.i18n.service import I18nService
 
 logger = logging.getLogger("aquilia.i18n.templates")
 
@@ -62,7 +62,7 @@ def register_i18n_template_globals(
         env: Jinja2 Environment instance
         service: I18nService instance
     """
-    from .formatter import (
+    from aquilia.i18n.formatter import (
         format_currency,
         format_date,
         format_datetime,

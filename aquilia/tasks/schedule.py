@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from .faults import TaskScheduleFault
+from aquilia.tasks.faults import TaskScheduleFault
 
 
 @dataclass(frozen=True)

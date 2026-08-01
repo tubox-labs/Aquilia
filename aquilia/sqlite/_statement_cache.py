@@ -15,6 +15,8 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 __all__ = ["StatementCache", "CacheStats"]
 
 
@@ -72,8 +74,6 @@ class StatementCache:
 
     def __init__(self, capacity: int = 256) -> None:
         if capacity < 0:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="sqlite.statement_cache.capacity",
                 reason=f"capacity must be >= 0, got {capacity}",

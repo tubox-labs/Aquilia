@@ -26,12 +26,13 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from ._config import FileSystemConfig
-from ._errors import wrap_os_error
-from ._handle import AsyncFile
-from ._metrics import FileSystemMetrics
-from ._pool import FileSystemPool
-from ._security import validate_path
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._errors import wrap_os_error
+from aquilia.filesystem._handle import AsyncFile
+from aquilia.filesystem._metrics import FileSystemMetrics
+from aquilia.filesystem._path import _get_default_pool as _get
+from aquilia.filesystem._pool import FileSystemPool
+from aquilia.filesystem._security import validate_path
 
 # ═══════════════════════════════════════════════════════════════════════════
 # async_open — Drop-in replacement for aiofiles.open()
@@ -568,6 +569,5 @@ def _is_fd_closed(fd: int) -> bool:
 
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
-    from ._path import _get_default_pool as _get
 
     return _get()

@@ -24,8 +24,8 @@ import warnings
 from collections.abc import Sequence
 from typing import Any
 
-from ._config import SqlitePoolConfig
-from ._pool import ConnectionPool, create_pool
+from aquilia.sqlite._config import SqlitePoolConfig
+from aquilia.sqlite._pool import ConnectionPool, create_pool
 
 __all__ = ["connect", "CompatConnection"]
 

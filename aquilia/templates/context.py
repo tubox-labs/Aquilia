@@ -89,7 +89,7 @@ def create_template_context(
 
         # Deep integration: Inject session helpers
         try:
-            from .sessions_integration import inject_session_context
+            from aquilia.templates.sessions_integration import inject_session_context
 
             final_ctx = ctx.to_dict()
             inject_session_context(final_ctx, request_ctx)
@@ -102,7 +102,7 @@ def create_template_context(
 
         # Deep integration: Inject auth helpers
         try:
-            from .auth_integration import inject_auth_context
+            from aquilia.templates.auth_integration import inject_auth_context
 
             final_ctx = ctx.to_dict()
             inject_auth_context(final_ctx, request_ctx)

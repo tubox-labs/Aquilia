@@ -5,8 +5,8 @@ Testing utilities for DI system.
 from contextlib import asynccontextmanager
 from typing import Any
 
-from .core import Container, Provider, Registry
-from .providers import ValueProvider
+from aquilia.di.core import Container, Provider, Registry
+from aquilia.di.providers import ValueProvider
 
 
 class MockProvider(ValueProvider):

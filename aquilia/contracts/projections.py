@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .exceptions import ProjectionFault
+from aquilia.contracts.exceptions import ProjectionFault
 
 if TYPE_CHECKING:
     pass

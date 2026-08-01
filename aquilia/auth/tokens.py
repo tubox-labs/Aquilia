@@ -568,7 +568,7 @@ class TokenManager:
             AUTH_TOKEN_EXPIRED: Token has expired
             AUTH_TOKEN_REVOKED: Token has been revoked
         """
-        from .faults import AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
+        from aquilia.auth.faults import AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
 
         # Parse token
         try:
@@ -648,7 +648,7 @@ class TokenManager:
             AUTH_TOKEN_EXPIRED: Refresh token expired
             AUTH_TOKEN_REVOKED: Refresh token revoked
         """
-        from .faults import AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
+        from aquilia.auth.faults import AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
 
         data = await self.token_store.get_refresh_token(token)
 

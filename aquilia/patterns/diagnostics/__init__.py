@@ -1,6 +1,6 @@
 """Diagnostics package."""
 
-from .errors import (
+from aquilia.patterns.diagnostics.errors import (
     PatternDiagnostic,
     PatternSemanticError,
     PatternSyntaxError,

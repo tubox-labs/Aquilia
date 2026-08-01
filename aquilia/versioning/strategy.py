@@ -14,18 +14,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from .core import ApiVersion, VersionChannel
-from .errors import (
+from aquilia.utils.urls import join_paths
+from aquilia.versioning.core import ApiVersion, VersionChannel
+from aquilia.versioning.errors import (
     InvalidVersionError,
     MissingVersionError,
     UnsupportedVersionError,
     VersionNegotiationError,
     VersionSunsetError,
 )
-from .graph import VersionGraph
-from .negotiation import NegotiationMode, VersionNegotiator
-from .parser import SemanticVersionParser, VersionParser
-from .resolvers import (
+from aquilia.versioning.graph import VersionGraph
+from aquilia.versioning.negotiation import NegotiationMode, VersionNegotiator
+from aquilia.versioning.parser import SemanticVersionParser, VersionParser
+from aquilia.versioning.resolvers import (
     BaseVersionResolver,
     ChannelResolver,
     CompositeResolver,
@@ -34,10 +35,10 @@ from .resolvers import (
     QueryParamResolver,
     URLPathResolver,
 )
-from .sunset import SunsetEnforcer, SunsetPolicy, SunsetRegistry
+from aquilia.versioning.sunset import SunsetEnforcer, SunsetPolicy, SunsetRegistry
 
 if TYPE_CHECKING:
-    from ..request import Request
+    from aquilia.request import Request
 
 
 @dataclass
@@ -519,7 +520,6 @@ class VersionStrategy:
         'before': /v1/api   'after': /api/v1
         Compose this with the compiler's EXISTING join (module + controller
         + route) — don't reimplement that join here."""
-        from ..utils.urls import join_paths
 
         pos = position or self._config.url_position
         segment = "/" + self.build_url_segment(version)

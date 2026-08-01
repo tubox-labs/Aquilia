@@ -32,16 +32,16 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from ...faults.domains import MigrationFault
-from .backends import Statement, get_backend
-from .operations import RunPython
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.backends import Statement, get_backend
+from aquilia.models.migration.operations import RunPython
 
 if TYPE_CHECKING:
-    from ...db.engine import AquiliaDatabase
-    from .backends import SchemaBackend
-    from .graph import MigrationNode
-    from .operations import Operation
-    from .schema import ProjectState
+    from aquilia.db.engine import AquiliaDatabase
+    from aquilia.models.migration.backends import SchemaBackend
+    from aquilia.models.migration.graph import MigrationNode
+    from aquilia.models.migration.operations import Operation
+    from aquilia.models.migration.schema import ProjectState
 
 logger = logging.getLogger("aquilia.models.migration.executor")
 

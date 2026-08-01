@@ -37,7 +37,7 @@ See Also:
 
 from __future__ import annotations
 
-from .redis import RedisBackend
-from .sql import SQLBackend
+from aquilia.tasks.backends.redis import RedisBackend
+from aquilia.tasks.backends.sql import SQLBackend
 
 __all__ = ["RedisBackend", "SQLBackend"]

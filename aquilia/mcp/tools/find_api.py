@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..context.search import search_index
-from ..models import KnowledgeIndex
+from aquilia.mcp.context.search import search_index
+from aquilia.mcp.models import KnowledgeIndex
 
 
 def find_api(index: KnowledgeIndex, arguments: dict) -> dict:

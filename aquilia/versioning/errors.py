@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..faults import Fault, FaultDomain, Severity
+from aquilia.faults import Fault, FaultDomain, Severity
 
 
 class VersionError(Fault):

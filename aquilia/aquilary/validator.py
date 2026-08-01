@@ -10,7 +10,7 @@ Architecture v2 improvements:
 
 from typing import Any
 
-from .errors import ErrorSpan, RouteConflictError, ValidationReport
+from aquilia.aquilary.errors import ErrorSpan, RouteConflictError, ValidationReport
 
 
 class RegistryValidator:
@@ -80,7 +80,7 @@ class RegistryValidator:
             manifest: Manifest object
             report: ValidationReport to accumulate errors
         """
-        from .errors import ManifestValidationError
+        from aquilia.aquilary.errors import ManifestValidationError
 
         errors: list[str] = []
 
@@ -197,7 +197,7 @@ class RegistryValidator:
             manifest: Manifest object
             report: ValidationReport to accumulate errors
         """
-        from .errors import ErrorSpan, ManifestValidationError
+        from aquilia.aquilary.errors import ErrorSpan, ManifestValidationError
 
         if not hasattr(manifest, "depends_on"):
             return
@@ -339,7 +339,7 @@ class RegistryValidator:
         for module_name, imports in module_imports.items():
             for imp in imports:
                 if imp not in self._app_names:
-                    from .errors import ErrorSpan, ManifestValidationError
+                    from aquilia.aquilary.errors import ErrorSpan, ManifestValidationError
 
                     error = ManifestValidationError(
                         manifest_name=module_name,

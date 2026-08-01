@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..models import KnowledgeIndex
+from aquilia.mcp.models import KnowledgeIndex
 
 PROMPT_NAMES = [
     "aquilia.build_workspace",

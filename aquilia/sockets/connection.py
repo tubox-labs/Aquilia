@@ -23,9 +23,8 @@ if TYPE_CHECKING:
     from aquilia.auth.core import Identity
     from aquilia.di import Container
     from aquilia.sessions.core import Session
-
-    from .adapters.base import Adapter
-    from .envelope import MessageEnvelope
+    from aquilia.sockets.adapters.base import Adapter
+    from aquilia.sockets.envelope import MessageEnvelope
 
 logger = logging.getLogger("aquilia.sockets.connection")
 
@@ -152,7 +151,7 @@ class Connection:
         Returns:
             Message ID if ack requested
         """
-        from .envelope import MessageEnvelope, MessageType
+        from aquilia.sockets.envelope import MessageEnvelope, MessageType
 
         envelope = MessageEnvelope(
             type=MessageType.EVENT,
@@ -167,7 +166,7 @@ class Connection:
 
     async def send_envelope(self, envelope: MessageEnvelope):
         """Send message envelope to client."""
-        from .envelope import JSONCodec
+        from aquilia.sockets.envelope import JSONCodec
 
         codec = JSONCodec()
         data = codec.encode(envelope)
@@ -231,7 +230,7 @@ class Connection:
             data: Optional response data
             error: Optional error message
         """
-        from .envelope import MessageEnvelope, MessageType
+        from aquilia.sockets.envelope import MessageEnvelope, MessageType
 
         ack_envelope = MessageEnvelope(
             id=message_id,

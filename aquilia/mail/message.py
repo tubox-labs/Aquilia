@@ -18,8 +18,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from .envelope import Attachment, MailEnvelope, Priority
-from .faults import MailValidationFault
+from aquilia.mail.envelope import Attachment, MailEnvelope, Priority
+from aquilia.mail.faults import MailValidationFault
 
 # Basic email regex for fast validation (not RFC-complete but practical)
 _EMAIL_RE = re.compile(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
@@ -241,8 +241,8 @@ class EmailMessage:
             # In an Aquilia controller — use asend()
             await EmailMessage(subject="Hi", body="ok", to=user.email).asend()
         """
-        from .faults import MailConfigFault
-        from .service import _get_mail_service
+        from aquilia.mail.faults import MailConfigFault
+        from aquilia.mail.service import _get_mail_service
 
         try:
             asyncio.get_running_loop()
@@ -286,7 +286,7 @@ class EmailMessage:
             msg = EmailMessage(subject="Welcome", body="Hi", to=user.email)
             envelope_id = await msg.asend()
         """
-        from .service import _get_mail_service
+        from aquilia.mail.service import _get_mail_service
 
         svc = _get_mail_service()
         try:
@@ -391,7 +391,7 @@ class TemplateMessage(EmailMessage):
                 does not support.
             MailValidationFault: If no recipient is set.
         """
-        from .template import render_string, render_template
+        from aquilia.mail.template import render_string, render_template
 
         # Render the ATS template (HTML body → autoescaped)
         rendered_html = render_template(self.template_name, self.template_context)

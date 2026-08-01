@@ -14,8 +14,8 @@ from enum import Enum
 from typing import Any, BinaryIO
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
-from .config import TimeoutConfig
-from .faults import InvalidHeaderFault, InvalidURLFault, RequestBuildFault
+from aquilia.http.config import TimeoutConfig
+from aquilia.http.faults import InvalidHeaderFault, InvalidURLFault, RequestBuildFault
 
 
 class HTTPMethod(str, Enum):

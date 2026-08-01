@@ -22,7 +22,9 @@ from aquilia.faults import (
     FaultResult,
     Resolved,
     Severity,
+    get_default_engine,
 )
+from aquilia.faults.default_handlers import HTTPResponse
 from aquilia.faults.domains import (
     FlowCancelledFault,
     FlowFault,
@@ -103,8 +105,6 @@ async def fault_handling_middleware(
         Response or fault response
     """
     if engine is None:
-        from aquilia.faults import get_default_engine
-
         engine = get_default_engine()
 
     # Set fault context
@@ -252,7 +252,6 @@ def create_flow_fault_handler():
     Returns a handler that processes flow-specific faults.
     """
     from aquilia.faults import FaultHandler, Resolved
-    from aquilia.faults.default_handlers import HTTPResponse
 
     class FlowFaultHandler(FaultHandler):
         """Handle flow-specific faults."""

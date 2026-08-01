@@ -29,7 +29,7 @@ from __future__ import annotations
 import enum
 from typing import Any
 
-from .expression import Expression, F, OrderBy, _coerce_expression
+from aquilia.models.expression import Expression, F, OrderBy, _coerce_expression
 
 __all__ = [
     "Window",

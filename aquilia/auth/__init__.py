@@ -13,7 +13,7 @@ Core Principles:
 from __future__ import annotations
 
 # Core types
-from .audit import (
+from aquilia.auth.audit import (
     AuditEvent,
     AuditEventType,
     AuditSeverity,
@@ -24,10 +24,10 @@ from .audit import (
 )
 
 # Authorization engines (legacy — use PermissionEngine for new code)
-from .authz import ABACEngine, AuthzEngine, RBACEngine
+from aquilia.auth.authz import ABACEngine, AuthzEngine, RBACEngine
 
 # Pluggable backends (new, strategy-free)
-from .backends import (
+from aquilia.auth.backends import (
     ApiKeyBackend,
     AuthBackend,
     PasswordBackend,
@@ -37,7 +37,7 @@ from .backends import (
 )
 
 # Clearance System
-from .clearance import (
+from aquilia.auth.clearance import (
     AccessLevel,
     Clearance,
     ClearanceEngine,
@@ -53,7 +53,7 @@ from .clearance import (
     require_attribute,
     within_quota,
 )
-from .core import (
+from aquilia.auth.core import (
     ApiKeyCredential,
     AuthResult,
     Credential,
@@ -71,15 +71,10 @@ from .core import (
 )
 
 # New decorators
-from .decorators import (
-    authenticated,
-    optional_auth,
-    roles_required,
-    scopes_required,
-)
+from aquilia.auth.decorators import authenticated, optional_auth, roles_required, scopes_required
 
 # Faults
-from .faults import (
+from aquilia.auth.faults import (
     AUTH_ACCOUNT_LOCKED,
     AUTH_ACCOUNT_SUSPENDED,
     AUTH_BACKUP_CODE_EXHAUSTED,
@@ -120,17 +115,10 @@ from .faults import (
 )
 
 # New guard system
-from .guards import (
-    AuthGuard,
-    Guard,
-    PolicyGuard,
-    RoleGuard,
-    ScopeGuard,
-    requires,
-)
+from aquilia.auth.guards import AuthGuard, Guard, PolicyGuard, RoleGuard, ScopeGuard, requires
 
 # Password hashing
-from .hashing import (
+from aquilia.auth.hashing import (
     HasherConfig,
     PasswordHasher,
     PasswordPolicy,
@@ -140,29 +128,25 @@ from .hashing import (
 )
 
 # Manager types
-from .manager import AuthManager, RateLimiter, SignInProvisionPolicy
+from aquilia.auth.manager import AuthManager, RateLimiter, SignInProvisionPolicy
 
 # MFA
-from .mfa import MFAManager
+from aquilia.auth.mfa import MFAManager
 
 # New authentication middleware
-from .middleware import AuthMiddleware
+from aquilia.auth.middleware import AuthMiddleware
 
 # OAuth2
-from .oauth import OAuth2Manager
+from aquilia.auth.oauth import OAuth2Manager
 
 # New unified permission engine
-from .permissions import PermissionEngine
+from aquilia.auth.permissions import PermissionEngine
 
 # Stores
-from .stores import (
-    MemoryCredentialStore,
-    MemoryIdentityStore,
-    MemoryTokenStore,
-)
+from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
 
 # Token management
-from .tokens import (
+from aquilia.auth.tokens import (
     KeyAlgorithm,
     KeyDescriptor,
     KeyRing,

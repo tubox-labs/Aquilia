@@ -108,9 +108,8 @@ Usage:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .audit import AdminAction, AdminAuditLog
-from .contracts import (
+from aquilia.admin.audit import AdminAction, AdminAuditLog
+from aquilia.admin.contracts import (
     AdminAPIKeyContract,
     AdminAuditEntryContract,
     # Backward-compat stubs
@@ -123,17 +122,10 @@ from .contracts import (
     AdminUserCreateContract,
     ContentTypeContract,
 )
-from .controller import AdminController
-from .di_providers import register_admin_providers
-from .export import (
-    CSVExporter,
-    Exporter,
-    ExportFormat,
-    ExportRegistry,
-    JSONExporter,
-    XMLExporter,
-)
-from .faults import (
+from aquilia.admin.controller import AdminController
+from aquilia.admin.di_providers import register_admin_providers
+from aquilia.admin.export import CSVExporter, Exporter, ExportFormat, ExportRegistry, JSONExporter, XMLExporter
+from aquilia.admin.faults import (
     AdminActionFault,
     AdminAuthenticationFault,
     AdminAuthorizationFault,
@@ -150,7 +142,7 @@ from .faults import (
     AdminTemplateFault,
     AdminValidationFault,
 )
-from .filters import (
+from aquilia.admin.filters import (
     AllValuesFilter,
     BooleanFilter,
     ChoiceFilter,
@@ -162,14 +154,9 @@ from .filters import (
     SimpleFilter,
     resolve_filter,
 )
-from .hooks import (
-    AdminHooksMixin,
-    SoftDeleteMixin,
-    TimestampMixin,
-    VersioningMixin,
-)
-from .inlines import InlineModelAdmin, StackedInline, TabularInline
-from .models import (
+from aquilia.admin.hooks import AdminHooksMixin, SoftDeleteMixin, TimestampMixin, VersioningMixin
+from aquilia.admin.inlines import InlineModelAdmin, StackedInline, TabularInline
+from aquilia.admin.models import (
     AdminAPIKey,
     AdminAuditEntry,
     # Backward-compat stubs
@@ -180,13 +167,11 @@ from .models import (
     AdminUser,
     ContentType,
 )
-from .models import (
-    AdminPermission as AdminPermissionModel,
-)
-from .options import ModelAdmin
-from .permissions import AdminPermission, AdminRole
-from .registry import autodiscover, register
-from .security import (
+from aquilia.admin.models import AdminPermission as AdminPermissionModel
+from aquilia.admin.options import ModelAdmin
+from aquilia.admin.permissions import AdminPermission, AdminRole
+from aquilia.admin.registry import autodiscover, register
+from aquilia.admin.security import (
     AdminCSRFProtection,
     AdminRateLimiter,
     AdminSecurityHeaders,
@@ -197,8 +182,8 @@ from .security import (
     SecurityEventTracker,
     register_security_providers,
 )
-from .site import AdminConfig, AdminSite
-from .subsystems import (
+from aquilia.admin.site import AdminConfig, AdminSite
+from aquilia.admin.subsystems import (
     AdminAuditHook,
     AdminAuthGuard,
     AdminCacheEffect,
@@ -214,7 +199,7 @@ from .subsystems import (
     build_admin_flow_pipeline,
     get_admin_subsystems,
 )
-from .widgets import (
+from aquilia.admin.widgets import (
     AdminWidget,
     ChartWidget,
     CountWidget,

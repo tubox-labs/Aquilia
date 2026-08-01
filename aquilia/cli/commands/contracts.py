@@ -8,7 +8,8 @@ from pathlib import Path
 
 import click
 
-from ..utils.colors import _CHECK, _CROSS, dim, error, info, success, warning
+from aquilia.cli.utils.colors import _CHECK, _CROSS, dim, error, info, success, warning
+from aquilia.contracts.stubs import write_module_stub
 
 
 @click.group("contracts")
@@ -51,8 +52,6 @@ def contracts_stubs(modules: tuple[str, ...], check: bool, search_path: str) -> 
     root = str(Path(search_path).resolve())
     if root not in sys.path:
         sys.path.insert(0, root)
-
-    from aquilia.contracts.stubs import write_module_stub
 
     stale: list[str] = []
     failed: list[str] = []

@@ -16,10 +16,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from aquilia.faults.domains import ConfigInvalidFault
-
-from .core import OAuthClient
-from .faults import (
+from aquilia.auth.core import OAuthClient
+from aquilia.auth.faults import (
     AUTH_CLIENT_INVALID,
     AUTH_DEVICE_CODE_EXPIRED,
     AUTH_DEVICE_CODE_PENDING,
@@ -28,12 +26,9 @@ from .faults import (
     AUTH_REDIRECT_URI_MISMATCH,
     AUTH_SCOPE_INVALID,
 )
-from .stores import (
-    MemoryAuthorizationCodeStore,
-    MemoryDeviceCodeStore,
-    MemoryOAuthClientStore,
-)
-from .tokens import TokenManager
+from aquilia.auth.stores import MemoryAuthorizationCodeStore, MemoryDeviceCodeStore, MemoryOAuthClientStore
+from aquilia.auth.tokens import TokenManager
+from aquilia.faults.domains import ConfigInvalidFault
 
 # ============================================================================
 # PKCE Utilities

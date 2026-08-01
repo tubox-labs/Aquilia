@@ -55,9 +55,9 @@ from collections.abc import Sequence
 from email.message import Message
 from typing import Any
 
-from ..envelope import MailEnvelope
-from ..mime import build_mime_message, sign_dkim
-from ..providers import ProviderResult, ProviderResultStatus
+from aquilia.mail.envelope import MailEnvelope
+from aquilia.mail.mime import build_mime_message, sign_dkim
+from aquilia.mail.providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.smtp")
 

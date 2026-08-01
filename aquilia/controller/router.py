@@ -17,8 +17,10 @@ Performance (v3 — scalability):
 from dataclasses import dataclass
 from typing import Any
 
-from ..patterns import PatternMatcher
-from .compiler import CompiledController, CompiledRoute
+from aquilia.controller.compiler import CompiledController, CompiledRoute
+from aquilia.faults import RoutingFault
+from aquilia.faults.domains import RouteNotFoundFault
+from aquilia.patterns import PatternMatcher
 
 
 @dataclass
@@ -265,8 +267,6 @@ class ControllerRouter:
                         matching_hits.append((route, params, query))
 
                 if len(matching_hits) > 1:
-                    from ..faults import RoutingFault
-
                     raise RoutingFault(
                         "ROUTE_CONFLICT",
                         f"Found multiple matching routes for path {norm_path!r} and version {api_version!r}: "
@@ -348,8 +348,6 @@ class ControllerRouter:
                 matching_matches.append(ControllerRouteMatch(route=route, params=params, query=query))
 
             if len(matching_matches) > 1:
-                from ..faults import RoutingFault
-
                 raise RoutingFault(
                     "ROUTE_CONFLICT",
                     f"Found multiple matching dynamic routes for path {path!r} and version {api_version!r}: "
@@ -515,8 +513,6 @@ class ControllerRouter:
             return None
 
         if len(matching_routes) > 1:
-            from ..faults import RoutingFault
-
             raise RoutingFault(
                 "ROUTE_CONFLICT",
                 f"Found multiple matching trie routes for path {path!r} and version {api_version!r}: "
@@ -658,7 +654,7 @@ class ControllerRouter:
             filename = params.get("filename")
             if filename:
                 try:
-                    from .base import _get_current_request_ctx
+                    from aquilia.controller.base import _get_current_request_ctx
 
                     ctx = _get_current_request_ctx()
                     if ctx and hasattr(ctx, "request") and hasattr(ctx.request, "state"):
@@ -705,6 +701,5 @@ class ControllerRouter:
 
         if name.startswith("/"):
             return name
-        from ..faults.domains import RouteNotFoundFault
 
         raise RouteNotFoundFault(path=name, method="*")

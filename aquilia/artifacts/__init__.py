@@ -47,20 +47,20 @@ CLI surface::
 
 from __future__ import annotations
 
-from .backends.json_file import JSONFileBackend
-from .backends.memory import MemoryBackend
-from .canonical import canonicalize
-from .di import ArtifactStoreProvider, provide_artifact_store
-from .envelope import ArtifactEnvelope
-from .faults import (
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.backends.memory import MemoryBackend
+from aquilia.artifacts.canonical import canonicalize
+from aquilia.artifacts.di import ArtifactStoreProvider, provide_artifact_store
+from aquilia.artifacts.envelope import ArtifactEnvelope
+from aquilia.artifacts.faults import (
     ArtifactCorruptFault,
     ArtifactLockTimeoutFault,
     ArtifactStaleFault,
     ArtifactTransactionFault,
 )
-from .integrity import sign_payload, verify_payload
-from .registry import ArtifactRegistry, ArtifactTypeDescriptor, register_artifact_type
-from .store import ArtifactStore, ArtifactTransaction
+from aquilia.artifacts.integrity import sign_payload, verify_payload
+from aquilia.artifacts.registry import ArtifactRegistry, ArtifactTypeDescriptor, register_artifact_type
+from aquilia.artifacts.store import ArtifactStore, ArtifactTransaction
 
 __all__ = [
     # Envelope

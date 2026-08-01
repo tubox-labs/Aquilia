@@ -14,8 +14,8 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .adapters.base import Adapter
-    from .connection import Connection
+    from aquilia.sockets.adapters.base import Adapter
+    from aquilia.sockets.connection import Connection
 
 logger = logging.getLogger("aquilia.sockets.controller")
 
@@ -98,7 +98,7 @@ class SocketController:
             namespace: Optional namespace override
             exclude_connection: Optional connection ID to exclude
         """
-        from .envelope import MessageEnvelope, MessageType
+        from aquilia.sockets.envelope import MessageEnvelope, MessageType
 
         ns = namespace or self.namespace
         if not ns:
@@ -177,7 +177,7 @@ class SocketController:
             namespace: Optional namespace override
             exclude_connection: Optional connection ID to exclude
         """
-        from .envelope import MessageEnvelope, MessageType
+        from aquilia.sockets.envelope import MessageEnvelope, MessageType
 
         ns = namespace or self.namespace
         if not ns:

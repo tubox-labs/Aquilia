@@ -22,24 +22,21 @@ from typing import (
     overload,
 )
 
-from ..utils.data import DataObject
-from .annotations import (
+from aquilia.contracts.annotations import (
     Field,
     LazyContractFacet,
     NestedContractFacet,
     _ComputedMarker,
     introspect_annotations,
 )
-from .exceptions import (
-    CastFault,
-    ContractAsyncMismatchFault,
-    ImprintFault,
-    SealFault,
-)
-from .facets import UNSET, Computed, Constant, Facet, Inject, derive_facet
-from .lenses import Lens, _ProjectedRef
-from .messages import contract_message
-from .projections import ProjectionRegistry
+from aquilia.contracts.exceptions import CastFault, ContractAsyncMismatchFault, ImprintFault, SealFault
+from aquilia.contracts.facets import UNSET, Computed, Constant, Facet, Inject, derive_facet
+from aquilia.contracts.lenses import Lens, _ProjectedRef
+from aquilia.contracts.messages import contract_message
+from aquilia.contracts.projections import ProjectionRegistry
+from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.models.fields_module import ForeignKey, ManyToManyField, OneToOneField
+from aquilia.utils.data import DataObject
 
 if TYPE_CHECKING:
     pass
@@ -272,7 +269,6 @@ class ContractMeta(type):
                 declared_facets[key] = value
             elif isinstance(value, mcs):
                 # Auto-wrap Contract subclass assignments in a NestedContractFacet
-                from .annotations import NestedContractFacet
 
                 facet = NestedContractFacet(value)
                 declared_facets[key] = facet
@@ -309,7 +305,7 @@ class ContractMeta(type):
         # Parse Spec inner class
         spec_cls = namespace.pop("Spec", None)
         if "Meta" in namespace:
-            from .exceptions import ContractFault
+            from aquilia.contracts.exceptions import ContractFault
 
             raise ContractFault(
                 f"Contract '{name}' defined 'class Meta'. Aquilia Contracts "
@@ -432,12 +428,12 @@ class ContractMeta(type):
         )
 
         # Collect ward methods
-        from .ward import collect_ward_methods
+        from aquilia.contracts.ward import collect_ward_methods
 
         cls._ward_methods = collect_ward_methods(name, bases, namespace)
 
         # Build sigil
-        from .sigil import build_sigil
+        from aquilia.contracts.sigil import build_sigil
 
         cls._sigil = build_sigil(cls)
 
@@ -516,7 +512,6 @@ class ContractMeta(type):
         declared_facets: dict[str, Facet],
     ) -> dict[str, Facet]:
         """Merge annotation+explicit nested facets with explicit validation."""
-        from aquilia.faults.domains import ConfigInvalidFault
 
         merged = dict(declared_facets)
 
@@ -605,7 +600,7 @@ class ContractMeta(type):
         if not model_fields:
             # Fallback: scan class for Field instances
             try:
-                from ..models.fields_module import Field
+                from aquilia.models.fields_module import Field
 
                 for attr_name in dir(model):
                     val = getattr(model, attr_name, None)
@@ -662,7 +657,7 @@ class ContractMeta(type):
         return f"<Contract '{cls.__name__}' model={model_name}>"
 
     def __or__(cls, other: Any) -> Any:
-        from .core import Contract, ContractUnion
+        from aquilia.contracts.core import Contract, ContractUnion
 
         if isinstance(other, type) and issubclass(other, Contract):
             return ContractUnion((cls, other))
@@ -671,7 +666,7 @@ class ContractMeta(type):
         return NotImplemented
 
     def __ror__(cls, other: Any) -> Any:
-        from .core import Contract, ContractUnion
+        from aquilia.contracts.core import Contract, ContractUnion
 
         if isinstance(other, type) and issubclass(other, Contract):
             return ContractUnion((other, cls))
@@ -685,7 +680,6 @@ def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Face
     - ForeignKey → IntFacet (PK reference) by default
     - If the FK field name matches a declared Lens, that takes precedence
     """
-    from ..models.fields_module import ForeignKey, ManyToManyField, OneToOneField
 
     is_many = isinstance(model_field, ManyToManyField)
 
@@ -731,7 +725,7 @@ class ContractUnion:
             for member in self.members:
                 member_fields = getattr(member, "_all_facets", {})
                 for fname, facet in member_fields.items():
-                    from .facets import ChoiceFacet
+                    from aquilia.contracts.facets import ChoiceFacet
 
                     if isinstance(facet, ChoiceFacet):
                         candidate_fields.setdefault(fname, []).append(member)
@@ -764,7 +758,7 @@ class ContractUnion:
             for member in self.members:
                 facet = member._all_facets.get(discriminator_field)
                 if facet is not None:
-                    from .facets import ChoiceFacet
+                    from aquilia.contracts.facets import ChoiceFacet
 
                     if isinstance(facet, ChoiceFacet):
                         allowed = getattr(facet, "allowed_values", ())
@@ -776,8 +770,8 @@ class ContractUnion:
 
     def validate(self, data: Any) -> tuple[dict, dict]:
         if self._dispatch:
-            from .facets import UNSET, TextFacet
-            from .sigil import get_field_value, is_mapping_like
+            from aquilia.contracts.facets import UNSET, TextFacet
+            from aquilia.contracts.sigil import get_field_value, is_mapping_like
 
             tag = None
             if self.discriminator_field and is_mapping_like(data):
@@ -1020,7 +1014,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             cls._async_wards_deep_cache = True
             return True
 
-        from .sigil import get_nested_contract_cls
+        from aquilia.contracts.sigil import get_nested_contract_cls
 
         seen = _seen | {id(cls)}
         result = False
@@ -1332,7 +1326,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         self._errors = {}
         validated: dict[str, Any] = {}
 
-        from .sigil import adapt_input, is_mapping_like
+        from aquilia.contracts.sigil import adapt_input, is_mapping_like
 
         data = adapt_input(self._input_data)
         if not is_mapping_like(data):
@@ -1350,7 +1344,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             extra_fields_mode = self.context["extra_fields"]
 
         if extra_fields_mode == "reject" and is_mapping_like(data):
-            from .sigil import get_keys
+            from aquilia.contracts.sigil import get_keys
 
             known_fields = set(self._bound_facets.keys())
             unknown = get_keys(data) - known_fields
@@ -1481,7 +1475,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
         # Phase 4b: nested Contracts' async wards
         if nested_pending:
-            from .sigil import merge_nested_errors
+            from aquilia.contracts.sigil import merge_nested_errors
 
             for path, nested_cls, inst, data_obj in nested_pending:
                 await nested_cls._run_ward_phase_async(inst, data_obj, _sync_already_run=True)
@@ -1602,7 +1596,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         Raises:
             SealFault: If the input is rejected and ``raise_fault`` is set.
         """
-        from .sigil import extract_flat_list_mapping, is_mapping_like
+        from aquilia.contracts.sigil import extract_flat_list_mapping, is_mapping_like
 
         input_data = self._input_data
         if is_mapping_like(input_data):
@@ -2074,7 +2068,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         See Also:
             :meth:`_seal_row_async` — variant that also runs async wards.
         """
-        from .sigil import adapt_input, is_mapping_like
+        from aquilia.contracts.sigil import adapt_input, is_mapping_like
 
         row = adapt_input(row)
         if not is_mapping_like(row):
@@ -2117,7 +2111,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         See Also:
             :meth:`_seal_row`
         """
-        from .sigil import adapt_input, is_mapping_like
+        from aquilia.contracts.sigil import adapt_input, is_mapping_like
 
         row = adapt_input(row)
         if not is_mapping_like(row):
@@ -2405,7 +2399,6 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
         for fname, spec in cls._sigil.fields.items():
             facet = spec.facet
-            from .facets import Computed, Constant
 
             if isinstance(facet, (Computed, Constant)) or facet.read_only:
                 continue
@@ -2448,7 +2441,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         import random
         import string
 
-        from .facets import (
+        from aquilia.contracts.facets import (
             BoolFacet,
             ChoiceFacet,
             DictFacet,
@@ -2457,7 +2450,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             ListFacet,
             TextFacet,
         )
-        from .sigil import get_nested_contract_cls
+        from aquilia.contracts.sigil import get_nested_contract_cls
 
         result = {}
         for fname, spec in cls._sigil.fields.items():
@@ -2586,7 +2579,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
         import string
 
-        from .facets import (
+        from aquilia.contracts.facets import (
             BoolFacet,
             ChoiceFacet,
             DictFacet,
@@ -2595,7 +2588,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             ListFacet,
             TextFacet,
         )
-        from .sigil import get_nested_contract_cls
+        from aquilia.contracts.sigil import get_nested_contract_cls
 
         fields_strategies = {}
         for fname, spec in cls._sigil.fields.items():
@@ -2812,7 +2805,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
     def _copy_unsealed(self, update: dict[str, Any] | None) -> Contract:
         """Build an unsealed copy of this Contract with ``update`` merged in."""
-        from .sigil import adapt_input, is_mapping_like
+        from aquilia.contracts.sigil import adapt_input, is_mapping_like
 
         base: dict[str, Any]
         if self._validated_data is not None and not self.many:

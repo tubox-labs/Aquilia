@@ -6,8 +6,8 @@ Utility modules for the Aquilia framework:
 - urls: URL path manipulation utilities
 """
 
-from .scanner import PackageScanner
-from .urls import join_paths, normalize_path
+from aquilia.utils.scanner import PackageScanner
+from aquilia.utils.urls import join_paths, normalize_path
 
 __all__ = [
     "PackageScanner",

@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from .core import Session, SessionPrincipal
+    from aquilia.sessions.core import Session, SessionPrincipal
 
 
 # ============================================================================

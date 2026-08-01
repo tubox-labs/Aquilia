@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import json
 
-from ..config import SpeculaConfig
-from .assets import SPECULA_CSS, SPECULA_JS
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.ui.assets import SPECULA_CSS, SPECULA_JS
 
 
 class SpeculaRenderer:

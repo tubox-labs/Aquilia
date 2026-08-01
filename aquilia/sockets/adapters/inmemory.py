@@ -11,8 +11,8 @@ import asyncio
 import logging
 from collections import defaultdict
 
-from ..envelope import MessageEnvelope
-from .base import Adapter, RoomInfo
+from aquilia.sockets.adapters.base import Adapter, RoomInfo
+from aquilia.sockets.envelope import MessageEnvelope
 
 logger = logging.getLogger("aquilia.sockets.adapters.inmemory")
 
@@ -95,7 +95,7 @@ class InMemoryAdapter(Adapter):
             return
 
         # Encode message once
-        from ..envelope import JSONCodec
+        from aquilia.sockets.envelope import JSONCodec
 
         codec = JSONCodec()
         data = codec.encode(envelope)
@@ -128,7 +128,7 @@ class InMemoryAdapter(Adapter):
             return
 
         # Encode message once
-        from ..envelope import JSONCodec
+        from aquilia.sockets.envelope import JSONCodec
 
         codec = JSONCodec()
         data = codec.encode(envelope)

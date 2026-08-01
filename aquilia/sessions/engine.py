@@ -18,8 +18,8 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from .core import Session, SessionFlag, SessionID, SessionScope
-from .faults import (
+from aquilia.sessions.core import Session, SessionFlag, SessionID, SessionScope
+from aquilia.sessions.faults import (
     SessionAbsoluteTimeoutFault,
     SessionConcurrencyViolationFault,
     SessionExpiredFault,
@@ -35,10 +35,9 @@ if TYPE_CHECKING:
     from aquilia.di import Container
     from aquilia.request import Request
     from aquilia.response import Response
-
-    from .policy import SessionPolicy
-    from .store import SessionStore
-    from .transport import SessionTransport
+    from aquilia.sessions.policy import SessionPolicy
+    from aquilia.sessions.store import SessionStore
+    from aquilia.sessions.transport import SessionTransport
 
 
 # ============================================================================

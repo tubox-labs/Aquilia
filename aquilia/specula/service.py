@@ -10,11 +10,10 @@ import logging
 from typing import Any
 
 from aquilia.controller.router import ControllerRouter
-
-from .config import SpeculaConfig
-from .faults import SpecBuildFault, SpeculaFault
-from .introspect.versions import VersionedSpecBuilder
-from .schema.builder import SpeculaBuilder
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.faults import SpecBuildFault, SpeculaFault
+from aquilia.specula.introspect.versions import VersionedSpecBuilder
+from aquilia.specula.schema.builder import SpeculaBuilder
 
 logger = logging.getLogger("aquilia.specula")
 

@@ -26,10 +26,9 @@ from aquilia.middleware import Middleware
 from aquilia.response import Response
 
 if TYPE_CHECKING:
+    from aquilia.cache.service import CacheService
     from aquilia.controller.base import RequestCtx
     from aquilia.request import Request
-
-    from .service import CacheService
 
 logger = logging.getLogger("aquilia.cache.middleware")
 

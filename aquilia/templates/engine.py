@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from jinja2 import Template
 
-from .bytecode_cache import BytecodeCache, InMemoryBytecodeCache
-from .context import create_template_context
-from .extensions import StaticTagExtension
-from .loader import TemplateLoader
-from .security import SandboxPolicy, TemplateSandbox, create_safe_filters, create_safe_globals
+from aquilia.templates.bytecode_cache import BytecodeCache, InMemoryBytecodeCache
+from aquilia.templates.context import create_template_context
+from aquilia.templates.extensions import StaticTagExtension
+from aquilia.templates.loader import TemplateLoader
+from aquilia.templates.security import SandboxPolicy, TemplateSandbox, create_safe_filters, create_safe_globals
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx

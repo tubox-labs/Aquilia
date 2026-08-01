@@ -64,8 +64,9 @@ except ImportError:
 
 # Native async file I/O
 # Import Aquilia components
-from .faults import Fault, FaultDomain, Severity
-from .filesystem import stream_read as _fs_stream_read
+from aquilia.faults import Fault, FaultDomain, Severity
+from aquilia.faults.domains import ConfigInvalidFault, FilesystemFault, IOFault
+from aquilia.filesystem import stream_read as _fs_stream_read
 
 logger = logging.getLogger("aquilia.response")
 
@@ -661,8 +662,6 @@ class Response:
         path = Path(path)
 
         if not path.exists():
-            from .faults.domains import FilesystemFault
-
             raise FilesystemFault(
                 path=str(path),
                 operation="read",
@@ -670,8 +669,6 @@ class Response:
             )
 
         if not path.is_file():
-            from .faults.domains import IOFault
-
             raise IOFault(code="NOT_A_FILE", message=f"Not a file: {path}")
 
         # Detect media type
@@ -1102,8 +1099,6 @@ class Response:
         """
         if signed:
             if signer is None:
-                from .faults.domains import ConfigInvalidFault
-
                 raise ConfigInvalidFault(
                     key="cookie_signer",
                     reason="signer is required when signed=True; pass a CookieSigner instance",

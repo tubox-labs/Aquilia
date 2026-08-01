@@ -2,9 +2,9 @@
 Adapters Package - WebSocket scaling adapters
 """
 
-from .base import Adapter, RoomInfo
-from .inmemory import InMemoryAdapter
-from .redis import RedisAdapter
+from aquilia.sockets.adapters.base import Adapter, RoomInfo
+from aquilia.sockets.adapters.inmemory import InMemoryAdapter
+from aquilia.sockets.adapters.redis import RedisAdapter
 
 __all__ = [
     "Adapter",

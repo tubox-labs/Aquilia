@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..models import KnowledgeIndex
+from aquilia.mcp.models import KnowledgeIndex
 
 
 def find_examples(index: KnowledgeIndex, arguments: dict) -> dict:

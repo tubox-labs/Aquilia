@@ -48,8 +48,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
-from .typing import ASGIApplication
-from .typing.manifest import ManifestCollection
+from aquilia.typing import ASGIApplication
+from aquilia.typing.manifest import ManifestCollection
 
 __all__ = [
     "AquiliaRuntime",
@@ -345,7 +345,7 @@ class AquiliaRuntime:
                     f"Set AQUILIA_WORKSPACE to the correct path."
                 )
 
-            from .config import ConfigLoader
+            from aquilia.config import ConfigLoader
 
             overrides: dict[str, Any] = {
                 "mode": self.config.mode,
@@ -528,8 +528,8 @@ class AquiliaRuntime:
 
         self._phase = RuntimePhase.BOOTSTRAPPING
         try:
-            from .aquilary import RegistryMode
-            from .server import AquiliaServer
+            from aquilia.aquilary import RegistryMode
+            from aquilia.server import AquiliaServer
 
             mode_map: dict[str, RegistryMode] = {
                 "dev": RegistryMode.DEV,

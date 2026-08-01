@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..models import SourceFile
+from aquilia.mcp.models import SourceFile
 
 _FACT_SPECS = [
     (

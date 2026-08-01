@@ -29,8 +29,8 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
-from ._config import FileSystemConfig
-from ._metrics import FileSystemMetrics
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._metrics import FileSystemMetrics
 
 logger = logging.getLogger("aquilia.filesystem.pool")
 

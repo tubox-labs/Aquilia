@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from .sql_builder import DeleteBuilder, UpdateBuilder
+from aquilia.models.sql_builder import DeleteBuilder, UpdateBuilder
 
 if TYPE_CHECKING:
     pass
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aquilia.models.deletion")
 
 # Import fault classes for fault-system integration
-from ..faults.domains import ProtectedDeleteFault, RestrictedDeleteFault
+from aquilia.faults.domains import ProtectedDeleteFault, RestrictedDeleteFault
 
 __all__ = [
     "CASCADE",

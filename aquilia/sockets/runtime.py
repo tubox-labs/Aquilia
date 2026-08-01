@@ -15,17 +15,14 @@ from typing import Any
 
 from aquilia.auth.core import Identity
 from aquilia.faults import Fault
+from aquilia.request import Request
 from aquilia.sessions.core import Session
-
-from .adapters import Adapter, InMemoryAdapter
-from .connection import Connection, ConnectionScope
-from .controller import SocketController
-from .envelope import JSONCodec, MessageEnvelope, StreamChunk
-from .faults import (
-    WS_MESSAGE_INVALID,
-    WS_UNSUPPORTED_EVENT,
-)
-from .guards import SocketGuard
+from aquilia.sockets.adapters import Adapter, InMemoryAdapter
+from aquilia.sockets.connection import Connection, ConnectionScope
+from aquilia.sockets.controller import SocketController
+from aquilia.sockets.envelope import JSONCodec, MessageEnvelope, StreamChunk
+from aquilia.sockets.faults import WS_MESSAGE_INVALID, WS_UNSUPPORTED_EVENT
+from aquilia.sockets.guards import SocketGuard
 
 logger = logging.getLogger("aquilia.sockets.runtime")
 
@@ -286,7 +283,6 @@ class AquilaSockets:
     ) -> Connection:
         """Perform WebSocket handshake."""
         # Create Request object for robust parsing
-        from aquilia.request import Request
 
         # Mock receive that returns nothing (we don't read body in handshake)
         async def mock_receive():
@@ -319,7 +315,7 @@ class AquilaSockets:
         if route_metadata.allowed_origins:
             origin = headers.get("origin", "")
             if origin and origin not in route_metadata.allowed_origins:
-                from .faults import WS_ORIGIN_NOT_ALLOWED
+                from aquilia.sockets.faults import WS_ORIGIN_NOT_ALLOWED
 
                 raise WS_ORIGIN_NOT_ALLOWED(origin)
 

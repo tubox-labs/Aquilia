@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..models import KnowledgeIndex
+from aquilia.mcp.models import KnowledgeIndex
 
 
 def list_cli_commands(index: KnowledgeIndex, arguments: dict) -> dict:

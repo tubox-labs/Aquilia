@@ -16,8 +16,8 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
-from .exceptions import MAX_NESTING_DEPTH, CastFault
-from .facets import (
+from aquilia.contracts.exceptions import MAX_NESTING_DEPTH, CastFault
+from aquilia.contracts.facets import (
     UNSET,
     BoolFacet,
     Computed,
@@ -36,8 +36,10 @@ from .facets import (
     TimeFacet,
     UUIDFacet,
 )
-from .messages import contract_message
-from .pipeline import Pipeline
+from aquilia.contracts.messages import contract_message
+from aquilia.contracts.pipeline import Pipeline
+from aquilia.faults.domains import RegistryFault
+from aquilia.utils.data import DataObject
 
 __all__ = ["Sigil", "FieldSpec", "SigilDiff", "FieldDiff", "build_sigil"]
 
@@ -58,14 +60,14 @@ def _init_validation_types():
 
     types = [dict, Mapping]
     try:
-        from .._datastructures import MultiDict
+        from aquilia._datastructures import MultiDict
 
         _MULTIDICT_CLS = MultiDict
         types.append(MultiDict)
     except ImportError:
         pass
     try:
-        from .._uploads import FormData
+        from aquilia._uploads import FormData
 
         _FORMDATA_CLS = FormData
         types.append(FormData)
@@ -493,7 +495,7 @@ class Sigil:
             if multiple_of is not None:
                 sch["multipleOf"] = multiple_of
 
-            from .facets import ChoiceFacet
+            from aquilia.contracts.facets import ChoiceFacet
 
             if isinstance(facet, ChoiceFacet):
                 allowed = getattr(facet, "allowed_values", ())
@@ -503,7 +505,7 @@ class Sigil:
                 elif len(allowed) > 1:
                     sch["enum"] = list(allowed)
 
-            from .facets import PolymorphicFacet
+            from aquilia.contracts.facets import PolymorphicFacet
 
             if isinstance(facet, PolymorphicFacet):
                 choices_schemas = []
@@ -957,7 +959,6 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
 
 
 def _get_single_val(data: Any, key: str, form_data_cls: Any, multi_dict_cls: Any) -> Any:
-    from .facets import UNSET
 
     if form_data_cls is not None and isinstance(data, form_data_cls):
         if key in data.fields:
@@ -972,8 +973,6 @@ def _get_single_val(data: Any, key: str, form_data_cls: Any, multi_dict_cls: Any
 
 def extract_nested_mapping(data: Any, prefix: str) -> Any:
     from collections.abc import Mapping
-
-    from .facets import UNSET
 
     if _MAPPING_LIKE_TYPES is None:
         _init_validation_types()
@@ -1071,8 +1070,6 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
 def extract_flat_list_mapping(data: Any) -> list[Any] | None:
     from collections.abc import Mapping
 
-    from .facets import UNSET
-
     if _MAPPING_LIKE_TYPES is None:
         _init_validation_types()
 
@@ -1131,7 +1128,7 @@ def _nested_facet_types() -> tuple[type, ...]:
     """
     global _NESTED_FACET_TYPES
     if _NESTED_FACET_TYPES is None:
-        from .annotations import LazyContractFacet, NestedContractFacet
+        from aquilia.contracts.annotations import LazyContractFacet, NestedContractFacet
 
         _NESTED_FACET_TYPES = (NestedContractFacet, LazyContractFacet)
     return _NESTED_FACET_TYPES
@@ -1228,8 +1225,6 @@ def _direct_nested_cls(facet: Any) -> type | None:
     if isinstance(facet, nested_cls):
         return facet.target
     if isinstance(facet, lazy_cls):
-        from aquilia.faults.domains import RegistryFault
-
         try:
             resolved = facet._get_resolved()
         except RegistryFault:
@@ -1329,9 +1324,8 @@ def run_nested_contract(
     See Also:
         :meth:`Sigil.validate`, :meth:`Sigil.validate_async`
     """
-    from aquilia.utils.data import DataObject
 
-    from .exceptions import ContractAsyncMismatchFault
+    from aquilia.contracts.exceptions import ContractAsyncMismatchFault
 
     errors, validated = nested_cls._sigil.validate(
         data,
@@ -1372,7 +1366,7 @@ def run_nested_contract(
 
 def build_sigil(cls: type) -> Sigil:
     """Construct Sigil configuration from Contract class definitions."""
-    from .lenses import Lens
+    from aquilia.contracts.lenses import Lens
 
     fields = {}
     for fname, facet in cls._all_facets.items():

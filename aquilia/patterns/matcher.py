@@ -14,8 +14,8 @@ Performance notes (v1.0.0):
 from dataclasses import dataclass
 from typing import Any
 
-from .compiler.ast_nodes import OptionalGroup, SplatSegment, StaticSegment, TokenSegment
-from .compiler.compiler import CompiledPattern
+from aquilia.patterns.compiler.ast_nodes import OptionalGroup, SplatSegment, StaticSegment, TokenSegment
+from aquilia.patterns.compiler.compiler import CompiledPattern
 
 
 @dataclass

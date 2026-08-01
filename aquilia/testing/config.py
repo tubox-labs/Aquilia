@@ -13,6 +13,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aquilia.config import ConfigLoader
+from aquilia.faults.domains import ConfigMissingFault
 
 
 class TestConfig:
@@ -106,8 +107,6 @@ class TestConfig:
     def __getitem__(self, key: str) -> Any:
         val = self.get(key, _SENTINEL)
         if val is _SENTINEL:
-            from aquilia.faults.domains import ConfigMissingFault
-
             raise ConfigMissingFault(key=key)
         return val
 

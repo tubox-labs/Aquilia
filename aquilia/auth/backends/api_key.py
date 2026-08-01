@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..core import CredentialStore, Identity, IdentityStore
+    from aquilia.auth.core import CredentialStore, Identity, IdentityStore
 
 
 class ApiKeyBackend:
@@ -57,8 +57,8 @@ class ApiKeyBackend:
 
         from datetime import datetime, timezone
 
-        from ..core import ApiKeyCredential, CredentialStatus, IdentityStatus
-        from ..faults import (
+        from aquilia.auth.core import ApiKeyCredential, CredentialStatus, IdentityStatus
+        from aquilia.auth.faults import (
             AUTH_ACCOUNT_SUSPENDED,
             AUTH_INVALID_CREDENTIALS,
             AUTH_KEY_EXPIRED,
@@ -86,7 +86,7 @@ class ApiKeyBackend:
         # Scope gate (optional — caller passes required_scopes via credentials)
         required_scopes: list[str] = credentials.get("required_scopes", [])
         if required_scopes:
-            from ..faults import AUTHZ_INSUFFICIENT_SCOPE
+            from aquilia.auth.faults import AUTHZ_INSUFFICIENT_SCOPE
 
             missing = set(required_scopes) - set(cred.scopes)
             if missing:

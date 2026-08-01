@@ -18,11 +18,10 @@ Examples:
     ```
 """
 
+from aquilia.config._loader import Config, ConfigLoader
 from aquilia.integrations.integration import Integration
 from aquilia.pyconfig import AquilaConfig, Env, Secret, section
 from aquilia.workspace import Module, Workspace
-
-from ._loader import Config, ConfigLoader
 
 __all__ = [
     "Workspace",

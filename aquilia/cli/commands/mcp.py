@@ -13,6 +13,11 @@ from typing import Any
 
 import click
 
+from aquilia.mcp.config import MCPConfig
+from aquilia.mcp.context.indexer import load_or_build_index
+from aquilia.mcp.installers import ClaudeInstaller, CodexInstaller, GeminiInstaller
+from aquilia.mcp.server import AquiliaMCPServer
+
 
 @click.group("mcp")
 def mcp_group() -> None:
@@ -22,19 +27,16 @@ def mcp_group() -> None:
 def _config(
     workspace: str | None, index: str | None = None, host: str = "127.0.0.1", port: int = 8765, transport: str = "stdio"
 ):
-    from aquilia.mcp.config import MCPConfig
 
     return MCPConfig.from_workspace(workspace or ".", index, host=host, port=port, transport=transport)
 
 
 def _load_index(config, *, force: bool = False):
-    from aquilia.mcp.context.indexer import load_or_build_index
 
     return load_or_build_index(config.root, config.index_path, force=force)
 
 
 def _paths(workspace: str | None):
-    from aquilia.mcp.config import MCPConfig
 
     cfg = MCPConfig.from_workspace(workspace or ".")
     mcp_dir = cfg.root / ".aquilia" / "mcp"
@@ -70,8 +72,6 @@ def _find_mcp_processes() -> list[dict[str, Any]]:
 def serve(workspace: str, transport: str, host: str, port: int, index_path: str | None, daemon: bool) -> None:
     """Serve the Aquilia MCP server."""
     pid_path, log_path, config = _paths(workspace)
-
-    from aquilia.mcp.config import MCPConfig
 
     config = MCPConfig(
         root=config.root,
@@ -133,8 +133,6 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
         click.echo(f"Log file:   {log_path}")
         click.echo("========================================================")
         return
-
-    from aquilia.mcp.server import AquiliaMCPServer
 
     index = _load_index(config)
     server = AquiliaMCPServer(config=config, index=index)
@@ -398,7 +396,6 @@ def build_index_cmd(force: bool, workspace: str, index_path: str | None) -> None
 @click.option("--workspace", type=click.Path(), default=".", help="Repository/workspace root")
 def doctor(as_json: bool, workspace: str) -> None:
     """Check MCP server health."""
-    from aquilia.mcp.server import AquiliaMCPServer
 
     config = _config(workspace)
     index = _load_index(config)
@@ -425,7 +422,6 @@ def doctor(as_json: bool, workspace: str) -> None:
 @click.option("--workspace", type=click.Path(), default=".", help="Repository/workspace root")
 def install(agent: str, dry_run: bool, verify: bool, workspace: str) -> None:
     """Install Aquilia MCP into a local agent config."""
-    from aquilia.mcp.installers import ClaudeInstaller, CodexInstaller, GeminiInstaller
 
     root = Path(workspace).resolve()
     installers = {
@@ -441,7 +437,6 @@ def install(agent: str, dry_run: bool, verify: bool, workspace: str) -> None:
 @click.option("--workspace", type=click.Path(), default=".", help="Repository/workspace root")
 def list_tools(workspace: str) -> None:
     """List available MCP tools."""
-    from aquilia.mcp.server import AquiliaMCPServer
 
     config = _config(workspace)
     server = AquiliaMCPServer(config=config, index=_load_index(config))
@@ -452,7 +447,6 @@ def list_tools(workspace: str) -> None:
 @click.option("--workspace", type=click.Path(), default=".", help="Repository/workspace root")
 def list_prompts(workspace: str) -> None:
     """List available MCP prompts."""
-    from aquilia.mcp.server import AquiliaMCPServer
 
     config = _config(workspace)
     server = AquiliaMCPServer(config=config, index=_load_index(config))
@@ -464,7 +458,6 @@ def list_prompts(workspace: str) -> None:
 @click.option("--workspace", type=click.Path(), default=".", help="Repository/workspace root")
 def query(query: str, workspace: str) -> None:
     """Search the local Aquilia MCP index."""
-    from aquilia.mcp.server import AquiliaMCPServer
 
     config = _config(workspace)
     server = AquiliaMCPServer(config=config, index=_load_index(config))

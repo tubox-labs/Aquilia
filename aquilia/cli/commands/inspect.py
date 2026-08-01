@@ -12,7 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ..utils.workspace import get_workspace_file
+from aquilia.cli.utils.workspace import get_workspace_file
+from aquilia.faults.domains import ConfigMissingFault
 
 
 def _ensure_workspace_root() -> Path:
@@ -20,8 +21,6 @@ def _ensure_workspace_root() -> Path:
     workspace_root = Path.cwd()
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
-        from aquilia.faults.domains import ConfigMissingFault
-
         raise ConfigMissingFault(key="workspace.py")
     return workspace_root
 

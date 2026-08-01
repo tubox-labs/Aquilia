@@ -27,13 +27,7 @@ try:
 except ImportError:
     _HAS_CONTRACTS = False
 
-from .models import (
-    _HAS_ORM,
-    AdminAPIKey,
-    AdminAuditEntry,
-    AdminPreference,
-    AdminUser,
-)
+from aquilia.admin.models import _HAS_ORM, AdminAPIKey, AdminAuditEntry, AdminPreference, AdminUser
 
 if _HAS_CONTRACTS and _HAS_ORM:
 

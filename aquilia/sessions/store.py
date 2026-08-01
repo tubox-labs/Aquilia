@@ -16,12 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from .core import Session, SessionID
-from .faults import (
-    SessionForgeryAttemptFault,
-    SessionStoreCorruptedFault,
-    SessionStoreUnavailableFault,
-)
+from aquilia.sessions.core import Session, SessionID
+from aquilia.sessions.faults import SessionForgeryAttemptFault, SessionStoreCorruptedFault, SessionStoreUnavailableFault
 
 # ============================================================================
 # SessionStore Protocol

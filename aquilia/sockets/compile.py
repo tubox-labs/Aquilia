@@ -13,8 +13,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .controller import SocketController
-from .envelope import Schema
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.canonical import bare_fingerprint
+from aquilia.artifacts.envelope import ArtifactEnvelope
+from aquilia.faults.domains import ConfigInvalidFault, RegistryFault
+from aquilia.sockets.controller import SocketController
+from aquilia.sockets.envelope import Schema
 
 logger = logging.getLogger("aquilia.sockets.compile")
 
@@ -71,8 +75,6 @@ class SocketCompiler:
         """
         # Extract @Socket metadata
         if not hasattr(controller_class, "__socket_metadata__"):
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="socket.controller",
                 reason=f"{controller_class.__name__} is missing @Socket decorator",
@@ -85,8 +87,6 @@ class SocketCompiler:
 
         # Check for namespace conflicts
         if namespace in self.namespaces:
-            from aquilia.faults.domains import RegistryFault
-
             raise RegistryFault(
                 name=namespace,
                 message=f"Namespace conflict: {namespace} already registered by {self.namespaces[namespace]}",
@@ -174,9 +174,6 @@ class SocketCompiler:
         Args:
             output_path: Output file path
         """
-        from aquilia.artifacts.backends.json_file import JSONFileBackend
-        from aquilia.artifacts.canonical import bare_fingerprint
-        from aquilia.artifacts.envelope import ArtifactEnvelope
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -278,7 +275,6 @@ def compile_socket_controllers(
     if errors:
         for error in errors:
             logger.error(f"Validation error: {error}")
-        from aquilia.faults.domains import ConfigInvalidFault
 
         raise ConfigInvalidFault(
             key="websocket.compilation",

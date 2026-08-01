@@ -38,17 +38,17 @@ Architecture:
 from __future__ import annotations
 
 # ── Backup ───────────────────────────────────────────────────────────
-from ._backup import backup_database
+from aquilia.sqlite._backup import backup_database
 
 # ── Configuration ────────────────────────────────────────────────────
-from ._config import SqlitePoolConfig
+from aquilia.sqlite._config import SqlitePoolConfig
 
 # ── Connection & cursor ──────────────────────────────────────────────
-from ._connection import AsyncConnection
-from ._cursor import AsyncCursor
+from aquilia.sqlite._connection import AsyncConnection
+from aquilia.sqlite._cursor import AsyncCursor
 
 # ── Errors ───────────────────────────────────────────────────────────
-from ._errors import (
+from aquilia.sqlite._errors import (
     PoolExhaustedError,
     SqliteConnectionError,
     SqliteError,
@@ -62,25 +62,25 @@ from ._errors import (
 )
 
 # ── Metrics ──────────────────────────────────────────────────────────
-from ._metrics import SqliteMetrics
+from aquilia.sqlite._metrics import SqliteMetrics
 
 # ── Core pool API ────────────────────────────────────────────────────
-from ._pool import ConnectionPool, create_pool
+from aquilia.sqlite._pool import ConnectionPool, create_pool
 
 # ── PRAGMA builder ───────────────────────────────────────────────────
-from ._pragma import apply_pragmas, build_pragmas
+from aquilia.sqlite._pragma import apply_pragmas, build_pragmas
 
 # ── Rows ─────────────────────────────────────────────────────────────
-from ._rows import Row, row_factory
+from aquilia.sqlite._rows import Row, row_factory
 
 # ── DI service ───────────────────────────────────────────────────────
-from ._service import SqliteService
+from aquilia.sqlite._service import SqliteService
 
 # ── Statement cache ──────────────────────────────────────────────────
-from ._statement_cache import CacheStats, StatementCache
+from aquilia.sqlite._statement_cache import CacheStats, StatementCache
 
 # ── Transaction ──────────────────────────────────────────────────────
-from ._transaction import SavepointContext, TransactionContext
+from aquilia.sqlite._transaction import SavepointContext, TransactionContext
 
 __all__ = [
     # Pool

@@ -14,7 +14,7 @@ import struct
 import time
 from typing import Any
 
-from .faults import AUTH_MFA_INVALID
+from aquilia.auth.faults import AUTH_MFA_INVALID
 
 # RFC 6238 permits SHA1/SHA256/SHA512 as the TOTP HMAC digest.
 _TOTP_DIGESTS = {

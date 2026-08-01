@@ -79,7 +79,7 @@ Usage:
 """
 
 # ── Core types ───────────────────────────────────────────────────────────
-from .core import (
+from aquilia.versioning.core import (
     VERSION_ANY,
     VERSION_MISSING,
     VERSION_NEUTRAL,
@@ -89,10 +89,10 @@ from .core import (
 )
 
 # ── Decorators — route-level version binding ─────────────────────────────
-from .decorators import version, version_neutral, version_range
+from aquilia.versioning.decorators import version, version_neutral, version_range
 
 # ── Errors ───────────────────────────────────────────────────────────────
-from .errors import (
+from aquilia.versioning.errors import (
     InvalidVersionError,
     MissingVersionError,
     UnsupportedVersionError,
@@ -102,19 +102,19 @@ from .errors import (
 )
 
 # ── Graph — compile-time version relationship map ────────────────────────
-from .graph import VersionGraph, VersionNode
+from aquilia.versioning.graph import VersionGraph, VersionNode
 
 # ── Middleware — inject version into request context ─────────────────────
-from .middleware import VersionMiddleware
+from aquilia.versioning.middleware import VersionMiddleware
 
 # ── Negotiation — best-match version selection ───────────────────────────
-from .negotiation import VersionNegotiator
+from aquilia.versioning.negotiation import VersionNegotiator
 
 # ── Parser — parse raw strings into ApiVersion ───────────────────────────
-from .parser import SemanticVersionParser, VersionParser
+from aquilia.versioning.parser import SemanticVersionParser, VersionParser
 
 # ── Resolvers — extract version from request ─────────────────────────────
-from .resolvers import (
+from aquilia.versioning.resolvers import (
     BaseVersionResolver,
     ChannelResolver,
     CompositeResolver,
@@ -125,15 +125,10 @@ from .resolvers import (
 )
 
 # ── Strategy — central orchestrator ──────────────────────────────────────
-from .strategy import VersionConfig, VersionStrategy
+from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
 # ── Sunset — deprecation / sunset lifecycle ──────────────────────────────
-from .sunset import (
-    SunsetEnforcer,
-    SunsetEntry,
-    SunsetPolicy,
-    SunsetRegistry,
-)
+from aquilia.versioning.sunset import SunsetEnforcer, SunsetEntry, SunsetPolicy, SunsetRegistry
 
 __all__ = [
     # Core

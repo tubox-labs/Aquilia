@@ -32,31 +32,19 @@ Components:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .assertions import AquiliaAssertions
-from .auth import AuthTestMixin, IdentityBuilder, TestIdentityFactory
-from .cache import CacheTestMixin, MockCacheBackend
-from .cases import (
-    AquiliaTestCase,
-    LiveServerTestCase,
-    SimpleTestCase,
-    TransactionTestCase,
-)
-from .client import TestClient, WebSocketTestClient
-from .config import TestConfig, override_settings
-from .di import (
-    TestContainer,
-    factory_provider,
-    mock_provider,
-    override_provider,
-    spy_provider,
-)
-from .effects import EffectCall, MockEffectProvider, MockEffectRegistry
-from .faults import CapturedFault, MockFaultEngine
-from .fixtures import aquilia_fixtures
-from .mail import CapturedMail, MailTestMixin
-from .server import TestServer, create_test_server
-from .utils import (
+from aquilia.testing.assertions import AquiliaAssertions
+from aquilia.testing.auth import AuthTestMixin, IdentityBuilder, TestIdentityFactory
+from aquilia.testing.cache import CacheTestMixin, MockCacheBackend
+from aquilia.testing.cases import AquiliaTestCase, LiveServerTestCase, SimpleTestCase, TransactionTestCase
+from aquilia.testing.client import TestClient, WebSocketTestClient
+from aquilia.testing.config import TestConfig, override_settings
+from aquilia.testing.di import TestContainer, factory_provider, mock_provider, override_provider, spy_provider
+from aquilia.testing.effects import EffectCall, MockEffectProvider, MockEffectRegistry
+from aquilia.testing.faults import CapturedFault, MockFaultEngine
+from aquilia.testing.fixtures import aquilia_fixtures
+from aquilia.testing.mail import CapturedMail, MailTestMixin
+from aquilia.testing.server import TestServer, create_test_server
+from aquilia.testing.utils import (
     make_test_receive,
     make_test_request,
     make_test_response,

@@ -22,14 +22,19 @@ import logging
 import time
 from typing import Any, cast
 
-from .controller.base import _ctx_pool
-from .controller.router import ControllerRouter
-from .engine import get_engine_metrics
-from .middleware import Handler, MiddlewareStack
-from .request import Request
-from .response import Response
-from .typing import ASGIReceive, ASGIScope, ASGISend
-from .typing.controller import ControllerRouteMatchLike
+from aquilia.controller.base import _ctx_pool
+from aquilia.controller.router import ControllerRouter
+from aquilia.debug.pages import render_http_error_page, render_welcome_page
+from aquilia.di import Container
+from aquilia.engine import get_engine_metrics
+from aquilia.faults.domains import NotFoundFault, SystemFault
+from aquilia.middleware import Handler, MiddlewareStack
+from aquilia.request import Request
+from aquilia.request import Request as RequestClass
+from aquilia.response import Response
+from aquilia.typing import ASGIReceive, ASGIScope, ASGISend
+from aquilia.typing.controller import ControllerRouteMatchLike
+from aquilia.versioning.errors import VersionError
 
 
 class ASGIAdapter:
@@ -100,13 +105,9 @@ class ASGIAdapter:
             if app_container is not None:
                 container = app_container.create_request_scope()
             else:
-                from .di import Container
-
                 container = Container(scope="request")
 
             if request is not None:
-                from .request import Request as RequestClass
-
                 await container.register_instance(RequestClass, request, scope="request")
             return container
 
@@ -130,8 +131,6 @@ class ASGIAdapter:
             if self.server and hasattr(self.server, "runtime") and self.server.runtime.di_containers:
                 self._default_container = next(iter(self.server.runtime.di_containers.values()))
             else:
-                from .di import Container
-
                 self._default_container = Container(scope="app")
         return self._default_container
 
@@ -174,8 +173,6 @@ class ASGIAdapter:
             # No controller matched -- 404
             accept = self._get_accept_from_request(request)
             if "text/html" in accept:
-                from .debug.pages import render_http_error_page, render_welcome_page
-
                 version = self._get_version()
                 path = request.path
                 method = request.method
@@ -203,8 +200,6 @@ class ASGIAdapter:
                     status=404,
                     headers={"content-type": "text/html; charset=utf-8"},
                 )
-
-            from .faults.domains import NotFoundFault
 
             raise NotFoundFault(
                 detail=f"No route matches {request.method} {request.path}",
@@ -260,8 +255,6 @@ class ASGIAdapter:
         matched_strategy = strategy
         matched_stripped_path = path_for_match
         matched_version = None
-
-        from aquilia.versioning.errors import VersionError
 
         for app_ctx in sorted_contexts:
             app_name = app_ctx.name
@@ -392,8 +385,6 @@ class ASGIAdapter:
             self._build_cached_chain()
         handler = self._cached_middleware_chain
         if handler is None:
-            from .faults.domains import SystemFault
-
             raise SystemFault(
                 code="SYSTEM_UNINITIALIZED",
                 message="Middleware chain was not initialized",
@@ -415,7 +406,6 @@ class ASGIAdapter:
 
         # Pre-resolve version/path so URL strategy routes (e.g. /v2/users)
         # can match before middleware chain execution.
-        from aquilia.versioning.errors import VersionError
 
         try:
             route_path, _api_version = self._resolve_route_inputs(request, path)
@@ -476,14 +466,11 @@ class ASGIAdapter:
 
         di_container = app_container.create_request_scope() if app_container else None
         if di_container is None:
-            from .di import Container
-
             di_container = Container(scope="request")
 
         # Register Request instance in container for ContractProvider request lookup.
         # Use register_instance() (COW-safe) instead of writing _providers directly —
         # a direct write mutates the shared parent app dict (§6.5).
-        from .request import Request as RequestClass
 
         await di_container.register_instance(RequestClass, request, scope="request")
         di_container._cache["aquilia.request.Request"] = request
@@ -529,7 +516,7 @@ class ASGIAdapter:
             if "text/html" in accept:
                 try:
                     if self._is_debug():
-                        from .debug.pages import render_debug_exception_page
+                        from aquilia.debug.pages import render_debug_exception_page
 
                         html_body = render_debug_exception_page(
                             e,
@@ -537,7 +524,7 @@ class ASGIAdapter:
                             aquilia_version=self._get_version(),
                         )
                     else:
-                        from .debug.pages import render_http_error_page
+                        from aquilia.debug.pages import render_http_error_page
 
                         html_body = render_http_error_page(
                             500,
@@ -627,8 +614,6 @@ class ASGIAdapter:
                 break
 
         if "text/html" in accept:
-            from .debug.pages import render_http_error_page
-
             html_body = render_http_error_page(
                 405,
                 "Method Not Allowed",

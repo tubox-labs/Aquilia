@@ -10,15 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .client import AsyncHTTPClient
-from .config import (
-    HTTPClientConfig,
-    PoolConfig,
-    ProxyConfig,
-    RetryConfig,
-    TimeoutConfig,
-    TLSConfig,
-)
+from aquilia.http.client import AsyncHTTPClient
+from aquilia.http.config import HTTPClientConfig, PoolConfig, ProxyConfig, RetryConfig, TimeoutConfig, TLSConfig
 
 logger = logging.getLogger("aquilia.http.integration")
 

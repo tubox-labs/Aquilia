@@ -37,6 +37,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Literal
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 if TYPE_CHECKING:
     from aquilia.controller.base import ExceptionFilter, Interceptor, Throttle
 
@@ -147,7 +149,6 @@ class Attributes:
         the first validation failure.  Called inside ``__set_name__`` so
         errors surface at class-definition time, not at request dispatch time.
         """
-        from aquilia.faults.domains import ConfigInvalidFault
 
         ctx = f"Attributes() on {owner.__name__}"
 

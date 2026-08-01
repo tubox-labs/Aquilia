@@ -20,8 +20,9 @@ from typing import Any
 from jinja2 import TemplateSyntaxError, meta
 from jinja2.exceptions import TemplateNotFound
 
-from .engine import TemplateEngine
-from .loader import TemplateLoader
+from aquilia.artifacts.cache_root import resolve_artifact_root
+from aquilia.templates.engine import TemplateEngine
+from aquilia.templates.loader import TemplateLoader
 
 
 @dataclass
@@ -134,8 +135,6 @@ class TemplateManager:
             Compilation result with fingerprint, count, and metadata
         """
         if output_path is None:
-            from aquilia.artifacts.cache_root import resolve_artifact_root
-
             output_path = str(resolve_artifact_root() / "templates.json")
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)

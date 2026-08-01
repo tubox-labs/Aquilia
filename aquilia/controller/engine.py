@@ -22,12 +22,17 @@ import inspect
 import logging
 from typing import Any
 
-from ..di import Container
-from ..request import Request
-from ..response import Response
-from .base import Controller, RequestCtx, _reset_current_request_ctx, _set_current_request_ctx
-from .compiler import CompiledRoute
-from .factory import ControllerFactory, InstantiationMode
+from aquilia.auth.clearance import ClearanceEngine, _build_clearance_denied_response, build_merged_clearance
+from aquilia.contracts.exceptions import SealFault
+from aquilia.controller.base import Controller, RequestCtx, _reset_current_request_ctx, _set_current_request_ctx
+from aquilia.controller.compiler import CompiledRoute
+from aquilia.controller.factory import ControllerFactory, InstantiationMode
+from aquilia.di import Container
+from aquilia.faults.domains import ForbiddenFault, GatewayTimeoutFault, InternalServerErrorFault, PayloadTooLargeFault
+from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
+from aquilia.inspector.trace import Lane, SpanStatus, current_trace
+from aquilia.request import ParsedContentType, Request
+from aquilia.response import Response
 
 
 class LazyServiceProxy:
@@ -224,8 +229,6 @@ class ControllerEngine:
                         with contextlib.suppress(ValueError, TypeError):
                             content_length = int(cl)
                 if content_length > max_body:
-                    from ..faults.domains import PayloadTooLargeFault
-
                     raise PayloadTooLargeFault(
                         detail=f"Request body too large ({content_length} bytes, max {max_body})",
                     )
@@ -485,7 +488,7 @@ class ControllerEngine:
         if hasattr(temp_instance, "on_startup"):
             try:
                 # Build a minimal context for startup (no actual request yet)
-                from ..request import Request as RequestClass
+                from aquilia.request import Request as RequestClass
 
                 dummy_request = RequestClass(
                     scope={"type": "http", "method": "GET", "path": "/", "query_string": b"", "headers": []},
@@ -513,7 +516,7 @@ class ControllerEngine:
         if hasattr(temp_instance, "on_shutdown"):
             try:
                 # Build a minimal context for shutdown (consistent with on_startup)
-                from ..request import Request as RequestClass
+                from aquilia.request import Request as RequestClass
 
                 dummy_request = RequestClass(
                     scope={"type": "http", "method": "GET", "path": "/", "query_string": b"", "headers": []},
@@ -545,11 +548,6 @@ class ControllerEngine:
 
         Returns a 401/403 Response if denied, None if allowed.
         """
-        from ..auth.clearance import (
-            ClearanceEngine,
-            _build_clearance_denied_response,
-            build_merged_clearance,
-        )
 
         # Cache clearance per route
         route_id = id(route)
@@ -596,11 +594,6 @@ class ControllerEngine:
         Bridges controller pipeline syntax with the full Flow pipeline system.
         Handles FlowNodes, FlowGuards, and legacy callables.
         """
-        from ..flow import (
-            FlowContext,
-            FlowStatus,
-            from_pipeline_list,
-        )
 
         # Check if the handler is exempt from security checks
         is_exempt = False
@@ -690,7 +683,6 @@ class ControllerEngine:
             if result.error:
                 # Guard raised an exception -- re-raise for fault engine
                 raise result.error
-            from ..faults.domains import ForbiddenFault
 
             raise ForbiddenFault(
                 detail=f"Pipeline guard blocked request in {pipeline_name}",
@@ -699,15 +691,12 @@ class ControllerEngine:
         if result.status == FlowStatus.ERROR:
             if result.error:
                 raise result.error
-            from ..faults.domains import InternalServerErrorFault
 
             raise InternalServerErrorFault(
                 detail=f"Pipeline error in {pipeline_name}",
             )
 
         if result.status == FlowStatus.TIMEOUT:
-            from ..faults.domains import GatewayTimeoutFault
-
             raise GatewayTimeoutFault(
                 detail=f"Pipeline timeout in {pipeline_name}",
             )
@@ -775,8 +764,6 @@ class ControllerEngine:
 
             ct = request.content_type()
             if ct:
-                from aquilia.request import ParsedContentType
-
                 parsed_ct = ParsedContentType.parse(ct)
                 if parsed_ct:
                     media_type = parsed_ct.media_type
@@ -992,7 +979,7 @@ class ControllerEngine:
                     try:
                         kwargs[param_name] = self._cast_value(value, param.type)
                     except (ValueError, TypeError) as cast_err:
-                        from ..faults.domains import RoutingFault
+                        from aquilia.faults.domains import RoutingFault
 
                         raise RoutingFault(
                             code="INVALID_QUERY_PARAM",
@@ -1223,8 +1210,6 @@ class ControllerEngine:
                         raise
 
         if all_contract_errors:
-            from aquilia.contracts.exceptions import SealFault
-
             raise SealFault(
                 message="Contract validation failed",
                 errors=all_contract_errors,
@@ -1248,7 +1233,7 @@ class ControllerEngine:
             else:
                 return value
         except (ValueError, TypeError) as exc:
-            from ..faults.domains import BadRequestFault
+            from aquilia.faults.domains import BadRequestFault
 
             raise BadRequestFault(
                 message=(f"Invalid value {value!r} for expected type {getattr(annotation, '__name__', annotation)}"),
@@ -1366,8 +1351,8 @@ class ControllerEngine:
             return result
 
         try:
-            from .filters import filter_data as _filter_data
-            from .pagination import BasePagination  # noqa: F401
+            from aquilia.controller.filters import filter_data as _filter_data
+            from aquilia.controller.pagination import BasePagination  # noqa: F401
         except ImportError:
             return result
 
@@ -1382,7 +1367,7 @@ class ControllerEngine:
         if has_filters:
             if is_queryset:
                 try:
-                    from .filters import filter_queryset as _filter_qs
+                    from aquilia.controller.filters import filter_queryset as _filter_qs
 
                     result = await _filter_qs(
                         result,
@@ -1449,7 +1434,7 @@ class ControllerEngine:
             return None  # caller falls through to _to_response
 
         try:
-            from .renderers import BaseRenderer, ContentNegotiator
+            from aquilia.controller.renderers import BaseRenderer, ContentNegotiator
         except ImportError:
             return None
 
@@ -1547,8 +1532,6 @@ class ControllerEngine:
             if is_flow_ctx:
                 flow_ctx = request.state.get("flow_context") if hasattr(request, "state") and request.state else None
                 if flow_ctx is None:
-                    from aquilia.flow import FlowContext
-
                     flow_ctx = FlowContext(
                         request=request,
                         container=ctx.container,
@@ -1728,8 +1711,6 @@ class ControllerEngine:
 
         import time
 
-        from aquilia.inspector.trace import Lane, SpanStatus, current_trace
-
         trace = current_trace()
         t0 = time.monotonic()
 
@@ -1742,7 +1723,7 @@ class ControllerEngine:
                     )
                 except asyncio.TimeoutError:
                     # SEC-CTRL-13: Use structured fault instead of raw TimeoutError
-                    from ..faults.domains import FlowCancelledFault
+                    from aquilia.faults.domains import FlowCancelledFault
 
                     raise FlowCancelledFault(
                         reason=f"timeout ({timeout}s)",

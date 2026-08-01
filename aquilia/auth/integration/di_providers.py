@@ -21,8 +21,25 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aquilia.auth.authz import ABACEngine, AuthzEngine, RBACEngine
+from aquilia.auth.hashing import PasswordHasher, PasswordPolicy
+from aquilia.auth.integration.aquila_sessions import SessionAuthBridge, user_session_policy
+from aquilia.auth.manager import AuthManager, RateLimiter
+from aquilia.auth.mfa import MFAManager, TOTPProvider
+from aquilia.auth.oauth import OAuth2Manager
+from aquilia.auth.stores import (
+    MemoryAuthorizationCodeStore,
+    MemoryCredentialStore,
+    MemoryDeviceCodeStore,
+    MemoryIdentityStore,
+    MemoryOAuthClientStore,
+    MemoryTokenStore,
+)
+from aquilia.auth.tokens import KeyAlgorithm, KeyDescriptor, KeyRing, TokenManager
 from aquilia.di import Container
-from aquilia.di.decorators import service
+from aquilia.di.decorators import provides, service
+from aquilia.di.providers import ClassProvider, FactoryProvider
+from aquilia.faults.domains import DIFault
 
 # Scope imports removed - using string literals
 from aquilia.sessions import (
@@ -31,25 +48,6 @@ from aquilia.sessions import (
 from aquilia.sessions import (
     SessionEngine,
     SessionPolicy,
-)
-
-from ..authz import ABACEngine, AuthzEngine, RBACEngine
-from ..hashing import PasswordHasher, PasswordPolicy
-from ..manager import AuthManager, RateLimiter
-from ..mfa import MFAManager, TOTPProvider
-from ..oauth import OAuth2Manager
-from ..stores import (
-    MemoryAuthorizationCodeStore,
-    MemoryCredentialStore,
-    MemoryDeviceCodeStore,
-    MemoryIdentityStore,
-    MemoryOAuthClientStore,
-    MemoryTokenStore,
-)
-from ..tokens import KeyRing, TokenManager
-from .aquila_sessions import (
-    SessionAuthBridge,
-    user_session_policy,
 )
 
 if TYPE_CHECKING:
@@ -85,7 +83,6 @@ class KeyRingProvider:
 
     def provide(self) -> KeyRing:
         """Provide KeyRing with default keys."""
-        from ..tokens import KeyAlgorithm, KeyDescriptor
 
         # Zero-config default: HS256 (stdlib only, no extra deps). Matches the
         # documented "server automatically selects HS256" behavior — an
@@ -333,17 +330,12 @@ def _register_provider_class(container: Container, provider_cls: Any) -> None:
     import inspect
     from typing import get_type_hints
 
-    from aquilia.di.decorators import provides
-    from aquilia.di.providers import ClassProvider, FactoryProvider
-
     # 1. Register the provider class itself
     # We need to give it a unique token so it doesn't conflict
     container.register(ClassProvider(provider_cls))
 
     # 2. Extract return type
     if not hasattr(provider_cls, "provide"):
-        from aquilia.faults.domains import DIFault
-
         raise DIFault(
             message=f"Provider {provider_cls.__name__} missing 'provide' method",
         )

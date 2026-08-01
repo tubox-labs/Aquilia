@@ -20,17 +20,10 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any
 
-from ..middleware import Middleware
-from .core import (
-    Escalate,
-    Fault,
-    FaultContext,
-    FaultResult,
-    Resolved,
-    Severity,
-)
-from .domains import FlowCancelledFault, SystemFault
-from .handlers import FaultHandler, ScopedHandlerRegistry
+from aquilia.faults.core import Escalate, Fault, FaultContext, FaultResult, Resolved, Severity
+from aquilia.faults.domains import FlowCancelledFault, SystemFault
+from aquilia.faults.handlers import FaultHandler, ScopedHandlerRegistry
+from aquilia.middleware import Middleware
 
 # Context variable for current request/app scope
 _current_app: ContextVar[str | None] = ContextVar("current_app", default=None)
@@ -461,7 +454,7 @@ class FaultMiddleware(Middleware):
                 result = await self.engine.process(e)
 
                 if isinstance(result, Resolved):
-                    from ..response import Response
+                    from aquilia.response import Response
 
                     if isinstance(result.response, Response):
                         return result.response
@@ -473,7 +466,7 @@ class FaultMiddleware(Middleware):
                             status=500,
                         )
                     try:
-                        from .default_handlers import HTTPResponse
+                        from aquilia.faults.default_handlers import HTTPResponse
 
                         if isinstance(result.response, HTTPResponse):
                             return Response.json(

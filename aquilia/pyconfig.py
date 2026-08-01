@@ -83,6 +83,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypeVar, cast
 
+from aquilia.auth.hashing import HasherConfig as _HC
+from aquilia.auth.hashing import PasswordHasher as _PH
+from aquilia.dotenv import _find_workspace_root
+from aquilia.faults.domains import ConfigMissingFault
+
 if TYPE_CHECKING:
     from aquilia.config import ConfigLoader
 
@@ -211,8 +216,6 @@ class Secret:
         if self._default is not None:
             return self._default
         if self._required:
-            from aquilia.faults.domains import ConfigMissingFault
-
             raise ConfigMissingFault(
                 key=self._env_name or "secret",
                 metadata={
@@ -348,9 +351,6 @@ def _validate_required_dotenv_files(search_paths: list[str], required_paths: set
     """Validate required dotenv files before invoking the loader."""
     if not required_paths:
         return
-
-    from aquilia.dotenv import _find_workspace_root
-    from aquilia.faults.domains import ConfigMissingFault
 
     workspace_root = _find_workspace_root()
     missing: list[str] = []
@@ -538,8 +538,6 @@ class Env:
         if raw is None:
             # No value in environment - check if required
             if self._required and self._default is None:
-                from aquilia.faults.domains import ConfigMissingFault
-
                 raise ConfigMissingFault(
                     key=self._name,
                     metadata={
@@ -1009,8 +1007,6 @@ class AquilaConfig:
 
         def build_hasher(self):
             """Instantiate and return a configured PasswordHasher."""
-            from aquilia.auth.hashing import HasherConfig as _HC
-            from aquilia.auth.hashing import PasswordHasher as _PH
 
             return _PH.from_config(_HC.from_dict(self.to_dict()))
 
@@ -1640,7 +1636,6 @@ class AquilaConfig:
         result = cls._find_env_subclass(env_name)
         if result is not None:
             return result
-        from aquilia.faults.domains import ConfigMissingFault
 
         raise ConfigMissingFault(
             key=f"AquilaConfig.env={env_name}",

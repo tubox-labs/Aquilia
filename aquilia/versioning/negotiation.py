@@ -17,11 +17,11 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from .core import ApiVersion
-from .errors import VersionNegotiationError
+from aquilia.versioning.core import ApiVersion
+from aquilia.versioning.errors import VersionNegotiationError
 
 if TYPE_CHECKING:
-    from .graph import VersionGraph
+    from aquilia.versioning.graph import VersionGraph
 
 
 class NegotiationMode(str, Enum):

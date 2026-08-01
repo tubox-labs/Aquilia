@@ -17,21 +17,15 @@ Key Features:
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
 # Legacy compatibility
-from .compat import (
+from aquilia.di.compat import (
     RequestCtx,
     get_request_container,
     request_container_scope,
     reset_request_container,
     set_request_container,
 )
-from .core import (
-    Container,
-    Provider,
-    ProviderMeta,
-    Registry,
-    ResolveCtx,
-)
-from .decorators import (
+from aquilia.di.core import Container, Provider, ProviderMeta, Registry, ResolveCtx
+from aquilia.di.decorators import (
     ConditionContext,
     Inject,
     auto_inject,
@@ -42,44 +36,19 @@ from .decorators import (
     service,
     should_register,
 )
-from .dep import (
-    Body,
-    Cookie,
-    Dep,
-    Header,
-    Path,
-    Query,
-)
-from .errors import (
+from aquilia.di.dep import Body, Cookie, Dep, Header, Path, Query
+from aquilia.di.errors import (
     AmbiguousProviderError,
     DependencyCycleError,
     DIError,
     ProviderNotFoundError,
     ScopeViolationError,
 )
-from .graph import (
-    DependencyGraph,
-)
-from .interceptors import (
-    InterceptContext,
-    InterceptingProvider,
-    ProviderInterceptor,
-    intercept,
-)
-from .lifecycle import (
-    DisposalStrategy,
-    Lifecycle,
-    LifecycleContext,
-    LifecycleHook,
-)
-from .plugins import (
-    DIPlugin,
-    clear_plugins,
-    get_plugins,
-    register_plugin,
-    unregister_plugin,
-)
-from .providers import (
+from aquilia.di.graph import DependencyGraph
+from aquilia.di.interceptors import InterceptContext, InterceptingProvider, ProviderInterceptor, intercept
+from aquilia.di.lifecycle import DisposalStrategy, Lifecycle, LifecycleContext, LifecycleHook
+from aquilia.di.plugins import DIPlugin, clear_plugins, get_plugins, register_plugin, unregister_plugin
+from aquilia.di.providers import (
     AliasProvider,
     ClassProvider,
     ContractProvider,
@@ -89,26 +58,10 @@ from .providers import (
     ScopedProvider,
     ValueProvider,
 )
-from .request_dag import (
-    RequestDAG,
-)
-from .scopes import (
-    Scope,
-    ScopeValidator,
-    ServiceScope,
-    ServiceScopeLiteral,
-)
-from .settings import (
-    DIConfigFault,
-    DISettings,
-    configure_di,
-    get_di_settings,
-    reset_di_settings,
-)
-from .testing import (
-    MockProvider,
-    TestRegistry,
-)
+from aquilia.di.request_dag import RequestDAG
+from aquilia.di.scopes import Scope, ScopeValidator, ServiceScope, ServiceScopeLiteral
+from aquilia.di.settings import DIConfigFault, DISettings, configure_di, get_di_settings, reset_di_settings
+from aquilia.di.testing import MockProvider, TestRegistry
 
 __all__ = [
     # Core types

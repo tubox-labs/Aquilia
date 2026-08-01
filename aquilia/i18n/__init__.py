@@ -45,8 +45,7 @@ Example::
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .catalog import (
+from aquilia.i18n.catalog import (
     FileCatalog,
     JSONCatalog,
     MemoryCatalog,
@@ -54,17 +53,15 @@ from .catalog import (
     NamespacedCatalog,
     TranslationCatalog,
 )
-from .di_integration import (
-    register_i18n_providers,
-)
-from .faults import (
+from aquilia.i18n.di_integration import register_i18n_providers
+from aquilia.i18n.faults import (
     CatalogLoadFault,
     I18nFault,
     InvalidLocaleFault,
     MissingTranslationFault,
     PluralRuleFault,
 )
-from .formatter import (
+from aquilia.i18n.formatter import (
     MessageFormatter,
     format_currency,
     format_date,
@@ -76,12 +73,8 @@ from .formatter import (
     format_percent,
     format_time,
 )
-from .lazy import (
-    LazyString,
-    lazy_t,
-    lazy_tn,
-)
-from .locale import (
+from aquilia.i18n.lazy import LazyString, lazy_t, lazy_tn
+from aquilia.i18n.locale import (
     LOCALE_PATTERN,
     Locale,
     match_locale,
@@ -90,7 +83,7 @@ from .locale import (
     parse_accept_language,
     parse_locale,
 )
-from .middleware import (
+from aquilia.i18n.middleware import (
     ChainLocaleResolver,
     CookieLocaleResolver,
     HeaderLocaleResolver,
@@ -100,22 +93,9 @@ from .middleware import (
     QueryLocaleResolver,
     SessionLocaleResolver,
 )
-from .plural import (
-    CLDR_PLURAL_RULES,
-    PluralCategory,
-    PluralRule,
-    get_plural_rule,
-    select_plural,
-)
-from .service import (
-    I18nConfig,
-    I18nService,
-    create_i18n_service,
-)
-from .template_integration import (
-    I18nTemplateExtension,
-    register_i18n_template_globals,
-)
+from aquilia.i18n.plural import CLDR_PLURAL_RULES, PluralCategory, PluralRule, get_plural_rule, select_plural
+from aquilia.i18n.service import I18nConfig, I18nService, create_i18n_service
+from aquilia.i18n.template_integration import I18nTemplateExtension, register_i18n_template_globals
 
 __all__ = [
     # Locale

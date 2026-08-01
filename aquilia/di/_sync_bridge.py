@@ -31,6 +31,8 @@ import threading
 from collections.abc import Coroutine
 from typing import Any, TypeVar
 
+from aquilia.faults.domains import DIResolutionFault
+
 T = TypeVar("T")
 
 # One persistent loop per thread (asyncio loops are not thread-safe to share).
@@ -75,7 +77,6 @@ def run_sync(coro: Coroutine[Any, Any, T], *, provider: str = "<unknown>") -> T:
         pass  # No running loop — safe to drive synchronously.
     else:
         coro.close()  # avoid "coroutine was never awaited" warning
-        from ..faults.domains import DIResolutionFault
 
         raise DIResolutionFault(
             provider=provider,

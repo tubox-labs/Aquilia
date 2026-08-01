@@ -59,8 +59,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from ...faults.domains import MigrationFault
-from .schema import (
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.schema import (
     NOT_PROVIDED,
     CheckConstraintState,
     ColumnState,
@@ -77,7 +77,7 @@ from .schema import (
 )
 
 if TYPE_CHECKING:
-    from .operations import Operation
+    from aquilia.models.migration.operations import Operation
 
 __all__ = [
     "render_value",
@@ -583,7 +583,7 @@ def render_operation(operation: Operation, *, indent: int = 0) -> str:
     from dataclasses import MISSING
     from dataclasses import fields as dataclass_fields
 
-    from .operations import RunPython, RunSQL
+    from aquilia.models.migration.operations import RunPython, RunSQL
 
     if isinstance(operation, (RunSQL, RunPython)):
         return _render_special(operation, indent=indent)
@@ -618,7 +618,7 @@ def _render_special(operation: Any, *, indent: int) -> str:
         MigrationFault: If a ``RunPython`` callable is a lambda or a nested
             function, neither of which can be imported by name at apply time.
     """
-    from .operations import RunPython
+    from aquilia.models.migration.operations import RunPython
 
     args: list[str] = []
 
@@ -814,7 +814,7 @@ def _callable_imports(operations: Any, *, already: set[str]) -> list[str]:
             is already imported, so importing it again from the defining
             submodule would shadow it with a duplicate.
     """
-    from .operations import RunPython
+    from aquilia.models.migration.operations import RunPython
 
     by_module: dict[str, set[str]] = {}
 

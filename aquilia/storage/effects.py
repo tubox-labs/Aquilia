@@ -21,8 +21,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ..effects import EffectKind, EffectProvider
-from .base import StorageConfigFault
+from aquilia.effects import EffectKind, EffectProvider
+from aquilia.storage.base import StorageConfigFault
 
 logger = logging.getLogger("aquilia.storage.effects")
 

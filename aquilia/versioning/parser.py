@@ -22,8 +22,8 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 
-from .core import ApiVersion
-from .errors import InvalidVersionError
+from aquilia.versioning.core import ApiVersion
+from aquilia.versioning.errors import InvalidVersionError
 
 
 class VersionParser(ABC):

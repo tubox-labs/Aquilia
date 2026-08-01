@@ -18,12 +18,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from ....faults.domains import MigrationFault
-from .base import Operation, OperationCategory, register_operation
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.operations.base import Operation, OperationCategory, register_operation
 
 if TYPE_CHECKING:
-    from ..backends import SchemaBackend, Statement
-    from ..schema import ManyToManyState, ProjectState
+    from aquilia.models.migration.backends import SchemaBackend, Statement
+    from aquilia.models.migration.schema import ManyToManyState, ProjectState
 
 __all__ = ["CreateManyToManyTable", "DeleteManyToManyTable"]
 
@@ -47,7 +47,7 @@ def _junction_table_state(relation: ManyToManyState):
         A :class:`~aquilia.models.migration.schema.TableState` for the junction
         table.
     """
-    from ..schema import ColumnState, Reference, TableState, UniqueConstraintState
+    from aquilia.models.migration.schema import ColumnState, Reference, TableState, UniqueConstraintState
 
     identifier = ColumnState(
         name="id",

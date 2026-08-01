@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from ..cache import LRUCache
-from ..models import KnowledgeIndex, SearchResult
+from aquilia.mcp.cache import LRUCache
+from aquilia.mcp.models import KnowledgeIndex, SearchResult
 
 _CACHE: LRUCache[tuple[str, str, int], list[SearchResult]] = LRUCache(max_size=128)
 

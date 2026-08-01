@@ -197,8 +197,8 @@ class ArtifactRegistry:
         Returns a dict keyed by artifact type, each value being a dict
         of file path → status info.
         """
-        from .backends.json_file import JSONFileBackend
-        from .envelope import ArtifactEnvelope
+        from aquilia.artifacts.backends.json_file import JSONFileBackend
+        from aquilia.artifacts.envelope import ArtifactEnvelope
 
         results: dict[str, dict[str, Any]] = {}
 

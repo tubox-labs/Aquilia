@@ -27,11 +27,34 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from ._config import FileSystemConfig
-from ._directory import DirEntry
-from ._metrics import FileSystemMetrics
-from ._ops import FileStat
-from ._pool import FileSystemPool
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._directory import (
+    DirEntry,
+    copy_tree,
+    list_dir,
+    make_dir,
+    remove_dir,
+    remove_tree,
+    scan_dir,
+    walk,
+)
+from aquilia.filesystem._lock import AsyncFileLock
+from aquilia.filesystem._metrics import FileSystemMetrics
+from aquilia.filesystem._ops import (
+    FileStat,
+    append_file,
+    async_open,
+    copy_file,
+    delete_file,
+    file_exists,
+    file_stat,
+    move_file,
+    read_file,
+    write_file,
+)
+from aquilia.filesystem._pool import FileSystemPool
+from aquilia.filesystem._streaming import stream_copy, stream_read
+from aquilia.filesystem._tempfile import AsyncTemporaryDirectory, AsyncTemporaryFile
 
 
 class FileSystem:
@@ -100,7 +123,6 @@ class FileSystem:
 
         Returns an awaitable context manager yielding :class:`AsyncFile`.
         """
-        from ._ops import async_open
 
         return async_open(
             path,
@@ -123,7 +145,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> str | bytes:
         """Read entire file contents."""
-        from ._ops import read_file
 
         return await read_file(
             path,
@@ -145,7 +166,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> int:
         """Write data to a file. Returns bytes written."""
-        from ._ops import write_file
 
         return await write_file(
             path,
@@ -168,7 +188,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> int:
         """Append data to a file. Returns bytes written."""
-        from ._ops import append_file
 
         return await append_file(
             path,
@@ -188,7 +207,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> str:
         """Copy a file. Returns destination path."""
-        from ._ops import copy_file
 
         return await copy_file(
             src,
@@ -206,7 +224,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> str:
         """Move/rename a file. Returns destination path."""
-        from ._ops import move_file
 
         return await move_file(
             src,
@@ -224,7 +241,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> bool:
         """Delete a file. Returns True if deleted."""
-        from ._ops import delete_file
 
         return await delete_file(
             path,
@@ -241,7 +257,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> bool:
         """Check if a file exists."""
-        from ._ops import file_exists
 
         return await file_exists(
             path,
@@ -258,7 +273,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> FileStat:
         """Get file status information."""
-        from ._ops import file_stat
 
         return await file_stat(
             path,
@@ -301,7 +315,6 @@ class FileSystem:
             async for chunk in fs.stream_read(path, sandbox=uploads_root):
                 ...
         """
-        from ._streaming import stream_read
 
         return stream_read(
             path,
@@ -341,7 +354,6 @@ class FileSystem:
 
             copied = await fs.stream_copy(src, dst, sandbox=uploads_root)
         """
-        from ._streaming import stream_copy
 
         return await stream_copy(
             src,
@@ -361,7 +373,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> list[str]:
         """List directory contents (names only)."""
-        from ._directory import list_dir
 
         return await list_dir(
             path,
@@ -377,7 +388,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> list[DirEntry]:
         """Scan directory with metadata (os.scandir)."""
-        from ._directory import scan_dir
 
         return await scan_dir(
             path,
@@ -396,7 +406,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> None:
         """Create a directory."""
-        from ._directory import make_dir
 
         return await make_dir(
             path,
@@ -415,7 +424,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> None:
         """Remove an empty directory."""
-        from ._directory import remove_dir
 
         return await remove_dir(
             path,
@@ -432,7 +440,6 @@ class FileSystem:
         sandbox: str | Path | None = None,
     ) -> None:
         """Recursively remove a directory tree."""
-        from ._directory import remove_tree
 
         return await remove_tree(
             path,
@@ -471,7 +478,6 @@ class FileSystem:
 
             await fs.copy_tree("/srv/a", "/srv/b", sandbox="/srv")
         """
-        from ._directory import copy_tree
 
         return await copy_tree(
             src,
@@ -511,7 +517,6 @@ class FileSystem:
             async for dirpath, dirs, files in fs.walk("/srv", sandbox="/srv"):
                 ...
         """
-        from ._directory import walk
 
         return walk(
             top,
@@ -533,7 +538,6 @@ class FileSystem:
         delete: bool = True,
     ):
         """Create an async temporary file context manager."""
-        from ._tempfile import AsyncTemporaryFile
 
         return AsyncTemporaryFile(
             suffix=suffix,
@@ -552,7 +556,6 @@ class FileSystem:
         dir: str | Path | None = None,
     ):
         """Create an async temporary directory context manager."""
-        from ._tempfile import AsyncTemporaryDirectory
 
         return AsyncTemporaryDirectory(
             suffix=suffix,
@@ -579,7 +582,6 @@ class FileSystem:
             async with fs.lock("/tmp/app.lock", timeout=5.0):
                 ...  # exclusive access
         """
-        from ._lock import AsyncFileLock
 
         return AsyncFileLock(
             path,

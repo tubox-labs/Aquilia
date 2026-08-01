@@ -39,8 +39,7 @@ from aquilia.faults.domains import (
     ProviderRateLimitFault,
     ProviderTokenFault,
 )
-
-from .types import (
+from aquilia.providers.render.types import (
     RenderAuditLogEntry,
     RenderContract,
     RenderContractSync,

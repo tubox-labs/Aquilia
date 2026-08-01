@@ -7,8 +7,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Optional
 
-from .core import Container
-from .errors import DIError
+from aquilia.di.core import Container
+from aquilia.di.errors import DIError
 
 # Context variable for request container (legacy support)
 _request_container_var: ContextVar[Container | None] = ContextVar(

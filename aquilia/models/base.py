@@ -50,10 +50,8 @@ from typing import (
 #: ``Model | list[Model] | None`` union -- no cast required at the call site.
 _TRelated = TypeVar("_TRelated", bound="Model")
 
-from .deletion import (
-    OnDeleteHandler,
-)
-from .fields_module import (
+from aquilia.models.deletion import OnDeleteHandler
+from aquilia.models.fields_module import (
     AutoField,
     BigAutoField,
     CharField,
@@ -63,24 +61,16 @@ from .fields_module import (
     ManyToManyField,
     OneToOneField,
 )
-from .manager import Manager
-from .relations import RelatedNotLoaded
-from .signals import (
-    m2m_changed,
-    post_delete,
-    post_init,
-    post_save,
-    pre_delete,
-    pre_init,
-    pre_save,
-)
-from .sql_builder import CreateTableBuilder, DeleteBuilder, InsertBuilder, UpdateBuilder
+from aquilia.models.manager import Manager
+from aquilia.models.relations import RelatedNotLoaded
+from aquilia.models.signals import m2m_changed, post_delete, post_init, post_save, pre_delete, pre_init, pre_save
+from aquilia.models.sql_builder import CreateTableBuilder, DeleteBuilder, InsertBuilder, UpdateBuilder
 
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-    from ..db.engine import AquiliaDatabase
-    from .manager import RelatedManager
+    from aquilia.db.engine import AquiliaDatabase
+    from aquilia.models.manager import RelatedManager
 
 logger = logging.getLogger("aquilia.models")
 
@@ -89,12 +79,14 @@ logger = logging.getLogger("aquilia.models")
 # Keep this import for backward compatibility; the canonical Options is
 # in options.py (imported by metaclass.py).
 
-from .options import Options
+from aquilia.db.engine import get_database
+from aquilia.faults.domains import DeferredFieldAccessFault, ModelNotFoundFault, QueryFault, RelatedNameConflictFault
+from aquilia.models.options import Options
 
 # ── Model Registry -- delegate to registry.py ────────────────────────────────
 # Keep ModelRegistry importable from base.py for backward compat, but the
 # canonical implementation lives in registry.py.
-from .registry import ModelRegistry as _CanonicalRegistry
+from aquilia.models.registry import ModelRegistry as _CanonicalRegistry
 
 
 class _ModelRegistryMeta(type):
@@ -233,11 +225,11 @@ class ModelRegistry(metaclass=_ModelRegistryMeta):
 # ── Model Metaclass -- delegate to metaclass.py ──────────────────────────────
 # Import the canonical ModelMeta for backward compatibility.
 
-from .metaclass import ModelMeta
+from aquilia.models.metaclass import ModelMeta
 
 # ── Q (Query Builder) -- delegate to query.py ─────────────────────────────────
 # The canonical Q class lives in query.py. Import it here for backward compat.
-from .query import Q
+from aquilia.models.query import Q
 
 # ── Deferred-field guard (only()/defer()) ─────────────────────────────────────
 #
@@ -272,8 +264,6 @@ def _deferred_guard_class(model_cls: type) -> type:
     def _guarded_getattribute(self: Any, name: str) -> Any:
         deferred = object.__getattribute__(self, "__dict__").get("_deferred_fields")
         if deferred and name in deferred:
-            from ..faults.domains import DeferredFieldAccessFault
-
             raise DeferredFieldAccessFault(model=base_cls.__name__, field_name=name)
         return object.__getattribute__(self, name)
 
@@ -473,11 +463,9 @@ class Model(metaclass=ModelMeta):
         """
         db = cls._db or ModelRegistry.get_database()
         if db is None:
-            from ..db.engine import get_database
-
             db = get_database()
 
-        from .query import QuerySetDatabaseWrapper
+        from aquilia.models.query import QuerySetDatabaseWrapper
 
         return QuerySetDatabaseWrapper(db, cls.__name__)
 
@@ -533,8 +521,6 @@ class Model(metaclass=ModelMeta):
         instance.full_clean()
 
         if not final_data:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=cls.__name__,
                 operation="create",
@@ -582,8 +568,6 @@ class Model(metaclass=ModelMeta):
             _SAFE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
             for k in filters:
                 if not _SAFE.match(k):
-                    from ..faults.domains import QueryFault
-
                     raise QueryFault(
                         model=cls.__name__,
                         operation="get",
@@ -598,8 +582,6 @@ class Model(metaclass=ModelMeta):
             sql = f'SELECT * FROM "{cls._table_name}" WHERE ' + " AND ".join(wheres)
             row = await db.fetch_one(sql, db_values)
         else:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=cls.__name__,
                 operation="get",
@@ -607,8 +589,6 @@ class Model(metaclass=ModelMeta):
             )
 
         if row is None:
-            from ..faults.domains import ModelNotFoundFault
-
             raise ModelNotFoundFault(model_name=cls.__name__)
         return cls.from_row(row)
 
@@ -807,8 +787,6 @@ class Model(metaclass=ModelMeta):
         """
         import re
 
-        from ..faults.domains import QueryFault
-
         # ── Validate lookup fields ────────────────────────────────────────
         if not lookup:
             raise QueryFault(
@@ -898,7 +876,7 @@ class Model(metaclass=ModelMeta):
         conflict_columns = cls._get_conflict_columns(lookup_fields, dialect)
 
         # ── Execute atomic INSERT ... ON CONFLICT DO NOTHING ──────────────
-        from .sql_builder import UpsertIgnoreBuilder
+        from aquilia.models.sql_builder import UpsertIgnoreBuilder
 
         builder = UpsertIgnoreBuilder(cls._table_name, dialect=dialect)
         builder.from_dict(final_data)
@@ -966,7 +944,7 @@ class Model(metaclass=ModelMeta):
 
         # Check Meta.constraints for UniqueConstraint
         if hasattr(cls._meta, "constraints"):
-            from .fields_module import UniqueConstraint
+            from aquilia.models.fields_module import UniqueConstraint
 
             for constraint in cls._meta.constraints:
                 if isinstance(constraint, UniqueConstraint):
@@ -1021,7 +999,7 @@ class Model(metaclass=ModelMeta):
 
         # Check Meta.constraints for UniqueConstraint
         if hasattr(cls._meta, "constraints"):
-            from .fields_module import UniqueConstraint
+            from aquilia.models.fields_module import UniqueConstraint
 
             for constraint in cls._meta.constraints:
                 if isinstance(constraint, UniqueConstraint):
@@ -1199,8 +1177,6 @@ class Model(metaclass=ModelMeta):
         """
         field = field_name or getattr(cls._meta, "get_latest_by", None)
         if not field:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=cls.__name__,
                 operation="latest",
@@ -1208,8 +1184,6 @@ class Model(metaclass=ModelMeta):
             )
         result = await cls.query().order(f"-{field}").first()
         if result is None:
-            from ..faults.domains import ModelNotFoundFault
-
             raise ModelNotFoundFault(model_name=cls.__name__)
         return result
 
@@ -1226,8 +1200,6 @@ class Model(metaclass=ModelMeta):
         """
         field = field_name or getattr(cls._meta, "get_latest_by", None)
         if not field:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=cls.__name__,
                 operation="earliest",
@@ -1235,8 +1207,6 @@ class Model(metaclass=ModelMeta):
             )
         result = await cls.query().order(field).first()
         if result is None:
-            from ..faults.domains import ModelNotFoundFault
-
             raise ModelNotFoundFault(model_name=cls.__name__)
         return result
 
@@ -1264,8 +1234,6 @@ class Model(metaclass=ModelMeta):
 
         _DDL_RE = re.compile(r"\b(DROP|ALTER|TRUNCATE|GRANT|REVOKE)\b", re.IGNORECASE)
         if _DDL_RE.search(sql):
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=cls.__name__,
                 operation="raw",
@@ -1314,8 +1282,6 @@ class Model(metaclass=ModelMeta):
             await user.save(validate=True)            # validates before saving
         """
         if force_insert and force_update:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="save",
@@ -1325,8 +1291,6 @@ class Model(metaclass=ModelMeta):
         pk_val = getattr(self, self._pk_attr, None)
 
         if force_update and pk_val is None:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="save",
@@ -1519,7 +1483,6 @@ class Model(metaclass=ModelMeta):
 
         if conflicts:
             name, conflicting_models = next(iter(conflicts.items()))
-            from ..faults.domains import RelatedNameConflictFault
 
             raise RelatedNameConflictFault(
                 model_name=cls.__name__,
@@ -1542,8 +1505,6 @@ class Model(metaclass=ModelMeta):
         """
         pk_val = getattr(self, self._pk_attr)
         if pk_val is None:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="delete",
@@ -1651,8 +1612,6 @@ class Model(metaclass=ModelMeta):
         """
         pk_val = getattr(self, self._pk_attr)
         if pk_val is None:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="refresh",
@@ -1665,8 +1624,6 @@ class Model(metaclass=ModelMeta):
             for attr_name in fields:
                 field = self._fields.get(attr_name)
                 if field is None:
-                    from ..faults.domains import QueryFault
-
                     raise QueryFault(
                         model=self.__class__.__name__,
                         operation="refresh",
@@ -1681,8 +1638,6 @@ class Model(metaclass=ModelMeta):
             db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
             rows = await db.fetch_all(sql, [db_pk_val])
             if not rows:
-                from ..faults.domains import ModelNotFoundFault
-
                 raise ModelNotFoundFault(model_name=self.__class__.__name__)
             row = rows[0]
             for attr_name in fields:
@@ -1701,8 +1656,6 @@ class Model(metaclass=ModelMeta):
             # Full refresh
             fresh = await self.__class__.get_or_none(pk=pk_val)
             if fresh is None:
-                from ..faults.domains import ModelNotFoundFault
-
                 raise ModelNotFoundFault(model_name=self.__class__.__name__)
             for attr in self._attr_names:
                 setattr(self, attr, getattr(fresh, attr))
@@ -1864,8 +1817,6 @@ class Model(metaclass=ModelMeta):
             manager = self.related_manager(name)
             return await manager.first() if is_one_to_one else await manager.all()
 
-        from ..faults.domains import QueryFault
-
         raise QueryFault(
             model=self.__class__.__name__,
             operation="related",
@@ -1889,8 +1840,6 @@ class Model(metaclass=ModelMeta):
         """
         entry = self._reverse_relation_map().get(name)
         if entry is None:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="related_manager",
@@ -1903,7 +1852,7 @@ class Model(metaclass=ModelMeta):
         pk_field = self._fields[self._pk_attr]
         db_pk_val = pk_field.to_db(getattr(self, self._pk_attr), dialect=dialect)
 
-        from .manager import RelatedManager
+        from aquilia.models.manager import RelatedManager
 
         return RelatedManager(referencing_model, fk_column_name, db_pk_val)
 
@@ -1928,8 +1877,6 @@ class Model(metaclass=ModelMeta):
         """
         m2m = self._m2m_fields.get(name)
         if m2m is None:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="attach",
@@ -1984,8 +1931,6 @@ class Model(metaclass=ModelMeta):
         """
         m2m = self._m2m_fields.get(name)
         if m2m is None:
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="detach",
@@ -2195,7 +2140,7 @@ class Model(metaclass=ModelMeta):
             if hasattr(constraint, "sql"):
                 builder.constraint(constraint.sql(cls._table_name, dialect))
             elif hasattr(constraint, "fields"):
-                from .expression import compile_schema_expression as _compile_schema_expression
+                from aquilia.models.expression import compile_schema_expression as _compile_schema_expression
 
                 # Check if this unique constraint contains expressions.
                 # If so, do NOT generate it as a table constraint (it will fail on CREATE TABLE).
@@ -2259,7 +2204,7 @@ class Model(metaclass=ModelMeta):
                 if has_expression:
                     import re
 
-                    from .expression import compile_schema_expression as _compile_schema_expression
+                    from aquilia.models.expression import compile_schema_expression as _compile_schema_expression
 
                     cols = []
                     for f in constraint.fields:

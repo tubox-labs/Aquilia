@@ -16,6 +16,8 @@ from pathlib import Path
 
 import click
 
+from aquilia.config import ConfigLoader
+
 
 def _load_cache_config() -> dict:
     """Load cache config from workspace.py or config files."""
@@ -33,7 +35,6 @@ def _load_cache_config() -> dict:
                 return ws_dict.get("cache", ws_dict.get("integrations", {}).get("cache", {}))
 
     # Fallback to ConfigLoader
-    from aquilia.config import ConfigLoader
 
     config = ConfigLoader()
     return config.get_cache_config()

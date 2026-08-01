@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar, get_type_hints
 
-from .scopes import ServiceScopeLiteral
+from aquilia.di.scopes import ServiceScopeLiteral
 
 if TYPE_CHECKING:
     from collections.abc import Callable as _Callable
@@ -288,7 +288,7 @@ def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
         ):
             return await auth.verify_user(user_id)
     """
-    from .compat import get_request_container
+    from aquilia.di.compat import get_request_container
 
     sig = getattr(func, "__signature__", None)
     try:
@@ -301,7 +301,7 @@ def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
         # Get request container from context
         container = get_request_container()
         if container is None:
-            from ..faults.domains import DIResolutionFault
+            from aquilia.faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider="auto_inject",

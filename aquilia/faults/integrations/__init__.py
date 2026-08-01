@@ -25,21 +25,21 @@ Usage:
     ```
 """
 
-from .di import (
+from aquilia.faults.integrations.di import (
     AsyncResolutionFault,
     CircularDependencyFault,
     ProviderRegistrationFault,
     create_di_fault_handler,
     patch_di_container,
 )
-from .models import (
+from aquilia.faults.integrations.models import (
     ModelFaultHandler,
     create_model_fault_handler,
     patch_all_model_subsystems,
     patch_database_engine,
     patch_model_registry,
 )
-from .registry import (
+from aquilia.faults.integrations.registry import (
     AppContextInvalidFault,
     DependencyResolutionFault,
     ManifestLoadFault,
@@ -47,7 +47,7 @@ from .registry import (
     create_registry_fault_handler,
     patch_runtime_registry,
 )
-from .routing import (
+from aquilia.faults.integrations.routing import (
     MethodNotAllowedFault,
     RouteConflictFault,
     RouteParameterFault,

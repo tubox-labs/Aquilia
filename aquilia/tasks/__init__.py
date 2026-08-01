@@ -50,13 +50,9 @@ Usage::
     await manager.cancel(job_id)
 """
 
-from .decorators import task
-from .engine import (
-    MemoryBackend,
-    TaskBackend,
-    TaskManager,
-)
-from .faults import (
+from aquilia.tasks.decorators import task
+from aquilia.tasks.engine import MemoryBackend, TaskBackend, TaskManager
+from aquilia.tasks.faults import (
     TASKS_DOMAIN,
     TaskBackendFault,
     TaskDuplicateFault,
@@ -68,15 +64,10 @@ from .faults import (
     TaskSerializationFault,
     TaskWorkflowFault,
 )
-from .job import (
-    Job,
-    JobResult,
-    JobState,
-    Priority,
-)
-from .schedule import CronSchedule, IntervalSchedule, cron, every
-from .worker import Worker
-from .workflow import Signature, Workflow, WorkflowResult, chain, chord, group
+from aquilia.tasks.job import Job, JobResult, JobState, Priority
+from aquilia.tasks.schedule import CronSchedule, IntervalSchedule, cron, every
+from aquilia.tasks.worker import Worker
+from aquilia.tasks.workflow import Signature, Workflow, WorkflowResult, chain, chord, group
 
 __all__ = [
     "TaskManager",

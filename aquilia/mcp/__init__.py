@@ -4,10 +4,10 @@ The implementation is local, read-only by default, and backed by the
 repository source tree rather than an external retrieval service.
 """
 
-from .config import MCPConfig
-from .context.indexer import build_index, load_index, save_index
-from .server import AquiliaMCPServer
-from .version import __version__
+from aquilia.mcp.config import MCPConfig
+from aquilia.mcp.context.indexer import build_index, load_index, save_index
+from aquilia.mcp.server import AquiliaMCPServer
+from aquilia.mcp.version import __version__
 
 __all__ = [
     "AquiliaMCPServer",

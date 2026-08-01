@@ -29,10 +29,10 @@ All requests are automatically traced. Access the current span::
 
 from typing import Any
 
-from ._config import OTelConfig
-from ._faults import OTEL_DOMAIN, OTelConfigFault, OTelExportFault, OTelFault
-from ._middleware import OTelMiddleware
-from ._tracer import get_tracer, setup, shutdown
+from aquilia.otel._config import OTelConfig
+from aquilia.otel._faults import OTEL_DOMAIN, OTelConfigFault, OTelExportFault, OTelFault
+from aquilia.otel._middleware import OTelMiddleware
+from aquilia.otel._tracer import get_tracer, setup, shutdown
 
 
 def get_current_span() -> Any:
@@ -42,7 +42,7 @@ def get_current_span() -> Any:
 
         return trace.get_current_span()
     except ImportError:
-        from ._tracer import _NoOpSpan
+        from aquilia.otel._tracer import _NoOpSpan
 
         return _NoOpSpan()
 

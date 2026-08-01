@@ -25,7 +25,7 @@ from typing import (
     BinaryIO,
 )
 
-from ..base import (
+from aquilia.storage.base import (
     BackendUnavailableError,
     FileNotFoundError,
     StorageBackend,
@@ -33,8 +33,8 @@ from ..base import (
     StorageFile,
     StorageMetadata,
 )
-from ..configs import GCSConfig
-from ..executor import run_blocking
+from aquilia.storage.configs import GCSConfig
+from aquilia.storage.executor import run_blocking
 
 
 class GCSStorage(StorageBackend):

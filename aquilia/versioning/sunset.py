@@ -23,10 +23,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
-from .core import ApiVersion, VersionStatus
+from aquilia.versioning.core import ApiVersion, VersionStatus
 
 if TYPE_CHECKING:
-    from ..response import Response  # noqa: F401
+    from aquilia.response import Response  # noqa: F401
 
 
 @dataclass

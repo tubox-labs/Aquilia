@@ -48,8 +48,8 @@ from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from typing import Any
 
-from .envelope import MailEnvelope
-from .faults import MailConfigFault, MailSendFault
+from aquilia.mail.envelope import MailEnvelope
+from aquilia.mail.faults import MailConfigFault, MailSendFault
 
 __all__ = [
     "build_mime_message",

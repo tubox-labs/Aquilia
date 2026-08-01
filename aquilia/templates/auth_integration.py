@@ -16,13 +16,15 @@ Features:
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+from aquilia.auth.faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_ROLE
+from aquilia.response import Response
+
 if TYPE_CHECKING:
     from aquilia.auth.authz import AuthzEngine
     from aquilia.auth.core import Identity
     from aquilia.auth.manager import AuthManager
     from aquilia.controller.base import RequestCtx
-
-    from .engine import TemplateEngine
+    from aquilia.templates.engine import TemplateEngine
 
 
 logger = logging.getLogger(__name__)
@@ -377,8 +379,6 @@ class TemplateAuthGuard:
     async def __call__(self, ctx: "RequestCtx"):
         """Check auth context."""
         if self.require_auth and not ctx.identity:
-            from aquilia.auth.faults import AUTH_REQUIRED
-
             raise AUTH_REQUIRED.fault(message="Authentication required for this template")
 
         # Auth context is valid
@@ -415,9 +415,8 @@ class TemplateAuthMixin:
             **kwargs: Additional Response kwargs (status, headers)
         """
         # Import here to avoid circular dependency
-        from aquilia.response import Response
 
-        from .context import create_template_context
+        from aquilia.templates.context import create_template_context
 
         # Create context with auth
         template_ctx = create_template_context(user_context, ctx)
@@ -426,7 +425,7 @@ class TemplateAuthMixin:
 
         # Get template engine
         if not hasattr(self, "_template_engine") or not self._template_engine:
-            from .faults import TemplateEngineUnavailableFault
+            from aquilia.templates.faults import TemplateEngineUnavailableFault
 
             raise TemplateEngineUnavailableFault()
 
@@ -439,12 +438,8 @@ class TemplateAuthMixin:
         Raises AUTH_INSUFFICIENT_ROLE fault if check fails.
         """
         if not ctx.identity:
-            from aquilia.auth.faults import AUTH_REQUIRED
-
             raise AUTH_REQUIRED.fault()
 
         identity_proxy = IdentityTemplateProxy(ctx.identity)
         if not identity_proxy.has_role(role):
-            from aquilia.auth.faults import AUTHZ_INSUFFICIENT_ROLE
-
             raise AUTHZ_INSUFFICIENT_ROLE.fault(message=f"Role '{role}' required")

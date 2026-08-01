@@ -7,8 +7,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..core import CredentialStore, Identity, IdentityStore
-    from ..hashing import PasswordHasher
+    from aquilia.auth.core import CredentialStore, Identity, IdentityStore
+    from aquilia.auth.hashing import PasswordHasher
 
 
 class PasswordBackend:
@@ -72,8 +72,8 @@ class PasswordBackend:
         if not self.accepts(credentials):
             return None
 
-        from ..core import IdentityStatus
-        from ..faults import (
+        from aquilia.auth.core import IdentityStatus
+        from aquilia.auth.faults import (
             AUTH_ACCOUNT_LOCKED,
             AUTH_ACCOUNT_SUSPENDED,
             AUTH_INVALID_CREDENTIALS,

@@ -35,7 +35,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, fields
 from typing import Any, Final
 
-from ..faults.domains import DIFault
+from aquilia.faults.domains import DIFault
 
 # ── Valid enumerations (kept here to avoid import cycles with scopes.py) ──
 
@@ -233,7 +233,7 @@ def configure_di(settings: DISettings) -> None:
     _active_settings = settings
 
     # Propagate the cache bound to the core module's module-level cap.
-    from . import core as _core
+    from aquilia.di import core as _core
 
     _core._TYPE_KEY_CACHE_MAX = settings.type_key_cache_max
 

@@ -31,7 +31,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .core import Identity
+    from aquilia.auth.core import Identity
 
 
 PolicyCallable = Callable[["Identity", Any], bool]
@@ -131,7 +131,7 @@ class PermissionEngine:
         Raises:
             ``AUTHZ_INSUFFICIENT_ROLE``: Identity does not have the required role.
         """
-        from .faults import AUTHZ_INSUFFICIENT_ROLE
+        from aquilia.auth.faults import AUTHZ_INSUFFICIENT_ROLE
 
         identity_roles: list[str] = identity.get_attribute("roles", [])
         for held in identity_roles:
@@ -146,7 +146,7 @@ class PermissionEngine:
         Raises:
             ``AUTHZ_INSUFFICIENT_SCOPE``: Identity does not hold the required scope.
         """
-        from .faults import AUTHZ_INSUFFICIENT_SCOPE
+        from aquilia.auth.faults import AUTHZ_INSUFFICIENT_SCOPE
 
         if not identity.has_scope(scope):
             raise AUTHZ_INSUFFICIENT_SCOPE(required_scopes=[scope])
@@ -169,7 +169,7 @@ class PermissionEngine:
             ``AUTHZ_POLICY_DENIED``: Policy returned ``False``.
             ``KeyError``:            Unknown policy key.
         """
-        from .faults import AUTHZ_POLICY_DENIED
+        from aquilia.auth.faults import AUTHZ_POLICY_DENIED
 
         policy = self._policies.get(key)
         if policy is None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..models import KnowledgeIndex
+from aquilia.mcp.models import KnowledgeIndex
 
 _FEATURE_MODULE_HINTS = {
     "auth": ["accounts"],

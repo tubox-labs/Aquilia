@@ -36,10 +36,10 @@ from typing import (
     Any,
 )
 
-from ._config import FileSystemConfig
-from ._errors import wrap_os_error
-from ._handle import AsyncFile
-from ._pool import FileSystemPool
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._errors import wrap_os_error
+from aquilia.filesystem._handle import AsyncFile
+from aquilia.filesystem._pool import FileSystemPool
 
 
 class AsyncPath:

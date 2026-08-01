@@ -240,8 +240,8 @@ class Container:
         parent: Optional["Container"] = None,
         diagnostics: Any | None = None,
     ):
-        from .diagnostics import DIDiagnostics
-        from .lifecycle import Lifecycle
+        from aquilia.di.diagnostics import DIDiagnostics
+        from aquilia.di.lifecycle import Lifecycle
 
         self._providers: dict[str, Provider] = {}  # {cache_key: provider}
         self._providers_owned: bool = True  # True when we own the dict (can mutate in-place)
@@ -328,7 +328,7 @@ class Container:
             # Idempotency: if same provider, ignore. If different, error.
             if existing == provider:
                 return
-            from ..faults.domains import DIFault
+            from aquilia.faults.domains import DIFault
 
             raise DIFault(
                 code="PROVIDER_ALREADY_REGISTERED",
@@ -344,12 +344,12 @@ class Container:
         self._providers[key] = provider
 
         # Emit diagnostic event
-        from .diagnostics import DIEventType
+        from aquilia.di.diagnostics import DIEventType
 
         self._diagnostics.emit(DIEventType.REGISTRATION, token=token, tag=tag, provider_name=meta.name)
 
         # Plugin hook (fast-skip when no plugins registered — hot path).
-        from .plugins import _notify_provider_registered, _plugins
+        from aquilia.di.plugins import _notify_provider_registered, _plugins
 
         if _plugins:
             _notify_provider_registered(self, provider)
@@ -367,7 +367,7 @@ class Container:
             scope: Lifecycle scope
             tag: Optional tag
         """
-        from .providers import ClassProvider
+        from aquilia.di.providers import ClassProvider
 
         provider = ClassProvider(implementation, scope=scope)
 
@@ -387,7 +387,7 @@ class Container:
         self._providers[key] = provider
 
         # Emit diagnostic event
-        from .diagnostics import DIEventType
+        from aquilia.di.diagnostics import DIEventType
 
         self._diagnostics.emit(
             DIEventType.REGISTRATION,
@@ -420,7 +420,7 @@ class Container:
             >>> session = await engine.resolve(request)
             >>> await container.register_instance(Session, session, scope="request")
         """
-        from .providers import ValueProvider
+        from aquilia.di.providers import ValueProvider
 
         # Create a ValueProvider for the instance
         provider = ValueProvider(
@@ -486,7 +486,7 @@ class Container:
 
         # Sync bridge: drive the async path on a persistent per-thread loop
         # (Bug 8 — no throwaway loop per call). Raises if in a running loop.
-        from ._sync_bridge import run_sync
+        from aquilia.di._sync_bridge import run_sync
 
         return run_sync(
             self.resolve_async(token, tag=tag, optional=optional),
@@ -560,15 +560,15 @@ class Container:
         #
         # Enforcement policy comes from DISettings.scope_enforcement:
         #   "off"   → skip the check, "warn" → log, "raise" → ScopeViolationError.
-        from .settings import get_di_settings
+        from aquilia.di.settings import get_di_settings
 
         _di_settings = get_di_settings()
         if _di_settings.scope_check_enabled:
-            from .scopes import ScopeValidator
+            from aquilia.di.scopes import ScopeValidator
 
             if not ScopeValidator.validate_injection(provider.meta.scope, self._scope):
                 if _di_settings.strict_scopes:
-                    from .errors import ScopeViolationError
+                    from aquilia.di.errors import ScopeViolationError
 
                     raise ScopeViolationError(
                         provider_token=provider.meta.token,
@@ -590,7 +590,7 @@ class Container:
         if ctx is None:
             ctx = ResolveCtx(container=self)
         if ctx.in_cycle(cache_key):
-            from .errors import DependencyCycleError
+            from aquilia.di.errors import DependencyCycleError
 
             raise DependencyCycleError(cycle=ctx.get_trace() + [cache_key])
         ctx.push(cache_key)
@@ -601,7 +601,7 @@ class Container:
         if _emit_diag:
             import time as _time
 
-            from .diagnostics import DIEventType as _DET
+            from aquilia.di.diagnostics import DIEventType as _DET
 
             _t0 = _time.monotonic()
             self._diagnostics.emit(_DET.RESOLUTION_START, token=token_key, tag=tag, provider_name=provider.meta.name)
@@ -615,7 +615,7 @@ class Container:
         _anc = _resolve_ancestors.get()
         if _anc_key in _anc:
             ctx.pop()
-            from .errors import DependencyCycleError
+            from aquilia.di.errors import DependencyCycleError
 
             raise DependencyCycleError(cycle=[*(k for _, k in _anc), cache_key])
         _anc_token = _resolve_ancestors.set(_anc | {_anc_key})
@@ -647,7 +647,7 @@ class Container:
                 await self._check_lifecycle_hooks(instance, provider.meta.name)
                 # Skip finalizer probing on lazy proxies: hasattr() would trip
                 # __getattr__ and force eager (possibly in-loop-sync) resolution.
-                from .providers import _LazyProxy
+                from aquilia.di.providers import _LazyProxy
 
                 if not isinstance(instance, _LazyProxy) and (
                     hasattr(instance, "__aexit__") or hasattr(instance, "shutdown")
@@ -687,7 +687,7 @@ class Container:
     async def _check_lifecycle_hooks(self, instance: Any, name: str) -> None:
         """Check and register lifecycle hooks for an instance."""
         # Skip lazy proxies -- they should not be introspected until resolved
-        from .providers import _LazyProxy
+        from aquilia.di.providers import _LazyProxy
 
         if isinstance(instance, _LazyProxy):
             return
@@ -717,7 +717,7 @@ class Container:
         """
         Run startup hooks for all registered providers.
         """
-        from .diagnostics import DIEventType
+        from aquilia.di.diagnostics import DIEventType
 
         self._diagnostics.emit(DIEventType.LIFECYCLE_STARTUP, metadata={"scope": self._scope})
         await self._lifecycle.run_startup_hooks()
@@ -801,7 +801,7 @@ class Container:
             tenant = root.create_child(scope="app")
             tenant.register(ClassProvider(TenantService, scope="app"))
         """
-        from .lifecycle import Lifecycle
+        from aquilia.di.lifecycle import Lifecycle
 
         child = Container.__new__(Container)
         child._providers = self._providers
@@ -862,7 +862,7 @@ class Container:
         self._providers[cache_key] = provider
         self._cache.pop(cache_key, None)
 
-        from .diagnostics import DIEventType
+        from aquilia.di.diagnostics import DIEventType
 
         self._diagnostics.emit(
             DIEventType.REGISTRATION,
@@ -888,7 +888,7 @@ class Container:
         if self._scope == "request" and not self._finalizers and not self._cache and not self._dep_teardowns:
             return
 
-        from .diagnostics import DIEventType
+        from aquilia.di.diagnostics import DIEventType
 
         self._diagnostics.emit(DIEventType.LIFECYCLE_SHUTDOWN, metadata={"scope": self._scope})
 
@@ -972,7 +972,7 @@ class Container:
         #    deadlock instead of raising.
         ancestors = _dep_ancestors.get()
         if cache_key in ancestors:
-            from ..faults.domains import DIResolutionFault
+            from aquilia.faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=str(dep.call.__qualname__ if dep.call else param_type),
@@ -1023,7 +1023,7 @@ class Container:
         """
         ancestors = _dep_ancestors.get()
         if cache_key in ancestors:
-            from ..faults.domains import DIResolutionFault
+            from aquilia.faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=str(dep.call.__qualname__ if dep.call else param_type),
@@ -1101,8 +1101,8 @@ class Container:
         Returns:
             Resolved parameter value.
         """
-        from .dep import Body, Cookie, Dep, Header, Path, Query, _unpack_annotation
-        from .request_dag import _get_base_type, _is_contract_type
+        from aquilia.di.dep import Body, Cookie, Dep, Header, Path, Query, _unpack_annotation
+        from aquilia.di.request_dag import _get_base_type, _is_contract_type
 
         if request is not None and isinstance(sub_dep, (Query, Header, Body, Cookie, Path)):
             return await self._resolve_extracted_parameter(pname, ptype, sub_dep, request)
@@ -1137,8 +1137,8 @@ class Container:
         Returns:
             Extracted and validated parameter value.
         """
-        from .dep import Body
-        from .request_dag import _get_base_type, _is_contract_type
+        from aquilia.di.dep import Body
+        from aquilia.di.request_dag import _get_base_type, _is_contract_type
 
         base_type = _get_base_type(ptype)
         if _is_contract_type(base_type):
@@ -1181,7 +1181,7 @@ class Container:
             self._dep_teardowns.append(gen)
             return value
         else:
-            from ..faults.domains import DIResolutionFault
+            from aquilia.faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=repr(dep.call),
@@ -1308,7 +1308,7 @@ class Container:
             except ImportError:
                 pass
 
-        from .providers import _normalize_optional_token
+        from aquilia.di.providers import _normalize_optional_token
 
         normalized_token, opt_from_type = _normalize_optional_token(token)
         return normalized_token, tag, optional or opt_from_type
@@ -1480,7 +1480,7 @@ class Container:
 
     def _raise_not_found(self, token: str, tag: str | None) -> None:
         """Raise ProviderNotFoundError with helpful diagnostics."""
-        from .errors import ProviderNotFoundError
+        from aquilia.di.errors import ProviderNotFoundError
 
         # Find similar providers
         candidates = []
@@ -1551,7 +1551,7 @@ class Registry:
 
         # Phase 1b: Plugin hook — contribute/mutate providers before graph build
         # (honoured only when DISettings.enable_plugins is on).
-        from .plugins import run_registry_build
+        from aquilia.di.plugins import run_registry_build
 
         run_registry_build(registry)
 
@@ -1608,7 +1608,7 @@ class Registry:
         import logging as _log
         import re as _re
 
-        from .providers import ClassProvider
+        from aquilia.di.providers import ClassProvider
 
         _logger = _log.getLogger("aquilia.di")
 
@@ -1726,8 +1726,8 @@ class Registry:
         """
         import inspect
 
-        from .errors import MissingDependencyError
-        from .graph import DependencyGraph
+        from aquilia.di.errors import MissingDependencyError
+        from aquilia.di.graph import DependencyGraph
 
         # Create dependency graph
         self._dep_graph = DependencyGraph()
@@ -1817,7 +1817,7 @@ class Registry:
         Raises:
             CircularDependencyError: If circular dependencies detected
         """
-        from .errors import CircularDependencyError
+        from aquilia.di.errors import CircularDependencyError
 
         if not hasattr(self, "_dep_graph"):
             # Graph not built yet
@@ -1852,7 +1852,7 @@ class Registry:
         Raises:
             CrossAppDependencyError: If cross-app dependency rules violated
         """
-        from .errors import CrossAppDependencyError
+        from aquilia.di.errors import CrossAppDependencyError
 
         # Build app -> services mapping
         app_services: dict[str, list[str]] = {}

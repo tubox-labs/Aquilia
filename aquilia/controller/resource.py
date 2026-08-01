@@ -10,8 +10,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, Generic, TypeVar
 
-from .base import Controller
-from .decorators import DELETE, GET, PATCH, POST, PUT, route
+from aquilia.controller.base import Controller
+from aquilia.controller.decorators import DELETE, GET, PATCH, POST, PUT, route
 
 T = TypeVar("T")
 

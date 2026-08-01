@@ -1,8 +1,7 @@
 import time
 
 from aquilia.di.diagnostics import DIEvent, DIEventType
-
-from .trace import Lane, SpanStatus, current_trace
+from aquilia.inspector.trace import Lane, SpanStatus, current_trace
 
 
 class InspectorDiagnosticListener:

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, overload
 
 from aquilia._datastructures import Headers, MultiDict
 from aquilia._uploads import FormData
+from aquilia.faults.domains import EffectNotAcquiredFault
 
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
@@ -149,7 +150,6 @@ class RequestCtx:
         """
         if self.request is not None:
             return self.request.get_effect(name)
-        from ..faults.domains import EffectNotAcquiredFault
 
         raise EffectNotAcquiredFault(
             effect_name=name,
@@ -531,14 +531,14 @@ class Throttle:
 
     @classmethod
     def with_redis(cls, redis_url: str, limit: int, window: int, **kwargs) -> "Throttle":
-        from .throttle import ThrottleBackendFactory
+        from aquilia.controller.throttle import ThrottleBackendFactory
 
         backend = ThrottleBackendFactory.create(redis_url, **kwargs)
         return cls(limit=limit, window=window, backend=backend)
 
     @classmethod
     def with_memory(cls, limit: int, window: int, **kwargs) -> "Throttle":
-        from .throttle import ThrottleBackendFactory
+        from aquilia.controller.throttle import ThrottleBackendFactory
 
         backend = ThrottleBackendFactory.create("memory", **kwargs)
         return cls(limit=limit, window=window, backend=backend)

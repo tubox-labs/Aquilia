@@ -40,7 +40,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from .envelope import EnvelopeStatus, MailEnvelope
+from aquilia.db import get_database
+from aquilia.mail.envelope import EnvelopeStatus, MailEnvelope
 
 logger = logging.getLogger("aquilia.mail.store")
 
@@ -239,7 +240,6 @@ class SQLEnvelopeStore(EnvelopeStore):
     async def _database(self) -> Any:
         if self._db is not None:
             return self._db
-        from aquilia.db import get_database
 
         self._db = get_database()
         return self._db

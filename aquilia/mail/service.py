@@ -45,12 +45,12 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ..di.decorators import service
-from ..tasks.decorators import task
-from .config import MailConfig
-from .envelope import EnvelopeStatus, MailEnvelope
-from .faults import MailConfigFault, MailRateLimitFault
-from .redaction import redact_pii
+from aquilia.di.decorators import service
+from aquilia.mail.config import MailConfig
+from aquilia.mail.envelope import EnvelopeStatus, MailEnvelope
+from aquilia.mail.faults import MailConfigFault, MailRateLimitFault
+from aquilia.mail.redaction import redact_pii
+from aquilia.tasks.decorators import task
 
 logger = logging.getLogger("aquilia.mail")
 
@@ -122,7 +122,7 @@ def send_mail(
     Returns:
         envelope_id on success, None if fail_silently.
     """
-    from .message import EmailMessage
+    from aquilia.mail.message import EmailMessage
 
     msg = EmailMessage(
         subject=subject,
@@ -172,7 +172,7 @@ async def asend_mail(
     Returns:
         envelope_id on success, None if fail_silently.
     """
-    from .message import EmailMessage
+    from aquilia.mail.message import EmailMessage
 
     msg = EmailMessage(
         subject=subject,
@@ -316,8 +316,8 @@ class MailService:
         self._started = False
         self.logger = logger
 
-        from .store import MemoryEnvelopeStore
-        from .suppression import MemorySuppressionList
+        from aquilia.mail.store import MemoryEnvelopeStore
+        from aquilia.mail.suppression import MemorySuppressionList
 
         #: Durable record of accepted mail. Defaults to in-process; pair a
         #: SQLEnvelopeStore with a persistent task backend for real durability.
@@ -368,7 +368,7 @@ class MailService:
 
         # Console fallback for development
         if self.config.console_backend and "console" not in self._providers:
-            from .providers.console import ConsoleProvider
+            from aquilia.mail.providers.console import ConsoleProvider
 
             cp = ConsoleProvider()
             await cp.initialize()
@@ -391,8 +391,8 @@ class MailService:
         if self._stores_explicit or not getattr(self.config.queue, "persistent", False):
             return
 
-        from .store import SQLEnvelopeStore
-        from .suppression import SQLSuppressionList
+        from aquilia.mail.store import SQLEnvelopeStore
+        from aquilia.mail.suppression import SQLSuppressionList
 
         self.store = SQLEnvelopeStore()
         self.suppression = SQLSuppressionList()
@@ -421,8 +421,8 @@ class MailService:
                 e,
             )
 
-        from .store import MemoryEnvelopeStore
-        from .suppression import MemorySuppressionList
+        from aquilia.mail.store import MemoryEnvelopeStore
+        from aquilia.mail.suppression import MemorySuppressionList
 
         self.store = MemoryEnvelopeStore()
         self.suppression = MemorySuppressionList()
@@ -433,7 +433,7 @@ class MailService:
         """Point the ATS renderer at the configured template directories."""
         dirs = getattr(self.config.templates, "dirs", None)
         if dirs:
-            from .template import configure
+            from aquilia.mail.template import configure
 
             configure(list(dirs))
 
@@ -585,7 +585,7 @@ class MailService:
         rate_limit = getattr(pc, "rate_limit_per_min", 600)
 
         if pc.type == "smtp":
-            from .providers.smtp import SMTPProvider
+            from aquilia.mail.providers.smtp import SMTPProvider
 
             config.pop("host", None)
             config.pop("port", None)
@@ -607,7 +607,7 @@ class MailService:
                 **config,
             )
         elif pc.type == "ses":
-            from .providers.ses import SESProvider
+            from aquilia.mail.providers.ses import SESProvider
 
             config.pop("region", None)
             config.pop("aws_access_key_id", None)
@@ -629,7 +629,7 @@ class MailService:
                 **config,
             )
         elif pc.type == "sendgrid":
-            from .providers.sendgrid import SendGridProvider
+            from aquilia.mail.providers.sendgrid import SendGridProvider
 
             config.pop("api_key", None)
             return SendGridProvider(
@@ -640,11 +640,11 @@ class MailService:
                 **config,
             )
         elif pc.type == "console":
-            from .providers.console import ConsoleProvider
+            from aquilia.mail.providers.console import ConsoleProvider
 
             return ConsoleProvider(name=pc.name)
         elif pc.type == "file":
-            from .providers.file import FileProvider
+            from aquilia.mail.providers.file import FileProvider
 
             config.pop("output_dir", None)
             return FileProvider(
@@ -689,7 +689,7 @@ class MailService:
         IMailProvider implementations registered in the app.
         """
         try:
-            from .di_providers import MailProviderRegistry
+            from aquilia.mail.di_providers import MailProviderRegistry
 
             registry = MailProviderRegistry()
             return registry.get_provider_class(provider_type)
@@ -1001,12 +1001,12 @@ class MailService:
             MailSendFault: On permanent failure, or on transient failure with
                 no retry budget or no task manager to carry the retry.
         """
-        from .faults import MailSendFault
+        from aquilia.mail.faults import MailSendFault
 
         if not self._providers:
             if self.config.console_backend:
                 # Auto-create console provider
-                from .providers.console import ConsoleProvider
+                from aquilia.mail.providers.console import ConsoleProvider
 
                 cp = ConsoleProvider()
                 await cp.initialize()

@@ -32,7 +32,7 @@ from collections import OrderedDict, defaultdict
 from heapq import heapify, heappop, heappush
 from typing import Any
 
-from ..core import CacheBackend, CacheEntry, CacheStats, EvictionPolicy
+from aquilia.cache.core import CacheBackend, CacheEntry, CacheStats, EvictionPolicy
 
 logger = logging.getLogger("aquilia.cache.memory")
 

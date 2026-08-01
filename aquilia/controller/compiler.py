@@ -11,17 +11,11 @@ import inspect
 from dataclasses import dataclass
 from typing import Any
 
-from ..patterns import (
-    CompiledPattern,
-    PatternCompiler,
-    PatternSemanticError,
-    parse_pattern,
-)
-from .metadata import (
-    ControllerMetadata,
-    RouteMetadata,
-    extract_controller_metadata,
-)
+from aquilia.controller.metadata import ControllerMetadata, RouteMetadata, extract_controller_metadata
+from aquilia.patterns import CompiledPattern, PatternCompiler, PatternSemanticError, parse_pattern
+from aquilia.utils.urls import join_paths
+from aquilia.versioning.core import VERSION_NEUTRAL
+from aquilia.versioning.parser import SemanticVersionParser
 
 
 @dataclass
@@ -218,7 +212,6 @@ class ControllerCompiler:
         base_prefix: str | None = None,
     ) -> CompiledRoute:
         """Compile a single route."""
-        from aquilia.utils.urls import join_paths
 
         # Build components
         base = base_prefix or ""
@@ -392,7 +385,6 @@ class ControllerCompiler:
             ("range", (min_str_or_None, max_str_or_None))
             ("none", None)
         """
-        from aquilia.versioning.core import VERSION_NEUTRAL
 
         handler = getattr(controller_class, route_metadata.handler_name, None)
         version_meta = getattr(handler, "__version_metadata__", None) if handler else None
@@ -436,8 +428,6 @@ class ControllerCompiler:
         kind2, payload2 = c2
         if kind1 in ("none", "neutral") or kind2 in ("none", "neutral"):
             return True
-
-        from aquilia.versioning.parser import SemanticVersionParser
 
         parser = SemanticVersionParser()
 

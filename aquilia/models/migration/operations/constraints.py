@@ -19,12 +19,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from ....faults.domains import MigrationFault
-from .base import Operation, OperationCategory, register_operation
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.operations.base import Operation, OperationCategory, register_operation
 
 if TYPE_CHECKING:
-    from ..backends import SchemaBackend, Statement
-    from ..schema import ConstraintState, ProjectState
+    from aquilia.models.migration.backends import SchemaBackend, Statement
+    from aquilia.models.migration.schema import ConstraintState, ProjectState
 
 __all__ = ["AddConstraint", "RemoveConstraint", "AlterConstraint"]
 
@@ -101,7 +101,7 @@ class AddConstraint(Operation):
                 express an equivalent. SQLite raises here for ``CHECK``
                 constraints, rather than emitting a comment and reporting success.
         """
-        from ..schema import UniqueConstraintState
+        from aquilia.models.migration.schema import UniqueConstraintState
 
         key = state.key_for(self.model) or self.model
         table = state.resolve(self.model)
@@ -185,7 +185,7 @@ class RemoveConstraint(Operation):
                 backend -- if the dialect cannot drop constraints and no
                 rebuild path applies.
         """
-        from ..schema import UniqueConstraintState
+        from aquilia.models.migration.schema import UniqueConstraintState
 
         key = state.key_for(self.model) or self.model
 

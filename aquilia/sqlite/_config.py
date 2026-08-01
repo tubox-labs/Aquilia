@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from aquilia.db.configs import SqliteConfig
+from aquilia.faults.domains import ConfigInvalidFault
 
 __all__ = [
     "SqlitePoolConfig",
@@ -83,7 +84,6 @@ class SqlitePoolConfig:
 
     def _validate(self) -> None:
         """Validate configuration values."""
-        from aquilia.faults.domains import ConfigInvalidFault
 
         jm = self.journal_mode.upper()
         if jm not in JOURNAL_MODES:

@@ -14,9 +14,8 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from aquilia.request import Request
     from aquilia.response import Response
-
-    from .core import Session
-    from .policy import TransportPolicy
+    from aquilia.sessions.core import Session
+    from aquilia.sessions.policy import TransportPolicy
 
 
 # ============================================================================
@@ -145,7 +144,7 @@ class CookieTransport:
 
     @classmethod
     def for_web_browsers(cls) -> CookieTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(
             adapter="cookie",
@@ -159,7 +158,7 @@ class CookieTransport:
 
     @classmethod
     def for_spa_applications(cls) -> CookieTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(
             adapter="cookie",
@@ -173,7 +172,7 @@ class CookieTransport:
 
     @classmethod
     def for_mobile_webviews(cls) -> CookieTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(
             adapter="cookie",
@@ -187,7 +186,7 @@ class CookieTransport:
 
     @classmethod
     def with_aquilia_defaults(cls) -> CookieTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(
             adapter="cookie",
@@ -231,35 +230,35 @@ class HeaderTransport:
 
     @classmethod
     def for_rest_apis(cls) -> HeaderTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(adapter="header", header_name="X-Session-ID")
         return cls(policy)
 
     @classmethod
     def for_graphql_apis(cls) -> HeaderTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(adapter="header", header_name="X-GraphQL-Session")
         return cls(policy)
 
     @classmethod
     def for_mobile_apis(cls) -> HeaderTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(adapter="header", header_name="X-Mobile-Session")
         return cls(policy)
 
     @classmethod
     def for_microservices(cls) -> HeaderTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(adapter="header", header_name="X-Service-Session")
         return cls(policy)
 
     @classmethod
     def with_aquilia_defaults(cls) -> HeaderTransport:
-        from .policy import TransportPolicy
+        from aquilia.sessions.policy import TransportPolicy
 
         policy = TransportPolicy(adapter="header", header_name="X-Aquilia-Session")
         return cls(policy)
@@ -272,7 +271,7 @@ class HeaderTransport:
 
 def create_transport(policy: TransportPolicy) -> CookieTransport | HeaderTransport:
     """Create transport adapter from policy."""
-    from .faults import SessionTransportFault
+    from aquilia.sessions.faults import SessionTransportFault
 
     if policy.adapter == "cookie":
         return CookieTransport(policy)

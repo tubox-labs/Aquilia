@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, TypeAlias
 
-from .common import JSONValue
+from aquilia.typing.common import JSONValue
 
 ManifestName: TypeAlias = str
 ModuleName: TypeAlias = str

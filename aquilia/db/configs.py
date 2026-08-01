@@ -39,6 +39,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import quote_plus, urlparse
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 __all__ = [
     "DatabaseConfig",
     "SqliteConfig",
@@ -156,8 +158,6 @@ class DatabaseConfig:
         elif url.startswith("oracle"):
             return OracleConfig.from_url(url, **overrides)
         else:
-            from ..faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="database.url",
                 reason=f"Unsupported database URL scheme: {url}",

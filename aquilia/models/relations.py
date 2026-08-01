@@ -30,8 +30,10 @@ treating a raw scalar as if it were the related object.
 
 from typing import TYPE_CHECKING, Any, Generic, TypeAlias, TypeVar
 
+from aquilia.faults.domains import RelatedNotLoadedFault
+
 if TYPE_CHECKING:
-    from .base import Model
+    from aquilia.models.base import Model
 
 __all__ = ["RelatedNotLoaded", "Related", "TModel"]
 
@@ -133,7 +135,6 @@ class RelatedNotLoaded(Generic[TModel]):
         so this fails loud with guidance on how to hydrate the relation
         instead of raising a confusing ``AttributeError``.
         """
-        from ..faults.domains import RelatedNotLoadedFault
 
         raise RelatedNotLoadedFault(
             model_name=self._owner_model_name,

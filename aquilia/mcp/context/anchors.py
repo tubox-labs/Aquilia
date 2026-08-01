@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..models import SourceAnchor
+from aquilia.mcp.models import SourceAnchor
 
 
 def anchor_label(anchor: SourceAnchor) -> str:

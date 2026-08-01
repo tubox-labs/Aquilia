@@ -37,22 +37,16 @@ from typing import (
     BinaryIO,
 )
 
+from aquilia.filesystem._config import FileSystemConfig as _FsConfig
+from aquilia.filesystem._errors import PathTraversalFault as _PathTraversalFault
+from aquilia.filesystem._pool import FileSystemPool as _FsPool
+from aquilia.filesystem._security import validate_path as _validate_path
+from aquilia.filesystem._streaming import AsyncFileStream as _AsyncFileStream
+from aquilia.filesystem._streaming import AsyncWriteStream as _AsyncWriteStream
+from aquilia.filesystem._streaming import stream_copy as _stream_copy
+from aquilia.storage.base import FileNotFoundError, PermissionError, StorageBackend, StorageFile, StorageMetadata
+from aquilia.storage.configs import LocalConfig
 from aquilia.typing import PathLike
-
-from ...filesystem._config import FileSystemConfig as _FsConfig
-from ...filesystem._errors import PathTraversalFault as _PathTraversalFault
-from ...filesystem._pool import FileSystemPool as _FsPool
-from ...filesystem._security import validate_path as _validate_path
-from ...filesystem._streaming import AsyncFileStream as _AsyncFileStream
-from ...filesystem._streaming import AsyncWriteStream as _AsyncWriteStream
-from ..base import (
-    FileNotFoundError,
-    PermissionError,
-    StorageBackend,
-    StorageFile,
-    StorageMetadata,
-)
-from ..configs import LocalConfig
 
 # Lazy-initialised shared pool for all LocalStorage instances
 _pool: _FsPool | None = None
@@ -292,8 +286,6 @@ class LocalStorage(StorageBackend):
 
         if self._config.create_dirs:
             await _get_pool().run(lambda: dst_path.parent.mkdir(parents=True, exist_ok=True))
-
-        from ...filesystem._streaming import stream_copy as _stream_copy
 
         await _stream_copy(
             src_path,

@@ -28,8 +28,8 @@ from typing import (
     Any,
 )
 
-from ._errors import FileClosedFault, wrap_os_error
-from ._pool import FileSystemPool
+from aquilia.filesystem._errors import FileClosedFault, wrap_os_error
+from aquilia.filesystem._pool import FileSystemPool
 
 
 class AsyncFile:

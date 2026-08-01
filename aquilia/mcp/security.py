@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .faults import MCPSecurityFault
+from aquilia.mcp.faults import MCPSecurityFault
 
 _BINARY_SUFFIXES = {
     ".DS_Store",

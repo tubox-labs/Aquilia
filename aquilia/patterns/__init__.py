@@ -11,16 +11,15 @@ This module provides a unique, expressive, static-first URL pattern system with:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .autofix import (
+from aquilia.patterns.autofix import (
     AutoFixEngine,
     DiagnosticFix,
     ErrorRecovery,
     FixSuggestion,
     generate_fix_suggestions,
 )
-from .cache import PatternCache, compile_pattern, get_global_cache, set_global_cache
-from .compiler.ast_nodes import (
+from aquilia.patterns.cache import PatternCache, compile_pattern, get_global_cache, set_global_cache
+from aquilia.patterns.compiler.ast_nodes import (
     OptionalGroup,
     PatternAST,
     QueryParam,
@@ -28,20 +27,20 @@ from .compiler.ast_nodes import (
     StaticSegment,
     TokenSegment,
 )
-from .compiler.compiler import CompiledPattern, PatternCompiler
-from .compiler.parser import PatternParser, PatternToken, parse_pattern
-from .compiler.specificity import calculate_specificity
-from .diagnostics.errors import (
+from aquilia.patterns.compiler.compiler import CompiledPattern, PatternCompiler
+from aquilia.patterns.compiler.parser import PatternParser, PatternToken, parse_pattern
+from aquilia.patterns.compiler.specificity import calculate_specificity
+from aquilia.patterns.diagnostics.errors import (
     PatternDiagnostic,
     PatternSemanticError,
     PatternSyntaxError,
     RouteAmbiguityError,
 )
-from .matcher import MatchResult, PatternMatcher
-from .openapi import generate_openapi_params
-from .transforms.registry import TransformRegistry, register_transform
-from .types.registry import TypeRegistry, register_type
-from .validators.registry import ConstraintRegistry, register_constraint
+from aquilia.patterns.matcher import MatchResult, PatternMatcher
+from aquilia.patterns.openapi import generate_openapi_params
+from aquilia.patterns.transforms.registry import TransformRegistry, register_transform
+from aquilia.patterns.types.registry import TypeRegistry, register_type
+from aquilia.patterns.validators.registry import ConstraintRegistry, register_constraint
 
 __all__ = [
     # Parser

@@ -35,7 +35,7 @@ from aquilia.sessions import (
 )
 
 if TYPE_CHECKING:
-    from ..core import Identity, TokenClaims
+    from aquilia.auth.core import Identity, TokenClaims
 
 
 # ============================================================================

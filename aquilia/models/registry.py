@@ -12,9 +12,11 @@ import logging
 import threading
 from typing import TYPE_CHECKING, Any
 
+from aquilia.faults.domains import DatabaseConnectionFault
+
 if TYPE_CHECKING:
-    from ..db.engine import AquiliaDatabase
-    from .base import Model
+    from aquilia.db.engine import AquiliaDatabase
+    from aquilia.models.base import Model
 
 logger = logging.getLogger("aquilia.models.registry")
 
@@ -354,7 +356,7 @@ class ModelRegistry:
         Examples:
             >>> ModelRegistry._resolve_relations()
         """
-        from .fields_module import RelationField
+        from aquilia.models.fields_module import RelationField
 
         with cls._lock:
             models_snapshot = dict(cls._models)
@@ -389,17 +391,15 @@ class ModelRegistry:
             ordered = cls._topological_sort()
 
         if not target_db:
-            from ..faults.domains import DatabaseConnectionFault
-
             raise DatabaseConnectionFault(
                 url="(none)",
                 reason="No database configured for ModelRegistry. "
                 "Call ModelRegistry.set_database(db) before create_tables().",
             )
 
-        from .migration import ProjectState
-        from .migration.executor import MigrationExecutor
-        from .migration.operations import CreateManyToManyTable, CreateModel
+        from aquilia.models.migration import ProjectState
+        from aquilia.models.migration.executor import MigrationExecutor
+        from aquilia.models.migration.operations import CreateManyToManyTable, CreateModel
 
         target_state = ProjectState.from_models(ordered)
 
@@ -432,7 +432,7 @@ class ModelRegistry:
         Return Value:
             None.
         """
-        from .migration.executor import MigrationExecutor
+        from aquilia.models.migration.executor import MigrationExecutor
 
         executor = MigrationExecutor(db)
         await executor.ensure_tracking_table()
@@ -458,7 +458,7 @@ class ModelRegistry:
         """
         Sort registered models topologically based on foreign key dependencies.
         """
-        from .fields_module import ForeignKey, OneToOneField
+        from aquilia.models.fields_module import ForeignKey, OneToOneField
 
         with cls._lock:
             deps: dict[str, set] = {}
@@ -521,8 +521,6 @@ class ModelRegistry:
             models_snapshot = list(cls._models.values())
 
         if not target_db:
-            from ..faults.domains import DatabaseConnectionFault
-
             raise DatabaseConnectionFault(
                 url="(none)",
                 reason="No database configured for ModelRegistry. "
@@ -549,9 +547,9 @@ class ModelRegistry:
         Exceptions:
             MigrationFault: If a drop statement fails.
         """
-        from .migration import ProjectState
-        from .migration.executor import MigrationExecutor
-        from .migration.operations import DeleteManyToManyTable, DeleteModel
+        from aquilia.models.migration import ProjectState
+        from aquilia.models.migration.executor import MigrationExecutor
+        from aquilia.models.migration.operations import DeleteManyToManyTable, DeleteModel
 
         concrete = [m for m in models_snapshot if not getattr(m._meta, "abstract", False)]
         state = ProjectState.from_models(concrete)
@@ -647,7 +645,7 @@ class ModelRegistry:
         issues: list[str] = []
         table_names: dict[str, str] = {}
 
-        from .fields_module import ForeignKey, ManyToManyField
+        from aquilia.models.fields_module import ForeignKey, ManyToManyField
 
         with cls._lock:
             models_snapshot = dict(cls._models)

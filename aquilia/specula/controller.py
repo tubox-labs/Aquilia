@@ -15,12 +15,11 @@ import re
 from typing import Any
 
 from aquilia.response import Response
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.faults import VersionNotFoundFault
+from aquilia.specula.service import SpeculaService
+from aquilia.specula.ui.renderer import SpeculaRenderer
 from aquilia.sse import SSEEvent, SSEResponse
-
-from .config import SpeculaConfig
-from .faults import VersionNotFoundFault
-from .service import SpeculaService
-from .ui.renderer import SpeculaRenderer
 
 _SCHEMA_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,127}$")
 
@@ -158,7 +157,7 @@ class SpeculaController:
 
     async def routes_index(self, request: Any, ctx: Any) -> Response:
         """Enriched route catalogue: module, effects, pipeline, version."""
-        from .introspect.routes import enrich_routes
+        from aquilia.specula.introspect.routes import enrich_routes
 
         spec = await self.service.get_spec()
         routes = enrich_routes(spec)

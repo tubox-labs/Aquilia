@@ -19,27 +19,27 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aquilia.auth.backends.base import resolve_backend
+from aquilia.auth.core import Identity
+from aquilia.auth.faults import AUTH_REQUIRED
+from aquilia.auth.integration.aquila_sessions import SessionAuthBridge, bind_identity, bind_token_claims
+from aquilia.auth.integration.runtime_context import (
+    AuthRuntimeContext,
+    reset_auth_runtime_context,
+    set_auth_runtime_context,
+)
+from aquilia.auth.manager import AuthManager
 from aquilia.di import Container
-from aquilia.faults import FaultEngine
+from aquilia.di.providers import ValueProvider
+from aquilia.faults import Fault, FaultDomain, FaultEngine
 from aquilia.middleware import Handler, Middleware
 from aquilia.request import Request
 from aquilia.response import Response
-from aquilia.sessions import SessionEngine
-
-from ..core import Identity
-from ..faults import AUTH_REQUIRED
-from ..manager import AuthManager
-from .aquila_sessions import (
-    SessionAuthBridge,
-    bind_identity,
-    bind_token_claims,
-)
-from .runtime_context import AuthRuntimeContext, reset_auth_runtime_context, set_auth_runtime_context
+from aquilia.sessions import Session, SessionEngine
 
 if TYPE_CHECKING:
+    from aquilia.auth.backends import AuthBackend
     from aquilia.di import RequestCtx
-
-    from ..backends import AuthBackend
 
 
 # ============================================================================
@@ -100,7 +100,6 @@ class AquilAuthMiddleware(Middleware):
                 "aquilia.auth.backends.SessionBackend",
             ]
         )
-        from ..backends.base import resolve_backend
 
         resolved_backends = [resolve_backend(b, auth_manager) for b in _backends]
 
@@ -269,7 +268,6 @@ class AquilAuthMiddleware(Middleware):
 
     def _fault_to_response(self, fault_result: Any) -> Response:
         """Convert fault result to HTTP response."""
-        from aquilia.faults import Fault, FaultDomain
 
         # If the result is a Resolved with a response, use it
         if hasattr(fault_result, "value") and isinstance(fault_result.value, Response):
@@ -430,9 +428,6 @@ class SessionMiddleware(Middleware):
 
         # Register in DI if available
         if container:
-            from aquilia.di.providers import ValueProvider
-            from aquilia.sessions import Session
-
             container.register(
                 ValueProvider(
                     value=session,
@@ -577,7 +572,6 @@ class EnhancedRequestScopeMiddleware(Middleware):
         request.state["di_container"] = request_container
 
         # Register request in DI
-        from aquilia.di.providers import ValueProvider
 
         request_container.register(
             ValueProvider(

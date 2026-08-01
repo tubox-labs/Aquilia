@@ -5,8 +5,8 @@ Graph analysis and cycle detection for DI system.
 import sys
 from collections import defaultdict, deque
 
-from .core import Provider
-from .errors import DependencyCycleError
+from aquilia.di.core import Provider
+from aquilia.di.errors import DependencyCycleError
 
 
 class DependencyGraph:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..core import CacheBackend, CacheEntry, CacheStats
+from aquilia.cache.core import CacheBackend, CacheEntry, CacheStats
 
 
 class NullBackend(CacheBackend):

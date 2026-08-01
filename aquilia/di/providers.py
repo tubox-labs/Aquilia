@@ -9,8 +9,8 @@ from collections.abc import Callable, Coroutine
 from contextlib import asynccontextmanager, suppress
 from typing import Any, TypeVar
 
-from .core import Provider, ProviderMeta, ResolveCtx
-from .errors import DIError
+from aquilia.di.core import Provider, ProviderMeta, ResolveCtx
+from aquilia.di.errors import DIError
 
 T = TypeVar("T")
 
@@ -27,7 +27,7 @@ async def _resolve_dependencies(dependencies: dict[str, dict[str, Any]], ctx: Re
     if not dependencies:
         return {}
 
-    from .settings import get_di_settings
+    from aquilia.di.settings import get_di_settings
 
     if len(dependencies) > 1 and get_di_settings().parallel_resolution:
         names = list(dependencies.keys())
@@ -543,7 +543,7 @@ class PoolProvider:
     ):
         # SEC-DI-05: Validate pool size
         if max_size < 1:
-            from ..faults.domains import DIResolutionFault
+            from aquilia.faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=str(token),
@@ -596,7 +596,7 @@ class PoolProvider:
         # SEC-DI-14: bound the number of concurrent waiters so a burst against
         # an exhausted pool fast-fails instead of thundering-herd queueing.
         if self._max_waiters is not None and self._waiters >= self._max_waiters:
-            from ..faults.domains import DIResolutionFault
+            from aquilia.faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=self._meta.token,
@@ -610,7 +610,7 @@ class PoolProvider:
         try:
             return await asyncio.wait_for(self._pool.get(), timeout=self._acquire_timeout)
         except asyncio.TimeoutError:
-            from ..faults.domains import DIResolutionFault
+            from aquilia.faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=self._meta.token,
@@ -806,7 +806,7 @@ class _LazyProxy:
         per-thread loop (Bug 8 — no throwaway loop per access).
         """
         if object.__getattribute__(self, "_instance") is None:
-            from ._sync_bridge import run_sync
+            from aquilia.di._sync_bridge import run_sync
 
             instance = run_sync(
                 object.__getattribute__(self, "_container").resolve_async(

@@ -32,14 +32,9 @@ from typing import (
     BinaryIO,
 )
 
-from ..base import (
-    BackendUnavailableError,
-    StorageBackend,
-    StorageFile,
-    StorageMetadata,
-)
-from ..configs import CompositeConfig, config_from_dict
-from ..registry import create_backend
+from aquilia.storage.base import BackendUnavailableError, StorageBackend, StorageFile, StorageMetadata
+from aquilia.storage.configs import CompositeConfig, config_from_dict
+from aquilia.storage.registry import create_backend
 
 
 class CompositeStorage(StorageBackend):

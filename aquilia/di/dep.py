@@ -234,7 +234,7 @@ class Header:
         request = context.get("request")
         if request is None:
             if self.required:
-                from ..faults.domains import BadRequestFault
+                from aquilia.faults.domains import BadRequestFault
 
                 raise BadRequestFault(
                     message=f"No request available for Header('{self.name}')",
@@ -250,7 +250,7 @@ class Header:
 
         if value is None:
             if self.required:
-                from ..faults.domains import BadRequestFault
+                from aquilia.faults.domains import BadRequestFault
 
                 raise BadRequestFault(
                     message=f"Missing required header: {self.name}",
@@ -312,7 +312,7 @@ class Query:
 
         if value is None:
             if self.required:
-                from ..faults.domains import BadRequestFault
+                from aquilia.faults.domains import BadRequestFault
 
                 raise BadRequestFault(
                     message=f"Missing required query parameter: {param_name}",
@@ -371,7 +371,7 @@ class Cookie:
 
         if value is None:
             if self.required:
-                from ..faults.domains import BadRequestFault
+                from aquilia.faults.domains import BadRequestFault
 
                 raise BadRequestFault(
                     message=f"Missing required cookie: {cookie_name}",
@@ -425,7 +425,7 @@ class Path:
             value = request.path_params.get(param_name)
         if value is None:
             if self.required:
-                from ..faults.domains import BadRequestFault
+                from aquilia.faults.domains import BadRequestFault
 
                 raise BadRequestFault(
                     message=f"Missing required path parameter: {param_name}",

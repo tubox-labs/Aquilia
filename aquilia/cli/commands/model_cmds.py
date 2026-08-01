@@ -22,6 +22,13 @@ from pathlib import Path
 
 import click
 
+from aquilia.models.base import ModelRegistry
+from aquilia.models.migration import MigrationEngine
+from aquilia.models.migration.autodetect import detect_changes
+from aquilia.models.migration.executor import MigrationExecutor
+from aquilia.models.migration.schema import ProjectState
+from aquilia.models.migration.serializer import revision_from_path
+
 # ── Discovery Helpers ─────────────────────────────────────────────────────────
 
 
@@ -337,8 +344,6 @@ def cmd_makemigrations(
         )
         return []
 
-    from aquilia.models.migration import MigrationEngine
-
     engine = MigrationEngine(migrations_dir)
     generated = engine.make_migrations(models, slug=slug, dry_run=dry_run)
 
@@ -380,10 +385,10 @@ def cmd_migrate(
     Returns:
         List of applied revision IDs
     """
-    from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration import MigrationEngine
 
     async def _run() -> list[str]:
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
@@ -569,9 +574,9 @@ def cmd_shell(
     click.echo(click.style("Aquilia Model Shell", fg="cyan", bold=True))
     click.echo(click.style("Type 'exit()' or Ctrl+D to quit.\n", dim=True))
 
-    from aquilia.db import AquiliaDatabase, set_database
-
     async def _setup():
+        from aquilia.db import AquiliaDatabase, set_database
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         set_database(db)
@@ -658,9 +663,10 @@ def cmd_inspectdb(
     Returns:
         Generated Python source code
     """
-    from aquilia.db import AquiliaDatabase
 
     async def _run() -> str:
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
 
@@ -754,9 +760,6 @@ def cmd_showmigrations(
     Returns:
         List of dicts with keys: name, file, applied
     """
-    from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration.executor import MigrationExecutor
-    from aquilia.models.migration.serializer import revision_from_path
 
     migrations_path = Path(migrations_dir)
 
@@ -775,6 +778,8 @@ def cmd_showmigrations(
     applied_set: set[str] = set()
 
     async def _fetch_applied() -> set[str]:
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         try:
             await db.connect()
@@ -889,9 +894,10 @@ def cmd_db_status(
     Returns:
         Dict with database status information
     """
-    from aquilia.db import AquiliaDatabase
 
     async def _run() -> dict:
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
 
@@ -1005,10 +1011,10 @@ def cmd_history(
     verbose: bool = False,
 ) -> list[dict]:
     """Show migration history with application timestamps and checksums."""
-    from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration.executor import MigrationExecutor
 
     async def _run():
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
@@ -1106,10 +1112,10 @@ def cmd_rollback(
         click.ClickException: If no rollback target can be determined, or the
             requested target is not among the applied migrations.
     """
-    from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration import MigrationEngine
 
     async def _run() -> list[str]:
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
@@ -1222,11 +1228,10 @@ def cmd_check(
     verbose: bool = False,
 ) -> bool:
     """Validate migration integrity, naming conventions, and checksums."""
-    from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration import MigrationEngine
-    from aquilia.models.migration.serializer import revision_from_path
 
     async def _run() -> bool:
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
@@ -1321,14 +1326,12 @@ def cmd_diff(
         ``True`` when the database matches the target, ``False`` on drift or when
         the comparison could not be made.
     """
-    from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration import MigrationEngine
-    from aquilia.models.migration.autodetect import detect_changes
-    from aquilia.models.migration.schema import ProjectState
 
     models = _discover_models(verbose=verbose, ignore_errors=True)
 
     async def _run() -> bool:
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
@@ -1386,9 +1389,6 @@ def cmd_seed(
     import importlib.util
     import inspect
 
-    from aquilia.db import AquiliaDatabase, set_database
-    from aquilia.models.base import ModelRegistry
-
     seed_path = None
     if seed_file:
         p = Path(seed_file)
@@ -1422,6 +1422,8 @@ def cmd_seed(
     click.echo(f"Running seed script: {seed_path}")
 
     async def _run():
+        from aquilia.db import AquiliaDatabase, set_database
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         set_database(db)
@@ -1477,10 +1479,9 @@ def cmd_reset(
             abort=True,
         )
 
-    from aquilia.db import AquiliaDatabase
-    from aquilia.models.migration import MigrationEngine
-
     async def _run():
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:
@@ -1550,9 +1551,9 @@ def cmd_flush(
             abort=True,
         )
 
-    from aquilia.db import AquiliaDatabase
-
     async def _run():
+        from aquilia.db import AquiliaDatabase
+
         db = AquiliaDatabase(database_url)
         await db.connect()
         try:

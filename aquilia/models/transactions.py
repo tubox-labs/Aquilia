@@ -65,8 +65,11 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
 from typing import TYPE_CHECKING
 
+from aquilia.db.engine import get_database
+from aquilia.faults.domains import QueryFault
+
 if TYPE_CHECKING:
-    from ..db.engine import AquiliaDatabase
+    from aquilia.db.engine import AquiliaDatabase
 
 logger = logging.getLogger("aquilia.models.transactions")
 
@@ -182,7 +185,6 @@ class Atomic:
     def _get_db(self) -> AquiliaDatabase:
         if self._db is not None:
             return self._db
-        from ..db.engine import get_database
 
         return get_database()
 
@@ -281,8 +283,6 @@ class Atomic:
                 }
                 normalized_isolation = self._isolation.upper().strip()
                 if normalized_isolation not in _ALLOWED_ISOLATION_LEVELS:
-                    from ..faults.domains import QueryFault
-
                     raise QueryFault(
                         model="(transaction)",
                         operation="atomic",
@@ -298,8 +298,6 @@ class Atomic:
             self._depth_token = _txn_depth.set(1)
         else:
             if self._durable:
-                from ..faults.domains import QueryFault
-
                 raise QueryFault(
                     model="(transaction)",
                     operation="atomic",
@@ -412,8 +410,6 @@ class Atomic:
                 _txn_depth.reset(self._depth_token)
 
         if self._timed_out and exc_type is not None and issubclass(exc_type, asyncio.CancelledError):
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model="(transaction)",
                 operation="atomic",
@@ -471,8 +467,6 @@ class Atomic:
                 independently as a second line of defense.
         """
         if not _SP_NAME_RE.match(savepoint_id):
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(
                 message=f"Invalid savepoint name: {savepoint_id!r}. Must be alphanumeric/underscores only.",
             )
@@ -494,8 +488,6 @@ class Atomic:
                 :meth:`rollback_to_savepoint`.
         """
         if not _SP_NAME_RE.match(savepoint_id):
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(
                 message=f"Invalid savepoint name: {savepoint_id!r}. Must be alphanumeric/underscores only.",
             )
@@ -516,8 +508,6 @@ class Atomic:
         transaction state.
         """
         if not inspect.iscoroutinefunction(func):
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model="(transaction)",
                 operation="atomic",

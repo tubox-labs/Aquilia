@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from .core import FaultContext, FaultResult
+from aquilia.faults.core import FaultContext, FaultResult
 
 
 class FaultHandler(ABC):
@@ -96,7 +96,7 @@ class CompositeHandler(FaultHandler):
         Returns:
             First non-Escalate result, or Escalate if all decline
         """
-        from .core import Escalate
+        from aquilia.faults.core import Escalate
 
         for handler in self.handlers:
             if not handler.can_handle(ctx):

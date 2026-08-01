@@ -27,28 +27,23 @@ Logging:
 - LoggingMiddleware: Structured access logging (CLF, JSON, dev)
 """
 
-from .effect_middleware import (
-    EffectMiddleware,
-    FlowContextMiddleware,
-)
-from .logging import (
+from aquilia.middleware_ext.effect_middleware import EffectMiddleware, FlowContextMiddleware
+from aquilia.middleware_ext.logging import (
     CombinedLogFormatter,
     DevLogFormatter,
     LoggingMiddleware,
     StructuredLogFormatter,
 )
-from .logging import (
-    LoggingMiddleware as EnhancedLoggingMiddleware,
-)
-from .rate_limit import (
+from aquilia.middleware_ext.logging import LoggingMiddleware as EnhancedLoggingMiddleware
+from aquilia.middleware_ext.rate_limit import (
     RateLimitMiddleware,
     RateLimitRule,
     api_key_extractor,
     ip_key_extractor,
     user_key_extractor,
 )
-from .request_scope import RequestScopeMiddleware, SimplifiedRequestScopeMiddleware
-from .security import (
+from aquilia.middleware_ext.request_scope import RequestScopeMiddleware, SimplifiedRequestScopeMiddleware
+from aquilia.middleware_ext.security import (
     CORSMiddleware,
     CSPMiddleware,
     CSPPolicy,
@@ -61,8 +56,8 @@ from .security import (
     csrf_exempt,
     csrf_token_func,
 )
-from .session_middleware import SessionMiddleware
-from .static import StaticMiddleware
+from aquilia.middleware_ext.session_middleware import SessionMiddleware
+from aquilia.middleware_ext.static import StaticMiddleware
 
 __all__ = [
     # Core

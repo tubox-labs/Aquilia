@@ -16,8 +16,8 @@ import time
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ._connection import AsyncConnection
-    from ._metrics import SqliteMetrics
+    from aquilia.sqlite._connection import AsyncConnection
+    from aquilia.sqlite._metrics import SqliteMetrics
 
 logger = logging.getLogger("aquilia.sqlite.transaction")
 

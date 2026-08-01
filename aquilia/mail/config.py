@@ -15,16 +15,9 @@ files, environment variables, or the Workspace fluent API.
 
 from __future__ import annotations
 
-from ..contracts.core import Contract
-from ..contracts.facets import (
-    BoolFacet,
-    ChoiceFacet,
-    DictFacet,
-    FloatFacet,
-    IntFacet,
-    ListFacet,
-    TextFacet,
-)
+from aquilia.contracts.core import Contract
+from aquilia.contracts.facets import BoolFacet, ChoiceFacet, DictFacet, FloatFacet, IntFacet, ListFacet, TextFacet
+from aquilia.faults.domains import ConfigInvalidFault
 
 # ── Provider types ──────────────────────────────────────────────────
 
@@ -296,8 +289,6 @@ class RetryConfigContract(Contract):
         base = attrs.get("base_delay", 1.0)
         mx = attrs.get("max_delay", 3600.0)
         if base > mx:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="retry.base_delay",
                 reason="base_delay must be <= max_delay",

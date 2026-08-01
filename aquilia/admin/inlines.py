@@ -112,7 +112,7 @@ class InlineModelAdmin:
         if len(fk_candidates) == 1:
             return fk_candidates[0]
         elif len(fk_candidates) == 0:
-            from .faults import AdminInlineFault
+            from aquilia.admin.faults import AdminInlineFault
 
             raise AdminInlineFault(
                 reason="No ForeignKey found. Set fk_name explicitly.",
@@ -120,7 +120,7 @@ class InlineModelAdmin:
                 parent_model=self._parent_model.__name__,
             )
         else:
-            from .faults import AdminInlineFault
+            from aquilia.admin.faults import AdminInlineFault
 
             raise AdminInlineFault(
                 reason=f"Multiple ForeignKeys found: {fk_candidates}. Set fk_name explicitly.",

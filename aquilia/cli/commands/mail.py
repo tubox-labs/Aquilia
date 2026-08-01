@@ -16,6 +16,11 @@ from pathlib import Path
 
 import click
 
+from aquilia.config import ConfigLoader
+from aquilia.mail.config import MailConfig
+from aquilia.mail.message import EmailMessage
+from aquilia.mail.service import MailService
+
 
 def _load_mail_config() -> dict:
     """Load mail config from workspace.py or config files."""
@@ -33,7 +38,6 @@ def _load_mail_config() -> dict:
                 return ws_dict.get("mail", ws_dict.get("integrations", {}).get("mail", {}))
 
     # Fallback to ConfigLoader
-    from aquilia.config import ConfigLoader
 
     config = ConfigLoader()
     return config.get_mail_config()
@@ -118,9 +122,6 @@ def cmd_mail_send_test(
         click.echo(click.style("Mail integration is not enabled.", fg="red"))
         sys.exit(1)
 
-    from aquilia.mail.config import MailConfig
-    from aquilia.mail.service import MailService
-
     config_obj = MailConfig.from_dict(config)
     svc = MailService(config=config_obj)
 
@@ -135,8 +136,6 @@ def cmd_mail_send_test(
     async def _send():
         await svc.on_startup()
         try:
-            from aquilia.mail.message import EmailMessage
-
             msg = EmailMessage(
                 subject=subject,
                 body=body,

@@ -4,6 +4,8 @@ Constraint validator registry.
 
 from collections.abc import Callable
 
+from aquilia.faults.domains import RegistryFault
+
 
 class ConstraintRegistry:
     """Registry of constraint validators."""
@@ -25,8 +27,6 @@ class ConstraintRegistry:
     def get_validator(self, name: str) -> Callable:
         """Get validator by name."""
         if name not in self.validators:
-            from aquilia.faults.domains import RegistryFault
-
             raise RegistryFault(
                 name=name,
                 message=f"Unknown constraint: {name}",

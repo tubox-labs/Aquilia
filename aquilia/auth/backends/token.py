@@ -7,8 +7,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..core import Identity, IdentityStore
-    from ..tokens import TokenManager
+    from aquilia.auth.core import Identity, IdentityStore
+    from aquilia.auth.tokens import TokenManager
 
 
 class TokenBackend:

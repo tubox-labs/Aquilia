@@ -45,7 +45,8 @@ import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from ..fields_module import TextField
+from aquilia.faults.domains import SecurityFault
+from aquilia.models.fields_module import TextField
 
 if TYPE_CHECKING:
     pass
@@ -576,8 +577,6 @@ class _StdlibAESGCM:
         header = raw[:21]
         mac_expected = _hmac_mod.new(mac_key, header + ct, "sha256").digest()
         if not _hmac_mod.compare_digest(mac_expected, mac_stored):
-            from aquilia.faults.domains import SecurityFault
-
             raise SecurityFault(
                 message="Invalid token — authentication failed",
             )

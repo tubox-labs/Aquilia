@@ -1,6 +1,5 @@
 from aquilia.faults.core import FaultContext
-
-from .trace import ExceptionNode, Lane, SpanStatus, current_trace
+from aquilia.inspector.trace import ExceptionNode, Lane, SpanStatus, current_trace
 
 
 def get_fault_listener(config):

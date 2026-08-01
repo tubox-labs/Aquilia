@@ -42,10 +42,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .catalog import FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog
-from .formatter import MessageFormatter
-from .locale import Locale, negotiate_locale, normalize_locale, parse_locale
-from .plural import select_plural
+from aquilia.i18n.catalog import FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog
+from aquilia.i18n.formatter import MessageFormatter
+from aquilia.i18n.locale import Locale, negotiate_locale, normalize_locale, parse_locale
+from aquilia.i18n.plural import select_plural
 
 logger = logging.getLogger("aquilia.i18n.service")
 
@@ -359,7 +359,7 @@ class I18nService:
         elif strategy == MissingKeyStrategy.RETURN_DEFAULT:
             return default or key
         elif strategy == MissingKeyStrategy.RAISE:
-            from .faults import MissingTranslationFault
+            from aquilia.i18n.faults import MissingTranslationFault
 
             raise MissingTranslationFault(key, locale)
         elif strategy == MissingKeyStrategy.LOG_AND_KEY:

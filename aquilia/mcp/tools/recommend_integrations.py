@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..context.search import search_index
-from ..models import KnowledgeIndex
+from aquilia.mcp.context.search import search_index
+from aquilia.mcp.models import KnowledgeIndex
 
 _RECOMMENDATIONS = {
     "auth": ["Integration.auth(...)", "Workspace.sessions(...)"],

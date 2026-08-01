@@ -116,7 +116,7 @@ def _render_template(template_name: str, **ctx: Any) -> str:
     """
     if "admin_config" not in ctx:
         try:
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
             ctx["admin_config"] = site.admin_config.to_dict()
@@ -136,7 +136,7 @@ def _render_template(template_name: str, **ctx: Any) -> str:
     if _jinja_env is not None:
         tpl = _jinja_env.get_template(template_name)
         return tpl.render(**ctx)
-    from .faults import AdminConfigurationFault
+    from aquilia.admin.faults import AdminConfigurationFault
 
     raise AdminConfigurationFault(
         "Jinja2 is required for admin templates. Install it with: pip install Jinja2",

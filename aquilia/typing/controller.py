@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping, Sequence
 from typing import Any, Protocol, TypeAlias
 
-from .common import JSONValue
+from aquilia.typing.common import JSONValue
 
 ControllerName: TypeAlias = str
 RoutePath: TypeAlias = str

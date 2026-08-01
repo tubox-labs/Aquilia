@@ -12,7 +12,7 @@ Formula:
 - Segment count tiebreaker: + (segment_count * 2)
 """
 
-from .ast_nodes import (
+from aquilia.patterns.compiler.ast_nodes import (
     BaseSegment,
     ConstraintKind,
     OptionalGroup,

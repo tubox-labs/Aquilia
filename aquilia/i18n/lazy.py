@@ -26,7 +26,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .service import I18nService
+    from aquilia.i18n.service import I18nService
 
 
 # Request/task-local references set by I18nMiddleware or DI.

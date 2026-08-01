@@ -30,9 +30,9 @@ from datetime import datetime, timedelta, timezone
 from heapq import heappop, heappush
 from typing import Any
 
-from .decorators import _TaskDescriptor, get_task
-from .faults import TaskDuplicateFault, TaskEnqueueFault, TaskResolutionFault
-from .job import Job, JobResult, JobState, Priority
+from aquilia.tasks.decorators import _TaskDescriptor, get_task
+from aquilia.tasks.faults import TaskDuplicateFault, TaskEnqueueFault, TaskResolutionFault
+from aquilia.tasks.job import Job, JobResult, JobState, Priority
 
 logger = logging.getLogger("aquilia.tasks")
 
@@ -1437,7 +1437,7 @@ class TaskManager:
 
         Also logs periodic tasks that will be managed by the scheduler.
         """
-        from .decorators import get_periodic_tasks, get_registered_tasks
+        from aquilia.tasks.decorators import get_periodic_tasks, get_registered_tasks
 
         for _name, descriptor in get_registered_tasks().items():
             descriptor.bind(self)
@@ -1458,7 +1458,7 @@ class TaskManager:
         tasks without one are on-demand only and dispatched via
         ``.delay()`` or ``manager.enqueue()``.
         """
-        from .decorators import get_periodic_tasks
+        from aquilia.tasks.decorators import get_periodic_tasks
 
         # Wait a short beat before first tick so workers are ready
         await asyncio.sleep(1.0)

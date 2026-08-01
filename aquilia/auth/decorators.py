@@ -33,7 +33,8 @@ from collections.abc import Callable
 from typing import Any
 from unittest.mock import Mock
 
-from .guards import AuthGuard, RoleGuard, ScopeGuard
+from aquilia.auth.guards import AuthGuard, RoleGuard, ScopeGuard
+from aquilia.response import Response
 
 # ============================================================================
 # Internal helpers
@@ -181,7 +182,7 @@ def _apply_guard(guard: Any, func: Callable) -> Callable:
             func_kwargs["session"] = session
         if "principal" in sig.parameters and "principal" not in func_kwargs:
             if identity is not None:
-                from .integration.aquila_sessions import AuthPrincipal
+                from aquilia.auth.integration.aquila_sessions import AuthPrincipal
 
                 func_kwargs["principal"] = AuthPrincipal.from_identity(identity)
             elif session is not None and getattr(session, "principal", None) is not None:
@@ -229,8 +230,6 @@ def authenticated(
             # Check if authenticated. If not, check if we need to do HTML browser challenge
             if identity is None and (session is None or not getattr(session, "is_authenticated", False)):
                 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
-                from aquilia.response import Response
 
                 request = None
                 for val in func_kwargs.values():

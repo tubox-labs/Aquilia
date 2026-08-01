@@ -20,10 +20,10 @@ Usage::
     deployer.deploy()
 """
 
-from .client import RenderClient
-from .deployer import DeployResult, RenderDeployer
-from .store import RenderCredentialStore
-from .types import (
+from aquilia.providers.render.client import RenderClient
+from aquilia.providers.render.deployer import DeployResult, RenderDeployer
+from aquilia.providers.render.store import RenderCredentialStore
+from aquilia.providers.render.types import (
     RenderAuditLogEntry,
     RenderAutoscaling,
     # Contract / IaC

@@ -11,6 +11,8 @@ import logging
 from enum import Enum
 from typing import Any, get_args, get_origin
 
+from aquilia.faults.domains import DIResolutionFault
+
 logger = logging.getLogger("aquilia.controller.factory")
 
 
@@ -298,7 +300,6 @@ class ControllerFactory:
         else:
             # SEC-CTRL-02: Do NOT fall back to param_type() instantiation.
             # Arbitrary class instantiation is a security risk.
-            from ..faults.domains import DIResolutionFault
 
             raise DIResolutionFault(
                 provider=repr(param_type),

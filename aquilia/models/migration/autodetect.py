@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import TYPE_CHECKING
 
-from .operations import (
+from aquilia.models.migration.operations import (
     AddConstraint,
     AddField,
     AddIndex,
@@ -56,11 +56,11 @@ from .operations import (
     RenameField,
     RenameModel,
 )
-from .schema import ForeignKeyConstraintState
+from aquilia.models.migration.schema import ForeignKeyConstraintState
 
 if TYPE_CHECKING:
-    from .operations import Operation
-    from .schema import ColumnState, ProjectState, TableState
+    from aquilia.models.migration.operations import Operation
+    from aquilia.models.migration.schema import ColumnState, ProjectState, TableState
 
 __all__ = ["RenameHint", "Autodetector", "detect_changes"]
 

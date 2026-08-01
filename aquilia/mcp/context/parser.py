@@ -7,8 +7,8 @@ import hashlib
 import re
 from pathlib import Path
 
-from ..models import SourceAnchor, SourceFile
-from ..security import redact_secrets
+from aquilia.mcp.models import SourceAnchor, SourceFile
+from aquilia.mcp.security import redact_secrets
 
 
 def _hash_text(text: str) -> str:

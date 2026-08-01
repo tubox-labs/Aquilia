@@ -64,6 +64,9 @@ from typing import (
     runtime_checkable,
 )
 
+from aquilia.debug.pages import render_http_error_page
+from aquilia.response import Response
+
 logger = logging.getLogger("aquilia.auth.clearance")
 
 
@@ -471,13 +474,10 @@ def _build_clearance_denied_response(
     request: Any,
 ) -> Any:
     """Build clearance denied response via content negotiation."""
-    from ..response import Response
 
     status = 401 if not verdict.level_ok and clearance.effective_level > AccessLevel.PUBLIC else 403
 
     if _request_wants_html(request):
-        from ..debug.pages import render_http_error_page
-
         title = "Unauthorized" if status == 401 else "Forbidden"
         html_body = render_http_error_page(
             status,

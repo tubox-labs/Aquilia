@@ -13,8 +13,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from .request import HTTPClientRequest
-from .response import HTTPClientResponse
+from aquilia.http.request import HTTPClientRequest
+from aquilia.http.response import HTTPClientResponse
 
 logger = logging.getLogger("aquilia.http.interceptors")
 
@@ -324,7 +324,7 @@ class TimeoutInterceptor(HTTPInterceptor):
     ) -> HTTPClientResponse:
         import asyncio
 
-        from .faults import RequestTimeoutFault
+        from aquilia.http.faults import RequestTimeoutFault
 
         try:
             return await asyncio.wait_for(
@@ -363,8 +363,8 @@ class RedirectInterceptor(HTTPInterceptor):
     ) -> HTTPClientResponse:
         from urllib.parse import urljoin
 
-        from .faults import TooManyRedirectsFault
-        from .request import HTTPMethod
+        from aquilia.http.faults import TooManyRedirectsFault
+        from aquilia.http.request import HTTPMethod
 
         if not self._follow_redirects:
             return await next_handler(request)
@@ -472,7 +472,7 @@ class CacheInterceptor(HTTPInterceptor):
         request: HTTPClientRequest,
         next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]],
     ) -> HTTPClientResponse:
-        from .request import HTTPMethod
+        from aquilia.http.request import HTTPMethod
 
         # Only cache GET requests
         if request.method != HTTPMethod.GET:
@@ -499,7 +499,7 @@ class CacheInterceptor(HTTPInterceptor):
             # Need to read body to cache it
             body = await response.read()
             # Create a new response with cached body
-            from .response import create_response
+            from aquilia.http.response import create_response
 
             cached = create_response(
                 status_code=response.status_code,

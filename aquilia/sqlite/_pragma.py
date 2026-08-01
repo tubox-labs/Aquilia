@@ -11,7 +11,7 @@ import logging
 import sqlite3
 from collections.abc import Sequence
 
-from ._config import JOURNAL_MODES, SYNC_MODES, TEMP_STORE_MODES, SqlitePoolConfig
+from aquilia.sqlite._config import JOURNAL_MODES, SYNC_MODES, TEMP_STORE_MODES, SqlitePoolConfig
 
 logger = logging.getLogger("aquilia.sqlite.pragma")
 

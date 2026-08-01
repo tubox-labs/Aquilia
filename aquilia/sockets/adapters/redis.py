@@ -13,8 +13,8 @@ import json
 import logging
 import os
 
-from ..envelope import JSONCodec, MessageEnvelope
-from .base import Adapter, RoomInfo
+from aquilia.sockets.adapters.base import Adapter, RoomInfo
+from aquilia.sockets.envelope import JSONCodec, MessageEnvelope
 
 logger = logging.getLogger("aquilia.sockets.adapters.redis")
 

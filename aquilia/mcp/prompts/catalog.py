@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from ..models import KnowledgeIndex
-from ..registry import MCPRegistry, PromptSpec
-from .templates import PROMPT_NAMES, render_workflow_prompt
+from aquilia.mcp.models import KnowledgeIndex
+from aquilia.mcp.prompts.templates import PROMPT_NAMES, render_workflow_prompt
+from aquilia.mcp.registry import MCPRegistry, PromptSpec
 
 
 def build_prompt_registry(index: KnowledgeIndex, registry: MCPRegistry | None = None) -> MCPRegistry:

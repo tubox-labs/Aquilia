@@ -20,39 +20,12 @@ Philosophy:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .adapters import (
-    Adapter,
-    InMemoryAdapter,
-    RedisAdapter,
-)
-from .connection import (
-    Connection,
-    ConnectionScope,
-    ConnectionState,
-)
-from .controller import (
-    SocketController,
-)
-from .decorators import (
-    AckEvent,
-    Event,
-    Guard,
-    OnConnect,
-    OnDisconnect,
-    Socket,
-    Subscribe,
-    Unsubscribe,
-)
-from .envelope import (
-    JSONCodec,
-    MessageCodec,
-    MessageEnvelope,
-    MessageType,
-    Schema,
-    StreamChunk,
-)
-from .faults import (
+from aquilia.sockets.adapters import Adapter, InMemoryAdapter, RedisAdapter
+from aquilia.sockets.connection import Connection, ConnectionScope, ConnectionState
+from aquilia.sockets.controller import SocketController
+from aquilia.sockets.decorators import AckEvent, Event, Guard, OnConnect, OnDisconnect, Socket, Subscribe, Unsubscribe
+from aquilia.sockets.envelope import JSONCodec, MessageCodec, MessageEnvelope, MessageType, Schema, StreamChunk
+from aquilia.sockets.faults import (
     WS_AUTH_REQUIRED,
     WS_CONNECTION_CLOSED,
     WS_HANDSHAKE_FAILED,
@@ -62,22 +35,9 @@ from .faults import (
     WS_ROOM_FULL,
     SocketFault,
 )
-from .guards import (
-    HandshakeAuthGuard,
-    MessageAuthGuard,
-    OriginGuard,
-    RateLimitGuard,
-    SocketGuard,
-)
-from .middleware import (
-    MessageValidationMiddleware,
-    RateLimitMiddleware,
-    SocketMiddleware,
-)
-from .runtime import (
-    AquilaSockets,
-    SocketRouter,
-)
+from aquilia.sockets.guards import HandshakeAuthGuard, MessageAuthGuard, OriginGuard, RateLimitGuard, SocketGuard
+from aquilia.sockets.middleware import MessageValidationMiddleware, RateLimitMiddleware, SocketMiddleware
+from aquilia.sockets.runtime import AquilaSockets, SocketRouter
 
 __all__ = [
     # Core

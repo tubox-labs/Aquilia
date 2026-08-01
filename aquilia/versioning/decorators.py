@@ -35,7 +35,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from .core import VERSION_NEUTRAL, ApiVersion
+from aquilia.versioning.core import VERSION_NEUTRAL, ApiVersion
 
 F = TypeVar("F", bound=Callable[..., Any])
 

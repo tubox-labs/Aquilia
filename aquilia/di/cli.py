@@ -15,6 +15,9 @@ import time
 from pathlib import Path
 from typing import Any
 
+from aquilia.config import ConfigLoader
+from aquilia.faults.domains import ConfigInvalidFault, ConfigMissingFault
+
 
 def load_manifests_from_settings(settings_path: str) -> tuple[list[Any], Any]:
     """
@@ -29,12 +32,8 @@ def load_manifests_from_settings(settings_path: str) -> tuple[list[Any], Any]:
 
     # SEC-DI-03: Validate the settings file actually exists and is a .py file
     if not resolved.is_file():
-        from aquilia.faults.domains import ConfigMissingFault
-
         raise ConfigMissingFault(key=str(resolved))
     if resolved.suffix != ".py":
-        from aquilia.faults.domains import ConfigInvalidFault
-
         raise ConfigInvalidFault(
             key="settings_path",
             reason=f"Settings file must be a .py file, got: {resolved.suffix}",
@@ -43,8 +42,6 @@ def load_manifests_from_settings(settings_path: str) -> tuple[list[Any], Any]:
     # SEC-DI-03: Validate module name is a valid Python identifier
     module_name = resolved.stem
     if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", module_name):
-        from aquilia.faults.domains import ConfigInvalidFault
-
         raise ConfigInvalidFault(
             key="settings_path.module_name",
             reason=f"Invalid module name derived from settings path: {module_name!r}",
@@ -58,7 +55,6 @@ def load_manifests_from_settings(settings_path: str) -> tuple[list[Any], Any]:
     manifests = getattr(settings, "AQ_APPS", [])
 
     # Load config
-    from aquilia.config import ConfigLoader
 
     config = ConfigLoader.load(
         paths=[str(resolved.parent / "config" / "*.py")],

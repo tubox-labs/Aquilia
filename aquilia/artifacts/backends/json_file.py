@@ -41,6 +41,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from aquilia.filesystem._pool import FileSystemPool
+
 logger = logging.getLogger("aquilia.artifacts.backends.json_file")
 
 
@@ -228,7 +230,5 @@ _pool_singleton: Any = None
 def _get_pool():
     global _pool_singleton
     if _pool_singleton is None:
-        from aquilia.filesystem._pool import FileSystemPool
-
         _pool_singleton = FileSystemPool()
     return _pool_singleton

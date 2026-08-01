@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from typing import Any, TypeVar
 
 from aquilia.di.core import Container, Provider, ProviderMeta
+from aquilia.faults.domains import ProviderNotFoundFault
 
 T = TypeVar("T")
 
@@ -208,8 +209,6 @@ async def spy_provider(
 
     original_provider = container._providers.get(cache_key)
     if original_provider is None:
-        from aquilia.faults.domains import ProviderNotFoundFault
-
         raise ProviderNotFoundFault(
             token=repr(token),
             message=f"No provider registered for {token!r}",

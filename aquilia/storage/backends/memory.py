@@ -21,14 +21,8 @@ from typing import (
     BinaryIO,
 )
 
-from ..base import (
-    FileNotFoundError,
-    StorageBackend,
-    StorageFile,
-    StorageFullError,
-    StorageMetadata,
-)
-from ..configs import MemoryConfig
+from aquilia.storage.base import FileNotFoundError, StorageBackend, StorageFile, StorageFullError, StorageMetadata
+from aquilia.storage.configs import MemoryConfig
 
 
 class MemoryStorage(StorageBackend):

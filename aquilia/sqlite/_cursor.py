@@ -15,7 +15,7 @@ from collections.abc import AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from ._rows import Row
+from aquilia.sqlite._rows import Row
 
 __all__ = ["AsyncCursor"]
 

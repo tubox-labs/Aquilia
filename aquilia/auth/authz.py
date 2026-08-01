@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from .core import Identity
-from .faults import (
+from aquilia.auth.core import Identity
+from aquilia.auth.faults import (
     AUTHZ_INSUFFICIENT_ROLE,
     AUTHZ_INSUFFICIENT_SCOPE,
     AUTHZ_POLICY_DENIED,

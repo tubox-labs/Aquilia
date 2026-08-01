@@ -13,11 +13,10 @@ from typing import Any, get_args, get_origin
 from aquilia.controller.compiler import CompiledRoute
 from aquilia.controller.router import ControllerRouter
 from aquilia.patterns.openapi import generate_openapi_params, generate_openapi_path
-
-from ..config import SpeculaConfig
-from .fault import aquilia_error_schema, aquilia_validation_error_schema
-from .standard import STANDARD_SCHEMAS
-from .types import python_type_to_schema
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.schema.fault import aquilia_error_schema, aquilia_validation_error_schema
+from aquilia.specula.schema.standard import STANDARD_SCHEMAS
+from aquilia.specula.schema.types import python_type_to_schema
 
 logger = logging.getLogger("aquilia.specula.builder")
 
@@ -928,7 +927,7 @@ class SpeculaBuilder:
 
     def _register_contract(self, contract_cls: type, *, mode: str) -> str:
         """Register a Contract schema; return $ref string."""
-        from .contract import contract_to_schema
+        from aquilia.specula.schema.contract import contract_to_schema
 
         name = contract_cls.__name__ if mode == "output" else f"{contract_cls.__name__}Input"
         if name not in self._schemas:
@@ -972,7 +971,7 @@ class SpeculaBuilder:
 
     def _register_model(self, model_cls: type) -> str:
         """Register an ORM Model schema; return $ref string."""
-        from .model import model_to_schema
+        from aquilia.specula.schema.model import model_to_schema
 
         name = model_cls.__name__
         if name not in self._schemas:

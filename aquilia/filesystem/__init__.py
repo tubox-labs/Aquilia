@@ -73,6 +73,8 @@ DI-injectable FileSystem service::
 
 from __future__ import annotations
 
+from aquilia.filesystem import _directory, _errors, _lock, _ops, _security, _streaming, _tempfile
+
 __all__ = [
     # Core types
     "FileSystem",
@@ -145,67 +147,53 @@ def __getattr__(name: str):
     """Lazy import to avoid loading everything at module import time."""
 
     if name in _CONFIG_NAMES:
-        from ._config import FileSystemConfig
+        from aquilia.filesystem._config import FileSystemConfig
 
         return FileSystemConfig
 
     if name in _ERROR_NAMES:
-        from . import _errors
-
         return getattr(_errors, name)
 
     if name in _SECURITY_NAMES:
-        from . import _security
-
         return getattr(_security, name)
 
     if name in _POOL_NAMES:
-        from ._pool import FileSystemPool
+        from aquilia.filesystem._pool import FileSystemPool
 
         return FileSystemPool
 
     if name in _METRICS_NAMES:
-        from ._metrics import FileSystemMetrics
+        from aquilia.filesystem._metrics import FileSystemMetrics
 
         return FileSystemMetrics
 
     if name in _HANDLE_NAMES:
-        from ._handle import AsyncFile
+        from aquilia.filesystem._handle import AsyncFile
 
         return AsyncFile
 
     if name in _PATH_NAMES:
-        from ._path import AsyncPath
+        from aquilia.filesystem._path import AsyncPath
 
         return AsyncPath
 
     if name in _OPS_NAMES:
-        from . import _ops
-
         return getattr(_ops, name)
 
     if name in _STREAMING_NAMES:
-        from . import _streaming
-
         return getattr(_streaming, name)
 
     if name in _DIR_NAMES:
-        from . import _directory
-
         return getattr(_directory, name)
 
     if name in _TEMP_NAMES:
-        from . import _tempfile
-
         return getattr(_tempfile, name)
 
     if name in _LOCK_NAMES:
-        from . import _lock
-
         return getattr(_lock, name)
 
     if name == "FileSystem":
-        from ._service import FileSystem
+        from aquilia.filesystem._service import FileSystem
 
         return FileSystem
 

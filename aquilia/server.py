@@ -11,37 +11,92 @@ Architecture v2 additions:
 """
 
 import contextlib
+import importlib
 import logging
 import os
 from pathlib import Path
 from typing import Any, cast
 
-from .aquilary import Aquilary, AquilaryRegistry, RegistryMode, RuntimeRegistry
-from .asgi import ASGIAdapter
-from .auth.integration.middleware import AquilAuthMiddleware
+from aquilia import signing as _signing
+from aquilia.aquilary import Aquilary, AquilaryRegistry, RegistryMode, RuntimeRegistry
+from aquilia.asgi import ASGIAdapter
+from aquilia.auth.core import Identity, IdentityStatus, IdentityType, PasswordCredential
+from aquilia.auth.hashing import PasswordHasher
+from aquilia.auth.integration.middleware import AquilAuthMiddleware
 
 # Auth Integration
-from .auth.manager import AuthManager
-from .auth.tokens import TokenConfig
-from .config import ConfigLoader
-from .controller.router import ControllerRouter
-from .faults.domains import (
-    ConfigInvalidFault,
-    ConfigMissingFault,
-    RoutingFault,
+from aquilia.auth.manager import AuthManager
+from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
+from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenConfig, TokenManager
+from aquilia.config import ConfigLoader
+from aquilia.controller.compiler import CompiledRoute, ControllerCompiler
+from aquilia.controller.engine import ControllerEngine
+from aquilia.controller.factory import ControllerFactory
+from aquilia.controller.metadata import RouteMetadata
+from aquilia.controller.router import ControllerRouter
+from aquilia.di import Container
+from aquilia.di.providers import ValueProvider
+from aquilia.effects import EffectRegistry
+from aquilia.faults.core import Fault, FaultDomain
+from aquilia.faults.domains import ConfigInvalidFault, ConfigMissingFault, ModelRegistrationFault, RoutingFault
+from aquilia.faults.engine import FaultEngine, FaultMiddleware
+from aquilia.health import HealthRegistry, HealthStatus, SubsystemStatus
+from aquilia.inspector.config import InspectorConfig
+from aquilia.inspector.di_listener import InspectorDiagnosticListener
+from aquilia.inspector.fault_bridge import get_fault_listener
+from aquilia.inspector.middleware import InspectorMiddleware
+from aquilia.inspector.toolbar import ToolbarInjectionMiddleware
+from aquilia.lifecycle import LifecycleCoordinator
+from aquilia.mail.config import MailConfig
+from aquilia.mail.di_providers import register_mail_providers
+from aquilia.mail.service import MailService, set_mail_service
+from aquilia.middleware import ExceptionMiddleware, Middleware, MiddlewareStack, RequestIdMiddleware
+from aquilia.middleware_ext.effect_middleware import _DeferredEffectRegistry
+from aquilia.middleware_ext.rate_limit import RateLimitMiddleware, RateLimitRule, ip_key_extractor, user_key_extractor
+from aquilia.middleware_ext.security import CORSMiddleware as EnhancedCORSMiddleware
+from aquilia.middleware_ext.security import (
+    CSPMiddleware,
+    CSPPolicy,
+    CSRFMiddleware,
+    HSTSMiddleware,
+    HTTPSRedirectMiddleware,
+    ProxyFixMiddleware,
+    SecurityHeadersMiddleware,
 )
-from .faults.engine import FaultEngine, FaultMiddleware
-from .health import HealthRegistry, HealthStatus, SubsystemStatus
-from .lifecycle import LifecycleCoordinator
-from .middleware import Middleware, MiddlewareStack
-from .middleware_ext.session_middleware import SessionMiddleware
-from .sockets.adapters import InMemoryAdapter
+from aquilia.middleware_ext.security import csrf_token_func as _csrf_token_func
+from aquilia.middleware_ext.session_middleware import SessionMiddleware
+from aquilia.middleware_ext.static import StaticMiddleware
+from aquilia.models.base import Model, ModelRegistry
+from aquilia.patterns import PatternCompiler, parse_pattern
+from aquilia.sessions import (
+    ConcurrencyPolicy,
+    CookieTransport,
+    FileStore,
+    HeaderTransport,
+    MemoryStore,
+    PersistencePolicy,
+    SessionEngine,
+    SessionPolicy,
+    TransportPolicy,
+)
+from aquilia.sockets.adapters import InMemoryAdapter
 
 # WebSockets
-from .sockets.runtime import AquilaSockets, SocketRouter
+from aquilia.sockets.runtime import AquilaSockets, SocketRouter
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.controller import SpeculaController
+from aquilia.specula.manifest import specula_route_table
+from aquilia.specula.service import SpeculaService
+from aquilia.storage.executor import shutdown_executor
+from aquilia.tasks import MemoryBackend
+from aquilia.templates import TemplateEngine
+from aquilia.templates.di_providers import register_template_providers
+from aquilia.templates.loader import TemplateLoader
+from aquilia.templates.middleware import TemplateMiddleware
 
 # Template Integration
-from .typing.manifest import ManifestCollection
+from aquilia.typing.manifest import ManifestCollection
+from aquilia.versioning.core import VERSION_NEUTRAL
 
 
 class ServerRequestScopeMiddleware(Middleware):
@@ -119,7 +174,7 @@ class AquiliaServer:
 
         # Apply fault integration patches to subsystems (registry, DI)
         try:
-            from .faults.integrations import patch_all_subsystems
+            from aquilia.faults.integrations import patch_all_subsystems
 
             patch_all_subsystems()
         except Exception as e:
@@ -149,7 +204,7 @@ class AquiliaServer:
         # any services register, so scope enforcement / parallel resolution /
         # diagnostics take effect for the whole boot.
         try:
-            from .di.settings import DISettings, configure_di
+            from aquilia.di.settings import DISettings, configure_di
 
             if hasattr(self.config, "get_di_config"):
                 _di_cfg = self.config.get_di_config()
@@ -166,8 +221,6 @@ class AquiliaServer:
         self.runtime._register_services()
 
         # Register EffectRegistry and FaultEngine in DI containers
-        from .di.providers import ValueProvider
-        from .effects import EffectRegistry
 
         for container in self.runtime.di_containers.values():
             container.register(
@@ -208,9 +261,6 @@ class AquiliaServer:
         base_container = self._get_base_container()
 
         # Create controller components
-        from .controller.compiler import ControllerCompiler
-        from .controller.engine import ControllerEngine
-        from .controller.factory import ControllerFactory
 
         self.controller_factory = ControllerFactory(app_container=base_container)
         self.controller_engine = ControllerEngine(
@@ -242,7 +292,6 @@ class AquiliaServer:
             return next(iter(self.runtime.di_containers.values()))
 
         # Fallback: create empty container
-        from .di import Container
 
         return Container(scope="app")
 
@@ -290,7 +339,6 @@ class AquiliaServer:
                     )
         else:
             # Legacy fallback: hardcoded defaults for backward compat
-            from .middleware import ExceptionMiddleware, RequestIdMiddleware
 
             self.middleware_stack.add(
                 ExceptionMiddleware(debug=self._is_debug()),
@@ -371,8 +419,8 @@ class AquiliaServer:
                         name="auth",
                     )
 
-                    from .auth.hashing import PasswordPolicy
-                    from .di.providers import ValueProvider
+                    from aquilia.auth.hashing import PasswordPolicy
+                    from aquilia.di.providers import ValueProvider
 
                     security_cfg = auth_config.get("security", {}) if isinstance(auth_config, dict) else {}
                     policy_cfg = security_cfg.get("password_policy", {}) if isinstance(security_cfg, dict) else {}
@@ -443,9 +491,6 @@ class AquiliaServer:
 
             # Register SessionEngine in DI (if engine was created)
             if self._session_engine is not None:
-                from aquilia.di.providers import ValueProvider
-                from aquilia.sessions import SessionEngine
-
                 engine_provider = ValueProvider(
                     token=SessionEngine, value=self._session_engine, scope="app", name="session_engine_instance"
                 )
@@ -458,8 +503,6 @@ class AquiliaServer:
         # Add template engine integration
         template_config = self.config.get_template_config()
         use_templates = template_config.get("enabled", False)
-
-        from pathlib import Path
 
         # Auto-enable if templates directory exists in root/modules or any app manifest has templates
         if not use_templates:
@@ -501,10 +544,6 @@ class AquiliaServer:
 
         if use_templates:
             # Step 1: Initialize Engine with config
-            from .templates import TemplateEngine
-            from .templates.di_providers import register_template_providers
-            from .templates.loader import TemplateLoader
-            from .templates.middleware import TemplateMiddleware
 
             search_paths = []
 
@@ -646,7 +685,6 @@ class AquiliaServer:
                 return app_container.create_request_scope()
 
             # Fallback: create a minimal container
-            from .di import Container
 
             return Container(scope="request")
 
@@ -668,7 +706,6 @@ class AquiliaServer:
                         self.logger.error(f"Failed to register middleware from app {ctx.name}: {e}")
 
         # Setup Request Inspector Middleware and listeners if enabled
-        from aquilia.inspector.config import InspectorConfig
 
         if hasattr(self.config, "get_inspector_config"):
             inspector_dict = self.config.get_inspector_config()
@@ -689,9 +726,6 @@ class AquiliaServer:
                 inspector_enabled = True
 
         if inspector_enabled:
-            from aquilia.inspector.middleware import InspectorMiddleware
-            from aquilia.inspector.toolbar import ToolbarInjectionMiddleware
-
             self.middleware_stack.add(
                 InspectorMiddleware(inspector_config),
                 scope="global",
@@ -706,20 +740,15 @@ class AquiliaServer:
                 name="inspector_toolbar",
             )
 
-            from aquilia.inspector.di_listener import InspectorDiagnosticListener
-
             di_listener = InspectorDiagnosticListener()
             for container in self.runtime.di_containers.values():
                 container.add_diagnostic_listener(di_listener)
-
-            from aquilia.inspector.fault_bridge import get_fault_listener
 
             fault_listener = get_fault_listener(inspector_config)
             self.fault_engine.on_fault(fault_listener)
 
     def _register_app_middleware(self, mw_config: Any):
         """Register application middleware from config."""
-        import importlib
 
         # Extract config details
         # Handle both dict and object (MiddlewareConfig)
@@ -797,8 +826,6 @@ class AquiliaServer:
             Dict mapping URL prefix → list of filesystem paths for every
             discovered module static directory.
         """
-        import importlib
-        from pathlib import Path
 
         # Group all discovered dirs under the static prefix
         static_prefix = self._get_static_prefix()  # e.g. "/static"
@@ -876,8 +903,6 @@ class AquiliaServer:
 
         # ── Proxy Fix (priority 3) ───────────────────────────────────────
         if security_config.get("proxy_fix"):
-            from .middleware_ext.security import ProxyFixMiddleware
-
             proxy_cfg = security_config.get("proxy_fix_config", {})
             if isinstance(proxy_cfg, bool):
                 proxy_cfg = {}
@@ -892,8 +917,6 @@ class AquiliaServer:
 
         # ── HTTPS Redirect (priority 4) ──────────────────────────────────
         if security_config.get("https_redirect"):
-            from .middleware_ext.security import HTTPSRedirectMiddleware
-
             https_cfg = security_config.get("https_redirect_config", {})
             if isinstance(https_cfg, bool):
                 https_cfg = {}
@@ -907,8 +930,6 @@ class AquiliaServer:
         # ── Static Files (priority 6) ────────────────────────────────────
         static_config = integrations.get("static_files", {})
         if static_config.get("enabled"):
-            from .middleware_ext.static import StaticMiddleware
-
             # Explicitly configured directories
             directories = dict(static_config.get("directories", {"/static": "static"}))
 
@@ -931,8 +952,6 @@ class AquiliaServer:
 
         # ── Security Headers / Helmet (priority 7) ───────────────────────
         if security_config.get("helmet_enabled", False):
-            from .middleware_ext.security import SecurityHeadersMiddleware
-
             helmet_cfg = security_config.get("helmet_config", {})
             if isinstance(helmet_cfg, bool):
                 helmet_cfg = {}
@@ -949,8 +968,6 @@ class AquiliaServer:
 
         # ── HSTS (priority 8) ────────────────────────────────────────────
         if security_config.get("hsts", False):
-            from .middleware_ext.security import HSTSMiddleware
-
             hsts_cfg = security_config.get("hsts_config", {})
             if isinstance(hsts_cfg, bool):
                 hsts_cfg = {}
@@ -964,8 +981,6 @@ class AquiliaServer:
         # ── CSP (priority 9) ─────────────────────────────────────────────
         csp_config = security_config.get("csp") or integrations.get("csp", {})
         if csp_config and csp_config.get("enabled"):
-            from .middleware_ext.security import CSPMiddleware, CSPPolicy
-
             policy_dict = csp_config.get("policy")
             if policy_dict:
                 policy = CSPPolicy(directives=policy_dict)
@@ -982,8 +997,6 @@ class AquiliaServer:
         # ── CORS (priority 11) ───────────────────────────────────────────
         cors_config = security_config.get("cors") or integrations.get("cors", {})
         if security_config.get("cors_enabled") or (cors_config and cors_config.get("enabled")):
-            from .middleware_ext.security import CORSMiddleware as EnhancedCORSMiddleware
-
             if cors_config and cors_config.get("enabled"):
                 mw = EnhancedCORSMiddleware(
                     allow_origins=cors_config.get("allow_origins", ["*"]),
@@ -1004,9 +1017,6 @@ class AquiliaServer:
         # is available for CSRF token storage and validation.  Priority 20
         # places it between session/auth (15) and i18n (24).
         if security_config.get("csrf_protection"):
-            from .middleware_ext.security import CSRFMiddleware
-            from .middleware_ext.security import csrf_token_func as _csrf_token_func
-
             csrf_cfg = security_config.get("csrf_config", {})
             if isinstance(csrf_cfg, bool):
                 csrf_cfg = {}
@@ -1036,13 +1046,6 @@ class AquiliaServer:
         # ── Rate Limiting (priority 12) ──────────────────────────────────
         rl_config = security_config.get("rate_limit") or integrations.get("rate_limit", {})
         if security_config.get("rate_limiting") or (rl_config and rl_config.get("enabled")):
-            from .middleware_ext.rate_limit import (
-                RateLimitMiddleware,
-                RateLimitRule,
-                ip_key_extractor,
-                user_key_extractor,
-            )
-
             rules = []
             if rl_config and rl_config.get("enabled"):
                 key_func = user_key_extractor if rl_config.get("per_user") else ip_key_extractor
@@ -1102,7 +1105,6 @@ class AquiliaServer:
 
         try:
             module_path, class_name = class_path.rsplit(".", 1)
-            import importlib
 
             module = importlib.import_module(module_path)
             cls = getattr(module, class_name)
@@ -1120,8 +1122,6 @@ class AquiliaServer:
 
         # Auto-inject effect_registry for EffectMiddleware / FlowContextMiddleware when not explicit
         if class_name in ("EffectMiddleware", "FlowContextMiddleware") and "effect_registry" not in kwargs:
-            from .middleware_ext.effect_middleware import _DeferredEffectRegistry
-
             # Use a deferred proxy so the middleware always sees the live, fully-
             # populated registry (built during on_startup) rather than the empty
             # placeholder registered at server.__init__() time.
@@ -1168,9 +1168,9 @@ class AquiliaServer:
         try:
             from datetime import timedelta
 
-            from .versioning.middleware import VersionMiddleware
-            from .versioning.strategy import VersionConfig, VersionStrategy
-            from .versioning.sunset import SunsetPolicy
+            from aquilia.versioning.middleware import VersionMiddleware
+            from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+            from aquilia.versioning.sunset import SunsetPolicy
 
             # Build SunsetPolicy from config if provided
             sunset_policy = None
@@ -1290,7 +1290,7 @@ class AquiliaServer:
                                     if v is not None and k not in ("enabled", "auto_version_unmarked", "position"):
                                         merged_dict[k] = v
 
-                                from .versioning.strategy import VersionConfig, VersionStrategy
+                                from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
                                 local_cfg = VersionConfig(**merged_dict)
                                 local_strat = VersionStrategy(local_cfg)
@@ -1340,9 +1340,6 @@ class AquiliaServer:
             self._mail_service = None
             return
 
-        from .mail.di_providers import register_mail_providers
-        from .mail.service import set_mail_service
-
         # Register in every DI container via the DI providers module
         svc = None
         for container in self.runtime.di_containers.values():
@@ -1354,9 +1351,6 @@ class AquiliaServer:
 
         # If no containers existed, still create the service
         if svc is None:
-            from .mail.config import MailConfig
-            from .mail.service import MailService
-
             config_obj = MailConfig.from_dict(mail_config)
             svc = MailService(config=config_obj)
 
@@ -1385,11 +1379,7 @@ class AquiliaServer:
             return
 
         try:
-            from .cache.di_providers import (
-                build_cache_config,
-                create_cache_service,
-                register_cache_providers,
-            )
+            from aquilia.cache.di_providers import build_cache_config, create_cache_service, register_cache_providers
 
             config_obj = build_cache_config(cache_config)
             svc = create_cache_service(config_obj)
@@ -1401,14 +1391,14 @@ class AquiliaServer:
             self._cache_service = svc
 
             # Decorator-based @cached/@invalidate resolve through this singleton.
-            from .cache.decorators import set_default_cache_service
+            from aquilia.cache.decorators import set_default_cache_service
 
             set_default_cache_service(svc)
 
             # Optionally add HTTP response-cache middleware
             mw_cfg = cache_config.get("middleware", {})
             if mw_cfg.get("enabled", config_obj.middleware_enabled):
-                from .cache.middleware import CacheMiddleware
+                from aquilia.cache.middleware import CacheMiddleware
 
                 self.middleware_stack.add(
                     CacheMiddleware(
@@ -1459,8 +1449,8 @@ class AquiliaServer:
             return
 
         try:
-            from .di.providers import ValueProvider
-            from .storage.registry import StorageRegistry
+            from aquilia.di.providers import ValueProvider
+            from aquilia.storage.registry import StorageRegistry
 
             backend_configs = storage_config.get("backends", [])
             if not backend_configs:
@@ -1572,8 +1562,8 @@ class AquiliaServer:
             return
 
         try:
-            from .di.providers import ValueProvider
-            from .filesystem import FileSystem, FileSystemConfig
+            from aquilia.di.providers import ValueProvider
+            from aquilia.filesystem import FileSystem, FileSystemConfig
 
             filesystem = FileSystem(FileSystemConfig.from_dict(fs_config))
 
@@ -1607,9 +1597,9 @@ class AquiliaServer:
             return
 
         try:
-            from .i18n.di_integration import register_i18n_providers
-            from .i18n.middleware import I18nMiddleware, build_resolver
-            from .i18n.service import I18nConfig, create_i18n_service
+            from aquilia.i18n.di_integration import register_i18n_providers
+            from aquilia.i18n.middleware import I18nMiddleware, build_resolver
+            from aquilia.i18n.service import I18nConfig, create_i18n_service
 
             config_obj = I18nConfig.from_dict(i18n_config)
             svc = create_i18n_service(config_obj)
@@ -1633,7 +1623,7 @@ class AquiliaServer:
             # Wire template globals if template engine exists
             if hasattr(self, "template_engine") and self.template_engine is not None:
                 try:
-                    from .i18n.template_integration import register_i18n_template_globals
+                    from aquilia.i18n.template_integration import register_i18n_template_globals
 
                     register_i18n_template_globals(self.template_engine.env, svc)
                 except Exception:
@@ -1673,14 +1663,13 @@ class AquiliaServer:
             durability that was lost.  An unknown backend name is likewise a
             warning, not a crash, so a typo does not take production down.
         """
-        from .tasks import MemoryBackend
 
         if backend_type == "memory":
             return MemoryBackend(dead_letter_max=dead_letter_max)
 
         if backend_type == "redis":
             try:
-                from .tasks.backends import RedisBackend
+                from aquilia.tasks.backends import RedisBackend
 
                 return RedisBackend(
                     url=tasks_config.get("redis_url"),
@@ -1699,7 +1688,7 @@ class AquiliaServer:
 
         if backend_type in ("sql", "database", "db"):
             try:
-                from .tasks.backends import SQLBackend
+                from aquilia.tasks.backends import SQLBackend
 
                 return SQLBackend(
                     table=tasks_config.get("sql_table", "aquilia_tasks"),
@@ -1738,8 +1727,8 @@ class AquiliaServer:
             return
 
         try:
-            from .di.providers import ValueProvider
-            from .tasks import MemoryBackend, TaskManager
+            from aquilia.di.providers import ValueProvider
+            from aquilia.tasks import MemoryBackend, TaskManager
 
             backend_type = str(tasks_config.get("backend", "memory")).lower()
             dead_letter_max = tasks_config.get("dead_letter_max", 1000)
@@ -1810,8 +1799,6 @@ class AquiliaServer:
                     """
                     import asyncio
 
-                    from .faults.core import Fault, FaultDomain
-
                     fault = Fault(
                         code="TASK_DEAD_LETTER",
                         message=(f"Task {job.name or job.func_ref} permanently failed after {job.retry_count} retries"),
@@ -1829,7 +1816,7 @@ class AquiliaServer:
 
             # Wire the QueueEffect to use TaskManager via TaskQueueProvider
             try:
-                from .effects import TaskQueueProvider
+                from aquilia.effects import TaskQueueProvider
 
                 self._task_queue_provider = TaskQueueProvider(task_manager=manager)
             except ImportError:
@@ -1839,7 +1826,7 @@ class AquiliaServer:
             # This ensures tasks defined in module tasks.py are importable and
             # their descriptors are available for the TaskManager.
             try:
-                from .tasks.decorators import get_registered_tasks
+                from aquilia.tasks.decorators import get_registered_tasks
 
                 get_registered_tasks()
             except Exception:
@@ -1857,7 +1844,7 @@ class AquiliaServer:
         and records it for the admin error monitoring page.
         """
         try:
-            from .admin.error_tracker import get_error_tracker
+            from aquilia.admin.error_tracker import get_error_tracker
 
             tracker = get_error_tracker()
             self._error_tracker = tracker
@@ -1883,7 +1870,6 @@ class AquiliaServer:
         Returns:
             A concrete SessionStore instance
         """
-        from aquilia.sessions import FileStore, MemoryStore
 
         store_name = (store_name or "memory").lower().strip()
 
@@ -1920,7 +1906,6 @@ class AquiliaServer:
         Returns:
             A concrete SessionTransport instance
         """
-        from aquilia.sessions import CookieTransport, HeaderTransport
 
         adapter = getattr(transport_policy, "adapter", "cookie")
 
@@ -2010,14 +1995,6 @@ class AquiliaServer:
             Configured SessionEngine
         """
         from datetime import timedelta
-
-        from aquilia.sessions import (
-            ConcurrencyPolicy,
-            PersistencePolicy,
-            SessionEngine,
-            SessionPolicy,
-            TransportPolicy,
-        )
 
         # ── Format 1: Integration.sessions() -- direct policy object (singular) ──
         if "policy" in session_config and not isinstance(session_config["policy"], dict):
@@ -2168,8 +2145,6 @@ class AquiliaServer:
         """
         import os
 
-        from aquilia import signing as _signing
-
         # 1. Try new signing config section
         signing_cfg = self.config.get("signing", {}) or {}
         secret = signing_cfg.get("secret") if isinstance(signing_cfg, dict) else None
@@ -2239,9 +2214,6 @@ class AquiliaServer:
             Configured AuthManager
         """
 
-        from .auth.stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
-        from .auth.tokens import KeyDescriptor, KeyRing, TokenManager
-
         # 1. Identity Store
         store_config = auth_config.get("store", {})
         store_type = store_config.get("type", "memory")
@@ -2254,9 +2226,6 @@ class AquiliaServer:
             initial_users = auth_config.get("initial_users", [])
             if initial_users:
                 import uuid
-
-                from .auth.core import Identity, IdentityStatus, IdentityType, PasswordCredential
-                from .auth.hashing import PasswordHasher
 
                 hasher = PasswordHasher()
                 for user_cfg in initial_users:
@@ -2314,8 +2283,6 @@ class AquiliaServer:
             or self._is_debug()
         )
         if secret in _INSECURE_SECRETS and not is_dev:
-            from .faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="auth.tokens.secret_key",
                 reason=(
@@ -2437,8 +2404,6 @@ class AquiliaServer:
 
         # Step 1.6: Register template providers on all compiled app containers
         if getattr(self, "template_engine", None) is not None:
-            from .templates.di_providers import register_template_providers
-
             for container in self.runtime.di_containers.values():
                 register_template_providers(container, engine=self.template_engine)
 
@@ -2459,7 +2424,6 @@ class AquiliaServer:
         :class:`VersionNegotiator` and :class:`SunsetEnforcer` can operate
         in O(1) at request time.
         """
-        from .versioning.core import VERSION_NEUTRAL
 
         strategy = self._version_strategy
         controller_class = compiled.controller_class
@@ -2540,13 +2504,6 @@ class AquiliaServer:
         if not cfg_raw or not cfg_raw.get("enabled", True):
             return
 
-        from .di.providers import ValueProvider
-        from .patterns import PatternCompiler, parse_pattern
-        from .specula.config import SpeculaConfig
-        from .specula.controller import SpeculaController
-        from .specula.manifest import specula_route_table
-        from .specula.service import SpeculaService
-
         config = SpeculaConfig.from_dict(cfg_raw)
 
         # Build the singleton service
@@ -2569,9 +2526,6 @@ class AquiliaServer:
 
         # Instantiate the controller (holds the service directly)
         controller = SpeculaController(service=specula_svc, config=config)
-
-        from .controller.compiler import CompiledRoute
-        from .controller.metadata import RouteMetadata
 
         pc = PatternCompiler()
         registered = 0
@@ -2651,11 +2605,11 @@ class AquiliaServer:
         auto_discover = admin_config.get("auto_discover", True)
 
         try:
-            from .admin.controller import AdminController
-            from .admin.site import AdminConfig, AdminSite
-            from .controller.compiler import CompiledRoute
-            from .controller.metadata import RouteMetadata
-            from .patterns import PatternCompiler, parse_pattern
+            from aquilia.admin.controller import AdminController
+            from aquilia.admin.site import AdminConfig, AdminSite
+            from aquilia.controller.compiler import CompiledRoute
+            from aquilia.controller.metadata import RouteMetadata
+            from aquilia.patterns import PatternCompiler, parse_pattern
 
             pc = PatternCompiler()
 
@@ -2995,7 +2949,7 @@ class AquiliaServer:
 
             # ── Wire storage registry into admin site ────────────────────
             try:
-                from .storage.registry import StorageRegistry
+                from aquilia.storage.registry import StorageRegistry
 
                 # Try DI container first
                 storage_reg = None
@@ -3019,7 +2973,7 @@ class AquiliaServer:
 
             # ── Register admin DI providers ──────────────────────────────
             try:
-                from .admin.di_providers import register_admin_providers
+                from aquilia.admin.di_providers import register_admin_providers
 
                 if hasattr(self, "container") and self.container is not None:
                     register_admin_providers(self.container)
@@ -3063,19 +3017,19 @@ class AquiliaServer:
             # Try DI container
             if hasattr(self, "container") and self.container is not None:
                 try:
-                    from .providers.render import RenderClient
+                    from aquilia.providers.render import RenderClient
 
                     client = self.container.resolve(RenderClient)
                 except Exception:
                     pass
                 try:
-                    from .providers.render import RenderDeployer
+                    from aquilia.providers.render import RenderDeployer
 
                     deployer = self.container.resolve(RenderDeployer)
                 except Exception:
                     pass
                 try:
-                    from .providers.render import RenderCredentialStore
+                    from aquilia.providers.render import RenderCredentialStore
 
                     store = self.container.resolve(RenderCredentialStore)
                 except Exception:
@@ -3110,8 +3064,6 @@ class AquiliaServer:
 
                             client = RenderClient(token=_token)
                             try:
-                                from pathlib import Path
-
                                 from aquilia.providers.render.deployer import RenderDeployer
                                 from aquilia.providers.render.types import RenderDeployConfig
 
@@ -3229,7 +3181,7 @@ class AquiliaServer:
 
         # No static middleware exists -- install a minimal one
         try:
-            from .middleware_ext.static import StaticMiddleware
+            from aquilia.middleware_ext.static import StaticMiddleware
 
             mw = StaticMiddleware(
                 directories={"/static": str(assets_dir)},
@@ -3248,7 +3200,7 @@ class AquiliaServer:
         """Load and register WebSocket controllers."""
         import inspect
 
-        from .sockets.runtime import RouteMetadata
+        from aquilia.sockets.runtime import RouteMetadata
 
         if not hasattr(self, "aquila_sockets"):
             return
@@ -3371,9 +3323,7 @@ class AquiliaServer:
         The starter controller is skipped if another controller has
         already registered ``GET /``.
         """
-        import importlib
         import importlib.util
-        from pathlib import Path
 
         # ── Determine starter source ──
         starter_module_name = None
@@ -3423,7 +3373,7 @@ class AquiliaServer:
             spec.loader.exec_module(module)
 
             # Find Controller subclasses in the module
-            from .controller import Controller
+            from aquilia.controller import Controller
 
             for attr_name in dir(module):
                 obj = getattr(module, attr_name)
@@ -3457,7 +3407,6 @@ class AquiliaServer:
             ImportError: If module or class cannot be imported
             TypeError: If imported object is not a class
         """
-        import importlib
 
         if ":" not in controller_path:
             raise ConfigInvalidFault(
@@ -3485,7 +3434,6 @@ class AquiliaServer:
 
     def _register_fault_handlers(self):
         """Register fault handlers from manifests."""
-        import importlib
 
         for app_ctx in self.runtime.meta.app_contexts:
             # Check for faults config in manifest
@@ -3535,11 +3483,10 @@ class AquiliaServer:
         4. Optionally create tables / run migrations
         5. Register AquiliaDatabase + registries in all DI containers
         """
-        from pathlib import Path
 
         try:
-            from .db.engine import AquiliaDatabase, configure_database, set_database  # noqa: F401
-            from .models.base import Model, ModelRegistry
+            from aquilia.db.engine import AquiliaDatabase, configure_database, set_database  # noqa: F401
+            from aquilia.models.base import Model, ModelRegistry
         except ImportError:
             return
 
@@ -3573,7 +3520,6 @@ class AquiliaServer:
         py_files = [f for f in model_files if f.suffix == ".py"]
 
         # ── Phase 2: Import and register Python models ───────────────────
-        import importlib
         import importlib.util
         import sys
 
@@ -3718,8 +3664,6 @@ class AquiliaServer:
             if explicit_auto_migrate_false:
                 pass
             elif auto_migrate:
-                from pathlib import Path
-
                 mdir = Path(migrations_dir)
                 has_migrations = mdir.exists() and any(mdir.glob("*.py"))
 
@@ -3738,7 +3682,6 @@ class AquiliaServer:
                     await ModelRegistry.create_tables()
 
             # ── Phase 5: Register in DI containers ────────────────────────
-            from .di.providers import ValueProvider
 
             for container in self.runtime.di_containers.values():
                 with contextlib.suppress(ValueError, Exception):
@@ -3765,7 +3708,6 @@ class AquiliaServer:
 
     def _workspace_root(self):
         """Resolve workspace root deterministically (independent of process cwd)."""
-        from pathlib import Path
 
         configured = os.environ.get("AQUILIA_WORKSPACE", "").strip()
         if configured:
@@ -3778,10 +3720,6 @@ class AquiliaServer:
 
         This prevents serving traffic with a partially initialized model registry.
         """
-        import importlib
-
-        from .faults.domains import ModelRegistrationFault
-        from .models.base import Model, ModelRegistry
 
         registered = ModelRegistry.all_models()
 
@@ -3905,7 +3843,7 @@ class AquiliaServer:
             try:
                 await self.coordinator.startup()
             except Exception as e:
-                from .lifecycle import LifecycleError
+                from aquilia.lifecycle import LifecycleError
 
                 self.logger.error(f"Lifecycle startup failed: {e}")
                 raise LifecycleError(f"Startup failed: {e}") from e
@@ -3939,7 +3877,7 @@ class AquiliaServer:
             # Step 3.5: Register effects from manifests and initialize providers
             self.runtime._register_effects()
             try:
-                from .effects import EffectRegistry
+                from aquilia.effects import EffectRegistry
 
                 # Retrieve the SAME EffectRegistry from DI (registered in __init__)
                 base_container = self._get_base_container()
@@ -3953,7 +3891,7 @@ class AquiliaServer:
 
                 # Auto-register core default effect providers if integrated and not explicitly registered
                 try:
-                    from .effects import CacheProvider, DBTxProvider, StorageProvider, TaskQueueProvider
+                    from aquilia.effects import CacheProvider, DBTxProvider, StorageProvider, TaskQueueProvider
 
                     db_config = self.config.get_database_config()
                     if db_config and db_config.get("url"):
@@ -4165,8 +4103,6 @@ class AquiliaServer:
             except Exception as e:
                 self.logger.warning(f"Error shutting down storage subsystem: {e}")
             finally:
-                from .storage.executor import shutdown_executor
-
                 shutdown_executor()
 
         # Shutdown filesystem subsystem

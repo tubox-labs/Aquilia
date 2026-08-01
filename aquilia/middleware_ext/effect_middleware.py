@@ -88,11 +88,11 @@ from typing import TYPE_CHECKING, Any
 from aquilia.middleware import Middleware
 
 if TYPE_CHECKING:
-    from ..controller.base import RequestCtx
-    from ..effects import EffectRegistry
-    from ..middleware import Handler
-    from ..request import Request
-    from ..response import Response
+    from aquilia.controller.base import RequestCtx
+    from aquilia.effects import EffectRegistry
+    from aquilia.middleware import Handler
+    from aquilia.request import Request
+    from aquilia.response import Response
 
 logger = logging.getLogger("aquilia.middleware.effects")
 
@@ -147,7 +147,7 @@ class _DeferredEffectRegistry:
     async def acquire(self, effect_name: str, mode: str | None = None) -> Any:
         reg = self._registry()
         if reg is None:
-            from ..faults.domains import EffectNotAcquiredFault
+            from aquilia.faults.domains import EffectNotAcquiredFault
 
             raise EffectNotAcquiredFault(
                 effect_name=effect_name,
@@ -601,7 +601,7 @@ class FlowContextMiddleware(Middleware):
         Returns:
             The ``Response`` produced by the downstream handler.
         """
-        from ..flow import FlowContext
+        from aquilia.flow import FlowContext
 
         # Build FlowContext for this request
         flow_ctx = FlowContext(

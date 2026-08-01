@@ -17,6 +17,7 @@ Auth, and TemplateEngine.
 from __future__ import annotations
 
 import contextlib
+import json as _json
 import logging
 import os
 from datetime import datetime, timedelta
@@ -24,20 +25,11 @@ from datetime import timezone as _tz
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from aquilia.controller.base import Controller, RequestCtx
-from aquilia.controller.decorators import GET, POST
-from aquilia.response import Response
-
-from .audit import AdminAction
-from .faults import AdminAuthorizationFault
-from .permissions import (
-    AdminPermission,
-    get_admin_role,
-    has_admin_permission,
-    require_admin_access,
-)
-from .site import AdminSite
-from .templates import (
+from aquilia.admin.audit import AdminAction
+from aquilia.admin.faults import AdminAuthorizationFault
+from aquilia.admin.permissions import AdminPermission, get_admin_role, has_admin_permission, require_admin_access
+from aquilia.admin.site import AdminSite
+from aquilia.admin.templates import (
     render_admin_users_page,
     render_api_keys_page,
     render_audit_page,
@@ -67,6 +59,13 @@ from .templates import (
     render_testing_page,
     render_workspace_page,
 )
+from aquilia.controller.base import Controller, RequestCtx
+from aquilia.controller.decorators import GET, POST
+from aquilia.inspector.collector import get_collector
+from aquilia.inspector.config import get_inspector_config
+from aquilia.inspector.replay import run_replay
+from aquilia.response import Response
+from aquilia.sse import SSEResponse
 
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
@@ -498,7 +497,7 @@ class AdminController(Controller):
         Returns:
             The current CSRF token string (for use in templates).
         """
-        from .templates import _csrf_token_var
+        from aquilia.admin.templates import _csrf_token_var
 
         token = self.site.security.csrf.get_or_create_token(ctx)
         _csrf_token_var.set(token)
@@ -561,7 +560,6 @@ class AdminController(Controller):
                 client_ip,
                 endpoint="json-api",
             )
-            import json as _json
 
             return Response(
                 content=_json.dumps(
@@ -716,7 +714,7 @@ class AdminController(Controller):
         is ``false``.  The page auto-redirects back once connectivity
         is restored.
         """
-        from .templates import _render_offline_page
+        from aquilia.admin.templates import _render_offline_page
 
         html = _render_offline_page()
         return _secure_html_response(html, self.site)
@@ -1692,7 +1690,6 @@ class AdminController(Controller):
         self._ensure_initialized()
 
         # Get audit entries for this specific record
-        import json as _json
 
         history_entries = []
         if self.site.audit_log:
@@ -1785,7 +1782,7 @@ class AdminController(Controller):
 
         # Render using the history template
         try:
-            from .templates import _HAS_JINJA2, _render_template
+            from aquilia.admin.templates import _HAS_JINJA2, _render_template
 
             if _HAS_JINJA2:
                 html = _render_template(
@@ -1821,7 +1818,6 @@ class AdminController(Controller):
     @POST("/{model}/batch-update")
     async def batch_update(self, request, ctx: RequestCtx) -> Response:
         """Update a specific field on multiple records at once."""
-        import json as _json
 
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
@@ -1900,7 +1896,6 @@ class AdminController(Controller):
     @GET("/{model}/filter-meta")
     async def filter_metadata_api(self, request, ctx: RequestCtx) -> Response:
         """Return filter metadata as JSON for dynamic filter UI."""
-        import json as _json
 
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
@@ -1938,7 +1933,6 @@ class AdminController(Controller):
     @GET("/{model}/search")
     async def search_api(self, request, ctx: RequestCtx) -> Response:
         """Return JSON search results for live AJAX search."""
-        import json as _json
 
         model = request.state.get("path_params", {}).get("model", "")
         identity, denied = _require_identity(ctx)
@@ -2273,7 +2267,7 @@ class AdminController(Controller):
 
         # Only superadmins can modify permissions
         role = get_admin_role(identity)
-        from .permissions import AdminRole as _AR
+        from aquilia.admin.permissions import AdminRole as _AR
 
         if role is None or role != _AR.SUPERADMIN:
             if ctx.session and hasattr(ctx.session, "data"):
@@ -2454,8 +2448,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         monitoring_data = self.site.get_monitoring_data()
         return Response(
             content=_json.dumps(monitoring_data, default=str).encode("utf-8"),
@@ -2526,8 +2518,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         containers_data = self.site.get_containers_data()
         return Response(
             content=_json.dumps(containers_data, default=str).encode("utf-8"),
@@ -2538,7 +2528,6 @@ class AdminController(Controller):
     @POST("/containers/action/")
     async def containers_action(self, request, ctx: RequestCtx) -> Response:
         """Execute a container lifecycle action (start/stop/restart/pause/unpause/kill/rm)."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2595,7 +2584,6 @@ class AdminController(Controller):
     @POST("/containers/inspect/")
     async def containers_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return full docker inspect for a container."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2635,7 +2623,6 @@ class AdminController(Controller):
     @POST("/containers/logs/")
     async def containers_logs(self, request, ctx: RequestCtx) -> Response:
         """Fetch real docker logs for a container."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2682,7 +2669,6 @@ class AdminController(Controller):
     @POST("/containers/volume-inspect/")
     async def volume_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return docker volume inspect output."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2717,7 +2703,6 @@ class AdminController(Controller):
     @POST("/containers/network-inspect/")
     async def network_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return docker network inspect output."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2752,7 +2737,6 @@ class AdminController(Controller):
     @POST("/containers/image-inspect/")
     async def image_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return docker image inspect output."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2787,7 +2771,6 @@ class AdminController(Controller):
     @POST("/containers/image-action/")
     async def image_action(self, request, ctx: RequestCtx) -> Response:
         """Execute image action (rm/pull)."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2837,7 +2820,6 @@ class AdminController(Controller):
     @POST("/containers/compose-action/")
     async def compose_action(self, request, ctx: RequestCtx) -> Response:
         """Execute compose action (up/down/restart/build/pull/stop/start)."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2886,7 +2868,6 @@ class AdminController(Controller):
     @POST("/containers/volume-action/")
     async def volume_action(self, request, ctx: RequestCtx) -> Response:
         """Execute volume action (rm)."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2936,7 +2917,6 @@ class AdminController(Controller):
     @POST("/containers/network-action/")
     async def network_action(self, request, ctx: RequestCtx) -> Response:
         """Execute network action (rm)."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -2988,7 +2968,6 @@ class AdminController(Controller):
     @POST("/containers/disk-usage/")
     async def docker_disk_usage(self, request, ctx: RequestCtx) -> Response:
         """Return docker system df output."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3012,7 +2991,6 @@ class AdminController(Controller):
     @POST("/containers/prune/")
     async def docker_prune(self, request, ctx: RequestCtx) -> Response:
         """Execute docker prune (system/images/containers/volumes/builder)."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3058,7 +3036,6 @@ class AdminController(Controller):
     @POST("/containers/exec/")
     async def container_exec(self, request, ctx: RequestCtx) -> Response:
         """Execute a command inside a running container."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3105,7 +3082,6 @@ class AdminController(Controller):
     @POST("/containers/image-history/")
     async def image_history(self, request, ctx: RequestCtx) -> Response:
         """Return docker history for an image."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3137,7 +3113,6 @@ class AdminController(Controller):
     @POST("/containers/image-tag/")
     async def image_tag(self, request, ctx: RequestCtx) -> Response:
         """Tag an image with a new name."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3184,7 +3159,6 @@ class AdminController(Controller):
     @POST("/containers/export/")
     async def container_export(self, request, ctx: RequestCtx) -> Response:
         """Export a container filesystem as tar."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3230,7 +3204,6 @@ class AdminController(Controller):
     @POST("/containers/create-network/")
     async def create_network(self, request, ctx: RequestCtx) -> Response:
         """Create a new Docker network."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3280,7 +3253,6 @@ class AdminController(Controller):
     @POST("/containers/create-volume/")
     async def create_volume(self, request, ctx: RequestCtx) -> Response:
         """Create a new Docker volume."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3328,7 +3300,6 @@ class AdminController(Controller):
     @POST("/containers/events/")
     async def docker_events(self, request, ctx: RequestCtx) -> Response:
         """Return recent docker events."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3354,7 +3325,6 @@ class AdminController(Controller):
     @POST("/containers/build/")
     async def docker_build(self, request, ctx: RequestCtx) -> Response:
         """Execute docker build in the workspace."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3402,7 +3372,6 @@ class AdminController(Controller):
     @POST("/containers/top/")
     async def container_top(self, request, ctx: RequestCtx) -> Response:
         """Return processes running inside a container."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3434,7 +3403,6 @@ class AdminController(Controller):
     @POST("/containers/diff/")
     async def container_diff(self, request, ctx: RequestCtx) -> Response:
         """Return filesystem changes in a container."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3466,7 +3434,6 @@ class AdminController(Controller):
     @POST("/containers/container-stats/")
     async def container_stats_single(self, request, ctx: RequestCtx) -> Response:
         """Return single-shot stats for one container."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -3558,8 +3525,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         pods_data = self.site.get_pods_data()
         return Response(
             content=_json.dumps(pods_data, default=str).encode("utf-8"),
@@ -3629,8 +3594,6 @@ class AdminController(Controller):
             )
 
         self._ensure_initialized()
-
-        import json as _json
 
         storage_data = await self.site.get_storage_data()
 
@@ -3755,8 +3718,6 @@ class AdminController(Controller):
                 headers={"content-type": "application/json"},
             )
         except Exception as exc:
-            import json as _json
-
             return Response(
                 content=_json.dumps({"error": str(exc)}).encode("utf-8"),
                 status=500,
@@ -3778,8 +3739,6 @@ class AdminController(Controller):
             )
 
         self._ensure_initialized()
-
-        import json as _json
 
         # CSRF validation (check headers for multipart uploads)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -3865,8 +3824,6 @@ class AdminController(Controller):
             )
 
         self._ensure_initialized()
-
-        import json as _json
 
         # CSRF validation (JSON API - check headers)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -4008,8 +3965,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         query_data = self.site.get_query_inspector_data()
         return Response(
             content=_json.dumps(query_data, default=str).encode("utf-8"),
@@ -4025,7 +3980,6 @@ class AdminController(Controller):
         )
 
     def _is_inspector_enabled(self) -> bool:
-        from aquilia.inspector.config import get_inspector_config
 
         has_config = False
         if hasattr(self.site.config, "has_subsystem"):
@@ -4049,8 +4003,6 @@ class AdminController(Controller):
         """Check IP allowlist and auth token for inspector dashboard access."""
         if not self._is_inspector_enabled():
             return Response(b"Forbidden", status=403)
-
-        from aquilia.inspector.config import get_inspector_config
 
         try:
             config = get_inspector_config(self.site.config)
@@ -4121,9 +4073,6 @@ class AdminController(Controller):
         if auth_resp is not None:
             return auth_resp
 
-        from aquilia.inspector.collector import get_collector
-        from aquilia.inspector.config import get_inspector_config
-
         config = get_inspector_config(self.site.config)
         collector = get_collector(config)
 
@@ -4147,8 +4096,6 @@ class AdminController(Controller):
             return auth_resp
 
         trace_id = request.state.get("path_params", {}).get("trace_id") or ""
-        from aquilia.inspector.collector import get_collector
-        from aquilia.inspector.config import get_inspector_config
 
         config = get_inspector_config(self.site.config)
         collector = get_collector(config)
@@ -4156,8 +4103,6 @@ class AdminController(Controller):
 
         if not trace:
             return Response(b'{"error":"trace not found"}', status=404, headers={"content-type": "application/json"})
-
-        from aquilia.inspector.replay import run_replay
 
         app = request.scope.get("app")
 
@@ -4196,9 +4141,6 @@ class AdminController(Controller):
         if auth_resp is not None:
             return auth_resp
 
-        from aquilia.inspector.collector import get_collector
-        from aquilia.inspector.config import get_inspector_config
-
         config = get_inspector_config(self.site.config)
         collector = get_collector(config)
         collector.clear()
@@ -4221,15 +4163,10 @@ class AdminController(Controller):
         if auth_resp is not None:
             return auth_resp
 
-        from aquilia.inspector.collector import get_collector
-        from aquilia.inspector.config import get_inspector_config
-
         config = get_inspector_config(self.site.config)
         collector = get_collector(config)
 
         q = collector.stream_manager.register_client()
-
-        from aquilia.sse import SSEResponse
 
         async def cleanup_generator():
             try:
@@ -4303,8 +4240,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         mailer_data = self.site.get_mailer_data()
         return Response(
             content=_json.dumps(mailer_data, default=str).encode("utf-8"),
@@ -4338,8 +4273,6 @@ class AdminController(Controller):
             )
 
         self._ensure_initialized()
-
-        import json as _json
 
         # CSRF validation (JSON API - check headers for JSON body requests)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -4490,7 +4423,6 @@ class AdminController(Controller):
             )
 
         self._ensure_initialized()
-        import json as _json
 
         # CSRF validation (JSON API)
         csrf_denied = self._csrf_reject_json(request, ctx, {})
@@ -4592,8 +4524,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         provider_data = self.site.get_provider_data()
         # Summary for lightweight polling
         summary = {
@@ -4630,8 +4560,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         # Get service_id from query params
         service_id = ""
         if hasattr(request, "query_params"):
@@ -4656,7 +4584,6 @@ class AdminController(Controller):
     @POST("/provider/action/")
     async def provider_action(self, request, ctx: RequestCtx) -> Response:
         """Execute a provider/deployment action (deploy, restart, rollback, etc.)."""
-        import json as _json
 
         identity, denied = _require_identity(ctx)
         if denied:
@@ -4802,8 +4729,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         tasks_data = await self.site.get_tasks_data()
         return Response(
             content=_json.dumps(tasks_data, default=str).encode("utf-8"),
@@ -4874,8 +4799,6 @@ class AdminController(Controller):
 
         self._ensure_initialized()
 
-        import json as _json
-
         errors_data = self.site.get_error_tracker_data()
         return Response(
             content=_json.dumps(errors_data, default=str).encode("utf-8"),
@@ -4945,8 +4868,6 @@ class AdminController(Controller):
             )
 
         self._ensure_initialized()
-
-        import json as _json
 
         testing_data = self.site.get_testing_data()
         return Response(
@@ -5404,7 +5325,6 @@ class AdminController(Controller):
             return denied
 
         self._ensure_initialized()
-        import json as _json
 
         form_data = await _parse_form(ctx)
 
@@ -5510,7 +5430,6 @@ class AdminController(Controller):
             return denied
 
         self._ensure_initialized()
-        import json as _json
 
         form_data = await _parse_form(ctx)
 
@@ -5588,7 +5507,6 @@ class AdminController(Controller):
             return denied
 
         self._ensure_initialized()
-        import json as _json
 
         form_data = await _parse_form(ctx)
 
@@ -5725,7 +5643,6 @@ class AdminController(Controller):
             return denied
 
         self._ensure_initialized()
-        import json as _json
 
         username = identity.get_attribute("username", identity.id)
         try:
@@ -5772,7 +5689,6 @@ class AdminController(Controller):
             return denied
 
         self._ensure_initialized()
-        import json as _json
 
         form_data = await _parse_form(ctx)
 
@@ -5868,7 +5784,6 @@ class AdminController(Controller):
             return denied
 
         self._ensure_initialized()
-        import json as _json
 
         form_data = await _parse_form(ctx)
 

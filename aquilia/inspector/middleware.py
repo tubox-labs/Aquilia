@@ -4,21 +4,20 @@ import time
 from typing import Any
 
 from aquilia.controller.base import RequestCtx
-from aquilia.middleware import Middleware
-from aquilia.request import Request
-from aquilia.response import Response
-from aquilia.typing.middleware import RequestHandler
-
-from .collector import get_collector
-from .config import InspectorConfig
-from .redaction import redact_body, redact_body_keys_recursive, redact_headers
-from .trace import (
+from aquilia.inspector.collector import get_collector
+from aquilia.inspector.config import InspectorConfig
+from aquilia.inspector.redaction import redact_body, redact_body_keys_recursive, redact_headers
+from aquilia.inspector.trace import (
     ExceptionNode,
     RequestTrace,
     ResponseSummary,
     _reset_current_trace,
     _set_current_trace,
 )
+from aquilia.middleware import Middleware
+from aquilia.request import Request
+from aquilia.response import Response
+from aquilia.typing.middleware import RequestHandler
 
 
 def _safe_client_addr(request: Request) -> str | None:

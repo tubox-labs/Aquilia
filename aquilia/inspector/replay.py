@@ -1,10 +1,9 @@
 from typing import Any
 
+from aquilia.inspector.config import InspectorConfig
+from aquilia.inspector.faults import InspectorReplayFault
+from aquilia.inspector.trace import RequestTrace
 from aquilia.testing import TestClient
-
-from .config import InspectorConfig
-from .faults import InspectorReplayFault
-from .trace import RequestTrace
 
 
 async def run_replay(trace: RequestTrace, config: InspectorConfig, app: Any, headers: dict[str, str]) -> Any:

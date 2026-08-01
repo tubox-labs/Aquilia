@@ -4,13 +4,13 @@ import json
 import time
 
 from aquilia.controller.base import RequestCtx
+from aquilia.inspector.config import InspectorConfig
+from aquilia.inspector.middleware import _is_stream_content
+from aquilia.inspector.trace import current_trace
 from aquilia.middleware import Middleware
 from aquilia.request import Request
 from aquilia.response import Response
 from aquilia.typing.middleware import RequestHandler
-
-from .config import InspectorConfig
-from .trace import current_trace
 
 
 class ToolbarInjectionMiddleware(Middleware):
@@ -65,8 +65,6 @@ class ToolbarInjectionMiddleware(Middleware):
         if content_type != "text/html":
             return response
 
-        from .middleware import _is_stream_content
-
         if _is_stream_content(response._content):
             return response
 
@@ -79,7 +77,7 @@ class ToolbarInjectionMiddleware(Middleware):
         try:
             cookie_val = request.cookies.get("aq_redirect_traces", "")
             if cookie_val:
-                from .collector import get_collector
+                from aquilia.inspector.collector import get_collector
 
                 collector = get_collector(self._config)
                 trace_ids = [tid for tid in cookie_val.split(",") if tid]

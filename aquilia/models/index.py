@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from typing import Any
 
 # Re-export originals from fields_module
-from ..models.fields_module import Index, UniqueConstraint
+from aquilia.models.fields_module import Index, UniqueConstraint
 
 __all__ = [
     # Re-exported

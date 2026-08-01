@@ -26,11 +26,12 @@ from typing import (
     Literal,
 )
 
-from .exceptions import CastFault, SealFault
-from .messages import contract_message
+from aquilia._uploads import UploadFile
+from aquilia.contracts.exceptions import CastFault, SealFault
+from aquilia.contracts.messages import contract_message
 
 if TYPE_CHECKING:
-    from .core import Contract
+    from aquilia.contracts.core import Contract
 
 
 __all__ = [
@@ -603,7 +604,7 @@ class Facet(metaclass=FacetMeta):
         for part in parts:
             if obj is None:
                 return None
-            from .core import Contract
+            from aquilia.contracts.core import Contract
 
             if isinstance(obj, Contract):
                 if obj._validated_data is not None and part in obj._validated_data:
@@ -671,7 +672,7 @@ class Facet(metaclass=FacetMeta):
 
     def __rshift__(self, other: Any) -> Any:
         """Pipeline operator: compose transforms left-to-right."""
-        from .pipeline import Pipeline, _as_rune
+        from aquilia.contracts.pipeline import Pipeline, _as_rune
 
         return Pipeline([_as_rune(self), _as_rune(other)])
 
@@ -3493,8 +3494,6 @@ class UploadFileFacet(FileFacet):
         if value is None:
             return None
 
-        from .._uploads import UploadFile
-
         if not isinstance(value, UploadFile):
             raise CastFault(
                 self.name or "<unbound>",
@@ -3532,7 +3531,6 @@ class UploadFileFacet(FileFacet):
     def mold(self, value: Any) -> Any:
         if value is None:
             return None
-        from .._uploads import UploadFile
 
         if isinstance(value, UploadFile):
             return {
@@ -3599,7 +3597,7 @@ class FormDataFacet(Facet):
         self.type_annotation = type
         self.child_facet = None
 
-        from .annotations import UNSET, _build_facet_from_annotation
+        from aquilia.contracts.annotations import UNSET, _build_facet_from_annotation
 
         self.child_facet = _build_facet_from_annotation(
             name=self.name or "",
@@ -3707,7 +3705,7 @@ def derive_facet(model_field: Any) -> Facet:
 
     # Default value
     try:
-        from ..models.fields_module import UNSET as MODEL_UNSET
+        from aquilia.models.fields_module import UNSET as MODEL_UNSET
     except ImportError:
         MODEL_UNSET = None
 

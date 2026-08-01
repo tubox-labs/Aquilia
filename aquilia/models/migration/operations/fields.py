@@ -22,12 +22,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from ....faults.domains import MigrationFault
-from .base import Operation, OperationCategory, register_operation
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.operations.base import Operation, OperationCategory, register_operation
 
 if TYPE_CHECKING:
-    from ..backends import SchemaBackend, Statement
-    from ..schema import ColumnState, ProjectState
+    from aquilia.models.migration.backends import SchemaBackend, Statement
+    from aquilia.models.migration.schema import ColumnState, ProjectState
 
 __all__ = ["AddField", "RemoveField", "AlterField", "RenameField"]
 
@@ -101,8 +101,8 @@ class AddField(Operation):
                 backend -- if the column is ``NOT NULL`` with no default and
                 could not be added to a populated table.
         """
-        from ..backends import Statement as BackendStatement
-        from ..schema import NOT_PROVIDED, IndexState, auto_index_name
+        from aquilia.models.migration.backends import Statement as BackendStatement
+        from aquilia.models.migration.schema import NOT_PROVIDED, IndexState, auto_index_name
 
         key = state.key_for(self.model) or self.model
 
@@ -305,7 +305,7 @@ class AlterField(Operation):
             MigrationFault: If the model is not in state, or -- from the
                 backend -- if the dialect cannot make a required change.
         """
-        from ..schema import IndexState, auto_index_name
+        from aquilia.models.migration.schema import IndexState, auto_index_name
 
         key = state.key_for(self.model) or self.model
 

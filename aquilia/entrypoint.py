@@ -71,6 +71,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from aquilia.runtime import AquiliaRuntime
+
 __all__ = ["app", "server", "create_app"]
 
 _logger = logging.getLogger("aquilia.entrypoint")
@@ -119,7 +121,6 @@ def create_app(
         FileNotFoundError: If ``workspace.py`` is not found.
         ImportError: If a module manifest cannot be imported.
     """
-    from .runtime import AquiliaRuntime
 
     # Resolve workspace root with the entrypoint's default of /app
     if workspace_root is None:

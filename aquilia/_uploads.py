@@ -18,8 +18,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from ._datastructures import MultiDict
-from .filesystem import append_file, async_open, read_file, stream_read, write_file
+from aquilia._datastructures import MultiDict
+from aquilia.faults.domains import IOFault
+from aquilia.filesystem import append_file, async_open, copy_file, read_file, stream_read, write_file
 
 # ============================================================================
 # UploadFile
@@ -36,7 +37,7 @@ class UploadFileMeta(type):
             is_contract_decl = False
 
         if is_contract_decl:
-            from .contracts.facets import UploadFileFacet
+            from aquilia.contracts.facets import UploadFileFacet
 
             return UploadFileFacet(**kwargs)
 
@@ -135,7 +136,6 @@ class UploadFile(metaclass=UploadFileMeta):
 
         elif self._file_path is not None:
             # Copy temp file to destination — native async streaming
-            from .filesystem import copy_file
 
             await copy_file(self._file_path, dest)
 
@@ -173,7 +173,7 @@ class FormDataMeta(type):
                 is_contract_decl = True
 
         if is_contract_decl:
-            from .contracts.facets import FormDataFacet
+            from aquilia.contracts.facets import FormDataFacet
 
             return FormDataFacet(**kwargs)
 
@@ -339,8 +339,6 @@ class LocalUploadStore:
             Final file path
         """
         if upload_id not in self._uploads:
-            from .faults.domains import IOFault
-
             raise IOFault(
                 code="UPLOAD_NOT_FOUND",
                 message=f"Unknown upload ID: {upload_id}",

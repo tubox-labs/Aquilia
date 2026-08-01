@@ -23,7 +23,7 @@ import time
 import uuid
 from typing import Any
 
-from ..core import CacheBackend, CacheEntry, CacheStats
+from aquilia.cache.core import CacheBackend, CacheEntry, CacheStats
 
 logger = logging.getLogger("aquilia.cache.redis")
 
@@ -144,7 +144,7 @@ class RedisBackend(CacheBackend):
 
         # Use JSON serializer by default
         if serializer is None:
-            from ..serializers import JsonCacheSerializer
+            from aquilia.cache.serializers import JsonCacheSerializer
 
             self._serializer = JsonCacheSerializer()
         else:

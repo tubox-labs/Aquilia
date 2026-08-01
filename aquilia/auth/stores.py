@@ -20,9 +20,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
-from aquilia.faults.domains import ConflictFault, NotFoundFault
-
-from .core import (
+from aquilia.auth.core import (
     ApiKeyCredential,
     CredentialStatus,
     Identity,
@@ -31,6 +29,7 @@ from .core import (
     OAuthClient,
     PasswordCredential,
 )
+from aquilia.faults.domains import ConflictFault, NotFoundFault
 
 # ============================================================================
 # Memory Stores (for development and testing)

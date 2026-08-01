@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from aquilia.faults.domains import ConfigInvalidFault, RegistryFault
+
 _loader_logger = logging.getLogger("aquilia.aquilary.loader")
 
 
@@ -72,7 +74,7 @@ class ManifestLoader:
 
             # Check for duplicates
             if manifest.name in self._seen_names:
-                from .errors import DuplicateAppError, ErrorSpan
+                from aquilia.aquilary.errors import DuplicateAppError, ErrorSpan
 
                 # Find existing manifest with same name
                 existing = next(m for m in self._loaded_manifests if m.name == manifest.name)
@@ -147,8 +149,6 @@ class ManifestLoader:
                     # Directory - scan for manifests
                     resolved.extend(self._discover_in_directory(path))
                 else:
-                    from aquilia.faults.domains import ConfigInvalidFault
-
                     raise ConfigInvalidFault(
                         key="manifest_source",
                         reason=f"Unknown manifest source type: {source}",
@@ -174,8 +174,6 @@ class ManifestLoader:
                         )
                     )
                 else:
-                    from aquilia.faults.domains import ConfigInvalidFault
-
                     raise ConfigInvalidFault(
                         key="manifest_source",
                         reason=f"Unknown manifest source type: {source}",
@@ -218,8 +216,6 @@ class ManifestLoader:
         elif source.type == "instance":
             return source.value
         else:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="manifest_source.type",
                 reason=f"Unknown source type: {source.type}",
@@ -391,8 +387,6 @@ class ManifestLoader:
                         break
 
             if manifest_cls is None:
-                from aquilia.faults.domains import RegistryFault
-
                 raise RegistryFault(
                     name=str(path),
                     message=f"No manifest class or instance found in {path}",
@@ -426,8 +420,6 @@ class ManifestLoader:
             except ImportError:
                 raise ImportError("PyYAML required for YAML manifests. Install with: pip install pyyaml")
         else:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="dsl_format",
                 reason=f"Unsupported DSL format: {path.suffix}",
@@ -562,7 +554,7 @@ class ManifestLoader:
         Raises:
             ManifestValidationError: If validation fails
         """
-        from .errors import ErrorSpan, ManifestValidationError
+        from aquilia.aquilary.errors import ErrorSpan, ManifestValidationError
 
         errors: list[str] = []
 

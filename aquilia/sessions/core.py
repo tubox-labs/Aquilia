@@ -112,7 +112,7 @@ class SessionID:
         if raw is None:
             raw = secrets.token_bytes(self.ENTROPY_BYTES)
         elif len(raw) != self.ENTROPY_BYTES:
-            from .faults import SessionInvalidFault
+            from aquilia.sessions.faults import SessionInvalidFault
 
             raise SessionInvalidFault()
 
@@ -139,7 +139,7 @@ class SessionID:
 
     @classmethod
     def from_string(cls, encoded: str) -> SessionID:
-        from .faults import SessionInvalidFault
+        from aquilia.sessions.faults import SessionInvalidFault
 
         # Guard: reject oversized input before any processing
         if not isinstance(encoded, str) or len(encoded) > cls._MAX_ENCODED_LENGTH:
@@ -317,14 +317,14 @@ class Session:
     def _check_writable(self) -> None:
         """Raise SessionLockedFault if session is read-only."""
         if self.is_read_only:
-            from .faults import SessionLockedFault
+            from aquilia.sessions.faults import SessionLockedFault
 
             raise SessionLockedFault()
 
     def _check_data_limit(self) -> None:
         """Raise SessionPolicyViolationFault if data exceeds key limit."""
         if len(self.data) >= self.MAX_DATA_KEYS:
-            from .faults import SessionPolicyViolationFault
+            from aquilia.sessions.faults import SessionPolicyViolationFault
 
             raise SessionPolicyViolationFault(
                 violation=f"Session data exceeds {self.MAX_DATA_KEYS} key limit",
@@ -515,7 +515,7 @@ class Session:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Session:
-        from .faults import SessionStoreCorruptedFault
+        from aquilia.sessions.faults import SessionStoreCorruptedFault
 
         if not isinstance(data, dict):
             raise SessionStoreCorruptedFault(

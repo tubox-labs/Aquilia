@@ -23,10 +23,11 @@ import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ..di.decorators import factory, service
+from aquilia.di.decorators import factory, service
+from aquilia.di.providers import ValueProvider
 
 if TYPE_CHECKING:
-    from ..di import Container
+    from aquilia.di import Container
 
 logger = logging.getLogger("aquilia.mail.di")
 
@@ -50,7 +51,7 @@ class MailConfigProvider:
 
     def provide(self) -> Any:
         """Provide validated MailConfig instance."""
-        from .config import MailConfig
+        from aquilia.mail.config import MailConfig
 
         if self._config_data:
             return MailConfig.from_dict(self._config_data)
@@ -76,8 +77,8 @@ class MailServiceProvider:
 
     def provide(self) -> Any:
         """Provide MailService instance."""
-        from .config import MailConfig
-        from .service import MailService
+        from aquilia.mail.config import MailConfig
+        from aquilia.mail.service import MailService
 
         config = self._config
         if config is None:
@@ -127,8 +128,8 @@ class MailProviderRegistry:
             return self._discovered
 
         try:
-            from ..discovery import PackageScanner
-            from .providers import IMailProvider
+            from aquilia.discovery import PackageScanner
+            from aquilia.mail.providers import IMailProvider
 
             scanner = PackageScanner()
 
@@ -189,7 +190,7 @@ def create_mail_config(config_data: dict[str, Any] | None = None) -> Any:
             scope="app",
         ))
     """
-    from .config import MailConfig
+    from aquilia.mail.config import MailConfig
 
     if config_data:
         return MailConfig.from_dict(config_data)
@@ -208,8 +209,8 @@ def create_mail_service(config: Any | None = None) -> Any:
             scope="app",
         ))
     """
-    from .config import MailConfig
-    from .service import MailService
+    from aquilia.mail.config import MailConfig
+    from aquilia.mail.service import MailService
 
     if config is None:
         config = MailConfig()
@@ -244,9 +245,8 @@ def register_mail_providers(
     Returns:
         The created MailService instance.
     """
-    from ..di.providers import ValueProvider
-    from .config import MailConfig
-    from .service import MailService
+    from aquilia.mail.config import MailConfig
+    from aquilia.mail.service import MailService
 
     # 1. Build and validate config through serializers
     config_obj = MailConfig.from_dict(config_data or {})

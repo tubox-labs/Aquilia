@@ -17,23 +17,12 @@ Philosophy:
 - Sessions are transport-agnostic (not tied to cookies)
 """
 
-from .core import (
-    Session,
-    SessionFlag,
-    SessionID,
-    SessionPrincipal,
-    SessionScope,
-)
+from aquilia.sessions.core import Session, SessionFlag, SessionID, SessionPrincipal, SessionScope
 
 # Session decorators + guards (session-scoped only)
-from .decorators import (
-    SessionContext,
-    SessionRequiredFault,
-    session,
-    stateful,
-)
-from .engine import SessionEngine
-from .faults import (
+from aquilia.sessions.decorators import SessionContext, SessionRequiredFault, session, stateful
+from aquilia.sessions.engine import SessionEngine
+from aquilia.sessions.faults import (
     SessionAbsoluteTimeoutFault,
     SessionConcurrencyViolationFault,
     SessionExpiredFault,
@@ -51,7 +40,7 @@ from .faults import (
     SessionStoreUnavailableFault,
     SessionTransportFault,
 )
-from .policy import (
+from aquilia.sessions.policy import (
     ADMIN_POLICY,
     API_TOKEN_POLICY,
     DEFAULT_USER_POLICY,
@@ -62,23 +51,9 @@ from .policy import (
     SessionPolicyBuilder,
     TransportPolicy,
 )
-from .state import (
-    CartState,
-    Field,
-    SessionState,
-    UserPreferencesState,
-)
-from .store import (
-    FileStore,
-    MemoryStore,
-    SessionStore,
-)
-from .transport import (
-    CookieTransport,
-    HeaderTransport,
-    SessionTransport,
-    create_transport,
-)
+from aquilia.sessions.state import CartState, Field, SessionState, UserPreferencesState
+from aquilia.sessions.store import FileStore, MemoryStore, SessionStore
+from aquilia.sessions.transport import CookieTransport, HeaderTransport, SessionTransport, create_transport
 
 __all__ = [
     # Core types

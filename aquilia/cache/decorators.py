@@ -29,7 +29,7 @@ import logging
 from collections.abc import Callable
 from typing import Any, Final, TypeVar
 
-from .key_builder import call_signature
+from aquilia.cache.key_builder import call_signature
 
 logger = logging.getLogger("aquilia.cache.decorators")
 
@@ -303,7 +303,7 @@ def _resolve_cache_service(args: tuple):
     2. ``self._cache`` on the first argument
     3. Module-level default (set via ``set_default_cache_service()``)
     """
-    from .service import CacheService
+    from aquilia.cache.service import CacheService
 
     if args and hasattr(args[0], "__class__"):
         obj = args[0]

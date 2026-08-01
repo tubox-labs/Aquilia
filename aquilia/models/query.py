@@ -25,7 +25,9 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from .fields.lookups import lookup_registry, resolve_lookup
+from aquilia.db.engine import current_model_var, get_database
+from aquilia.faults.domains import ModelNotFoundFault, QueryFault, SecurityFault
+from aquilia.models.fields.lookups import lookup_registry, resolve_lookup
 
 logger = logging.getLogger("aquilia.models.query")
 
@@ -49,8 +51,6 @@ def _reject_unsafe_clause(clause: str, *, code: str, context: str) -> None:
     """
     match = _UNSAFE_SQL_RE.search(clause)
     if match:
-        from aquilia.faults.domains import SecurityFault
-
         raise SecurityFault(
             code=code,
             message=f"Potentially unsafe {context} clause rejected: contains '{match.group(0).strip()}'. "
@@ -64,8 +64,6 @@ def _validate_field_name(name: str, *, context: str = "query") -> None:
     Raises QueryFault if *name* does not match ``_SAFE_FIELD_RE``.
     """
     if not _SAFE_FIELD_RE.match(name):
-        from ..faults.domains import QueryFault
-
         raise QueryFault(
             model="<query>",
             operation=context,
@@ -87,8 +85,8 @@ _EXPR_OP_MAP = {
 }
 
 if TYPE_CHECKING:
-    from ..db.engine import AquiliaDatabase
-    from .base import Model
+    from aquilia.db.engine import AquiliaDatabase
+    from aquilia.models.base import Model
 
 #: Bound to Model -- parametrizes Q so chained/terminal methods keep the
 #: concrete model type (e.g. Q[UserModel]) instead of widening to the bare
@@ -263,7 +261,7 @@ def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
     Security: All field names are validated against ``_SAFE_FIELD_RE`` to
     prevent SQL injection through dict-key controlled identifier positions.
     """
-    from .expression import Expression
+    from aquilia.models.expression import Expression
 
     def _render_value(val: Any) -> tuple[str, list[Any]]:
         """Render a value -- returns (sql_fragment, params)."""
@@ -345,7 +343,6 @@ class QuerySetDatabaseWrapper:
         if callable(attr) and name in ("execute", "fetch_all", "fetch_one", "fetch_val"):
 
             async def wrapped(*args, **kwargs):
-                from aquilia.db.engine import current_model_var
 
                 token = current_model_var.set(self._model_name)
                 try:
@@ -574,7 +571,7 @@ class Q(Generic[TModel]):
         values (e.g. a UUID primary key/FK) fails at the driver with
         "type '...' is not supported" instead of resolving correctly.
         """
-        from .expression import Expression
+        from aquilia.models.expression import Expression
 
         if isinstance(value, Expression) or hasattr(value, "_build_select"):
             return value
@@ -638,8 +635,8 @@ class Q(Generic[TModel]):
             .order(F("name").asc())                # expression-based
             .order(F("score").desc(nulls_last=True))  # NULLS LAST
         """
-        from .expression import F as FExpr
-        from .expression import OrderBy
+        from aquilia.models.expression import F as FExpr
+        from aquilia.models.expression import OrderBy
 
         new = self._clone()
         dialect = new._get_dialect()
@@ -657,8 +654,6 @@ class Q(Generic[TModel]):
                 else:
                     name = f.lstrip("-")
                     if not _SAFE_FIELD_RE.match(name):
-                        from aquilia.faults.domains import QueryFault
-
                         raise QueryFault(
                             message=f"Invalid field name in order(): {name!r}. "
                             f"Field names must contain only alphanumeric characters and underscores.",
@@ -884,7 +879,6 @@ class Q(Generic[TModel]):
         Usage:
             users = await User.objects.using("replica").filter(active=True).all()
         """
-        from ..db.engine import get_database
 
         new = self._clone()
         new._db_alias = db_alias
@@ -941,7 +935,6 @@ class Q(Generic[TModel]):
         silently evaluate the *object identity*, not "are there matching
         rows") instead of ``if await qs.exists():``.
         """
-        from aquilia.faults.domains import QueryFault
 
         raise QueryFault(
             message="Q objects cannot be used in boolean context. Use 'await qs.exists()' instead.",
@@ -952,7 +945,6 @@ class Q(Generic[TModel]):
 
         Use ``await qs.count()`` (a SQL ``COUNT(*)``) instead.
         """
-        from aquilia.faults.domains import QueryFault
 
         raise QueryFault(
             message="Q objects don't support len(). Use 'await qs.count()' instead.",
@@ -981,7 +973,6 @@ class Q(Generic[TModel]):
             new._offset_val = key
             new._limit_val = 1
             return new
-        from aquilia.faults.domains import QueryFault
 
         raise QueryFault(
             message=f"Q indices must be integers or slices, not {type(key).__name__}",
@@ -1038,7 +1029,7 @@ class Q(Generic[TModel]):
             active = User.objects.filter(is_active=True).cte('active_users')
             result = await User.objects.with_cte(active).all()
         """
-        from .cte import CTE as _CTE
+        from aquilia.models.cte import CTE as _CTE
 
         return _CTE(name=name, queryset=self)
 
@@ -1057,7 +1048,7 @@ class Q(Generic[TModel]):
             # Multiple CTEs in one call
             result = await User.objects.with_cte(cte_a, cte_b).all()
         """
-        from .cte import RecursiveCTE as _RecursiveCTE
+        from aquilia.models.cte import RecursiveCTE as _RecursiveCTE
 
         new = self._clone()
         for cte in ctes:
@@ -1104,8 +1095,8 @@ class Q(Generic[TModel]):
                 ),
             ).all()
         """
-        from .cte import CTEReference
-        from .cte import RecursiveCTE as _RecursiveCTE
+        from aquilia.models.cte import CTEReference
+        from aquilia.models.cte import RecursiveCTE as _RecursiveCTE
 
         _validate_field_name(name, context="recursive_cte")
         base_qs = self._clone()
@@ -1160,8 +1151,8 @@ class Q(Generic[TModel]):
               methods that populated this state (``_SAFE_FIELD_RE``), so this
               method does not re-validate them.
         """
-        from .aggregate import Aggregate
-        from .expression import Expression
+        from aquilia.models.aggregate import Aggregate
+        from aquilia.models.expression import Expression
 
         dialect = self._get_dialect()
         # Annotation params must come BEFORE where params in the final list
@@ -1221,7 +1212,7 @@ class Q(Generic[TModel]):
 
         # ── select_related: add aliased columns for joined tables ─────
         if self._select_related and not count and columns is None:
-            from .fields_module import ForeignKey, OneToOneField
+            from aquilia.models.fields_module import ForeignKey, OneToOneField
 
             extra_cols = []
             for rel_name in self._select_related:
@@ -1229,7 +1220,7 @@ class Q(Generic[TModel]):
                 if isinstance(field, (ForeignKey, OneToOneField)):
                     related_model = field.related_model
                     if related_model is None:
-                        from .registry import ModelRegistry as _Reg
+                        from aquilia.models.registry import ModelRegistry as _Reg
 
                         target_name = field.to if isinstance(field.to, str) else field.to.__name__
                         related_model = _Reg.get(target_name)
@@ -1246,14 +1237,14 @@ class Q(Generic[TModel]):
 
         # ── select_related: generate LEFT JOINs for FK fields ────────
         if self._select_related and not count:
-            from .fields_module import ForeignKey, OneToOneField
+            from aquilia.models.fields_module import ForeignKey, OneToOneField
 
             for rel_name in self._select_related:
                 field = self._model_cls._fields.get(rel_name)
                 if isinstance(field, (ForeignKey, OneToOneField)):
                     related_model = field.related_model
                     if related_model is None:
-                        from .registry import ModelRegistry as _Reg
+                        from aquilia.models.registry import ModelRegistry as _Reg
 
                         target_name = field.to if isinstance(field.to, str) else field.to.__name__
                         related_model = _Reg.get(target_name)
@@ -1302,8 +1293,6 @@ class Q(Generic[TModel]):
         # SELECT FOR UPDATE (PostgreSQL/MySQL only)
         if self._select_for_update and not count:
             if dialect == "sqlite":
-                from ..faults.domains import QueryFault
-
                 raise QueryFault(
                     model=getattr(self._model_cls, "__name__", self._table),
                     operation="select_for_update",
@@ -1377,8 +1366,8 @@ class Q(Generic[TModel]):
         """
         # ── select_related: split joined columns into nested objects ──
         if self._select_related:
-            from .fields_module import ForeignKey, OneToOneField
-            from .registry import ModelRegistry as _Reg
+            from aquilia.models.fields_module import ForeignKey, OneToOneField
+            from aquilia.models.registry import ModelRegistry as _Reg
 
             # Build metadata for splitting
             sr_meta = []  # (rel_name, related_model)
@@ -1435,8 +1424,8 @@ class Q(Generic[TModel]):
         - If it's a M2M: fetch via junction table
         - If it's a Prefetch object: use its custom queryset
         """
-        from .fields_module import ForeignKey, OneToOneField
-        from .registry import ModelRegistry as _Reg
+        from aquilia.models.fields_module import ForeignKey, OneToOneField
+        from aquilia.models.registry import ModelRegistry as _Reg
 
         for lookup in self._prefetch_related:
             if isinstance(lookup, Prefetch):
@@ -1549,10 +1538,7 @@ class Q(Generic[TModel]):
         Use this when you expect exactly one result and want strict validation.
         """
         if self._is_none:
-            from ..faults.domains import ModelNotFoundFault
-
             raise ModelNotFoundFault(model_name=self._model_cls.__name__)
-        from ..faults.domains import ModelNotFoundFault, QueryFault
 
         sql, params = self._build_select()
         sql += " LIMIT 2"
@@ -1612,15 +1598,11 @@ class Q(Generic[TModel]):
         """
         field = field_name or getattr(self._model_cls._meta, "get_latest_by", None)
         if not field:
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(
                 message="latest() requires 'field_name' or Meta.get_latest_by",
             )
         result = await self.order(f"-{field}").first()
         if result is None:
-            from ..faults.domains import ModelNotFoundFault
-
             raise ModelNotFoundFault(model_name=self._model_cls.__name__)
         return result
 
@@ -1632,15 +1614,11 @@ class Q(Generic[TModel]):
         """
         field = field_name or getattr(self._model_cls._meta, "get_latest_by", None)
         if not field:
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(
                 message="earliest() requires 'field_name' or Meta.get_latest_by",
             )
         result = await self.order(field).first()
         if result is None:
-            from ..faults.domains import ModelNotFoundFault
-
             raise ModelNotFoundFault(model_name=self._model_cls.__name__)
         return result
 
@@ -1693,7 +1671,7 @@ class Q(Generic[TModel]):
         """
         if self._is_none:
             return 0
-        from .expression import Expression
+        from aquilia.models.expression import Expression
 
         dialect = self._get_dialect()
         data = {**(values or {}), **kwargs}
@@ -1835,8 +1813,8 @@ class Q(Generic[TModel]):
         """
         if self._is_none:
             return {alias: None for alias in expressions}
-        from .aggregate import Aggregate
-        from .expression import Expression
+        from aquilia.models.aggregate import Aggregate
+        from aquilia.models.expression import Expression
 
         dialect = self._get_dialect()
         select_parts = []
@@ -1847,8 +1825,6 @@ class Q(Generic[TModel]):
                 select_parts.append(f'{sql_fragment} AS "{alias}"')
                 params.extend(expr_params)
             else:
-                from ..faults.domains import QueryFault
-
                 raise QueryFault(
                     model=self._model_cls.__name__,
                     operation="aggregate",
@@ -1935,8 +1911,6 @@ class Q(Generic[TModel]):
         # Whitelist allowed format values to prevent injection
         _ALLOWED_FORMATS = {"TEXT", "JSON", "YAML", "XML", "TRADITIONAL", "TREE"}
         if format is not None and format.upper() not in _ALLOWED_FORMATS:
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(
                 message=f"Invalid EXPLAIN format: {format!r}. Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}",
             )

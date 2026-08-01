@@ -53,13 +53,19 @@ Example
 
 from __future__ import annotations
 
-from .base import Operation, OperationCategory, register_operation, registered_operations, resolve_operation
-from .constraints import AddConstraint, AlterConstraint, RemoveConstraint
-from .fields import AddField, AlterField, RemoveField, RenameField
-from .indexes import AddIndex, AlterIndex, RemoveIndex
-from .models import AlterModelOptions, CreateModel, DeleteModel, RenameModel
-from .relations import CreateManyToManyTable, DeleteManyToManyTable
-from .special import RunPython, RunSQL
+from aquilia.models.migration.operations.base import (
+    Operation,
+    OperationCategory,
+    register_operation,
+    registered_operations,
+    resolve_operation,
+)
+from aquilia.models.migration.operations.constraints import AddConstraint, AlterConstraint, RemoveConstraint
+from aquilia.models.migration.operations.fields import AddField, AlterField, RemoveField, RenameField
+from aquilia.models.migration.operations.indexes import AddIndex, AlterIndex, RemoveIndex
+from aquilia.models.migration.operations.models import AlterModelOptions, CreateModel, DeleteModel, RenameModel
+from aquilia.models.migration.operations.relations import CreateManyToManyTable, DeleteManyToManyTable
+from aquilia.models.migration.operations.special import RunPython, RunSQL
 
 __all__ = [
     "Operation",

@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher, get_close_matches
 from typing import Any
 
-from .compiler.compiler import CompiledPattern
-from .types.registry import TypeRegistry
-from .validators.registry import ConstraintRegistry
+from aquilia.patterns.compiler.compiler import CompiledPattern
+from aquilia.patterns.types.registry import TypeRegistry
+from aquilia.patterns.validators.registry import ConstraintRegistry
 
 
 @dataclass

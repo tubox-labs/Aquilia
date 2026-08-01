@@ -28,46 +28,34 @@ Example:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .auth_integration import (
-    IdentityTemplateProxy,
-    TemplateAuthMixin,
-)
-from .bytecode_cache import (
-    BytecodeCache,
-    InMemoryBytecodeCache,
-    JSONBytecodeCache,
-)
-from .context import TemplateContext, create_template_context
-from .di_providers import (
+from aquilia.templates.auth_integration import IdentityTemplateProxy, TemplateAuthMixin
+from aquilia.templates.bytecode_cache import BytecodeCache, InMemoryBytecodeCache, JSONBytecodeCache
+from aquilia.templates.context import TemplateContext, create_template_context
+from aquilia.templates.di_providers import (
     create_development_engine,
     create_production_engine,
     create_testing_engine,
     register_template_providers,
 )
-from .engine import TemplateEngine
-from .extensions import StaticTagExtension
-from .faults import (
+from aquilia.templates.engine import TemplateEngine
+from aquilia.templates.extensions import StaticTagExtension
+from aquilia.templates.faults import (
     TEMPLATE_DOMAIN,
     TemplateCacheIntegrityFault,
     TemplateEngineUnavailableFault,
     TemplateFault,
     TemplateSanitizationWarning,
 )
-from .loader import PackageLoader, TemplateLoader
-from .manager import TemplateLintIssue, TemplateManager
-from .manifest_integration import (
+from aquilia.templates.loader import PackageLoader, TemplateLoader
+from aquilia.templates.manager import TemplateLintIssue, TemplateManager
+from aquilia.templates.manifest_integration import (
     ModuleTemplateRegistry,
     create_manifest_aware_loader,
     discover_template_directories,
 )
-from .middleware import TemplateMiddleware
-from .security import SandboxPolicy, TemplateSandbox
-from .sessions_integration import (
-    FlashMessages,
-    SessionTemplateProxy,
-    TemplateFlashMixin,
-)
+from aquilia.templates.middleware import TemplateMiddleware
+from aquilia.templates.security import SandboxPolicy, TemplateSandbox
+from aquilia.templates.sessions_integration import FlashMessages, SessionTemplateProxy, TemplateFlashMixin
 
 __all__ = [
     # Core

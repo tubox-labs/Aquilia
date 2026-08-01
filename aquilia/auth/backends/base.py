@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from unittest.mock import Mock
 
 if TYPE_CHECKING:
-    from ..core import Identity, IdentityStore
+    from aquilia.auth.core import Identity, IdentityStore
 
 
 @runtime_checkable
@@ -81,13 +81,13 @@ def resolve_backend(b: Any, auth_manager: Any) -> Any:
     if isinstance(b, str):
         b_lower = b.strip().lower()
         if b_lower == "token":
-            from .token import TokenBackend
+            from aquilia.auth.backends.token import TokenBackend
 
             return TokenBackend(auth_manager.token_manager, auth_manager.identity_store)
         elif b_lower == "session":
             return SessionBackend(auth_manager.identity_store)
         elif b_lower == "password":
-            from .password import PasswordBackend
+            from aquilia.auth.backends.password import PasswordBackend
 
             return PasswordBackend(
                 auth_manager.identity_store,
@@ -97,7 +97,7 @@ def resolve_backend(b: Any, auth_manager: Any) -> Any:
                 auth_manager.login_identifier_attributes,
             )
         elif b_lower == "api_key":
-            from .api_key import ApiKeyBackend
+            from aquilia.auth.backends.api_key import ApiKeyBackend
 
             return ApiKeyBackend(auth_manager.credential_store, auth_manager.identity_store)
         elif "." in b:
@@ -115,13 +115,13 @@ def resolve_backend(b: Any, auth_manager: Any) -> Any:
     if inspect.isclass(b):
         cls_name = b.__name__
         if cls_name == "TokenBackend":
-            from .token import TokenBackend
+            from aquilia.auth.backends.token import TokenBackend
 
             return TokenBackend(auth_manager.token_manager, auth_manager.identity_store)
         elif cls_name == "SessionBackend":
             return SessionBackend(auth_manager.identity_store)
         elif cls_name == "PasswordBackend":
-            from .password import PasswordBackend
+            from aquilia.auth.backends.password import PasswordBackend
 
             return PasswordBackend(
                 auth_manager.identity_store,
@@ -131,7 +131,7 @@ def resolve_backend(b: Any, auth_manager: Any) -> Any:
                 auth_manager.login_identifier_attributes,
             )
         elif cls_name == "ApiKeyBackend":
-            from .api_key import ApiKeyBackend
+            from aquilia.auth.backends.api_key import ApiKeyBackend
 
             return ApiKeyBackend(auth_manager.credential_store, auth_manager.identity_store)
 

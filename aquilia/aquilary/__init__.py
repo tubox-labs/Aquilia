@@ -10,8 +10,7 @@ Production-grade registry system that:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .core import (
+from aquilia.aquilary.core import (
     AppContext,
     Aquilary,
     AquilaryRegistry,
@@ -19,7 +18,7 @@ from .core import (
     RegistryMode,
     RuntimeRegistry,
 )
-from .errors import (
+from aquilia.aquilary.errors import (
     ConfigValidationError,
     CrossAppUsageError,
     DependencyCycleError,
@@ -31,19 +30,10 @@ from .errors import (
     RegistryError,
     RouteConflictError,
 )
-from .fingerprint import FingerprintGenerator
-from .graph import (
-    DependencyGraph,
-    GraphNode,
-)
-from .loader import (
-    ManifestLoader,
-    ManifestSource,
-)
-from .validator import (
-    RegistryValidator,
-    ValidationReport,
-)
+from aquilia.aquilary.fingerprint import FingerprintGenerator
+from aquilia.aquilary.graph import DependencyGraph, GraphNode
+from aquilia.aquilary.loader import ManifestLoader, ManifestSource
+from aquilia.aquilary.validator import RegistryValidator, ValidationReport
 
 __all__ = [
     # Core

@@ -8,13 +8,13 @@ for optional subsystems.
 
 from __future__ import annotations
 
-from .base import BaseSubsystem, BootContext, SubsystemInitializer
-from .effects import EffectSubsystem
+from aquilia.subsystems.base import BaseSubsystem, BootContext, SubsystemInitializer
+from aquilia.subsystems.effects import EffectSubsystem
 
 
 def _get_storage_subsystem():
     """Lazy import to break circular dependency."""
-    from ..storage.subsystem import StorageSubsystem
+    from aquilia.storage.subsystem import StorageSubsystem
 
     return StorageSubsystem
 

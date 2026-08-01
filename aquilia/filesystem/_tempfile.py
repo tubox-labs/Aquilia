@@ -26,10 +26,12 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from ._config import FileSystemConfig
-from ._errors import wrap_os_error
-from ._handle import AsyncFile
-from ._pool import FileSystemPool
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._errors import wrap_os_error
+from aquilia.filesystem._handle import AsyncFile
+from aquilia.filesystem._path import AsyncPath
+from aquilia.filesystem._path import _get_default_pool as _get
+from aquilia.filesystem._pool import FileSystemPool
 
 
 class AsyncTemporaryFile:
@@ -170,7 +172,6 @@ class AsyncTemporaryDirectory:
 
     async def __aenter__(self):
         """Create the temporary directory.  Returns an ``AsyncPath``."""
-        from ._path import AsyncPath
 
         def _create():
             return tempfile.mkdtemp(
@@ -205,6 +206,5 @@ async_tempdir = AsyncTemporaryDirectory
 
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
-    from ._path import _get_default_pool as _get
 
     return _get()

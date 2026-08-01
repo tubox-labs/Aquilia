@@ -19,12 +19,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from ....faults.domains import MigrationFault
-from .base import Operation, OperationCategory, register_operation
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.operations.base import Operation, OperationCategory, register_operation
 
 if TYPE_CHECKING:
-    from ..backends import SchemaBackend, Statement
-    from ..schema import ProjectState
+    from aquilia.models.migration.backends import SchemaBackend, Statement
+    from aquilia.models.migration.schema import ProjectState
 
 __all__ = ["RunSQL", "RunPython"]
 
@@ -95,7 +95,7 @@ class RunSQL(Operation):
             One statement per SQL string, or none when :attr:`dialects`
             excludes the current backend.
         """
-        from ..backends import Statement as BackendStatement
+        from aquilia.models.migration.backends import Statement as BackendStatement
 
         if self.dialects and backend.dialect not in self.dialects:
             return []

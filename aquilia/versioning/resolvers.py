@@ -26,7 +26,7 @@ from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..request import Request
+    from aquilia.request import Request
 
 
 class BaseVersionResolver(ABC):

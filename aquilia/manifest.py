@@ -91,7 +91,8 @@ from datetime import timedelta
 from enum import Enum
 from typing import Any, Literal, cast
 
-from .typing.manifest import ManifestMetadata
+from aquilia.faults.domains import ManifestInvalidFault
+from aquilia.typing.manifest import ManifestMetadata
 
 # ============================================================================
 # Component Classification (v2)
@@ -187,8 +188,6 @@ class ComponentRef:
 
     def __post_init__(self):
         if ":" not in self.class_path:
-            from .faults.domains import ManifestInvalidFault
-
             raise ManifestInvalidFault(
                 manifest_name="ComponentRef",
                 errors=[f"class_path must be 'module.path:ClassName', got '{self.class_path}'"],
@@ -1155,7 +1154,6 @@ class AppManifest:
 
     def __post_init__(self):
         """Validate and normalize manifest structure."""
-        from .faults.domains import ManifestInvalidFault
 
         if not self.name:
             raise ManifestInvalidFault(

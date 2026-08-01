@@ -63,11 +63,11 @@ import re
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
-from ...faults.domains import MigrationFault
+from aquilia.faults.domains import MigrationFault
 
 if TYPE_CHECKING:
-    from ..base import Model
-    from ..fields_module import Field
+    from aquilia.models.base import Model
+    from aquilia.models.fields_module import Field
 
 __all__ = [
     "STATE_VERSION",
@@ -412,7 +412,14 @@ class ColumnState:
             :attr:`TableState.m2m` instead. Dropping them here would mean no
             junction table was ever created by a generated migration.
         """
-        from ..fields_module import UNSET, AutoField, BigAutoField, ForeignKey, OneToOneField, SmallAutoField
+        from aquilia.models.fields_module import (
+            UNSET,
+            AutoField,
+            BigAutoField,
+            ForeignKey,
+            OneToOneField,
+            SmallAutoField,
+        )
 
         kwargs = dict(fld.deconstruct())
         field_class = kwargs.pop("type", type(fld).__name__)
@@ -1376,7 +1383,7 @@ class TableState:
             MigrationFault: If a field or ``Meta`` entry is malformed -- e.g. an
                 index with no keys, or an unknown referential action.
         """
-        from ..fields_module import ManyToManyField
+        from aquilia.models.fields_module import ManyToManyField
 
         meta = model_cls._meta
         table = meta.table_name
@@ -1661,7 +1668,7 @@ class ProjectState:
                 target_cls = by_name.get(simple)
                 if target_cls is None:
                     try:
-                        from ..registry import ModelRegistry
+                        from aquilia.models.registry import ModelRegistry
 
                         target_cls = ModelRegistry.get(simple)
                     except Exception:  # pragma: no cover -- registry optional
@@ -1986,12 +1993,12 @@ def _lookup_field_class(name: str) -> type:
     if cached is not None:
         return cached
 
-    from .. import fields_module
+    from aquilia.models import fields_module
 
     candidate = getattr(fields_module, name, None)
     if candidate is None:
         try:
-            from .. import fields as fields_pkg
+            from aquilia.models import fields as fields_pkg
 
             candidate = getattr(fields_pkg, name, None)
         except Exception:  # pragma: no cover -- package always importable
@@ -2290,7 +2297,7 @@ def _compile_expression(expr: Any, model_cls: type[Model]) -> str:
     Returns:
         The compiled SQL fragment.
     """
-    from ..expression import compile_schema_expression
+    from aquilia.models.expression import compile_schema_expression
 
     return compile_schema_expression(expr, model_cls)
 

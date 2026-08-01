@@ -38,6 +38,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
+from aquilia.db import get_database
+
 logger = logging.getLogger("aquilia.mail.suppression")
 
 __all__ = [
@@ -314,7 +316,6 @@ class SQLSuppressionList(SuppressionList):
     async def _database(self) -> Any:
         if self._db is not None:
             return self._db
-        from aquilia.db import get_database
 
         self._db = get_database()
         return self._db

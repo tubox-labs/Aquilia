@@ -17,6 +17,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from aquilia.cli.utils.workspace import get_workspace_file
+
 
 @dataclass
 class DiagnosticResult:
@@ -137,7 +139,6 @@ def _check_workspace_structure(
     verbose: bool,
 ) -> Path | None:
     """Check workspace file presence and directory structure."""
-    from ..utils.workspace import get_workspace_file
 
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
@@ -536,7 +537,7 @@ def diagnose_workspace(verbose: bool = False) -> list[str]:
     report = DiagnosticReport()
 
     try:
-        from ..utils.colors import _CHECK, _CROSS
+        from aquilia.cli.utils.colors import _CHECK, _CROSS
     except ImportError:
         _CHECK = "[ok]"
         _CROSS = "[!!]"

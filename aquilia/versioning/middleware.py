@@ -12,14 +12,21 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, cast
 
+from aquilia.debug import render_version_error_page
 from aquilia.middleware import Middleware
-
-from .errors import InvalidVersionError, MissingVersionError, UnsupportedVersionError, VersionError, VersionSunsetError
-from .strategy import VersionStrategy
+from aquilia.response import Response as Resp
+from aquilia.versioning.errors import (
+    InvalidVersionError,
+    MissingVersionError,
+    UnsupportedVersionError,
+    VersionError,
+    VersionSunsetError,
+)
+from aquilia.versioning.strategy import VersionStrategy
 
 if TYPE_CHECKING:
-    from ..request import Request
-    from ..response import Response
+    from aquilia.request import Request
+    from aquilia.response import Response
 
 logger = logging.getLogger("aquilia.versioning")
 
@@ -58,11 +65,8 @@ def _aquilia_version() -> str:
 
 
 def _version_error_response(request, *, status, error_code, message, detail, headers=None):
-    from ..response import Response as Resp
 
     if _wants_html(request):
-        from ..debug import render_version_error_page
-
         html_body = render_version_error_page(
             status_code=status,
             error_code=error_code,
@@ -149,7 +153,7 @@ class VersionMiddleware(Middleware):
             version = request.state["_pre_resolved_api_version"]
 
         try:
-            from .core import VERSION_MISSING as _VM
+            from aquilia.versioning.core import VERSION_MISSING as _VM
         except ImportError:
             _VM = None
 

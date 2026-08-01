@@ -20,6 +20,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 
 @dataclass(frozen=True, slots=True)
 class FileSystemConfig:
@@ -118,8 +120,6 @@ class FileSystemConfig:
                 no root was supplied.
         """
         if not self.allow_unsandboxed and not self.sandbox_root:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="filesystem.sandbox_root",
                 reason=(

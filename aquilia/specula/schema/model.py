@@ -40,8 +40,7 @@ from aquilia.models.fields import (
     URLField,
     UUIDField,
 )
-
-from ..faults import SchemaResolutionFault
+from aquilia.specula.faults import SchemaResolutionFault
 
 logger = logging.getLogger("aquilia.specula.model")
 

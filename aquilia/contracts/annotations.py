@@ -46,10 +46,10 @@ from typing import (
     get_origin,
 )
 
-from .._uploads import FormData, UploadFile
-from .exceptions import MAX_NESTING_DEPTH as _MAX_NESTING_DEPTH
-from .exceptions import CastFault
-from .facets import (
+from aquilia._uploads import FormData, UploadFile
+from aquilia.contracts.exceptions import MAX_NESTING_DEPTH as _MAX_NESTING_DEPTH
+from aquilia.contracts.exceptions import CastFault
+from aquilia.contracts.facets import (
     UNSET,
     BoolFacet,
     BytesFacet,
@@ -80,6 +80,8 @@ from .facets import (
     URLFacet,
     UUIDFacet,
 )
+from aquilia.di.dep import Body, Cookie, Header, Path, Query
+from aquilia.faults.domains import ConfigInvalidFault, FieldValidationFault, RegistryFault
 
 __all__ = [
     "Field",
@@ -245,8 +247,6 @@ class Field:
                 raise TypeError(f"Field() takes at most 1 positional argument but {len(args)} were given")
             pos_default = args[0]
             if default is not UNSET:
-                from aquilia.faults.domains import ConfigInvalidFault
-
                 raise ConfigInvalidFault(
                     key="field.default",
                     reason="Cannot specify both positional default/Ellipsis and keyword 'default'",
@@ -258,8 +258,6 @@ class Field:
             default = UNSET
 
         if default is not UNSET and default_factory is not None:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="field.default",
                 reason="Cannot specify both 'default' and 'default_factory'",
@@ -591,7 +589,7 @@ class NestedContractFacet(Facet):
         for part in parts:
             if obj is None:
                 return None
-            from .core import Contract
+            from aquilia.contracts.core import Contract
 
             if isinstance(obj, Contract):
                 if obj._validated_data is not None and part in obj._validated_data:
@@ -634,12 +632,10 @@ class LazyContractFacet(Facet):
         if self._resolved_facet is not None:
             return self._resolved_facet
 
-        from .core import _contract_registry
+        from aquilia.contracts.core import _contract_registry
 
         contract_cls = _contract_registry.get(self.ref)
         if contract_cls is None:
-            from aquilia.faults.domains import RegistryFault
-
             raise RegistryFault(
                 code="REGISTRY_ERROR",
                 message=f"Cannot resolve forward reference '{self.ref}'. Contract not found.",
@@ -973,8 +969,6 @@ def _build_facet_from_annotation(
 ) -> Facet | None:
     from typing import Annotated
 
-    from ..di.dep import Body, Cookie, Header, Path, Query
-
     extractor = None
     if get_origin(annotation) is Annotated:
         args = get_args(annotation)
@@ -1018,7 +1012,7 @@ def _build_facet_from_annotation_raw(
         actual_type = args[0]
         metadata = args[1:]
 
-        from .pipeline import Pipeline
+        from aquilia.contracts.pipeline import Pipeline
 
         target_facet = None
         pipeline = None
@@ -1034,7 +1028,7 @@ def _build_facet_from_annotation_raw(
 
         # Check if the type is a ContractUnion (which handles class | class operator)
         # We'll map it to a thin adapter Facet in Step 9
-        from .core import ContractUnion
+        from aquilia.contracts.core import ContractUnion
 
         if isinstance(actual_type, ContractUnion) or (
             hasattr(actual_type, "__origin__") and actual_type.__origin__ is ContractUnion
@@ -1156,7 +1150,7 @@ def _build_facet_from_annotation_raw(
         return ChoiceFacet(choices=field_spec.choices, **choice_kwargs)
 
     # ── ContractUnion check ─────────────────────────────────────────
-    from .core import ContractUnion
+    from aquilia.contracts.core import ContractUnion
 
     if isinstance(inner_type, ContractUnion) or (
         hasattr(inner_type, "__origin__") and inner_type.__origin__ is ContractUnion
@@ -1296,7 +1290,7 @@ def _build_facet_from_annotation_raw(
     from enum import Enum
 
     if isinstance(inner_type, type) and issubclass(inner_type, Enum):
-        from .facets import EnumFacet
+        from aquilia.contracts.facets import EnumFacet
 
         enum_kwargs = {k: v for k, v in kwargs.items() if k not in ("min_length", "max_length", "allow_blank")}
         return EnumFacet(enum_class=inner_type, **enum_kwargs)
@@ -1372,8 +1366,6 @@ def _build_constraint_validators(field_spec: Field) -> list[Callable]:
 
         def _gt_validator(v, _b=bound):
             if v <= _b:
-                from aquilia.faults.domains import FieldValidationFault
-
                 raise FieldValidationFault(
                     field_name="value",
                     message=f"Must be greater than {_b}",
@@ -1386,8 +1378,6 @@ def _build_constraint_validators(field_spec: Field) -> list[Callable]:
 
         def _lt_validator(v, _b=bound):
             if v >= _b:
-                from aquilia.faults.domains import FieldValidationFault
-
                 raise FieldValidationFault(
                     field_name="value",
                     message=f"Must be less than {_b}",

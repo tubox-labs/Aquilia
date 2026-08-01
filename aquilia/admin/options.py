@@ -30,6 +30,27 @@ if TYPE_CHECKING:
     from aquilia.models.base import Model
 
 from aquilia.admin.permissions import AdminPermission, has_admin_permission
+from aquilia.models.fields_module import (
+    AutoField,
+    BigAutoField,
+    BigIntegerField,
+    BooleanField,
+    CharField,
+    DateField,
+    DateTimeField,
+    DecimalField,
+    EmailField,
+    FloatField,
+    IntegerField,
+    JSONField,
+    PositiveIntegerField,
+    PositiveSmallIntegerField,
+    SmallIntegerField,
+    TextField,
+    TimeField,
+    URLField,
+    UUIDField,
+)
 
 logger = logging.getLogger("aquilia.admin.options")
 
@@ -295,8 +316,6 @@ class ModelAdmin:
         if self.model is None:
             return []
 
-        from aquilia.models.fields_module import BooleanField, DateField, DateTimeField
-
         filters = []
         for attr_name, field in self.model._fields.items():
             if isinstance(field, BooleanField) or field.choices or isinstance(field, (DateTimeField, DateField)):
@@ -312,8 +331,6 @@ class ModelAdmin:
 
         if self.model is None:
             return []
-
-        from aquilia.models.fields_module import CharField, EmailField, TextField
 
         search = []
         for attr_name, field in self.model._fields.items():
@@ -331,8 +348,6 @@ class ModelAdmin:
         if self.model is None:
             return []
 
-        from aquilia.models.fields_module import AutoField, BigAutoField
-
         editable = []
         for attr_name, field in self.model._fields.items():
             if attr_name in self.exclude:
@@ -349,8 +364,6 @@ class ModelAdmin:
         readonly = list(self.readonly_fields)
 
         if self.model:
-            from aquilia.models.fields_module import AutoField, BigAutoField
-
             for attr_name, field in self.model._fields.items():
                 if isinstance(field, (AutoField, BigAutoField)) and attr_name not in readonly:
                     readonly.append(attr_name)
@@ -440,24 +453,6 @@ class ModelAdmin:
 
     def _get_field_input_type(self, field: Any) -> str:
         """Map model field to HTML input type."""
-        from aquilia.models.fields_module import (
-            BigIntegerField,
-            BooleanField,
-            DateField,
-            DateTimeField,
-            DecimalField,
-            EmailField,
-            FloatField,
-            IntegerField,
-            JSONField,
-            PositiveIntegerField,
-            PositiveSmallIntegerField,
-            SmallIntegerField,
-            TextField,
-            TimeField,
-            URLField,
-            UUIDField,
-        )
 
         if isinstance(field, BooleanField):
             return "checkbox"
@@ -627,7 +622,6 @@ class ModelAdmin:
         """Find the first matching boolean field name on the model."""
         if not self.model:
             return None
-        from aquilia.models.fields_module import BooleanField
 
         for name in candidates:
             if name in self.model._fields:

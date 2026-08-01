@@ -10,9 +10,7 @@ import sys
 from pathlib import Path
 
 from aquilia.cli.generators.workspace import WorkspaceGenerator
-from aquilia.discovery.engine import AutoDiscoveryEngine
-
-from ..utils.colors import (
+from aquilia.cli.utils.colors import (
     _CHECK,
     _CROSS,
     banner,
@@ -26,6 +24,7 @@ from ..utils.colors import (
     table,
     warning,
 )
+from aquilia.discovery.engine import AutoDiscoveryEngine
 
 
 class DiscoveryInspector:

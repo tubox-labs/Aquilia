@@ -7,13 +7,7 @@ import signal
 import sys
 from typing import Any, TextIO
 
-from ..protocol import (
-    PARSE_ERROR,
-    error_response,
-    fault_to_error,
-    parse_request,
-    success_response,
-)
+from aquilia.mcp.protocol import PARSE_ERROR, error_response, fault_to_error, parse_request, success_response
 
 
 class StdioTransport:

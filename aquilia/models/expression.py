@@ -21,6 +21,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from aquilia.faults.domains import QueryFault
+
 # Security: whitelist patterns for SQL function names and type names
 _SAFE_FUNC_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$", re.IGNORECASE)
 _SAFE_TYPE_RE = re.compile(
@@ -293,8 +295,6 @@ class RawSQL(Expression):
                 ``EXEC``, ``EXECUTE``), as a defense-in-depth guard.
         """
         if self._DANGEROUS_RE.search(sql):
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model="<expression>",
                 operation="RawSQL",
@@ -461,8 +461,6 @@ class When(Expression):
             _DANGEROUS = {"DROP", "ALTER", "TRUNCATE", "EXEC", "EXECUTE", "--", ";"}
             for kw in _DANGEROUS:
                 if kw in _upper:
-                    from ..faults.domains import QueryFault
-
                     raise QueryFault(
                         model="<expression>",
                         operation="When",
@@ -474,7 +472,7 @@ class When(Expression):
             parts = []
             for key, val in self.condition.items():
                 # Validate dict keys to prevent identifier injection
-                from .query import _validate_field_name
+                from aquilia.models.query import _validate_field_name
 
                 _validate_field_name(key, context="When")
                 parts.append(f'"{key}" = ?')
@@ -483,7 +481,7 @@ class When(Expression):
         elif self.lookups:
             # Delegate to _build_filter_clause from query.py to avoid
             # duplicating the lookup op_map and special-case logic.
-            from .query import _build_filter_clause
+            from aquilia.models.query import _build_filter_clause
 
             parts = []
             for key, val in self.lookups.items():
@@ -693,8 +691,6 @@ class Func(Expression):
             QueryFault: If *function* fails the safe-name check.
         """
         if not _SAFE_FUNC_RE.match(function):
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model="<expression>",
                 operation="Func",
@@ -740,8 +736,6 @@ class Cast(Expression):
             QueryFault: If *output_type* is not a valid-looking SQL type name.
         """
         if not _SAFE_TYPE_RE.match(output_type):
-            from ..faults.domains import QueryFault
-
             raise QueryFault(
                 model="<expression>",
                 operation="Cast",

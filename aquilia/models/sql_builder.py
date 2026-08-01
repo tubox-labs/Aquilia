@@ -38,6 +38,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from aquilia.faults.domains import QueryFault
+
 __all__ = [
     "SQLBuilder",
     "InsertBuilder",
@@ -381,8 +383,6 @@ class InsertBuilder:
                 derive columns from).
         """
         if not rows:
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(message="No rows to insert")
         cols = list(rows[0].keys())
         col_names = ", ".join(f'"{c}"' for c in cols)

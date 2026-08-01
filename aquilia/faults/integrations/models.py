@@ -24,18 +24,9 @@ from __future__ import annotations
 
 import logging
 
-from ..core import (
-    FaultContext,
-    FaultDomain,
-    FaultResult,
-    Transformed,
-)
-from ..domains import (
-    DatabaseConnectionFault,
-    MigrationFault,
-    SchemaFault,
-)
-from ..handlers import FaultHandler
+from aquilia.faults.core import Escalate, FaultContext, FaultDomain, FaultResult, Transformed
+from aquilia.faults.domains import DatabaseConnectionFault, MigrationFault, SchemaFault
+from aquilia.faults.handlers import FaultHandler
 
 logger = logging.getLogger("aquilia.faults.integrations.models")
 
@@ -86,7 +77,6 @@ class ModelFaultHandler(FaultHandler):
             logger.error(f"Migration '{fault.metadata.get('migration')}' failed: {fault.metadata.get('reason')}")
 
         # Default: escalate to next handler
-        from ..core import Escalate
 
         return Escalate()
 

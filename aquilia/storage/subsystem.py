@@ -43,8 +43,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ..health import HealthStatus, SubsystemStatus
-from ..subsystems.base import BaseSubsystem, BootContext
+from aquilia.health import HealthStatus, SubsystemStatus
+from aquilia.subsystems.base import BaseSubsystem, BootContext
 
 logger = logging.getLogger("aquilia.subsystems.storage")
 
@@ -77,7 +77,7 @@ class StorageSubsystem(BaseSubsystem):
         4. Register registry with DI
         5. Register health checks
         """
-        from ..storage.registry import StorageRegistry
+        from aquilia.storage.registry import StorageRegistry
 
         # Step 1: Read config
         storage_config = ctx.get_config("storage", {})
@@ -115,8 +115,8 @@ class StorageSubsystem(BaseSubsystem):
     def _register_di(self, ctx: BootContext) -> None:
         """Register StorageRegistry in the DI container."""
         try:
-            from ..di import ValueProvider
-            from ..storage.registry import StorageRegistry
+            from aquilia.di import ValueProvider
+            from aquilia.storage.registry import StorageRegistry
 
             registry_obj = ctx.shared_state.get("_di_registry")
             if registry_obj and hasattr(registry_obj, "register"):

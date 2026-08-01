@@ -351,7 +351,7 @@ class MessagePackRenderer(BaseRenderer):
 
             return msgpack.packb(data, use_bin_type=True, default=str)
         except ImportError:
-            from ..faults.domains import ConfigMissingFault
+            from aquilia.faults.domains import ConfigMissingFault
 
             raise ConfigMissingFault(
                 key="msgpack",

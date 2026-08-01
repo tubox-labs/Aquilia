@@ -18,6 +18,9 @@ from pathlib import Path
 
 import click
 
+from aquilia.config import ConfigLoader
+from aquilia.i18n.catalog import JSONCatalog
+
 
 def _load_i18n_config() -> dict:
     """Load i18n config from workspace.py or config files."""
@@ -32,8 +35,6 @@ def _load_i18n_config() -> dict:
             if hasattr(mod, "workspace"):
                 ws_dict = mod.workspace.to_dict()
                 return ws_dict.get("i18n", ws_dict.get("integrations", {}).get("i18n", {}))
-
-    from aquilia.config import ConfigLoader
 
     config = ConfigLoader()
     return config.get_i18n_config()
@@ -473,7 +474,6 @@ def cmd_i18n_compile(
         output: Output directory (None = same as source)
         verbose: Show detailed output
     """
-    from aquilia.i18n.catalog import JSONCatalog
 
     click.echo(click.style("Compiling i18n catalogs...", fg="cyan", bold=True))
     click.echo(f"  Source:  {directory}")

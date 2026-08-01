@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..config import MCPConfig
-from ..server import AquiliaMCPServer
+from aquilia.mcp.config import MCPConfig
+from aquilia.mcp.server import AquiliaMCPServer
 
 
 @dataclass(frozen=True)

@@ -130,7 +130,7 @@ class Pipeline:
                 else:
                     value = rune.fn(value)
             except Exception as exc:
-                from .exceptions import CastFault
+                from aquilia.contracts.exceptions import CastFault
 
                 if isinstance(exc, CastFault):
                     msg = exc.field_errors.get(exc.field, [str(exc)])[0]

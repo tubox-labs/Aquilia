@@ -14,7 +14,8 @@ from typing import (
     Any,
 )
 
-from .utils import make_test_receive, make_test_scope
+from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.testing.utils import make_test_receive, make_test_scope
 
 
 class TestResponse:
@@ -151,7 +152,7 @@ class TestClient:
             raise_server_exceptions: Re-raise unhandled server errors.
             follow_redirects: Automatically follow 3xx redirects.
         """
-        from .server import TestServer
+        from aquilia.testing.server import TestServer
 
         if isinstance(server_or_app, TestServer) or hasattr(server_or_app, "app"):
             self._app = server_or_app.app
@@ -456,8 +457,6 @@ def _build_multipart(
             else:
                 filename, content, content_type = file_info[:3]
         else:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="multipart.file",
                 reason=f"File for {field_name!r}: expected bytes or tuple, got {type(file_info)}",
@@ -496,7 +495,7 @@ class WebSocketTestClient:
     """
 
     def __init__(self, server_or_app: Any):
-        from .server import TestServer
+        from aquilia.testing.server import TestServer
 
         if isinstance(server_or_app, TestServer) or hasattr(server_or_app, "app"):
             self._app = server_or_app.app

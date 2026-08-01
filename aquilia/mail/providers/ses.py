@@ -37,9 +37,9 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from ..envelope import MailEnvelope
-from ..mime import build_mime_message, message_to_bytes
-from ..providers import ProviderResult, ProviderResultStatus
+from aquilia.mail.envelope import MailEnvelope
+from aquilia.mail.mime import build_mime_message, message_to_bytes
+from aquilia.mail.providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.ses")
 

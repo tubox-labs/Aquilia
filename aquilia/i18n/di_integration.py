@@ -32,8 +32,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aquilia.di.providers import ValueProvider
+
 if TYPE_CHECKING:
-    from .service import I18nConfig, I18nService
+    from aquilia.i18n.service import I18nConfig, I18nService
 
 logger = logging.getLogger("aquilia.i18n.di")
 
@@ -47,7 +49,6 @@ def _register_with_value_provider(
     name: str,
 ) -> None:
     """Register a constant value using Aquilia's Provider-based DI API."""
-    from aquilia.di.providers import ValueProvider
 
     provider = ValueProvider(
         value=value,
@@ -84,7 +85,7 @@ def register_i18n_providers(
         service: Initialized I18nService
         config: I18nConfig (defaults to ``service.config``)
     """
-    from .service import I18nConfig, I18nService
+    from aquilia.i18n.service import I18nConfig, I18nService
 
     cfg = config or service.config
 
@@ -143,7 +144,7 @@ def register_i18n_request_providers(
         locale: Resolved locale for this request
         service: I18nService reference
     """
-    from .locale import Locale, parse_locale
+    from aquilia.i18n.locale import Locale, parse_locale
 
     try:
         locale_obj = parse_locale(locale)

@@ -2,9 +2,11 @@
 
 from pathlib import Path
 
-from ..generators import ModuleGenerator
-from ..generators.workspace import WorkspaceGenerator
-from ..utils.colors import _CHECK, dim, info
+from aquilia.cli.generators import ModuleGenerator
+from aquilia.cli.generators.deployment import ComposeGenerator, DockerfileGenerator, WorkspaceIntrospector
+from aquilia.cli.generators.workspace import WorkspaceGenerator
+from aquilia.cli.utils.colors import _CHECK, dim, info
+from aquilia.faults.domains import ConfigInvalidFault, ConfigMissingFault
 
 
 def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
@@ -15,11 +17,6 @@ def _ensure_docker_files(workspace_root: Path, verbose: bool = False) -> None:
     files in sync with the workspace structure.  Only generates files
     that do not already exist -- existing files are never overwritten.
     """
-    from ..generators.deployment import (
-        ComposeGenerator,
-        DockerfileGenerator,
-        WorkspaceIntrospector,
-    )
 
     wctx = WorkspaceIntrospector(workspace_root).introspect()
 
@@ -82,8 +79,6 @@ def add_module(
     workspace_file = workspace_root / "workspace.py"
 
     if not workspace_file.exists():
-        from aquilia.faults.domains import ConfigMissingFault
-
         raise ConfigMissingFault(key="workspace.py")
 
     if verbose:
@@ -107,8 +102,6 @@ def add_module(
     # Check if module already exists
     module_path = modules_dir / name
     if module_path.exists():
-        from aquilia.faults.domains import ConfigInvalidFault
-
         raise ConfigInvalidFault(
             key="module.name",
             reason=f"Module '{name}' already exists",
@@ -127,8 +120,6 @@ def add_module(
     # Validate dependencies
     for dep in depends_on:
         if dep not in existing_modules:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="module.depends_on",
                 reason=f"Dependency '{dep}' not found in workspace",

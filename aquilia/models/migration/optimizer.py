@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .operations import (
+from aquilia.models.migration.operations import (
     AddField,
     AddIndex,
     AlterField,
@@ -47,7 +47,7 @@ from .operations import (
 )
 
 if TYPE_CHECKING:
-    from .operations import Operation
+    from aquilia.models.migration.operations import Operation
 
 __all__ = ["optimize", "MAX_OPTIMIZER_PASSES"]
 

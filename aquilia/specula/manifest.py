@@ -9,8 +9,7 @@ when injecting routes (admin-style ``CompiledRoute`` injection).
 from __future__ import annotations
 
 from aquilia.manifest import AppManifest, ComponentKind, ComponentRef
-
-from .config import SpeculaConfig
+from aquilia.specula.config import SpeculaConfig
 
 
 def create_specula_manifest() -> AppManifest:

@@ -56,8 +56,7 @@ Quick Start:
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .config import (
+from aquilia.mail.config import (
     MailConfig,
     # Config wrapper objects (backward-compatible attribute access)
     ProviderConfig,
@@ -76,7 +75,7 @@ from .config import (
 )
 
 # ── DI providers ───────────────────────────────────────────────────
-from .di_providers import (
+from aquilia.mail.di_providers import (
     MailConfigProvider,
     MailProviderRegistry,
     MailServiceProvider,
@@ -84,10 +83,10 @@ from .di_providers import (
 )
 
 # ── Envelope & config ──────────────────────────────────────────────
-from .envelope import EnvelopeStatus, MailEnvelope, Priority
+from aquilia.mail.envelope import EnvelopeStatus, MailEnvelope, Priority
 
 # ── Faults ──────────────────────────────────────────────────────────
-from .faults import (
+from aquilia.mail.faults import (
     MailConfigFault,
     MailFault,
     MailRateLimitFault,
@@ -98,17 +97,13 @@ from .faults import (
 )
 
 # ── Core message types ──────────────────────────────────────────────
-from .message import (
-    EmailMessage,
-    EmailMultiAlternatives,
-    TemplateMessage,
-)
+from aquilia.mail.message import EmailMessage, EmailMultiAlternatives, TemplateMessage
 
 # ── MIME construction & DKIM ────────────────────────────────────────
-from .mime import build_mime_message, message_to_bytes, sign_dkim
+from aquilia.mail.mime import build_mime_message, message_to_bytes, sign_dkim
 
 # ── Provider interface & implementations ─────────────────────────────
-from .providers import (
+from aquilia.mail.providers import (
     ConsoleProvider,
     FileProvider,
     IMailProvider,
@@ -120,16 +115,16 @@ from .providers import (
 )
 
 # ── PII redaction ───────────────────────────────────────────────────
-from .redaction import redact_email, redact_pii
+from aquilia.mail.redaction import redact_email, redact_pii
 
 # ── Convenience API ─────────────────────────────────────────────────
-from .service import asend_mail, send_mail
+from aquilia.mail.service import asend_mail, send_mail
 
 # ── Envelope store (durable queued delivery) ───────────────────────
-from .store import EnvelopeStore, MemoryEnvelopeStore, SQLEnvelopeStore
+from aquilia.mail.store import EnvelopeStore, MemoryEnvelopeStore, SQLEnvelopeStore
 
 # ── Suppression list (bounces, complaints, opt-outs) ───────────────
-from .suppression import (
+from aquilia.mail.suppression import (
     MemorySuppressionList,
     SQLSuppressionList,
     SuppressionEntry,
@@ -138,14 +133,7 @@ from .suppression import (
 )
 
 # ── Provider webhooks ───────────────────────────────────────────────
-from .webhooks import (
-    EventType,
-    WebhookEvent,
-    parse_mailgun,
-    parse_sendgrid,
-    parse_ses,
-    process_webhook,
-)
+from aquilia.mail.webhooks import EventType, WebhookEvent, parse_mailgun, parse_sendgrid, parse_ses, process_webhook
 
 __all__ = [
     # Message types

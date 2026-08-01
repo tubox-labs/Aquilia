@@ -13,9 +13,8 @@ from typing import Any
 
 from aquilia.controller.compiler import CompiledRoute
 from aquilia.controller.router import ControllerRouter
-
-from ..config import SpeculaConfig
-from ..schema.builder import SpeculaBuilder
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.schema.builder import SpeculaBuilder
 
 logger = logging.getLogger("aquilia.specula.versions")
 
@@ -61,7 +60,7 @@ class VersionedSpecBuilder:
 
     def build_for_version(self, router: ControllerRouter, version: str) -> dict[str, Any]:
         """Build a spec filtered to routes that serve the given version."""
-        from ..faults import VersionNotFoundFault
+        from aquilia.specula.faults import VersionNotFoundFault
 
         declared = self.declared_versions()
         if version not in ("latest", *declared):

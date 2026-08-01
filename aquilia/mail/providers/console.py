@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
-from ..envelope import MailEnvelope
-from ..providers import ProviderResult, ProviderResultStatus
+from aquilia.mail.envelope import MailEnvelope
+from aquilia.mail.providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.console")
 

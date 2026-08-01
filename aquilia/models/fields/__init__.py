@@ -83,7 +83,60 @@ reach for it):
 # This keeps backward compatibility: ``from aquilia.models.fields import X``
 # works whether X lives in the old fields.py or new sub-modules.
 
-from ..fields_module import (
+from aquilia.models.fields.composite import CompositeAttribute, CompositeField, CompositePrimaryKey
+from aquilia.models.fields.enum_field import EnumField
+from aquilia.models.fields.lookups import (
+    Contains,
+    EndsWith,
+    Exact,
+    Gt,
+    Gte,
+    IContains,
+    IEndsWith,
+    IExact,
+    In,
+    IRegex,
+    IsNull,
+    IStartsWith,
+    Lookup,
+    Lt,
+    Lte,
+    Range,
+    Regex,
+    StartsWith,
+    lookup_registry,
+    register_lookup,
+    resolve_lookup,
+)
+
+# ── New sub-module exports ───────────────────────────────────────────────────
+from aquilia.models.fields.mixins import (
+    AutoNowMixin,
+    ChoiceMixin,
+    EncryptedField,
+    EncryptedMixin,
+    IndexedMixin,
+    NullableMixin,
+    UniqueMixin,
+)
+from aquilia.models.fields.validators import (
+    BaseValidator,
+    DecimalValidator,
+    EmailValidator,
+    FileExtensionValidator,
+    MaxLengthValidator,
+    MaxValueValidator,
+    MinLengthValidator,
+    MinValueValidator,
+    ProhibitNullCharactersValidator,
+    RangeValidator,
+    RegexValidator,
+    SlugValidator,
+    StepValueValidator,
+    URLValidator,
+    ValidationError,
+)
+from aquilia.models.fields_module import (
     UNSET,
     # PostgreSQL
     ArrayField,
@@ -151,63 +204,6 @@ from ..fields_module import (
     UUIDField,
     VarcharField,
     _Unset,
-)
-from .composite import (
-    CompositeAttribute,
-    CompositeField,
-    CompositePrimaryKey,
-)
-from .enum_field import EnumField
-from .lookups import (
-    Contains,
-    EndsWith,
-    Exact,
-    Gt,
-    Gte,
-    IContains,
-    IEndsWith,
-    IExact,
-    In,
-    IRegex,
-    IsNull,
-    IStartsWith,
-    Lookup,
-    Lt,
-    Lte,
-    Range,
-    Regex,
-    StartsWith,
-    lookup_registry,
-    register_lookup,
-    resolve_lookup,
-)
-
-# ── New sub-module exports ───────────────────────────────────────────────────
-from .mixins import (
-    AutoNowMixin,
-    ChoiceMixin,
-    EncryptedField,
-    EncryptedMixin,
-    IndexedMixin,
-    NullableMixin,
-    UniqueMixin,
-)
-from .validators import (
-    BaseValidator,
-    DecimalValidator,
-    EmailValidator,
-    FileExtensionValidator,
-    MaxLengthValidator,
-    MaxValueValidator,
-    MinLengthValidator,
-    MinValueValidator,
-    ProhibitNullCharactersValidator,
-    RangeValidator,
-    RegexValidator,
-    SlugValidator,
-    StepValueValidator,
-    URLValidator,
-    ValidationError,
 )
 
 __all__ = [

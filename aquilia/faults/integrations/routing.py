@@ -12,9 +12,14 @@ This module provides routing fault types and integration utilities.
 from typing import Any
 
 from aquilia.faults import (
+    FaultContext,
     FaultDomain,
+    FaultHandler,
+    FaultResult,
+    Resolved,
     Severity,
 )
+from aquilia.faults.default_handlers import HTTPResponse
 from aquilia.faults.domains import (
     PatternInvalidFault,
     RouteNotFoundFault,
@@ -79,8 +84,6 @@ def create_routing_fault_handler():
 
     Maps routing faults to appropriate HTTP responses.
     """
-    from aquilia.faults import FaultContext, FaultHandler, FaultResult, Resolved
-    from aquilia.faults.default_handlers import HTTPResponse
 
     class RoutingFaultHandler(FaultHandler):
         """Handle routing-specific faults."""

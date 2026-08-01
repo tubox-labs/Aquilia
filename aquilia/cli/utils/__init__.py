@@ -1,6 +1,6 @@
 """Aquilia CLI -- UI utilities (re-exports from colors module)."""
 
-from .colors import (  # noqa: F401
+from aquilia.cli.utils.colors import (  # noqa: F401
     accent,
     badge,
     # Structural

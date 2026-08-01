@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .expression import Expression, F
+from aquilia.models.expression import Expression, F
 
 __all__ = [
     "Aggregate",

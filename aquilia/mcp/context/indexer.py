@@ -7,14 +7,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aquilia import __version__ as aquilia_version
-
-from ..faults import MCPIndexFault
-from ..models import KnowledgeIndex
-from .cli_loader import load_cli_commands
-from .examples_loader import example_mappings
-from .facts import derive_facts
-from .parser import parse_source_file
-from .scanner import iter_source_files, resolve_repository_root
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.canonical import bare_fingerprint
+from aquilia.artifacts.envelope import ArtifactEnvelope
+from aquilia.mcp.context.cli_loader import load_cli_commands
+from aquilia.mcp.context.examples_loader import example_mappings
+from aquilia.mcp.context.facts import derive_facts
+from aquilia.mcp.context.parser import parse_source_file
+from aquilia.mcp.context.scanner import iter_source_files, resolve_repository_root
+from aquilia.mcp.faults import MCPIndexFault
+from aquilia.mcp.models import KnowledgeIndex
 
 
 def _content_fingerprint(root: Path, file_hashes: list[tuple[str, str]]) -> str:
@@ -74,9 +76,6 @@ def build_index(root: Path) -> KnowledgeIndex:
 
 def save_index(index: KnowledgeIndex, path: Path) -> None:
     """Persist the knowledge index via ArtifactStore backend (atomic write)."""
-    from aquilia.artifacts.backends.json_file import JSONFileBackend
-    from aquilia.artifacts.canonical import bare_fingerprint
-    from aquilia.artifacts.envelope import ArtifactEnvelope
 
     path = path.expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -95,8 +94,6 @@ def save_index(index: KnowledgeIndex, path: Path) -> None:
 
 def load_index(path: Path) -> KnowledgeIndex:
     """Load knowledge index via ArtifactStore backend."""
-    from aquilia.artifacts.backends.json_file import JSONFileBackend
-    from aquilia.artifacts.envelope import ArtifactEnvelope
 
     try:
         path = path.expanduser().resolve()

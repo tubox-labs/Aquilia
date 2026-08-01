@@ -94,7 +94,7 @@ Map of this package's public surface (grouped by why you'd reach for it):
 # ── New Pure Python Model System ─────────────────────────────────────────────
 
 # Re-export model-specific faults for convenience
-from ..faults.domains import (
+from aquilia.faults.domains import (
     DatabaseConnectionFault,
     ManagerInstanceAccessFault,
     MigrationConflictFault,
@@ -105,7 +105,7 @@ from ..faults.domains import (
     QueryFault,
     SchemaFault,
 )
-from .aggregate import (
+from aquilia.models.aggregate import (
     Aggregate,
     ArrayAgg,
     Avg,
@@ -120,20 +120,14 @@ from .aggregate import (
     Sum,
     Variance,
 )
-from .base import (
-    Model,
-    ModelMeta,
-    ModelRegistry,
-    Options,
-    Q,
-)
+from aquilia.models.base import Model, ModelMeta, ModelRegistry, Options, Q
 
 # ── Constraints & Indexes ────────────────────────────────────────────────────
-from .constraint import CheckConstraint, Deferrable, ExclusionConstraint
-from .cte import CTE, CTECol, CTEReference, RecursiveCTE
+from aquilia.models.constraint import CheckConstraint, Deferrable, ExclusionConstraint
+from aquilia.models.cte import CTE, CTECol, CTEReference, RecursiveCTE
 
 # ── Deletion constants ───────────────────────────────────────────────────────
-from .deletion import (
+from aquilia.models.deletion import (
     CASCADE,
     DO_NOTHING,
     PROTECT,
@@ -148,8 +142,8 @@ from .deletion import (
 )
 
 # ── Enums / Choices ──────────────────────────────────────────────────────────
-from .enums import Choices, IntegerChoices, TextChoices
-from .expression import (
+from aquilia.models.enums import Choices, IntegerChoices, TextChoices
+from aquilia.models.expression import (
     Abs,
     Case,
     Cast,
@@ -189,7 +183,7 @@ from .expression import (
 )
 
 # New sub-module exports
-from .fields import (
+from aquilia.models.fields import (
     AutoNowMixin,
     ChoiceMixin,
     CompositeAttribute,
@@ -202,7 +196,7 @@ from .fields import (
     NullableMixin,
     UniqueMixin,
 )
-from .fields_module import (
+from aquilia.models.fields_module import (
     UNSET,
     # PostgreSQL
     ArrayField,
@@ -270,17 +264,11 @@ from .fields_module import (
     URLField,
     UUIDField,
 )
-from .index import (
-    BrinIndex,
-    FunctionalIndex,
-    GinIndex,
-    GistIndex,
-    HashIndex,
-)
-from .manager import BaseManager, Manager, QuerySet
+from aquilia.models.index import BrinIndex, FunctionalIndex, GinIndex, GistIndex, HashIndex
+from aquilia.models.manager import BaseManager, Manager, QuerySet
 
 # ── Migrations ───────────────────────────────────────────────────────────────
-from .migration import (
+from aquilia.models.migration import (
     MigrationEngine,
     MigrationGraph,
     MigrationNode,
@@ -288,16 +276,16 @@ from .migration import (
     Operation,
     ProjectState,
 )
-from .options import Options as EnhancedOptions
-from .query import Prefetch, QCombination, QNode
-from .query import Q as QueryBuilder
+from aquilia.models.options import Options as EnhancedOptions
+from aquilia.models.query import Prefetch, QCombination, QNode
+from aquilia.models.query import Q as QueryBuilder
 
 # New split-module exports (available but not replacing base.py)
-from .registry import ModelRegistry as NewModelRegistry
-from .relations import Related, RelatedNotLoaded
+from aquilia.models.registry import ModelRegistry as NewModelRegistry
+from aquilia.models.relations import Related, RelatedNotLoaded
 
 # ── Signals ──────────────────────────────────────────────────────────────────
-from .signals import (
+from aquilia.models.signals import (
     Signal,
     class_prepared,
     m2m_changed,
@@ -313,7 +301,7 @@ from .signals import (
 )
 
 # ── SQL Builder ──────────────────────────────────────────────────────────────
-from .sql_builder import (
+from aquilia.models.sql_builder import (
     AlterTableBuilder,
     CreateTableBuilder,
     DeleteBuilder,
@@ -322,16 +310,13 @@ from .sql_builder import (
     UpdateBuilder,
     UpsertBuilder,
 )
-from .startup_guard import (
-    DatabaseNotReadyError,
-    check_db_ready,
-)
+from aquilia.models.startup_guard import DatabaseNotReadyError, check_db_ready
 
 # ── Transactions ─────────────────────────────────────────────────────────────
-from .transactions import Atomic, TransactionManager, atomic
+from aquilia.models.transactions import Atomic, TransactionManager, atomic
 
 # ── Expression / Aggregate system ────────────────────────────────────────────
-from .window import (
+from aquilia.models.window import (
     DenseRank,
     FirstValue,
     FrameBound,

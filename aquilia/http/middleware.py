@@ -12,8 +12,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from .request import HTTPClientRequest
-from .response import HTTPClientResponse
+from aquilia.http.request import HTTPClientRequest
+from aquilia.http.response import HTTPClientResponse
 
 logger = logging.getLogger("aquilia.http.middleware")
 
@@ -216,7 +216,7 @@ class TimeoutMiddleware(HTTPClientMiddleware):
     ) -> HTTPClientResponse:
         import asyncio
 
-        from .faults import RequestTimeoutFault
+        from aquilia.http.faults import RequestTimeoutFault
 
         try:
             return await asyncio.wait_for(
@@ -266,7 +266,7 @@ class RetryMiddleware(HTTPClientMiddleware):
     __slots__ = ("_strategy",)
 
     def __init__(self, strategy: Any = None):  # RetryStrategy
-        from .retry import ExponentialBackoff
+        from aquilia.http.retry import ExponentialBackoff
 
         self._strategy = strategy or ExponentialBackoff()
 
@@ -275,7 +275,7 @@ class RetryMiddleware(HTTPClientMiddleware):
         request: HTTPClientRequest,
         call_next: MiddlewareHandler,
     ) -> HTTPClientResponse:
-        from .retry import RetryExecutor
+        from aquilia.http.retry import RetryExecutor
 
         executor = RetryExecutor(self._strategy)
         return await executor.execute(call_next, request)
@@ -335,7 +335,7 @@ class CacheMiddleware(HTTPClientMiddleware):
     ) -> HTTPClientResponse:
         import time
 
-        from .request import HTTPMethod
+        from aquilia.http.request import HTTPMethod
 
         # Only cache GET requests
         if request.method != HTTPMethod.GET:
@@ -397,7 +397,7 @@ class CookieMiddleware(HTTPClientMiddleware):
     __slots__ = ("_jar",)
 
     def __init__(self, jar: Any = None):  # CookieJar
-        from .cookies import CookieJar
+        from aquilia.http.cookies import CookieJar
 
         self._jar = jar or CookieJar()
 

@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
-from .config import PoolConfig
-from .faults import ConnectionClosedFault, ConnectionPoolExhaustedFault
+from aquilia.http.config import PoolConfig
+from aquilia.http.faults import ConnectionClosedFault, ConnectionPoolExhaustedFault
 
 logger = logging.getLogger("aquilia.http.pool")
 

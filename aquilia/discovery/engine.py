@@ -14,7 +14,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..manifest import ComponentKind
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.manifest import ComponentKind
 
 logger = logging.getLogger("aquilia.discovery")
 
@@ -156,7 +157,6 @@ class DiscoveryCache:
     def __init__(self, cache_file: Path):
         self.cache_file = cache_file
         self._data: dict[str, dict] = {}
-        from aquilia.artifacts.backends.json_file import JSONFileBackend
 
         self._backend = JSONFileBackend()
         self.load()

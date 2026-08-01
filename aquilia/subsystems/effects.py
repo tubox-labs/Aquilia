@@ -19,11 +19,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from .base import BaseSubsystem, BootContext
+from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.middleware_ext.effect_middleware import EffectMiddleware, FlowContextMiddleware
+from aquilia.subsystems.base import BaseSubsystem, BootContext
 
 if TYPE_CHECKING:
-    from ..effects import EffectRegistry
-    from ..flow import Layer
+    from aquilia.effects import EffectRegistry
+    from aquilia.flow import Layer
 
 logger = logging.getLogger("aquilia.subsystems.effects")
 
@@ -103,7 +105,7 @@ class EffectSubsystem(BaseSubsystem):
 
     def _get_or_create_registry(self, ctx: BootContext) -> EffectRegistry:
         """Get existing registry from DI or create a new one."""
-        from ..effects import EffectRegistry
+        from aquilia.effects import EffectRegistry
 
         # Try to get from shared state (set by server.__init__)
         registry = ctx.shared_state.get("effect_registry")
@@ -166,7 +168,7 @@ class EffectSubsystem(BaseSubsystem):
 
     async def _build_layers(self, ctx: BootContext) -> None:
         """Build and resolve Layer compositions from config."""
-        from ..flow import Layer, LayerComposition
+        from aquilia.flow import Layer, LayerComposition
 
         config = ctx.config
         effects_config = None
@@ -208,10 +210,6 @@ class EffectSubsystem(BaseSubsystem):
 
     def _register_middleware(self, ctx: BootContext) -> None:
         """Register EffectMiddleware in the middleware stack."""
-        from ..middleware_ext.effect_middleware import (
-            EffectMiddleware,
-            FlowContextMiddleware,
-        )
 
         config = ctx.config
         effects_config = {}
@@ -264,8 +262,6 @@ class EffectSubsystem(BaseSubsystem):
         import importlib
 
         if not factory_path:
-            from ..faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="effect_factory_path",
                 reason="Factory path must not be empty",
@@ -279,7 +275,7 @@ class EffectSubsystem(BaseSubsystem):
 
     async def health_check(self):
         """Report effect system health."""
-        from .base import HealthStatus, SubsystemStatus
+        from aquilia.subsystems.base import HealthStatus, SubsystemStatus
 
         if not self._initialized or not self._registry:
             return HealthStatus(

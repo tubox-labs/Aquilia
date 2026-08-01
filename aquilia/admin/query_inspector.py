@@ -20,6 +20,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
+from aquilia.inspector.collector import _COLLECTOR
+from aquilia.inspector.config import InspectorConfig
+from aquilia.inspector.redaction import redact_body_keys_recursive
+
 if TYPE_CHECKING:
     from aquilia.inspector.trace import RequestTrace
 
@@ -51,9 +55,6 @@ class QueryRecord:
         return hashlib.sha256(data.encode()).hexdigest()[:12]
 
     def to_dict(self) -> dict[str, Any]:
-        from aquilia.inspector.collector import _COLLECTOR
-        from aquilia.inspector.config import InspectorConfig
-        from aquilia.inspector.redaction import redact_body_keys_recursive
 
         config = _COLLECTOR._config if _COLLECTOR is not None else InspectorConfig()
         redacted_params = redact_body_keys_recursive(self.params, config.redact_body_keys) if self.params else None

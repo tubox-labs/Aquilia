@@ -19,6 +19,10 @@ from pathlib import Path
 from jinja2 import BytecodeCache as Jinja2BytecodeCache
 from jinja2.bccache import Bucket
 
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.cache_root import resolve_artifact_root
+from aquilia.artifacts.envelope import ArtifactEnvelope
+
 
 class BytecodeCache(Jinja2BytecodeCache):
     """
@@ -142,8 +146,6 @@ class JSONBytecodeCache(BytecodeCache):
         # Resolve canonical artifact root if not explicitly specified.
         # Default: <project>/.aquilia/artifacts (never the legacy "artifacts/" dir).
         if cache_dir is None:
-            from aquilia.artifacts.cache_root import resolve_artifact_root
-
             cache_dir = str(resolve_artifact_root())
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -162,7 +164,6 @@ class JSONBytecodeCache(BytecodeCache):
         self._dirty = False
 
         # Backend — delegates all serialization + atomic IO
-        from aquilia.artifacts.backends.json_file import JSONFileBackend
 
         self._backend = JSONFileBackend()
 
@@ -256,7 +257,6 @@ class JSONBytecodeCache(BytecodeCache):
 
     def _save(self) -> None:
         """Save cache to disk via ArtifactStore backend (atomic write + HMAC signing)."""
-        from aquilia.artifacts.envelope import ArtifactEnvelope
 
         # Build payload — bytecode encoded as base64 for JSON safety
         bytecode_encoded = {key: base64.b64encode(raw_bytes).decode("ascii") for key, raw_bytes in self._cache.items()}

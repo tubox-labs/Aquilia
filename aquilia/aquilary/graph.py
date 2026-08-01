@@ -71,7 +71,7 @@ class DependencyGraph:
         # Check for cycles first
         cycle = self.find_cycle()
         if cycle:
-            from .errors import DependencyCycleError
+            from aquilia.aquilary.errors import DependencyCycleError
 
             raise DependencyCycleError(cycle=cycle)
 
@@ -99,7 +99,7 @@ class DependencyGraph:
         # Reverse to get dependency-first order
         res = list(reversed(result))
         if len(res) != len(self._nodes):
-            from .errors import DependencyCycleError
+            from aquilia.aquilary.errors import DependencyCycleError
 
             cycle = self.find_cycle() or list(self._nodes.keys())
             raise DependencyCycleError(cycle=cycle)

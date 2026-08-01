@@ -145,13 +145,21 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
-    from .db.engine import AquiliaDatabase
-    from .sqlite._cursor import AsyncCursor
+    from aquilia.db.engine import AquiliaDatabase
+    from aquilia.sqlite._cursor import AsyncCursor
 else:
     AsyncCursor = Any
     AquiliaDatabase = Any
 
-from .typing.effects import EffectMap, EffectName
+import os
+
+from aquilia.db.engine import get_database
+from aquilia.di.providers import ValueProvider
+from aquilia.faults.domains import EffectNotAcquiredFault
+from aquilia.http.client import AsyncHTTPClient
+from aquilia.http.config import HTTPClientConfig, TimeoutConfig
+from aquilia.models.transactions import Atomic
+from aquilia.typing.effects import EffectMap, EffectName
 
 T = TypeVar("T")
 
@@ -196,7 +204,6 @@ class DBTxHandle(dict):
         """
         if self._db is not None:
             return self._db
-        from .db.engine import get_database
 
         return get_database()
 
@@ -473,7 +480,7 @@ class DBTxProvider(EffectProvider):
 
     async def initialize(self):
         """Initialize database connection."""
-        from .db.engine import AquiliaDatabase
+        from aquilia.db.engine import AquiliaDatabase
 
         self.db = AquiliaDatabase(self.connection_string)
         await self.db.connect()
@@ -482,12 +489,10 @@ class DBTxProvider(EffectProvider):
         """Acquire database connection and start transaction."""
         self._acquire_count += 1
         if self.db is None:
-            from .db.engine import get_database
-
             try:
                 self.db = get_database()
             except Exception as exc:
-                from .faults.domains import DatabaseConnectionFault
+                from aquilia.faults.domains import DatabaseConnectionFault
 
                 raise DatabaseConnectionFault(
                     backend="dbtx_effect",
@@ -495,7 +500,6 @@ class DBTxProvider(EffectProvider):
                 )
 
         readonly = mode == "read"
-        from .models.transactions import Atomic
 
         txn = Atomic(db=self.db, readonly=readonly)
         await txn.__aenter__()
@@ -665,8 +669,6 @@ class HTTPProvider(EffectProvider):
 
     async def initialize(self):
         """Create AsyncHTTPClient session."""
-        from .http.client import AsyncHTTPClient
-        from .http.config import HTTPClientConfig, TimeoutConfig
 
         config = HTTPClientConfig(timeout=TimeoutConfig(total=self.timeout))
         self.client = AsyncHTTPClient(base_url=self.base_url, config=config)
@@ -674,8 +676,6 @@ class HTTPProvider(EffectProvider):
     async def acquire(self, mode: str | None = None) -> HTTPHandle:
         """Return HTTP client handle."""
         if self.client is None:
-            from .http.client import AsyncHTTPClient
-
             self.client = AsyncHTTPClient(base_url=self.base_url)
         return HTTPHandle(self.client, self.base_url)
 
@@ -699,7 +699,6 @@ class StorageProvider(EffectProvider):
         self._registry = storage_registry
 
     async def initialize(self) -> None:
-        import os
 
         os.makedirs(self.root_path, exist_ok=True)
 
@@ -711,7 +710,6 @@ class StorageProvider(EffectProvider):
         pass
 
     async def health_check(self) -> dict[str, Any]:
-        import os
 
         healthy = os.path.isdir(self.root_path)
         if self._registry is not None:
@@ -1085,7 +1083,6 @@ class StorageHandle:
         Returns:
             Local file path string.
         """
-        import os
 
         return os.path.join(self._root, self._bucket, key)
 
@@ -1110,8 +1107,6 @@ class StorageHandle:
             except Exception:
                 return None
 
-        import os
-
         path = self._path(key)
         if not os.path.exists(path):
             return None
@@ -1133,8 +1128,6 @@ class StorageHandle:
             backend = self._registry.get(self._bucket) or self._registry.default
             await backend.save(key, data, overwrite=True)
             return
-
-        import os
 
         path = self._path(key)
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -1162,8 +1155,6 @@ class StorageHandle:
             except Exception:
                 return False
 
-        import os
-
         path = self._path(key)
         if os.path.exists(path):
             os.remove(path)
@@ -1189,8 +1180,6 @@ class StorageHandle:
                 return await backend.exists(key)
             except Exception:
                 return False
-
-        import os
 
         return os.path.exists(self._path(key))
 
@@ -1333,8 +1322,6 @@ class EffectRegistry:
     def get_provider(self, effect_name: str) -> EffectProvider:
         """Get provider for effect."""
         if effect_name not in self.providers:
-            from .faults.domains import EffectNotAcquiredFault
-
             raise EffectNotAcquiredFault(
                 effect_name=effect_name,
                 reason="No provider is registered for this effect name.",
@@ -1375,7 +1362,6 @@ class EffectRegistry:
         Args:
             container: DI Container instance
         """
-        from aquilia.di.providers import ValueProvider
 
         # Register the registry itself
         container.register(

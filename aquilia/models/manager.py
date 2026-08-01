@@ -39,9 +39,11 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
+from aquilia.faults.domains import ManagerInstanceAccessFault, ModelRegistrationFault
+
 if TYPE_CHECKING:
-    from .base import Model
-    from .query import Q
+    from aquilia.models.base import Model
+    from aquilia.models.query import Q
 
 
 __all__ = ["Manager", "BaseManager", "QuerySet", "RelatedManager"]
@@ -135,8 +137,6 @@ class QuerySet(Generic[TModel]):
             Internal helper.
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="QuerySet is not bound to a model",
@@ -256,8 +256,6 @@ class BaseManager(Generic[TModel]):
             >>> User.objects.filter(active=True)
         """
         if instance is not None:
-            from aquilia.faults.domains import ManagerInstanceAccessFault
-
             model_name = owner.__name__ if owner is not None else "<unknown>"
             raise ManagerInstanceAccessFault(
                 model_name=model_name,
@@ -277,8 +275,6 @@ class BaseManager(Generic[TModel]):
     def _get_queryset(self) -> Q[TModel]:
         """Return a fresh Q (QuerySet) for the model."""
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",
@@ -468,8 +464,6 @@ class BaseManager(Generic[TModel]):
             user = await User.objects.get(email="alice@example.com")
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",
@@ -489,8 +483,6 @@ class BaseManager(Generic[TModel]):
             )
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",
@@ -510,8 +502,6 @@ class BaseManager(Generic[TModel]):
             )
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",
@@ -526,8 +516,6 @@ class BaseManager(Generic[TModel]):
             user = await User.objects.create(name="Alice", email="a@b.com")
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",
@@ -550,8 +538,6 @@ class BaseManager(Generic[TModel]):
             ], batch_size=100)
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",
@@ -575,8 +561,6 @@ class BaseManager(Generic[TModel]):
             await User.objects.bulk_update(users, ["score"], batch_size=50)
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",
@@ -593,8 +577,6 @@ class BaseManager(Generic[TModel]):
             )
         """
         if self._model_cls is None:
-            from aquilia.faults.domains import ModelRegistrationFault
-
             raise ModelRegistrationFault(
                 model_name="<unknown>",
                 reason="Manager is not bound to a model",

@@ -5,8 +5,7 @@ Diagnostic errors for AquilaPatterns.
 from dataclasses import dataclass
 
 from aquilia.faults.domains import RoutingFault
-
-from ..compiler.ast_nodes import Span
+from aquilia.patterns.compiler.ast_nodes import Span
 
 
 @dataclass

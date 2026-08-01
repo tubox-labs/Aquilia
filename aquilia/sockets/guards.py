@@ -12,11 +12,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
     from aquilia.sessions.core import Session
+    from aquilia.sockets.connection import Connection, ConnectionScope
+    from aquilia.sockets.envelope import MessageEnvelope
 
-    from .connection import Connection, ConnectionScope
-    from .envelope import MessageEnvelope
-
-from .faults import WS_AUTH_REQUIRED, WS_FORBIDDEN, WS_ORIGIN_NOT_ALLOWED
+from aquilia.sockets.faults import WS_AUTH_REQUIRED, WS_FORBIDDEN, WS_ORIGIN_NOT_ALLOWED
 
 logger = logging.getLogger("aquilia.sockets.guards")
 
@@ -252,7 +251,7 @@ class RateLimitGuard(SocketGuard):
         """Check rate limit."""
         import time
 
-        from .faults import WS_RATE_LIMIT_EXCEEDED
+        from aquilia.sockets.faults import WS_RATE_LIMIT_EXCEEDED
 
         now = time.time()
         conn_id = conn.connection_id

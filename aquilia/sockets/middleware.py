@@ -11,8 +11,8 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .connection import Connection
-    from .envelope import MessageEnvelope
+    from aquilia.sockets.connection import Connection
+    from aquilia.sockets.envelope import MessageEnvelope
 
 logger = logging.getLogger("aquilia.sockets.middleware")
 
@@ -53,7 +53,7 @@ class MessageValidationMiddleware:
         """Validate message."""
         import json
 
-        from .faults import WS_MESSAGE_INVALID, WS_PAYLOAD_TOO_LARGE
+        from aquilia.sockets.faults import WS_MESSAGE_INVALID, WS_PAYLOAD_TOO_LARGE
 
         # Validate envelope structure
         if not envelope.event:
@@ -103,7 +103,7 @@ class RateLimitMiddleware:
         """Check rate limit."""
         import time
 
-        from .faults import WS_RATE_LIMIT_EXCEEDED
+        from aquilia.sockets.faults import WS_RATE_LIMIT_EXCEEDED
 
         now = time.time()
         conn_id = conn.connection_id

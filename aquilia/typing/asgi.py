@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any, Literal, Protocol, TypeAlias, TypedDict
 
-from .common import RawHeaderList
+from aquilia.typing.common import RawHeaderList
 
 ASGIVersionInfo: TypeAlias = dict[str, str]
 ASGIServerAddress: TypeAlias = tuple[str, int | None] | None

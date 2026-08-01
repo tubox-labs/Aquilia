@@ -28,7 +28,7 @@ import contextlib
 import logging
 from typing import Any
 
-from ..core import CacheBackend, CacheEntry, CacheStats
+from aquilia.cache.core import CacheBackend, CacheEntry, CacheStats
 
 logger = logging.getLogger("aquilia.cache.composite")
 

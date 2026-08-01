@@ -55,7 +55,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from ..faults import MailTemplateFault
+from aquilia.mail.faults import MailTemplateFault
 
 __all__ = [
     "FILTERS",

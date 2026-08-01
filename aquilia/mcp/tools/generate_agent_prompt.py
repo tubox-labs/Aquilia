@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..models import KnowledgeIndex
-from ..prompts.templates import render_workflow_prompt
+from aquilia.mcp.models import KnowledgeIndex
+from aquilia.mcp.prompts.templates import render_workflow_prompt
 
 
 def generate_agent_prompt(index: KnowledgeIndex, arguments: dict) -> dict:

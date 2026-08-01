@@ -4,6 +4,8 @@ Data Utilities - Provides flexible data structures for the framework.
 
 from typing import Any
 
+from aquilia.response import _json_default_serializer
+
 
 class CallableList(list):
     __slots__ = ("_method",)
@@ -379,8 +381,6 @@ class DataObject(dict):
     def to_json(self, **kwargs) -> str:
         """Serialize the DataObject directly to a JSON string."""
         import json
-
-        from aquilia.response import _json_default_serializer
 
         if "default" not in kwargs:
             kwargs["default"] = _json_default_serializer

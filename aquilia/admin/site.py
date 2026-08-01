@@ -24,24 +24,45 @@ if TYPE_CHECKING:
     from aquilia.models.base import Model
 
 import contextlib
+import json as _json
+import os
+import re
+import subprocess
 
-from aquilia.controller.pagination import PageNumberPagination
-
-from .audit import AdminAction, ModelBackedAuditLog
-from .faults import (
+from aquilia.admin.audit import AdminAction, ModelBackedAuditLog
+from aquilia.admin.faults import (
     AdminAuthorizationFault,
     AdminModelNotFoundFault,
     AdminRecordNotFoundFault,
     AdminValidationFault,
 )
-from .options import ModelAdmin
-from .permissions import (
+from aquilia.admin.options import ModelAdmin
+from aquilia.admin.permissions import (
     AdminPermission,
     AdminRole,
     get_admin_role,
     has_admin_permission,
     set_model_permission_override,
 )
+from aquilia.controller.pagination import PageNumberPagination
+from aquilia.models.fields_module import (
+    BigIntegerField,
+    BooleanField,
+    DateField,
+    DateTimeField,
+    DecimalField,
+    FloatField,
+    ForeignKey,
+    IntegerField,
+    ManyToManyField,
+    OneToOneField,
+    PositiveIntegerField,
+    PositiveSmallIntegerField,
+    SmallIntegerField,
+    TimeField,
+    UUIDField,
+)
+from aquilia.models.query import QNode
 
 logger = logging.getLogger("aquilia.admin.site")
 
@@ -585,7 +606,7 @@ class AdminSite:
         self.audit_log: ModelBackedAuditLog = ModelBackedAuditLog()
 
         # Security policy -- built from admin_config.security_config
-        from .security import AdminSecurityPolicy
+        from aquilia.admin.security import AdminSecurityPolicy
 
         self.security: AdminSecurityPolicy = AdminSecurityPolicy.from_config(self.admin_config.security_config)
 
@@ -614,7 +635,7 @@ class AdminSite:
         if self._initialized:
             return
 
-        from .registry import autodiscover, flush_pending_registrations
+        from aquilia.admin.registry import autodiscover, flush_pending_registrations
 
         # Flush any @register decorators that fired before init
         flush_pending_registrations()
@@ -789,10 +810,6 @@ class AdminSite:
         Scans every FK / O2O / M2M across all registered models and
         records the reverse side.
         """
-        from aquilia.models.fields_module import (
-            ForeignKey,
-            OneToOneField,
-        )
 
         reverse: dict[str, list[dict[str, Any]]] = {}
 
@@ -855,12 +872,6 @@ class AdminSite:
             - **fingerprint**: deterministic schema hash for migration diffs
         """
         import inspect as _inspect
-
-        from aquilia.models.fields_module import (
-            ForeignKey,
-            ManyToManyField,
-            OneToOneField,
-        )
 
         # Pre-compute reverse relations once for all models
         reverse_map = self._build_reverse_relations(self._registry)
@@ -1177,7 +1188,6 @@ class AdminSite:
             - **dependency_graph**: model → [models it depends on via FK/M2M]
             - **models**: condensed model list with table names
         """
-        from aquilia.models.fields_module import ForeignKey
 
         result: dict[str, Any] = {
             "database": {},
@@ -1351,7 +1361,7 @@ class AdminSite:
         Gather query inspector data: recent queries, slow queries,
         N+1 detections, and aggregate stats.
         """
-        from .query_inspector import get_query_inspector
+        from aquilia.admin.query_inspector import get_query_inspector
 
         inspector = get_query_inspector()
         return inspector.get_stats()
@@ -1363,7 +1373,7 @@ class AdminSite:
         Gather error tracker data: recent errors, error groups,
         frequency analysis, and aggregate stats.
         """
-        from .error_tracker import get_error_tracker
+        from aquilia.admin.error_tracker import get_error_tracker
 
         tracker = get_error_tracker()
         return tracker.get_stats()
@@ -2623,7 +2633,6 @@ class AdminSite:
         - Test file discovery (project test files)
         - Coverage-style breakdown by component
         """
-        import os
 
         data: dict[str, Any] = {
             "available": True,
@@ -3299,7 +3308,6 @@ class AdminSite:
         Returns model counts, audit breakdowns, system health,
         environment info, and recent activity for a rich dashboard.
         """
-        import os
         import platform
         import time
         from collections import Counter
@@ -3533,7 +3541,6 @@ class AdminSite:
         Scan the migrations directory for migration files and
         return their metadata and syntax-highlighted source.
         """
-        import re
 
         migrations_dir = self._find_workspace_path("migrations")
         if migrations_dir is None or not migrations_dir.is_dir():
@@ -3634,7 +3641,6 @@ class AdminSite:
         if ws_path and ws_path.exists():
             try:
                 ws_source = ws_path.read_text(encoding="utf-8")
-                import re
 
                 # Extract workspace name
                 name_match = re.search(r'(?:Workspace\(\s*["\'](\w+)|name\s*=\s*["\'](\w+))', ws_source)
@@ -3704,7 +3710,6 @@ class AdminSite:
             - health_checks: list from HealthRegistry
         """
         import gc
-        import os
         import platform
         import sys
         import time
@@ -4025,8 +4030,6 @@ class AdminSite:
             if platform.system() == "Windows":
                 # Use WMI via subprocess to get CPU usage
                 try:
-                    import subprocess
-
                     wmi_out = subprocess.run(
                         [
                             "powershell",
@@ -4045,8 +4048,6 @@ class AdminSite:
                     pass
                 # Per-core via typeperf (quick one-shot)
                 try:
-                    import subprocess
-
                     tp_out = subprocess.run(
                         ["typeperf", r"\Processor(*)\% Processor Time", "-sc", "1"],
                         capture_output=True,
@@ -4251,8 +4252,6 @@ class AdminSite:
             _cores = os.cpu_count() or 0
             if platform.system() == "Windows":
                 try:
-                    import subprocess
-
                     wmi_out = subprocess.run(
                         [
                             "powershell",
@@ -4449,7 +4448,6 @@ class AdminSite:
     @staticmethod
     def _safe_env_snapshot() -> dict[str, str]:
         """Capture a safe subset of environment variables (no secrets)."""
-        import os
         import platform as _plat
 
         # Cross-platform env var list
@@ -4521,8 +4519,6 @@ class AdminSite:
             - dockerfile_info: Dockerfile analysis
             - error: optional error string
         """
-        import json as _json
-        import subprocess
 
         result: dict[str, Any] = {
             "docker_available": False,
@@ -4771,7 +4767,6 @@ class AdminSite:
                             )
                 except ImportError:
                     # PyYAML not installed -- basic regex parsing
-                    import re
 
                     svc_matches = re.findall(
                         r"^\s{2}(\w[\w-]*):\s*$",
@@ -4803,7 +4798,6 @@ class AdminSite:
         if dockerfile_path and dockerfile_path.is_file():
             try:
                 content = dockerfile_path.read_text(encoding="utf-8", errors="replace")
-                import re
 
                 result["dockerfile_info"] = {
                     "exists": True,
@@ -4867,7 +4861,6 @@ class AdminSite:
 
         Supported actions: start, stop, restart, pause, unpause, kill, rm, run
         """
-        import subprocess
 
         ALLOWED = {"start", "stop", "restart", "pause", "unpause", "kill", "rm", "run"}
         if action not in ALLOWED:
@@ -4875,7 +4868,6 @@ class AdminSite:
 
         # ── docker run (create+start a new container) ──
         if action == "run":
-            import json as _json
             import shlex
 
             try:
@@ -4959,8 +4951,6 @@ class AdminSite:
 
     def get_container_inspect(self, container_id: str) -> dict[str, Any]:
         """Return full ``docker inspect`` output for a container."""
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -4987,7 +4977,6 @@ class AdminSite:
         since: str = "",
     ) -> dict[str, Any]:
         """Fetch recent logs from a container via ``docker logs``."""
-        import subprocess
 
         args = ["docker", "logs", "--tail", str(tail), "--timestamps"]
         if since:
@@ -5012,8 +5001,6 @@ class AdminSite:
 
     def get_volume_inspect(self, volume_name: str) -> dict[str, Any]:
         """Return ``docker volume inspect`` output."""
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5034,8 +5021,6 @@ class AdminSite:
 
     def get_network_inspect(self, network_id: str) -> dict[str, Any]:
         """Return ``docker network inspect`` output."""
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5056,8 +5041,6 @@ class AdminSite:
 
     def get_image_inspect(self, image_id: str) -> dict[str, Any]:
         """Return ``docker image inspect`` output."""
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5086,7 +5069,6 @@ class AdminSite:
 
         Supported actions: rm (remove), pull
         """
-        import subprocess
 
         ALLOWED = {"rm", "pull"}
         if action not in ALLOWED:
@@ -5124,7 +5106,6 @@ class AdminSite:
 
         Supported actions: up, down, restart, build, pull, stop, start
         """
-        import subprocess
 
         ALLOWED = {"up", "down", "restart", "build", "pull", "stop", "start"}
         if action not in ALLOWED:
@@ -5177,7 +5158,6 @@ class AdminSite:
         action: str,
     ) -> dict[str, Any]:
         """Execute a Docker volume action. Supported: rm"""
-        import subprocess
 
         if action != "rm":
             return {"success": False, "error": f"Unknown action: {action}"}
@@ -5202,7 +5182,6 @@ class AdminSite:
         action: str,
     ) -> dict[str, Any]:
         """Execute a Docker network action. Supported: rm"""
-        import subprocess
 
         if action != "rm":
             return {"success": False, "error": f"Unknown action: {action}"}
@@ -5228,8 +5207,6 @@ class AdminSite:
         Return ``docker system df -v`` data: images, containers, volumes,
         build cache with reclaimable space information.
         """
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5257,7 +5234,6 @@ class AdminSite:
 
     def get_docker_disk_usage_summary(self) -> dict[str, Any]:
         """Return a human-friendly summary of docker disk usage."""
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5279,7 +5255,6 @@ class AdminSite:
 
         Supported targets: system, images, containers, volumes, builder
         """
-        import subprocess
 
         ALLOWED = {
             "system": ["docker", "system", "prune", "-a", "-f"],
@@ -5315,7 +5290,6 @@ class AdminSite:
     ) -> dict[str, Any]:
         """Execute a command inside a running container via ``docker exec``."""
         import shlex
-        import subprocess
 
         cid = container_id.strip()
         if not cid:
@@ -5345,8 +5319,6 @@ class AdminSite:
 
     def get_image_history(self, image_id: str) -> dict[str, Any]:
         """Return ``docker history`` for an image with layer sizes."""
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5387,7 +5359,6 @@ class AdminSite:
         target_tag: str,
     ) -> dict[str, Any]:
         """Tag an image with a new name via ``docker tag``."""
-        import subprocess
 
         src = source_image.strip()
         tgt = target_tag.strip()
@@ -5413,7 +5384,6 @@ class AdminSite:
         container_id: str,
     ) -> dict[str, Any]:
         """Export a container filesystem as a tar (returns path info)."""
-        import subprocess
         import tempfile
 
         cid = container_id.strip()
@@ -5430,8 +5400,6 @@ class AdminSite:
                 timeout=120,
             )
             if proc.returncode == 0:
-                import os
-
                 size = os.path.getsize(outpath)
                 size_mb = size / (1024 * 1024)
                 return {
@@ -5455,7 +5423,6 @@ class AdminSite:
         internal: bool = False,
     ) -> dict[str, Any]:
         """Create a new Docker network."""
-        import subprocess
 
         if not name.strip():
             return {"success": False, "error": "Network name is required"}
@@ -5493,7 +5460,6 @@ class AdminSite:
         labels: str = "",
     ) -> dict[str, Any]:
         """Create a new Docker volume."""
-        import subprocess
 
         if not name.strip():
             return {"success": False, "error": "Volume name is required"}
@@ -5527,8 +5493,6 @@ class AdminSite:
         Return recent docker events (from last N minutes).
         Uses ``docker events --since Nm --until now``.
         """
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5576,7 +5540,6 @@ class AdminSite:
         Execute ``docker build`` in the workspace directory.
         Returns the full build output.
         """
-        import subprocess
 
         dockerfile_path = self._find_workspace_path("Dockerfile", is_file=True)
         if not dockerfile_path or not dockerfile_path.is_file():
@@ -5628,7 +5591,6 @@ class AdminSite:
     def get_container_top(self, container_id: str) -> dict[str, Any]:
         """Return ``docker top`` output — processes running inside a container."""
         import platform
-        import subprocess
 
         try:
             # Windows Docker doesn't support the Unix -eo ps format
@@ -5665,7 +5627,6 @@ class AdminSite:
 
     def get_container_diff(self, container_id: str) -> dict[str, Any]:
         """Return ``docker diff`` — filesystem changes in a container."""
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5691,8 +5652,6 @@ class AdminSite:
 
     def get_container_stats_stream(self, container_id: str) -> dict[str, Any]:
         """Return a single snapshot of ``docker stats`` for one container."""
-        import json as _json
-        import subprocess
 
         try:
             proc = subprocess.run(
@@ -5747,9 +5706,6 @@ class AdminSite:
             - events: recent cluster events
             - error: optional error string
         """
-        import json as _json
-        import re
-        import subprocess
         from datetime import datetime, timezone
 
         result: dict[str, Any] = {
@@ -6103,7 +6059,6 @@ class AdminSite:
             workspace_root = ws_path.parent
             try:
                 ws_source = ws_path.read_text(encoding="utf-8")
-                import re
 
                 name_match = re.search(r'(?:Workspace\(\s*["\'](\w+)|name\s*=\s*["\'](\w+))', ws_source)
                 ws_name = (name_match.group(1) or name_match.group(2)) if name_match else "unknown"
@@ -6386,7 +6341,7 @@ class AdminSite:
         """
         Gather permission roles, matrix, and per-model permissions.
         """
-        from .permissions import ROLE_PERMISSIONS, AdminPermission
+        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminPermission
 
         roles = []
         role_descriptions = {
@@ -6449,13 +6404,8 @@ class AdminSite:
 
         Returns dict with status and message.
         """
-        from .permissions import (
-            ROLE_PERMISSIONS,
-            AdminPermission,
-        )
-        from .permissions import (
-            update_role_permissions as _update_role,
-        )
+        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminPermission
+        from aquilia.admin.permissions import update_role_permissions as _update_role
 
         update_type = form_data.get("update_type", "roles")
         changes = 0
@@ -6521,7 +6471,6 @@ class AdminSite:
 
         Tries common workspace locations relative to CWD.
         """
-        import os
         from pathlib import Path
 
         # Check common workspace roots
@@ -6552,7 +6501,6 @@ class AdminSite:
         caused cascading mismatches.
         """
         import html as html_mod
-        import re
 
         KEYWORDS = {
             "def",
@@ -6667,7 +6615,6 @@ class AdminSite:
     def _highlight_yaml(source: str) -> str:
         """Apply simple syntax highlighting to YAML source."""
         import html as html_mod
-        import re
 
         lines = source.split("\n")
         result_lines = []
@@ -6720,7 +6667,6 @@ class AdminSite:
     def _highlight_json(source: str) -> str:
         """Apply syntax highlighting to JSON source."""
         import html as html_mod
-        import re
 
         lines = source.split("\n")
         result_lines = []
@@ -6800,21 +6746,6 @@ class AdminSite:
         """
         if not hasattr(model_cls, "_fields"):
             return data
-
-        from aquilia.models.fields_module import (
-            BigIntegerField,
-            BooleanField,
-            DateField,
-            DateTimeField,
-            DecimalField,
-            FloatField,
-            IntegerField,
-            PositiveIntegerField,
-            PositiveSmallIntegerField,
-            SmallIntegerField,
-            TimeField,
-            UUIDField,
-        )
 
         # Detect checkbox sentinel markers (_checkbox_{name}) and inject
         # False for unchecked checkboxes that the browser didn't send.
@@ -6914,8 +6845,6 @@ class AdminSite:
             # Build OR search across search fields
             search_q = None
             for field_name in admin.get_search_fields():
-                from aquilia.models.query import QNode
-
                 q = QNode(**{f"{field_name}__icontains": search})
                 search_q = q if search_q is None else search_q | q
             if search_q:
@@ -7087,7 +7016,7 @@ class AdminSite:
             )
             # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import _HAS_ORM, AdminAuditEntry
+                from aquilia.admin.models import _HAS_ORM, AdminAuditEntry
 
                 if _HAS_ORM:
                     await AdminAuditEntry.create_entry(
@@ -7213,7 +7142,7 @@ class AdminSite:
             )
             # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import _HAS_ORM, AdminAuditEntry
+                from aquilia.admin.models import _HAS_ORM, AdminAuditEntry
 
                 if _HAS_ORM:
                     await AdminAuditEntry.create_entry(
@@ -7266,7 +7195,7 @@ class AdminSite:
             )
             # Persist to AdminAuditEntry (database-backed audit trail)
             try:
-                from .models import _HAS_ORM, AdminAuditEntry
+                from aquilia.admin.models import _HAS_ORM, AdminAuditEntry
 
                 if _HAS_ORM:
                     await AdminAuditEntry.create_entry(
@@ -7303,7 +7232,7 @@ class AdminSite:
 
         actions = admin.get_actions()
         if action_name not in actions:
-            from .faults import AdminActionFault
+            from aquilia.admin.faults import AdminActionFault
 
             raise AdminActionFault(action_name, "Action not found")
 
@@ -7315,7 +7244,7 @@ class AdminSite:
         try:
             result = await action_desc.func(admin, None, qs)
         except Exception as e:
-            from .faults import AdminActionFault
+            from aquilia.admin.faults import AdminActionFault
 
             raise AdminActionFault(action_name, str(e))
 

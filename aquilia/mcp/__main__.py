@@ -5,9 +5,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .config import MCPConfig
-from .context.indexer import load_or_build_index
-from .server import AquiliaMCPServer
+from aquilia.mcp.config import MCPConfig
+from aquilia.mcp.context.indexer import load_or_build_index
+from aquilia.mcp.server import AquiliaMCPServer
 
 
 def main(argv: list[str] | None = None) -> None:

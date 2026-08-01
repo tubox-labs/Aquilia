@@ -14,7 +14,7 @@ from datetime import datetime
 from http.cookies import SimpleCookie
 from typing import Any
 
-from .faults import ClientErrorFault, DecodingFault, ServerErrorFault
+from aquilia.http.faults import ClientErrorFault, DecodingFault, ServerErrorFault
 
 # Try to import fast JSON libraries
 try:

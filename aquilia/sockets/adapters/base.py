@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from ..envelope import MessageEnvelope
+from aquilia.sockets.envelope import MessageEnvelope
 
 
 @dataclass

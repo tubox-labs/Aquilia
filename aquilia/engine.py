@@ -30,9 +30,10 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from .typing.container import RequestContainer
+    from aquilia.typing.container import RequestContainer
 
-from .typing.container import CleanupCallback
+from aquilia.faults.domains import DIResolutionFault
+from aquilia.typing.container import CleanupCallback
 
 logger = logging.getLogger("aquilia.engine")
 
@@ -206,7 +207,6 @@ class RequestCtx:
         """Synchronous resolution -- only for sync-safe providers."""
         if hasattr(self.container, "resolve"):
             return self.container.resolve(name, optional=optional)
-        from .faults.domains import DIResolutionFault
 
         raise DIResolutionFault(
             provider=name,

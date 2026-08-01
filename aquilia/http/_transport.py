@@ -21,8 +21,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
-from .config import HTTPClientConfig
-from .faults import (
+from aquilia.http.config import HTTPClientConfig
+from aquilia.http.faults import (
     CertificateVerifyFault,
     ConnectionClosedFault,
     ConnectionFault,
@@ -32,8 +32,8 @@ from .faults import (
     TLSFault,
     TransportFault,
 )
-from .request import HTTPClientRequest
-from .response import HTTPClientResponse, create_response
+from aquilia.http.request import HTTPClientRequest
+from aquilia.http.response import HTTPClientResponse, create_response
 
 logger = logging.getLogger("aquilia.http.transport")
 

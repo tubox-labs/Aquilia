@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from aquilia.cli.generators.workspace import WorkspaceGenerator
+from aquilia.cli.utils.colors import banner, kv, rule, section, step
 
 
 class DiscoveryAnalytics:
@@ -239,14 +240,6 @@ class DiscoveryAnalytics:
 def print_analysis_report(analysis: dict) -> None:
     """Pretty print analysis report."""
     import click
-
-    from ..utils.colors import (
-        banner,
-        kv,
-        rule,
-        section,
-        step,
-    )
 
     banner("Module Discovery Analytics")
     click.echo()

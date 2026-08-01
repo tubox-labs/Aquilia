@@ -13,8 +13,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
-from ..health import HealthRegistry, HealthStatus, SubsystemStatus
-from ..manifest import AppManifest
+from aquilia.health import HealthRegistry, HealthStatus, SubsystemStatus
+from aquilia.manifest import AppManifest
 
 logger = logging.getLogger("aquilia.subsystems")
 

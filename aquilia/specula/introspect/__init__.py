@@ -1,9 +1,9 @@
 """Specula introspection — routes, security, effects, and multi-version specs."""
 
-from .effects import EFFECT_DOCS, handler_effects
-from .routes import enrich_routes
-from .security import GUARD_SCHEME_MAP, scheme_for_guard
-from .versions import VersionedSpecBuilder
+from aquilia.specula.introspect.effects import EFFECT_DOCS, handler_effects
+from aquilia.specula.introspect.routes import enrich_routes
+from aquilia.specula.introspect.security import GUARD_SCHEME_MAP, scheme_for_guard
+from aquilia.specula.introspect.versions import VersionedSpecBuilder
 
 __all__ = [
     "VersionedSpecBuilder",

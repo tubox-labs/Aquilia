@@ -215,7 +215,7 @@ def _facet_annotation(facet: Any, owner: type, name: str, sink: _Emitter) -> str
 
 def _defaults_to_none(facet: Any) -> bool:
     """True if the facet's declared default is ``None``."""
-    from .facets import UNSET
+    from aquilia.contracts.facets import UNSET
 
     default = getattr(facet, "default", UNSET)
     return default is None
@@ -305,8 +305,8 @@ def generate_module_stub(module: ModuleType) -> StubReport:
             package or a synthetic module), so there is nowhere a stub could
             sit and no source to read imports from.
     """
-    from .core import Contract
-    from .exceptions import StubGenerationFault
+    from aquilia.contracts.core import Contract
+    from aquilia.contracts.exceptions import StubGenerationFault
 
     source_file = getattr(module, "__file__", None)
     if not source_file:

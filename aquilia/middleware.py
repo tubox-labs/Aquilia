@@ -15,9 +15,11 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from .faults import Fault, FaultDomain
-from .faults.domains import HTTPFault
-from .typing.middleware import RequestHandler
+from aquilia.debug.pages import render_debug_exception_page, render_http_error_page
+from aquilia.faults import Fault, FaultDomain
+from aquilia.faults.domains import HTTPFault
+from aquilia.inspector.trace import current_trace
+from aquilia.typing.middleware import RequestHandler
 
 _FD_SECURITY = cast(FaultDomain, FaultDomain.SECURITY)
 _FD_IO = cast(FaultDomain, FaultDomain.IO)
@@ -36,9 +38,9 @@ _FD_TEMPLATE = cast(FaultDomain, FaultDomain.TEMPLATE)
 _FD_HTTP = cast(FaultDomain, FaultDomain.HTTP)
 
 if TYPE_CHECKING:
-    from .controller.base import RequestCtx
-    from .request import Request
-    from .response import Response
+    from aquilia.controller.base import RequestCtx
+    from aquilia.request import Request
+    from aquilia.response import Response
 
 Handler = RequestHandler
 
@@ -216,7 +218,7 @@ class MiddlewareStack:
 
     def _wrap_middleware(self, middleware: Any, next_handler: Handler) -> Handler:
         """Wrap a handler with middleware."""
-        from .response import Response
+        from aquilia.response import Response
 
         async def wrapped(request: Request, ctx: RequestCtx) -> Response:
             res = await middleware(request, ctx, next_handler)
@@ -236,10 +238,9 @@ class MiddlewareStack:
 
     def _wrap_middleware_traced(self, desc: MiddlewareDescriptor, next_handler: Handler) -> Handler:
         """Wrap a handler with traced middleware execution."""
-        from .response import Response
+        from aquilia.response import Response
 
         async def wrapped(request: Request, ctx: RequestCtx) -> Response:
-            from .inspector.trace import current_trace
 
             trace = current_trace()
             if trace is None:
@@ -351,7 +352,7 @@ class ExceptionMiddleware(Middleware):
 
     def _html_response(self, body: str, status: int) -> Response:
         """Build an HTML response from rendered page string."""
-        from .response import Response
+        from aquilia.response import Response
 
         return Response(
             content=body.encode("utf-8"),
@@ -370,7 +371,6 @@ class ExceptionMiddleware(Middleware):
 
     def _render_debug_exception(self, exc: BaseException, request: Request) -> Response:
         """Render a full debug exception page."""
-        from .debug.pages import render_debug_exception_page
 
         html_body = render_debug_exception_page(
             exc,
@@ -387,7 +387,6 @@ class ExceptionMiddleware(Middleware):
         request: Request,
     ) -> Response:
         """Render a styled HTTP error page."""
-        from .debug.pages import render_http_error_page
 
         html_body = render_http_error_page(
             status,
@@ -403,7 +402,7 @@ class ExceptionMiddleware(Middleware):
     # ------------------------------------------------------------------
 
     async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
-        from .response import Response
+        from aquilia.response import Response
 
         try:
             return await next_handler(request, ctx)
@@ -607,7 +606,7 @@ class TimeoutMiddleware(Middleware):
         try:
             return await asyncio.wait_for(next_handler(request, ctx), timeout=self.timeout)
         except asyncio.TimeoutError:
-            from .faults.domains import RequestTimeoutFault
+            from aquilia.faults.domains import RequestTimeoutFault
 
             raise RequestTimeoutFault(
                 detail=f"Request exceeded {self.timeout}s timeout",
@@ -667,5 +666,5 @@ class CompressionMiddleware(Middleware):
 
 
 # Import consolidated middlewares from their canonical locations for backward compatibility
-from .middleware_ext.logging import LoggingMiddleware  # noqa: F401
-from .middleware_ext.security import CORSMiddleware  # noqa: F401
+from aquilia.middleware_ext.logging import LoggingMiddleware  # noqa: F401
+from aquilia.middleware_ext.security import CORSMiddleware  # noqa: F401

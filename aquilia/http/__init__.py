@@ -46,15 +46,10 @@ Example:
 """
 
 # Transport
-from ._transport import (
-    HTTPTransport,
-    MockTransport,
-    NativeTransport,
-    create_transport,
-)
+from aquilia.http._transport import HTTPTransport, MockTransport, NativeTransport, create_transport
 
 # Authentication
-from .auth import (
+from aquilia.http.auth import (
     APIKeyAuth,
     AuthInterceptor,
     AWSSignatureV4Auth,
@@ -64,18 +59,10 @@ from .auth import (
     OAuth2Auth,
     OAuth2Token,
 )
-from .client import (
-    AsyncHTTPClient,
-    delete,
-    get,
-    patch,
-    post,
-    put,
-    request,
-)
+from aquilia.http.client import AsyncHTTPClient, delete, get, patch, post, put, request
 
 # Configuration
-from .config import (
+from aquilia.http.config import (
     CompressionAlgorithm,
     HTTPClientConfig,
     HTTPVersion,
@@ -87,14 +74,10 @@ from .config import (
 )
 
 # Cookies
-from .cookies import (
-    Cookie,
-    CookieInterceptor,
-    CookieJar,
-)
+from aquilia.http.cookies import Cookie, CookieInterceptor, CookieJar
 
 # Faults
-from .faults import (
+from aquilia.http.faults import (
     HTTP_CLIENT_DOMAIN,
     CertificateVerifyFault,
     ClientErrorFault,
@@ -124,15 +107,10 @@ from .faults import (
 )
 
 # Integration
-from .integration import (
-    HTTPClientBuilder,
-    HTTPClientProvider,
-    create_client_from_config,
-    http_client,
-)
+from aquilia.http.integration import HTTPClientBuilder, HTTPClientProvider, create_client_from_config, http_client
 
 # Interceptors
-from .interceptors import (
+from aquilia.http.interceptors import (
     AcceptInterceptor,
     CacheInterceptor,
     HeaderInterceptor,
@@ -147,7 +125,7 @@ from .interceptors import (
 )
 
 # Middleware
-from .middleware import (
+from aquilia.http.middleware import (
     BaseURLMiddleware,
     CacheMiddleware,
     CompressionMiddleware,
@@ -163,55 +141,24 @@ from .middleware import (
 )
 
 # Multipart
-from .multipart import (
-    FormField,
-    FormFile,
-    MultipartFormData,
-)
+from aquilia.http.multipart import FormField, FormFile, MultipartFormData
 
 # Connection pool
-from .pool import (
-    ConnectionPool,
-    ConnectionPoolManager,
-    ConnectionStats,
-    PooledConnection,
-)
+from aquilia.http.pool import ConnectionPool, ConnectionPoolManager, ConnectionStats, PooledConnection
 
 # Request/Response
-from .request import (
-    HTTPClientRequest,
-    HTTPMethod,
-    RequestBuilder,
-)
-from .request import (
-    delete as delete_request,
-)
-from .request import (
-    get as get_request,
-)
-from .request import (
-    head as head_request,
-)
-from .request import (
-    options as options_request,
-)
-from .request import (
-    patch as patch_request,
-)
-from .request import (
-    post as post_request,
-)
-from .request import (
-    put as put_request,
-)
-from .response import (
-    HTTP_STATUS_REASONS,
-    HTTPClientResponse,
-    create_response,
-)
+from aquilia.http.request import HTTPClientRequest, HTTPMethod, RequestBuilder
+from aquilia.http.request import delete as delete_request
+from aquilia.http.request import get as get_request
+from aquilia.http.request import head as head_request
+from aquilia.http.request import options as options_request
+from aquilia.http.request import patch as patch_request
+from aquilia.http.request import post as post_request
+from aquilia.http.request import put as put_request
+from aquilia.http.response import HTTP_STATUS_REASONS, HTTPClientResponse, create_response
 
 # Retry
-from .retry import (
+from aquilia.http.retry import (
     CompositeRetryStrategy,
     ConstantBackoff,
     ExponentialBackoff,
@@ -224,10 +171,10 @@ from .retry import (
 )
 
 # Session
-from .session import HTTPSession
+from aquilia.http.session import HTTPSession
 
 # Streaming
-from .streaming import (
+from aquilia.http.streaming import (
     BufferedStream,
     ChunkedDecoder,
     ChunkedEncoder,

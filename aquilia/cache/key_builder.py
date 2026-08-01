@@ -15,6 +15,8 @@ from __future__ import annotations
 import hashlib
 from typing import Protocol, runtime_checkable
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 
 @runtime_checkable
 class KeyBuilder(Protocol):
@@ -263,8 +265,6 @@ def build_key_builder(strategy: str = "default", *, version: int = 0) -> KeyBuil
         return DefaultKeyBuilder(version=version)
     if strategy == "hash":
         return HashKeyBuilder(version=version)
-
-    from aquilia.faults.domains import ConfigInvalidFault
 
     raise ConfigInvalidFault(
         key="cache.key_builder",

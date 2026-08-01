@@ -18,8 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
     from aquilia.sessions import Session, SessionEngine
-
-    from .engine import TemplateEngine
+    from aquilia.templates.engine import TemplateEngine
 
 
 logger = logging.getLogger(__name__)
@@ -337,7 +336,7 @@ def enhance_middleware_with_sessions():
     are enabled in the application.
     """
     # Import here to avoid circular dependency
-    from .middleware import TemplateMiddleware
+    from aquilia.templates.middleware import TemplateMiddleware
 
     # Patch middleware to inject session context
     original_process = TemplateMiddleware.process_request

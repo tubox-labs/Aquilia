@@ -20,14 +20,7 @@ from collections.abc import Callable, Sequence
 
 import click
 
-from .colors import (
-    _ARROW,
-    _CHECK,
-    _CROSS,
-    _DIAMOND,
-    _G,
-    _L_H,
-)
+from aquilia.cli.utils.colors import _ARROW, _CHECK, _CROSS, _DIAMOND, _G, _L_H
 
 _IS_WINDOWS: bool = platform.system() == "Windows"
 

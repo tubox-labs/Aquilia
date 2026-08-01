@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from ..generators import WorkspaceGenerator
-from ..utils.colors import dim, info
+from aquilia.cli.generators import WorkspaceGenerator
+from aquilia.cli.utils.colors import dim, info
+from aquilia.faults.domains import ConfigInvalidFault
 
 
 def create_workspace(
@@ -53,8 +54,6 @@ def create_workspace(
     workspace_path = Path.cwd() / name
 
     if workspace_path.exists():
-        from aquilia.faults.domains import ConfigInvalidFault
-
         raise ConfigInvalidFault(
             key="workspace.path",
             reason=f"Directory '{name}' already exists",

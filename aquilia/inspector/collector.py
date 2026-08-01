@@ -1,20 +1,20 @@
 from collections.abc import Callable
 
-from .config import InspectorConfig
-from .trace import RequestTrace
+from aquilia.inspector.config import InspectorConfig
+from aquilia.inspector.trace import RequestTrace
 
 
 class InspectorCollector:
     def __init__(self, config: InspectorConfig):
         self._config = config
-        from .store import MemoryTraceStore, SQLiteTraceStore
+        from aquilia.inspector.store import MemoryTraceStore, SQLiteTraceStore
 
         if config.store == "sqlite":
             self.store = SQLiteTraceStore(config)
         else:
             self.store = MemoryTraceStore(config)
         self._subscribers: list[Callable[[RequestTrace], None]] = []  # for SSE, see stream.py
-        from .stream import SSEStreamManager
+        from aquilia.inspector.stream import SSEStreamManager
 
         self.stream_manager = SSEStreamManager()
         self.subscribe(self.stream_manager.publish_trace)

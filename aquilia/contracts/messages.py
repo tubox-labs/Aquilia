@@ -102,7 +102,7 @@ def contract_message(key: str, /, **params: Any) -> str:
     default = DEFAULT_MESSAGES.get(key, key)
 
     try:
-        from ..i18n.lazy import _locale_ref, _service_ref
+        from aquilia.i18n.lazy import _locale_ref, _service_ref
 
         service = _service_ref.get()
         if service is not None:

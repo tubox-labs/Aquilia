@@ -31,9 +31,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from .audit import AdminAuditLog, ModelBackedAuditLog
-from .controller import AdminController
-from .site import AdminSite
+from aquilia.admin.audit import AdminAuditLog, ModelBackedAuditLog
+from aquilia.admin.controller import AdminController
+from aquilia.admin.site import AdminSite
 
 if TYPE_CHECKING:
     from aquilia.di.core import Container

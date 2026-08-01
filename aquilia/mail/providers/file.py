@@ -43,8 +43,8 @@ from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from pathlib import Path
 
-from ..envelope import MailEnvelope
-from ..providers import ProviderResult, ProviderResultStatus
+from aquilia.mail.envelope import MailEnvelope
+from aquilia.mail.providers import ProviderResult, ProviderResultStatus
 
 logger = logging.getLogger("aquilia.mail.providers.file")
 

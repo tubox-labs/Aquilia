@@ -16,8 +16,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from .compiler.compiler import CompiledPattern, PatternCompiler
-from .compiler.parser import parse_pattern
+from aquilia.patterns.compiler.compiler import CompiledPattern, PatternCompiler
+from aquilia.patterns.compiler.parser import parse_pattern
 
 
 @dataclass

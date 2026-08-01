@@ -12,12 +12,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from ....faults.domains import MigrationFault
-from .base import Operation, OperationCategory, register_operation
+from aquilia.faults.domains import MigrationFault
+from aquilia.models.migration.operations.base import Operation, OperationCategory, register_operation
 
 if TYPE_CHECKING:
-    from ..backends import SchemaBackend, Statement
-    from ..schema import ProjectState, TableState
+    from aquilia.models.migration.backends import SchemaBackend, Statement
+    from aquilia.models.migration.schema import ProjectState, TableState
 
 __all__ = ["CreateModel", "DeleteModel", "RenameModel", "AlterModelOptions"]
 
@@ -94,7 +94,7 @@ class CreateModel(Operation):
             Statements in execution order: table, indexes, then any unique
             constraint that had to become a unique index.
         """
-        from ..schema import UniqueConstraintState
+        from aquilia.models.migration.schema import UniqueConstraintState
 
         statements = list(backend.create_table(self.table, deferred_columns=frozenset(self.deferred_references)))
         for index in self.table.indexes:
@@ -221,7 +221,7 @@ class RenameModel(Operation):
         Raises:
             MigrationFault: If the model being renamed is not present.
         """
-        from ..schema import ForeignKeyConstraintState
+        from aquilia.models.migration.schema import ForeignKeyConstraintState
 
         table = state.tables.pop(self.old_model, None)
         if table is None:
@@ -359,7 +359,7 @@ class AlterModelOptions(Operation):
             Statements for the DDL-visible option changes. Empty when only
             Python-side options differ.
         """
-        from ..backends import Statement as BackendStatement
+        from aquilia.models.migration.backends import Statement as BackendStatement
 
         key = state.key_for(self.model) or self.model
 

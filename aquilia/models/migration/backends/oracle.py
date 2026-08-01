@@ -19,10 +19,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import BackendCapabilities, SchemaBackend, Statement, register_backend
+from aquilia.models.migration.backends import BackendCapabilities, SchemaBackend, Statement, register_backend
+from aquilia.models.migration.schema import NOT_PROVIDED
 
 if TYPE_CHECKING:
-    from ..schema import ColumnState, IndexState, TableState
+    from aquilia.models.migration.schema import ColumnState, IndexState, TableState
 
 __all__ = ["OracleBackend"]
 
@@ -263,7 +264,6 @@ class OracleBackend(SchemaBackend):
         Returns:
             The statements, in execution order.
         """
-        from ..schema import NOT_PROVIDED
 
         quoted_table = self.quote(table.db_table)
         quoted_column = self.quote(new.column)

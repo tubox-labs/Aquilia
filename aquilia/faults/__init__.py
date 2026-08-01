@@ -26,7 +26,7 @@ Subsystem integrations available in:
 - faults.integrations.flow: Pipeline and middleware faults
 """
 
-from .core import (
+from aquilia.faults.core import (
     Escalate,
     Fault,
     FaultContext,
@@ -37,7 +37,7 @@ from .core import (
     Severity,
     Transformed,
 )
-from .default_handlers import (
+from aquilia.faults.default_handlers import (
     ExceptionAdapter,
     FatalHandler,
     HTTPResponse,
@@ -46,7 +46,7 @@ from .default_handlers import (
     RetryHandler,
     SecurityFaultHandler,
 )
-from .domains import (
+from aquilia.faults.domains import (
     AuthenticationFault,
     AuthorizationFault,
     BadGatewayFault,
@@ -157,12 +157,8 @@ from .domains import (
     URITooLongFault,
     http_reason,
 )
-from .engine import (
-    FaultEngine,
-    get_default_engine,
-    process_fault,
-)
-from .handlers import FaultHandler
+from aquilia.faults.engine import FaultEngine, get_default_engine, process_fault
+from aquilia.faults.handlers import FaultHandler
 
 __all__ = [
     # Core types

@@ -39,12 +39,11 @@ Usage::
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .backends.composite import CompositeBackend
-from .backends.memory import MemoryBackend
-from .backends.null import NullBackend
-from .backends.redis import RedisBackend
-from .core import (
+from aquilia.cache.backends.composite import CompositeBackend
+from aquilia.cache.backends.memory import MemoryBackend
+from aquilia.cache.backends.null import NullBackend
+from aquilia.cache.backends.redis import RedisBackend
+from aquilia.cache.core import (
     CacheBackend,
     CacheConfig,
     CacheEntry,
@@ -53,8 +52,14 @@ from .core import (
     CacheStats,
     EvictionPolicy,
 )
-from .decorators import cache_aside, cached, get_default_cache_service, invalidate, set_default_cache_service
-from .faults import (
+from aquilia.cache.decorators import (
+    cache_aside,
+    cached,
+    get_default_cache_service,
+    invalidate,
+    set_default_cache_service,
+)
+from aquilia.cache.faults import (
     CacheBackendFault,
     CacheCapacityFault,
     CacheConfigFault,
@@ -65,14 +70,10 @@ from .faults import (
     CacheSerializationFault,
     CacheStampedeFault,
 )
-from .key_builder import DefaultKeyBuilder, HashKeyBuilder
-from .middleware import CacheMiddleware
-from .serializers import (
-    JsonCacheSerializer,
-    MsgpackCacheSerializer,
-    PickleCacheSerializer,
-)
-from .service import CacheService
+from aquilia.cache.key_builder import DefaultKeyBuilder, HashKeyBuilder
+from aquilia.cache.middleware import CacheMiddleware
+from aquilia.cache.serializers import JsonCacheSerializer, MsgpackCacheSerializer, PickleCacheSerializer
+from aquilia.cache.service import CacheService
 
 __all__ = [
     # Core

@@ -4,6 +4,8 @@ Transform function registry.
 
 from collections.abc import Callable
 
+from aquilia.faults.domains import RegistryFault
+
 
 class TransformRegistry:
     """Registry of transform functions."""
@@ -31,8 +33,6 @@ class TransformRegistry:
     def get_transform(self, name: str) -> Callable:
         """Get transform by name."""
         if name not in self.transforms:
-            from aquilia.faults.domains import RegistryFault
-
             raise RegistryFault(
                 name=name,
                 message=f"Unknown transform: {name}",

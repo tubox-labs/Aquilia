@@ -68,19 +68,18 @@ Quick Start::
 """
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
-
-from .backends.azure import AzureBlobStorage
-from .backends.composite import CompositeStorage
-from .backends.gcs import GCSStorage
+from aquilia.storage.backends.azure import AzureBlobStorage
+from aquilia.storage.backends.composite import CompositeStorage
+from aquilia.storage.backends.gcs import GCSStorage
 
 # ── Backend implementations ──────────────────────────────────────────────
-from .backends.local import LocalStorage
-from .backends.memory import MemoryStorage
-from .backends.s3 import S3Storage
-from .backends.sftp import SFTPStorage
+from aquilia.storage.backends.local import LocalStorage
+from aquilia.storage.backends.memory import MemoryStorage
+from aquilia.storage.backends.s3 import S3Storage
+from aquilia.storage.backends.sftp import SFTPStorage
 
 # ── Core abstractions ────────────────────────────────────────────────────
-from .base import (
+from aquilia.storage.base import (
     STORAGE_DOMAIN,
     BackendUnavailableError,
     StorageBackend,
@@ -91,15 +90,11 @@ from .base import (
     StorageIOFault,
     StorageMetadata,
 )
-from .base import (
-    FileNotFoundError as StorageFileNotFoundError,
-)
-from .base import (
-    PermissionError as StoragePermissionError,
-)
+from aquilia.storage.base import FileNotFoundError as StorageFileNotFoundError
+from aquilia.storage.base import PermissionError as StoragePermissionError
 
 # ── Configuration dataclasses ────────────────────────────────────────────
-from .configs import (
+from aquilia.storage.configs import (
     AzureBlobConfig,
     CompositeConfig,
     GCSConfig,
@@ -109,13 +104,13 @@ from .configs import (
     SFTPConfig,
     StorageConfig,
 )
-from .effects import StorageEffectProvider
+from aquilia.storage.effects import StorageEffectProvider
 
 # ── Registry & wiring ───────────────────────────────────────────────────
-from .registry import StorageRegistry
+from aquilia.storage.registry import StorageRegistry
 
 # ── Subsystem & effects ─────────────────────────────────────────────────
-from .subsystem import StorageSubsystem
+from aquilia.storage.subsystem import StorageSubsystem
 
 __all__ = [
     # Core

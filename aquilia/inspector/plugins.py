@@ -2,7 +2,7 @@ import contextlib
 import time
 from collections.abc import Iterator
 
-from .trace import SpanStatus, current_trace
+from aquilia.inspector.trace import SpanStatus, current_trace
 
 _CUSTOM_LANES = {}
 

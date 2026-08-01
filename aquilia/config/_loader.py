@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, get_args, get_origin, get_type_hints
 
 from aquilia.faults.domains import ConfigFault, ConfigInvalidFault
+from aquilia.pyconfig import AquilaConfig, _ensure_dotenv_loaded
 
 log = logging.getLogger(__name__)
 
@@ -261,8 +262,6 @@ class ConfigLoader:
         # Look for AquilaConfig subclass
         import os
 
-        from aquilia.pyconfig import AquilaConfig
-
         base_cls = None
         for name in dir(module):
             obj = getattr(module, name)
@@ -280,7 +279,6 @@ class ConfigLoader:
 
         # Load .env BEFORE reading AQ_ENV so a .env that sets
         # AQ_ENV=prod is visible when we choose the environment class.
-        from aquilia.pyconfig import _ensure_dotenv_loaded
 
         _ensure_dotenv_loaded(config_cls=base_cls)
 

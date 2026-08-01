@@ -68,8 +68,8 @@ import uuid
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from .faults import TaskWorkflowFault
-from .job import Priority
+from aquilia.tasks.faults import TaskWorkflowFault
+from aquilia.tasks.job import Priority
 
 __all__ = [
     "Signature",
@@ -191,7 +191,7 @@ class WorkflowResult:
 
     async def failed_jobs(self, manager: Any) -> list[Any]:
         """Return workflow jobs that ended in a failed or dead state."""
-        from .job import JobState
+        from aquilia.tasks.job import JobState
 
         failed = []
         for job_id in self.job_ids:
@@ -343,7 +343,7 @@ class Workflow:
         """
         self._validate()
 
-        from .job import JobState
+        from aquilia.tasks.job import JobState
 
         job_ids: list[str] = []
         for node in self._nodes:

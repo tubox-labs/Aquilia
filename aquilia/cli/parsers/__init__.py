@@ -1,7 +1,7 @@
 """Manifest parsers."""
 
-from .module import ModuleManifest
-from .workspace import WorkspaceManifest
+from aquilia.cli.parsers.module import ModuleManifest
+from aquilia.cli.parsers.workspace import WorkspaceManifest
 
 __all__ = [
     "WorkspaceManifest",

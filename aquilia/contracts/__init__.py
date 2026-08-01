@@ -37,9 +37,9 @@ Quick Start::
         return await Product.objects.all()
 """
 
-from .annotations import Field, LazyContractFacet, NestedContractFacet, computed
-from .core import ColumnarReport, Contract, ContractMeta, ContractUnion, SealOutcome
-from .exceptions import (
+from aquilia.contracts.annotations import Field, LazyContractFacet, NestedContractFacet, computed
+from aquilia.contracts.core import ColumnarReport, Contract, ContractMeta, ContractUnion, SealOutcome
+from aquilia.contracts.exceptions import (
     CONTRACT,
     CastFault,
     ContractAsyncMismatchFault,
@@ -51,7 +51,7 @@ from .exceptions import (
     SealFault,
     StubGenerationFault,
 )
-from .facets import (
+from aquilia.contracts.facets import (
     MODEL_FIELD_TO_FACET,
     UNSET,
     # Boolean
@@ -101,19 +101,19 @@ from .facets import (
     # Utilities
     derive_facet,
 )
-from .integration import (
+from aquilia.contracts.integration import (
     bind_contract_to_request,
     is_contract_class,
     is_projected_contract,
     render_contract_response,
     resolve_contract_from_annotation,
 )
-from .lenses import Lens
-from .projections import ProjectionRegistry
-from .schema import generate_component_schemas, generate_schema
-from .sigil import FieldSpec, Sigil
-from .stubs import StubReport, generate_module_stub, write_module_stub
-from .ward import WardMethod, ward
+from aquilia.contracts.lenses import Lens
+from aquilia.contracts.projections import ProjectionRegistry
+from aquilia.contracts.schema import generate_component_schemas, generate_schema
+from aquilia.contracts.sigil import FieldSpec, Sigil
+from aquilia.contracts.stubs import StubReport, generate_module_stub, write_module_stub
+from aquilia.contracts.ward import WardMethod, ward
 
 __all__ = [
     # Core

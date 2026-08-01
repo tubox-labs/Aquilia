@@ -13,11 +13,12 @@ import json
 import sys
 from pathlib import Path
 
-from .bytecode_cache import InMemoryBytecodeCache, JSONBytecodeCache
-from .engine import TemplateEngine
-from .loader import TemplateLoader
-from .manager import TemplateManager
-from .security import SandboxPolicy
+from aquilia.artifacts.cache_root import resolve_artifact_root
+from aquilia.templates.bytecode_cache import InMemoryBytecodeCache, JSONBytecodeCache
+from aquilia.templates.engine import TemplateEngine
+from aquilia.templates.loader import TemplateLoader
+from aquilia.templates.manager import TemplateManager
+from aquilia.templates.security import SandboxPolicy
 
 
 def create_template_engine_from_config(
@@ -37,8 +38,6 @@ def create_template_engine_from_config(
     """
     # Resolve canonical artifact root (default: .aquilia/artifacts)
     if cache_dir is None:
-        from aquilia.artifacts.cache_root import resolve_artifact_root
-
         cache_dir = str(resolve_artifact_root())
 
     # Create loader
@@ -312,8 +311,6 @@ def compile_command(args):
     template_dirs = args.get("dirs")
     output = args.get("output")
     if not output:
-        from aquilia.artifacts.cache_root import resolve_artifact_root
-
         output = str(resolve_artifact_root() / "templates.json")
     mode = args.get("mode", "prod")
     verbose = args.get("verbose", False)
@@ -349,8 +346,6 @@ def clear_cache_command(args):
     template_name = args.get("template")
     cache_dir = args.get("cache_dir", None)
     if cache_dir is None:
-        from aquilia.artifacts.cache_root import resolve_artifact_root
-
         cache_dir = str(resolve_artifact_root())
     all_caches = args.get("all", False)
     verbose = args.get("verbose", False)

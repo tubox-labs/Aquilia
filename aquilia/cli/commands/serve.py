@@ -17,7 +17,8 @@ import os
 import sys
 from pathlib import Path
 
-from ..utils.workspace import get_workspace_file
+from aquilia.cli.utils.workspace import get_workspace_file
+from aquilia.faults.domains import ConfigMissingFault
 
 
 def serve_production(
@@ -48,12 +49,10 @@ def serve_production(
     ws_file = get_workspace_file(workspace_root)
 
     if not ws_file:
-        from aquilia.faults.domains import ConfigMissingFault
-
         raise ConfigMissingFault(key="workspace.py")
 
     # ── Resolve runtime settings from AquilaConfig ───────────────────
-    from .run import _load_workspace_runtime_config
+    from aquilia.cli.commands.run import _load_workspace_runtime_config
 
     rt = _load_workspace_runtime_config(workspace_root)
 
@@ -70,7 +69,7 @@ def serve_production(
         host = rt.get("host", "0.0.0.0")
         port = rt.get("port", 8000)
 
-    from .run import _find_available_port
+    from aquilia.cli.commands.run import _find_available_port
 
     port = _find_available_port(host, port)
 
@@ -85,7 +84,7 @@ def serve_production(
     os.environ["AQUILIA_WORKSPACE"] = str(workspace_root)
 
     # Use the same app loader as `aq run` (runtime/app.py)
-    from .run import _create_workspace_app
+    from aquilia.cli.commands.run import _create_workspace_app
 
     app_module = _create_workspace_app(workspace_root, mode="prod", verbose=verbose)
 
@@ -187,7 +186,7 @@ def _serve_with_uvicorn(
             "Or with extras: pip install 'aquilia[server]'"
         )
 
-    from .run import _build_uvicorn_kwargs
+    from aquilia.cli.commands.run import _build_uvicorn_kwargs
 
     uv_kwargs = _build_uvicorn_kwargs(
         runtime_config or {},

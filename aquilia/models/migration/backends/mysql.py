@@ -20,10 +20,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import BackendCapabilities, SchemaBackend, Statement, register_backend
+from aquilia.models.migration.backends import BackendCapabilities, SchemaBackend, Statement, register_backend
+from aquilia.models.migration.schema import NOT_PROVIDED
 
 if TYPE_CHECKING:
-    from ..schema import ColumnState, TableState
+    from aquilia.models.migration.schema import ColumnState, TableState
 
 __all__ = ["MySQLBackend"]
 
@@ -105,7 +106,6 @@ class MySQLBackend(SchemaBackend):
         Returns:
             The clause, or ``""``.
         """
-        from ..schema import NOT_PROVIDED
 
         if column.default is NOT_PROVIDED:
             return ""

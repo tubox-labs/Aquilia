@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from aquilia.effects import EffectProvider, EffectRegistry
+from aquilia.flow import FlowContext
 
 
 @dataclass
@@ -204,7 +205,6 @@ class MockFlowContext:
 
         Returns a real FlowContext instance populated with mock resources.
         """
-        from aquilia.flow import FlowContext
 
         ctx = FlowContext(
             request=request,
@@ -242,7 +242,6 @@ class MockFlowContext:
                 identity=Identity(user_id="123"),
             )
         """
-        from aquilia.flow import FlowContext
 
         ctx = FlowContext(
             request=request,

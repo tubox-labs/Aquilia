@@ -35,10 +35,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ..faults.domains import DIFault
+from aquilia.faults.domains import DIFault
 
 if TYPE_CHECKING:
-    from .core import Container, Provider, Registry
+    from aquilia.di.core import Container, Provider, Registry
 
 
 class DIPlugin:
@@ -158,7 +158,7 @@ def get_plugins() -> list[DIPlugin]:
 
         active_plugins = get_plugins()
     """
-    from .settings import get_di_settings
+    from aquilia.di.settings import get_di_settings
 
     if not get_di_settings().enable_plugins:
         return []

@@ -15,12 +15,11 @@ from aquilia.request import Request
 from aquilia.response import Response
 
 if TYPE_CHECKING:
+    from aquilia.auth.backends.base import AuthBackend
+    from aquilia.auth.core import Identity
+    from aquilia.auth.manager import AuthManager
     from aquilia.di import RequestCtx
     from aquilia.sessions import SessionEngine
-
-    from .backends.base import AuthBackend
-    from .core import Identity
-    from .manager import AuthManager
 
 _log = logging.getLogger("aquilia.auth.middleware")
 
@@ -67,7 +66,7 @@ class AuthMiddleware(Middleware):
                 "aquilia.auth.backends.SessionBackend",
             ]
         )
-        from .backends.base import resolve_backend
+        from aquilia.auth.backends.base import resolve_backend
 
         resolved_backends = [resolve_backend(b, auth_manager) for b in _backends]
 

@@ -43,10 +43,11 @@ from typing import (
     overload,
 )
 
-from .typing.effects import EffectName
+from aquilia.faults.domains import DIResolutionFault, EffectNotAcquiredFault
+from aquilia.typing.effects import EffectName
 
 if TYPE_CHECKING:
-    from .effects import (
+    from aquilia.effects import (
         CacheHandle,
         CacheServiceHandle,
         DBTxHandle,
@@ -209,7 +210,6 @@ class FlowContext:
                 req_effects = self.request.state.get("effects", {})
                 if name in req_effects:
                     return req_effects[name]
-            from .faults.domains import EffectNotAcquiredFault
 
             middleware_active = (
                 bool(self.request.state.get("_effect_middleware_active", False))
@@ -927,7 +927,7 @@ class FlowPipeline:
                     )
 
                 # If guard returns a Response, treat as short-circuit with value
-                from .response import Response
+                from aquilia.response import Response
 
                 if isinstance(result, Response):
                     return FlowResult(
@@ -1267,7 +1267,6 @@ class FlowPipeline:
 
     async def _resolve_class_token(self, class_token: type, context: FlowContext) -> Any:
         """Resolve a class-token pipeline node using request DI context."""
-        from .faults.domains import DIResolutionFault
 
         cache = context.state.setdefault("__flow_class_token_cache__", {})
         if class_token in cache:

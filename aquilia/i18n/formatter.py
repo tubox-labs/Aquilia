@@ -21,7 +21,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any
 
-from .plural import select_plural
+from aquilia.i18n.plural import select_plural
 
 Number = int | float | Decimal
 

@@ -14,7 +14,7 @@ Features:
 - Aquilia starter/welcome page for new projects
 """
 
-from .pages import (
+from aquilia.debug.pages import (
     DebugPageRenderer,
     render_debug_exception_page,
     render_http_error_page,

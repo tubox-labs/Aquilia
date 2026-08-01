@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from .config import MCPConfig
-from .context.indexer import build_index
-from .faults import MCPProtocolFault, MCPToolFault
-from .models import KnowledgeIndex
-from .prompts.catalog import build_prompt_registry
-from .protocol import MCP_PROTOCOL_VERSION
-from .registry import MCPRegistry
-from .security import resolve_readable_file
-from .tools.catalog import build_tool_registry
-from .transport.stdio import StdioTransport
-from .version import __version__
+from aquilia.mcp.config import MCPConfig
+from aquilia.mcp.context.indexer import build_index
+from aquilia.mcp.faults import MCPProtocolFault, MCPToolFault
+from aquilia.mcp.models import KnowledgeIndex
+from aquilia.mcp.prompts.catalog import build_prompt_registry
+from aquilia.mcp.protocol import MCP_PROTOCOL_VERSION
+from aquilia.mcp.registry import MCPRegistry
+from aquilia.mcp.security import resolve_readable_file
+from aquilia.mcp.tools.catalog import build_tool_registry
+from aquilia.mcp.transport.stdio import StdioTransport
+from aquilia.mcp.version import __version__
 
 
 class AquiliaMCPServer:
@@ -127,7 +127,7 @@ class AquiliaMCPServer:
         StdioTransport(self, max_request_bytes=self.config.max_request_bytes).serve()
 
     def serve_socket(self) -> None:
-        from .transport.socket import SocketTransport
+        from aquilia.mcp.transport.socket import SocketTransport
 
         SocketTransport(self, host=self.config.host, port=self.config.port).serve()
 

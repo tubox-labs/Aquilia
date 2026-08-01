@@ -25,14 +25,13 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from ._config import SqlitePoolConfig
-from ._errors import (
-    map_sqlite_error,
-)
-from ._metrics import SqliteMetrics
-from ._rows import Row
-from ._statement_cache import CacheStats, StatementCache
-from ._transaction import SavepointContext, TransactionContext
+from aquilia.faults.domains import ConfigInvalidFault, QueryFault
+from aquilia.sqlite._config import SqlitePoolConfig
+from aquilia.sqlite._errors import map_sqlite_error
+from aquilia.sqlite._metrics import SqliteMetrics
+from aquilia.sqlite._rows import Row
+from aquilia.sqlite._statement_cache import CacheStats, StatementCache
+from aquilia.sqlite._transaction import SavepointContext, TransactionContext
 
 logger = logging.getLogger("aquilia.sqlite.connection")
 
@@ -118,7 +117,7 @@ class AsyncConnection:
             Callers can read ``.lastrowid`` for INSERT statements and
             ``.rowcount`` for UPDATE / DELETE.
         """
-        from ._cursor import AsyncCursor  # local import avoids circular dependency
+        from aquilia.sqlite._cursor import AsyncCursor  # local import avoids circular dependency
 
         params = params or []
         self._log_sql(sql, params)
@@ -325,8 +324,6 @@ class AsyncConnection:
         """
         mode = mode.upper()
         if mode not in ("DEFERRED", "IMMEDIATE", "EXCLUSIVE"):
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="sqlite.transaction_mode",
                 reason=f"Invalid transaction mode: {mode!r}",
@@ -362,8 +359,6 @@ class AsyncConnection:
             name: Savepoint name (alphanumeric + underscore only).
         """
         if not _SP_NAME_RE.match(name):
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'SAVEPOINT "{name}"')
@@ -373,8 +368,6 @@ class AsyncConnection:
     async def release_savepoint(self, name: str) -> None:
         """Release (commit) a savepoint."""
         if not _SP_NAME_RE.match(name):
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'RELEASE SAVEPOINT "{name}"')
@@ -384,8 +377,6 @@ class AsyncConnection:
     async def rollback_to_savepoint(self, name: str) -> None:
         """Rollback to a savepoint."""
         if not _SP_NAME_RE.match(name):
-            from aquilia.faults.domains import QueryFault
-
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
         try:
             await self._run(self._raw.execute, f'ROLLBACK TO SAVEPOINT "{name}"')

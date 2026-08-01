@@ -282,7 +282,7 @@ class FingerprintGenerator:
         Returns:
             Dict with fingerprint and metadata
         """
-        from .core import RegistryFingerprint
+        from aquilia.aquilary.core import RegistryFingerprint
 
         fingerprint_hash = self.generate(app_contexts, config, mode)
         timestamp = datetime.now(timezone.utc).isoformat()

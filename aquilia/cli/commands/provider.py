@@ -19,7 +19,7 @@ import sys
 
 import click
 
-from ..utils.colors import (
+from aquilia.cli.utils.colors import (
     _ARROW,
     _CHECK,
     _CLOUD,
@@ -45,11 +45,10 @@ from ..utils.colors import (
     success,
     warning,
 )
-from ..utils.prompts import (
-    ask_password,
-    confirm,
-    flow_done,
-)
+from aquilia.cli.utils.prompts import ask_password, confirm, flow_done
+from aquilia.faults.domains import ProviderAPIFault, ProviderAuthFault
+from aquilia.providers.render.client import RenderClient
+from aquilia.providers.render.store import RenderCredentialStore
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Click groups
@@ -109,10 +108,6 @@ def provider_login(provider_name: str, token: str | None, region: str):
     if provider_name != "render":
         error(f"  {_CROSS} Unknown provider: {provider_name}")
         sys.exit(1)
-
-    from aquilia.faults.domains import ProviderAPIFault, ProviderAuthFault
-    from aquilia.providers.render.client import RenderClient
-    from aquilia.providers.render.store import RenderCredentialStore
 
     store = RenderCredentialStore()
 
@@ -232,7 +227,6 @@ def provider_logout(provider_name: str):
     Example:
       aq provider logout render
     """
-    from aquilia.providers.render.store import RenderCredentialStore
 
     store = RenderCredentialStore()
 
@@ -281,9 +275,6 @@ def provider_status(provider_name: str):
     Example:
       aq provider status render
     """
-    from aquilia.faults.domains import ProviderAPIFault
-    from aquilia.providers.render.client import RenderClient
-    from aquilia.providers.render.store import RenderCredentialStore
 
     store = RenderCredentialStore()
     status = store.status()
@@ -389,8 +380,6 @@ def render_env_group():
 
 def _get_render_client():
     """Get an authenticated RenderClient or exit with error."""
-    from aquilia.providers.render.client import RenderClient
-    from aquilia.providers.render.store import RenderCredentialStore
 
     store = RenderCredentialStore()
     if not store.is_configured():
@@ -407,7 +396,6 @@ def _get_render_client():
 
 def _resolve_service_id(client, service_name: str) -> str:
     """Resolve a service name to its ID, or exit."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     try:
         svc = client.get_service_by_name(service_name)
@@ -424,7 +412,6 @@ def _resolve_service_id(client, service_name: str) -> str:
 @click.option("--service", "-s", required=True, help="Render service name")
 def render_env_list(service: str):
     """List all environment variables for a Render service."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)
@@ -470,7 +457,6 @@ def render_env_set(name: str, value: str | None, service: str):
       aq provider render env set DATABASE_URL "postgres://..." --service my-api
       aq provider render env set API_KEY --service my-api
     """
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)
@@ -511,7 +497,6 @@ def render_env_delete(name: str, service: str):
     Example:
       aq provider render env delete MY_VAR --service my-api
     """
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)
@@ -534,7 +519,6 @@ def render_env_delete(name: str, service: str):
 @render_group.command("services")
 def render_services_list():
     """List all Render services in your workspace."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     try:
@@ -571,7 +555,6 @@ def render_services_list():
 @click.option("--limit", "-l", type=int, default=10, help="Number of deployments to list")
 def render_deploys_list(service: str, limit: int):
     """List deployments for a Render service."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)
@@ -607,7 +590,6 @@ def render_deploys_list(service: str, limit: int):
 @click.option("--service", "-s", required=True, help="Render service name")
 def render_deploy_trigger(service: str):
     """Trigger a new deployment for a Render service."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)
@@ -638,7 +620,6 @@ def render_deploy_trigger(service: str):
 @click.option("--service", "-s", required=True, help="Render service name")
 def render_deploy_cancel(deploy_id: str, service: str):
     """Cancel a running deployment on Render."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)
@@ -663,7 +644,6 @@ def render_deploy_cancel(deploy_id: str, service: str):
 @click.option("--service", "-s", required=True, help="Render service name")
 def render_deploy_rollback(deploy_id: str, service: str):
     """Rollback Render service to a previous deployment ID."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)
@@ -689,7 +669,6 @@ def render_deploy_rollback(deploy_id: str, service: str):
 @click.option("--level", type=click.Choice(["info", "warn", "error"]), default=None, help="Filter by log level")
 def render_logs_list(service: str, limit: int, level: str | None):
     """Retrieve recent log entries for a Render service."""
-    from aquilia.faults.domains import ProviderAPIFault
 
     client = _get_render_client()
     service_id = _resolve_service_id(client, service)

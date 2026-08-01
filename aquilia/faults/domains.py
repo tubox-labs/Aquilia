@@ -15,7 +15,7 @@ Provides concrete fault classes for each domain:
 
 from typing import Any
 
-from .core import Fault, FaultDomain, Severity
+from aquilia.faults.core import Fault, FaultDomain, Severity
 
 # ============================================================================
 # CONFIG Faults

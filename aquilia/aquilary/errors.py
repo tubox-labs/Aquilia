@@ -5,6 +5,8 @@ Aquilary registry error types with rich diagnostics.
 from dataclasses import dataclass, field
 from typing import Any
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 
 @dataclass
 class ErrorSpan:
@@ -409,8 +411,6 @@ class ValidationReport:
     def to_exception(self) -> RegistryError:
         """Convert report to exception."""
         if not self.errors:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="validation_report",
                 reason="Cannot convert empty report to exception",

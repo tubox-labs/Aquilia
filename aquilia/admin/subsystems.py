@@ -337,7 +337,7 @@ class AdminTasks:
             Dict with ``pruned`` count and ``remaining`` count.
         """
         try:
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
             audit_log = site.audit_log
@@ -368,7 +368,7 @@ class AdminTasks:
         """
         cleaned = 0
         try:
-            from .models import AdminSession
+            from aquilia.admin.models import AdminSession
 
             if hasattr(AdminSession, "objects") and hasattr(AdminSession.objects, "filter"):
                 # If ORM is available, delete expired sessions
@@ -390,7 +390,7 @@ class AdminTasks:
             Dict with event counts by type and recent IPs.
         """
         try:
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
             tracker = site.security.event_tracker
@@ -425,7 +425,7 @@ class AdminTasks:
             Dict with ``cleaned_login`` and ``cleaned_sensitive`` counts.
         """
         try:
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
             limiter = site.security.rate_limiter
@@ -563,7 +563,7 @@ class AdminPermGuard:
             return False
 
         try:
-            from .permissions import has_model_permission
+            from aquilia.admin.permissions import has_model_permission
 
             return has_model_permission(identity, self.model, self.action)
         except Exception:
@@ -679,7 +679,7 @@ class AdminAuditHook:
     async def __call__(self, ctx: Any, result: Any = None) -> None:
         """Log the admin action to the audit trail."""
         try:
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
 
@@ -808,7 +808,7 @@ class AdminLifecycle:
 
         try:
             # 1. Initialize admin site
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
             site.initialize()
@@ -836,7 +836,7 @@ class AdminLifecycle:
 
                 # 4. Register security DI providers
                 try:
-                    from .security import register_security_providers
+                    from aquilia.admin.security import register_security_providers
 
                     security_config = None
                     if hasattr(site, "admin_config"):
@@ -866,7 +866,7 @@ class AdminLifecycle:
         """
         try:
             # 1. Flush audit log
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
             if hasattr(site.audit_log, "flush"):
@@ -979,7 +979,7 @@ class AdminSubsystems:
         """
         security_policy = None
         try:
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             site = AdminSite.default()
             security_policy = site.security

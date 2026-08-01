@@ -28,8 +28,8 @@ import os
 import sqlite3
 from pathlib import Path
 
-from .executor import MIGRATION_TABLE
-from .serializer import revision_from_path
+from aquilia.models.migration.executor import MIGRATION_TABLE
+from aquilia.models.migration.serializer import revision_from_path
 
 __all__ = ["database_exists", "migrations_applied", "sqlite_path_from_url"]
 

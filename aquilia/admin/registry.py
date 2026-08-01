@@ -17,9 +17,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from aquilia.admin.site import AdminSite
     from aquilia.models.base import Model
-
-    from .site import AdminSite
 
 logger = logging.getLogger("aquilia.admin.registry")
 
@@ -51,13 +50,13 @@ def register(
     Usage (direct call):
         register(User, UserAdmin)
     """
-    from .options import ModelAdmin as _ModelAdmin
+    from aquilia.admin.options import ModelAdmin as _ModelAdmin
 
     def _do_register(admin_cls: type[_ModelAdmin], model_cls: type[Model] | None = None):
         """Actually register the admin class."""
         actual_model = model_cls or admin_cls.model
         if actual_model is None:
-            from .faults import AdminRegistrationFault
+            from aquilia.admin.faults import AdminRegistrationFault
 
             raise AdminRegistrationFault(
                 reason="Must specify a model class either via the 'model' attribute or as a decorator argument.",
@@ -70,7 +69,7 @@ def register(
             site.register_admin(actual_model, admin_instance)
         else:
             # Try default site
-            from .site import AdminSite
+            from aquilia.admin.site import AdminSite
 
             default_site = AdminSite.default()
             if default_site._initialized:
@@ -88,7 +87,7 @@ def register(
         return decorator
 
     if isinstance(model_or_admin, type):
-        from .options import ModelAdmin as _ModelAdmin
+        from aquilia.admin.options import ModelAdmin as _ModelAdmin
 
         if issubclass(model_or_admin, _ModelAdmin):
             # @register applied to ModelAdmin class
@@ -102,7 +101,7 @@ def register(
 
             return decorator
 
-    from .faults import AdminRegistrationFault
+    from aquilia.admin.faults import AdminRegistrationFault
 
     raise AdminRegistrationFault(
         reason=f"Invalid argument to @register: {model_or_admin!r}",
@@ -122,10 +121,10 @@ def autodiscover() -> dict[str, type[Model]]:
     Returns:
         Dictionary of model_name -> model_class that were auto-registered.
     """
-    from aquilia.models.registry import ModelRegistry
 
-    from .options import ModelAdmin
-    from .site import AdminSite
+    from aquilia.admin.options import ModelAdmin
+    from aquilia.admin.site import AdminSite
+    from aquilia.models.registry import ModelRegistry
 
     site = AdminSite.default()
     auto_registered: dict[str, type] = {}
@@ -159,18 +158,13 @@ def _register_admin_models(site: AdminSite) -> None:
     Legacy stubs (ContentType, AdminGroup, etc.) are skipped because
     they carry ``_HAS_ORM = False``.
     """
-    from .models import _HAS_ORM
-    from .options import ModelAdmin
+    from aquilia.admin.models import _HAS_ORM
+    from aquilia.admin.options import ModelAdmin
 
     if not _HAS_ORM:
         return
 
-    from .models import (
-        AdminAPIKey,
-        AdminAuditEntry,
-        AdminPreference,
-        AdminUser,
-    )
+    from aquilia.admin.models import AdminAPIKey, AdminAuditEntry, AdminPreference, AdminUser
 
     # ── AdminUser Admin ──
     if not site.is_registered(AdminUser):
@@ -275,7 +269,7 @@ def flush_pending_registrations() -> int:
     Called during AdminSite initialization.
     Returns count of flushed registrations.
     """
-    from .site import AdminSite
+    from aquilia.admin.site import AdminSite
 
     site = AdminSite.default()
     count = 0

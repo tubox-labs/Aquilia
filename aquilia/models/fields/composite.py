@@ -22,7 +22,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ..fields_module import Field, FieldValidationError
+from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.models.fields_module import Field, FieldValidationError
 
 __all__ = [
     "CompositeField",
@@ -353,8 +354,6 @@ class CompositePrimaryKey:
             ConfigInvalidFault: If fewer than 2 fields are supplied.
         """
         if len(fields) < 2:
-            from aquilia.faults.domains import ConfigInvalidFault
-
             raise ConfigInvalidFault(
                 key="composite_primary_key.fields",
                 reason="CompositePrimaryKey requires at least 2 fields",

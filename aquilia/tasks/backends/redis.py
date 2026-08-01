@@ -56,9 +56,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ..engine import TaskBackend
-from ..faults import TaskBackendFault
-from ..job import Job, JobState
+from aquilia.tasks.engine import TaskBackend
+from aquilia.tasks.faults import TaskBackendFault
+from aquilia.tasks.job import Job, JobState
 
 logger = logging.getLogger("aquilia.tasks.backends.redis")
 

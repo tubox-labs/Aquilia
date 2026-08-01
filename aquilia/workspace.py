@@ -86,10 +86,16 @@ workspace = (
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
 from aquilia.integrations._protocol import IntegrationConfig
+from aquilia.integrations.i18n import I18nIntegration
+from aquilia.integrations.storage import StorageIntegration
+from aquilia.integrations.tasks import TasksIntegration
+from aquilia.integrations.utils import resolve_config_value
+from aquilia.pyconfig import _ensure_dotenv_loaded
 
 # ──────────────────────────────────────────────────────────────────────
 # Dataclasses
@@ -351,7 +357,6 @@ class Module:
         """
         DEPRECATED: Register controllers. Declare them in AppManifest instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_controllers() is deprecated. "
@@ -365,7 +370,6 @@ class Module:
         """
         DEPRECATED: Register services. Declare them in AppManifest instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_services() is deprecated. "
@@ -379,7 +383,6 @@ class Module:
         """
         DEPRECATED: Register providers. Declare them in AppManifest instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_providers() is deprecated. Declare providers in modules/<name>/manifest.py.",
@@ -392,7 +395,6 @@ class Module:
         """
         DEPRECATED: Register routes. Declare them in controllers instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_routes() is deprecated. Use controller decorators (@GET, @POST, etc.) instead.",
@@ -405,7 +407,6 @@ class Module:
         """
         DEPRECATED: Register sockets. Declare them in AppManifest instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_sockets() is deprecated. "
@@ -419,7 +420,6 @@ class Module:
         """
         DEPRECATED: Register middleware. Declare them in AppManifest instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_middlewares() is deprecated. "
@@ -433,7 +433,6 @@ class Module:
         """
         DEPRECATED: Register database models. Declare them in AppManifest instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_models() is deprecated. "
@@ -447,7 +446,6 @@ class Module:
         """
         DEPRECATED: Register serializers. Declare them in AppManifest instead.
         """
-        import warnings
 
         warnings.warn(
             "Module.register_serializers() is deprecated. "
@@ -758,8 +756,6 @@ class Workspace:
         if isinstance(integration, IntegrationConfig):
             integration = integration.to_dict()
 
-        from aquilia.integrations.utils import resolve_config_value
-
         integration = resolve_config_value(integration)
 
         integration_type = integration.get("_integration_type")
@@ -869,7 +865,6 @@ class Workspace:
                 )
             )
         """
-        from aquilia.integrations.i18n import I18nIntegration
 
         cfg = I18nIntegration(
             default_locale=default_locale,
@@ -898,7 +893,6 @@ class Workspace:
                 .tasks(num_workers=8, max_retries=5)
             )
         """
-        from aquilia.integrations.tasks import TasksIntegration
 
         cfg = TasksIntegration(
             num_workers=num_workers,
@@ -937,7 +931,6 @@ class Workspace:
                 )
             )
         """
-        from aquilia.integrations.storage import StorageIntegration
 
         cfg = StorageIntegration(default=default, backends=backends, **kwargs).to_dict()
         self._storage_config = cfg
@@ -1049,7 +1042,6 @@ class Workspace:
             if isinstance(env_cfg, type):
                 # Load .env BEFORE reading AQ_ENV — otherwise a .env that
                 # sets AQ_ENV=prod will be invisible and DevEnv wins.
-                from aquilia.pyconfig import _ensure_dotenv_loaded
 
                 _ensure_dotenv_loaded(config_cls=env_cfg)
 
@@ -1105,8 +1097,6 @@ class Workspace:
             if "integrations" not in config:
                 config["integrations"] = {}
             config["integrations"]["inspector"] = self._inspector_config
-
-        from aquilia.integrations.utils import resolve_config_value
 
         return resolve_config_value(config)
 

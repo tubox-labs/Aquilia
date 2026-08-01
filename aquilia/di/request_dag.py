@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any, get_args, get_origin
 
-from .dep import (
+from aquilia.di.dep import (
     Body,  # noqa: F401 — re-exported for callers
     Dep,
     Header,  # noqa: F401 — re-exported for callers

@@ -16,6 +16,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from aquilia.artifacts.backends.json_file import JSONFileBackend
+from aquilia.artifacts.canonical import bare_fingerprint
+from aquilia.artifacts.envelope import ArtifactEnvelope
+
 logger = logging.getLogger(__name__)
 
 
@@ -271,10 +275,6 @@ def generate_template_manifest(template_dirs: list[Path], output_path: Path) -> 
     """
     from datetime import datetime, timezone
 
-    from aquilia.artifacts.backends.json_file import JSONFileBackend
-    from aquilia.artifacts.canonical import bare_fingerprint
-    from aquilia.artifacts.envelope import ArtifactEnvelope
-
     manifest: dict = {
         "version": "1.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -331,7 +331,7 @@ def create_manifest_aware_loader(root_path: Path | None = None, scan_manifests: 
     Returns:
         Configured TemplateLoader instance
     """
-    from .loader import TemplateLoader
+    from aquilia.templates.loader import TemplateLoader
 
     # Discover template directories
     search_paths = discover_template_directories(root_path, scan_manifests)

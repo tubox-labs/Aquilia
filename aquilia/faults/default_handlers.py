@@ -19,16 +19,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .core import (
-    Escalate,
-    FaultContext,
-    FaultDomain,
-    FaultResult,
-    Resolved,
-    Severity,
-    Transformed,
-)
-from .domains import (
+from aquilia.faults.core import Escalate, FaultContext, FaultDomain, FaultResult, Resolved, Severity, Transformed
+from aquilia.faults.domains import (
     AuthenticationFault,
     AuthorizationFault,
     IOFault,
@@ -36,7 +28,7 @@ from .domains import (
     SecurityFault,
     SystemFault,
 )
-from .handlers import FaultHandler
+from aquilia.faults.handlers import FaultHandler
 
 # ============================================================================
 # 1. ExceptionAdapter - Convert raw exceptions to Faults

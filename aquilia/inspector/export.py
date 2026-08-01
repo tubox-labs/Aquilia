@@ -1,8 +1,8 @@
 import json
 import time
 
-from .faults import InspectorExportFault
-from .trace import ExceptionNode, RequestTrace, ResponseSummary, Span, SpanStatus
+from aquilia.inspector.faults import InspectorExportFault
+from aquilia.inspector.trace import ExceptionNode, RequestTrace, ResponseSummary, Span, SpanStatus
 
 
 def export_trace_json(trace: RequestTrace) -> str:

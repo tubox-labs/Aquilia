@@ -18,12 +18,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from ...faults.domains import MigrationConflictFault, MigrationFault
+from aquilia.faults.domains import MigrationConflictFault, MigrationFault
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from .operations import Operation
+    from aquilia.models.migration.operations import Operation
 
 __all__ = ["MigrationNode", "MigrationGraph"]
 

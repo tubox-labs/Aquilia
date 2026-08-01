@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .fault import aquilia_error_schema, aquilia_validation_error_schema
+from aquilia.specula.schema.fault import aquilia_error_schema, aquilia_validation_error_schema
 
 
 def _standard_schemas() -> dict[str, dict[str, Any]]:

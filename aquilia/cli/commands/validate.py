@@ -16,6 +16,9 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from aquilia.faults.domains import ConfigMissingFault
+from aquilia.manifest import AppManifest
+
 
 @dataclass
 class ValidationResult:
@@ -44,8 +47,6 @@ def _load_manifest_object(module_name: str, manifest_path: Path):
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
-
-    from aquilia.manifest import AppManifest
 
     manifest_obj = getattr(mod, "manifest", None)
     if manifest_obj is None:
@@ -90,8 +91,6 @@ def validate_workspace(
     workspace_config = workspace_root / "workspace.py"
 
     if not workspace_config.exists():
-        from aquilia.faults.domains import ConfigMissingFault
-
         raise ConfigMissingFault(key="workspace.py")
 
     faults: list[str] = []

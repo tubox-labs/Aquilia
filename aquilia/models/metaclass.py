@@ -8,16 +8,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from .fields_module import (
-    BigAutoField,
-    Field,
-    ManyToManyField,
-)
-from .manager import BaseManager, Manager
-from .options import Options
+from aquilia.models.fields_module import BigAutoField, Field, ManyToManyField
+from aquilia.models.manager import BaseManager, Manager
+from aquilia.models.options import Options
 
 if TYPE_CHECKING:
-    from .base import Model
+    from aquilia.models.base import Model
 
 __all__ = ["ModelMeta"]
 
@@ -242,12 +238,12 @@ class ModelMeta(type):
 
         # Register in global registry (skip abstract)
         if not opts.abstract:
-            from .registry import ModelRegistry as _NewRegistry
+            from aquilia.models.registry import ModelRegistry as _NewRegistry
 
             _NewRegistry.register(model_cls)
 
             # Signal: class_prepared (fired after model class is fully created)
-            from .signals import class_prepared
+            from aquilia.models.signals import class_prepared
 
             class_prepared.send_sync(sender=model_cls)
 

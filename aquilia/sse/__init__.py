@@ -27,9 +27,8 @@ LLM token streaming::
 """
 
 from aquilia.response import ServerSentEvent
-
-from ._core import SSEResponse
-from ._faults import SSE_DOMAIN, SSEFault, SSESerializationFault, SSEStreamAbortedFault
+from aquilia.sse._core import SSEResponse
+from aquilia.sse._faults import SSE_DOMAIN, SSEFault, SSESerializationFault, SSEStreamAbortedFault
 
 SSEEvent = ServerSentEvent
 

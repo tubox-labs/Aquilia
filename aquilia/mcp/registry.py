@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .faults import MCPToolFault
+from aquilia.mcp.faults import MCPToolFault
 
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
 PromptHandler = Callable[[dict[str, Any]], dict[str, Any]]

@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from ..models import KnowledgeIndex
-from ..registry import MCPRegistry, ToolSpec
-from .deprecation_guard import deprecation_guard
-from .explain_bootstrap import explain_bootstrap
-from .find_api import find_api
-from .find_examples import find_examples
-from .generate_agent_prompt import generate_agent_prompt
-from .list_cli_commands import list_cli_commands
-from .recommend_integrations import recommend_integrations
-from .scaffold_module import scaffold_module
-from .scaffold_workspace import scaffold_workspace
-from .suggest_architecture import suggest_architecture
-from .validate_manifest_plan import validate_manifest_plan
+from aquilia.mcp.models import KnowledgeIndex
+from aquilia.mcp.registry import MCPRegistry, ToolSpec
+from aquilia.mcp.tools.deprecation_guard import deprecation_guard
+from aquilia.mcp.tools.explain_bootstrap import explain_bootstrap
+from aquilia.mcp.tools.find_api import find_api
+from aquilia.mcp.tools.find_examples import find_examples
+from aquilia.mcp.tools.generate_agent_prompt import generate_agent_prompt
+from aquilia.mcp.tools.list_cli_commands import list_cli_commands
+from aquilia.mcp.tools.recommend_integrations import recommend_integrations
+from aquilia.mcp.tools.scaffold_module import scaffold_module
+from aquilia.mcp.tools.scaffold_workspace import scaffold_workspace
+from aquilia.mcp.tools.suggest_architecture import suggest_architecture
+from aquilia.mcp.tools.validate_manifest_plan import validate_manifest_plan
 
 
 def _schema(properties: dict, required: list[str] | None = None) -> dict:

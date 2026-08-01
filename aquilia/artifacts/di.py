@@ -22,8 +22,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .cache_root import resolve_artifact_root
-from .store import ArtifactStore
+from aquilia.artifacts.cache_root import resolve_artifact_root
+from aquilia.artifacts.store import ArtifactStore
 
 
 def provide_artifact_store(

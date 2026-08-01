@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..faults.core import Fault, FaultDomain, Severity
+from aquilia.faults.core import Fault, FaultDomain, Severity
 
 # ── Mail Fault Domain ───────────────────────────────────────────────
 FaultDomain.MAIL = FaultDomain("mail", "Email sending, templating, and delivery faults")

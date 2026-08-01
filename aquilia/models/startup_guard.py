@@ -59,7 +59,7 @@ class DatabaseNotReadyError(SystemExit):
         try:
             import logging
 
-            from ..faults.domains import SchemaFault
+            from aquilia.faults.domains import SchemaFault
 
             fault = SchemaFault(table="(startup)", reason=message)
             logging.getLogger("aquilia.models.startup_guard").warning(
@@ -77,7 +77,7 @@ def get_db_state(
     """
     Determine the detailed readiness state of the database.
     """
-    from .migration.probe import database_exists, migrations_applied
+    from aquilia.models.migration.probe import database_exists, migrations_applied
 
     if not database_exists(db_url):
         return DatabaseState.MISSING_DATABASE

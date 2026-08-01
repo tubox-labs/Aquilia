@@ -8,11 +8,11 @@ Provides a common adapter interface and implementations for:
 - Oracle (via python-oracledb)
 """
 
-from .base import AdapterCapabilities, ColumnInfo, DatabaseAdapter, IntrospectionResult, TableInfo
-from .mysql import MySQLAdapter
-from .oracle import OracleAdapter
-from .postgres import PostgresAdapter
-from .sqlite import SQLiteAdapter
+from aquilia.db.backends.base import AdapterCapabilities, ColumnInfo, DatabaseAdapter, IntrospectionResult, TableInfo
+from aquilia.db.backends.mysql import MySQLAdapter
+from aquilia.db.backends.oracle import OracleAdapter
+from aquilia.db.backends.postgres import PostgresAdapter
+from aquilia.db.backends.sqlite import SQLiteAdapter
 
 __all__ = [
     "DatabaseAdapter",

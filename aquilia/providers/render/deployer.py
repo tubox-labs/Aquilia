@@ -43,9 +43,8 @@ from aquilia.faults.domains import (
     ProviderAPIFault,
     ProviderAuthFault,
 )
-
-from .client import RenderClient
-from .types import (
+from aquilia.providers.render.client import RenderClient
+from aquilia.providers.render.types import (
     RenderDeploy,
     RenderDeployConfig,
     RenderDeployStatus,

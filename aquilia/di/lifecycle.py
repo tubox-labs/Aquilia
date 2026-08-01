@@ -141,7 +141,7 @@ class Lifecycle:
             error_msg = "Startup hooks failed:\n"
             for name, error in errors:
                 error_msg += f"  - {name}: {error}\n"
-            from ..faults.domains import SystemFault
+            from aquilia.faults.domains import SystemFault
 
             raise SystemFault(
                 code="STARTUP_HOOKS_FAILED",

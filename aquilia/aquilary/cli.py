@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from aquilia.aquilary import Aquilary, DependencyGraph, ManifestValidationError
+
 
 def load_config(config_path: str | None) -> Any:
     """
@@ -58,7 +60,6 @@ def cmd_validate(args: argparse.Namespace) -> None:
     Usage:
         aquilary validate apps/*/manifest.py --config config.py --mode prod
     """
-    from aquilia.aquilary import Aquilary, ManifestValidationError
 
     print(f"Validating manifests in mode: {args.mode}")
     print(f"   Manifests: {', '.join(args.manifests)}")
@@ -112,7 +113,6 @@ def cmd_inspect(args: argparse.Namespace) -> None:
     Usage:
         aquilary inspect --manifests apps/*/manifest.py --config config.py
     """
-    from aquilia.aquilary import Aquilary
 
     print("Inspecting registry...")
 
@@ -167,7 +167,6 @@ def cmd_freeze(args: argparse.Namespace) -> None:
     Usage:
         aquilary freeze --manifests apps/*/manifest.py --config config.py --output frozen.json
     """
-    from aquilia.aquilary import Aquilary
 
     print("Freezing manifest...")
 
@@ -208,7 +207,6 @@ def cmd_graph(args: argparse.Namespace) -> None:
     Usage:
         aquilary graph --manifests apps/*/manifest.py --output graph.dot
     """
-    from aquilia.aquilary import Aquilary
 
     print("Generating dependency graph...")
 
@@ -224,7 +222,6 @@ def cmd_graph(args: argparse.Namespace) -> None:
     )
 
     # Build dependency graph
-    from aquilia.aquilary import DependencyGraph
 
     graph = DependencyGraph()
     for ctx in registry.app_contexts:
@@ -257,7 +254,6 @@ def cmd_run(args: argparse.Namespace) -> None:
     Usage:
         aquilary run --frozen frozen.json --config config.py
     """
-    from aquilia.aquilary import Aquilary
 
     print("Starting application...")
 

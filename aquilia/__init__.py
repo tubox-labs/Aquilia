@@ -1,5 +1,4 @@
-"""
-Aquilia - Production-ready async Python web framework
+"""Aquilia - Production-ready async Python web framework
 
 Complete integration of:
 - Aquilary: Manifest-driven app registry with dependency resolution
@@ -11,906 +10,654 @@ Complete integration of:
 - Middleware: Composable middleware with effect awareness
 - Patterns: Auto-fix, retry, circuit breaker patterns
 
-Everything deeply integrated for seamless developer experience.
-"""
+Everything deeply integrated for seamless developer experience."""
 
-from aquilia._version import RELEASE_NAME, __version__  # noqa: F401 — re-exported
+import importlib
 
-# Request data structures
-from ._datastructures import (
-    URL,
-    Headers,
-    MultiDict,
-    ParsedContentType,
-    Range,
-)
+from aquilia._version import RELEASE_NAME, __version__
+from aquilia.lazy import install_lazy_exports
 
-# Upload handling
-from ._uploads import (
-    FormData,
-    LocalUploadStore,
-    UploadFile,
-    UploadStore,
-)
+# Maps every public name to the submodule that defines it. The submodule is
+# imported the first time the name is read; see aquilia.lazy for the mechanism.
+_EXPORTS: dict[str, tuple[str, str]] = {
+    "ABACEngine": (".auth.authz", "ABACEngine"),
+    "APIKeySigner": (".signing", "APIKeySigner"),
+    "AccessLevel": (".auth.clearance", "AccessLevel"),
+    "ActivationLinkSigner": (".signing", "ActivationLinkSigner"),
+    "AdminAction": (".admin", "AdminAction"),
+    "AdminActionFault": (".admin", "AdminActionFault"),
+    "AdminAudit": (".integrations", "AdminAudit"),
+    "AdminAuditLog": (".admin", "AdminAuditLog"),
+    "AdminAuthenticationFault": (".admin", "AdminAuthenticationFault"),
+    "AdminAuthorizationFault": (".admin", "AdminAuthorizationFault"),
+    "AdminContainers": (".integrations", "AdminContainers"),
+    "AdminController": (".admin", "AdminController"),
+    "AdminFault": (".admin", "AdminFault"),
+    "AdminGroup": (".admin", "AdminGroup"),
+    "AdminGroupContract": (".admin", "AdminGroupContract"),
+    "AdminIntegration": (".integrations", "AdminIntegration"),
+    "AdminLogEntry": (".admin", "AdminLogEntry"),
+    "AdminLogEntryContract": (".admin", "AdminLogEntryContract"),
+    "AdminModelNotFoundFault": (".admin", "AdminModelNotFoundFault"),
+    "AdminModules": (".integrations", "AdminModules"),
+    "AdminMonitoring": (".integrations", "AdminMonitoring"),
+    "AdminPermission": (".admin", "AdminPermission"),
+    "AdminPermissionContract": (".admin", "AdminPermissionContract"),
+    "AdminPods": (".integrations", "AdminPods"),
+    "AdminRecordNotFoundFault": (".admin", "AdminRecordNotFoundFault"),
+    "AdminRole": (".admin", "AdminRole"),
+    "AdminSecurity": (".integrations", "AdminSecurity"),
+    "AdminSession": (".admin", "AdminSession"),
+    "AdminSessionContract": (".admin", "AdminSessionContract"),
+    "AdminSidebar": (".integrations", "AdminSidebar"),
+    "AdminSite": (".admin", "AdminSite"),
+    "AdminUser": (".admin", "AdminUser"),
+    "AdminUserContract": (".admin", "AdminUserContract"),
+    "AdminValidationFault": (".admin", "AdminValidationFault"),
+    "ApiVersion": (".versioning", "ApiVersion"),
+    "AppContext": (".aquilary", "AppContext"),
+    "AppManifest": (".manifest", "AppManifest"),
+    "AppVersioningConfig": (".manifest", "AppVersioningConfig"),
+    "AquilAuthMiddleware": (".auth.integration.middleware", "AquilAuthMiddleware"),
+    "AquilaConfig": (".pyconfig", "AquilaConfig"),
+    "AquilaSockets": (".sockets", "AquilaSockets"),
+    "Aquilary": (".aquilary", "Aquilary"),
+    "AquilaryRegistry": (".aquilary", "AquilaryRegistry"),
+    "AquiliaDatabase": (".db", "AquiliaDatabase"),
+    "AquiliaRuntime": (".runtime", "AquiliaRuntime"),
+    "AquiliaServer": (".server", "AquiliaServer"),
+    "AquiliaTestCase": (".testing", "AquiliaTestCase"),
+    "ArrayField": (".models", "ArrayField"),
+    "Attributes": (".controller", "Attributes"),
+    "AuditEvent": (".auth.audit", "AuditEvent"),
+    "AuditEventType": (".auth.audit", "AuditEventType"),
+    "AuditSeverity": (".auth.audit", "AuditSeverity"),
+    "AuditTrail": (".auth.audit", "AuditTrail"),
+    "AuthIntegration": (".integrations", "AuthIntegration"),
+    "AuthManager": (".auth.manager", "AuthManager"),
+    "AuthPrincipal": (".auth.integration.aquila_sessions", "AuthPrincipal"),
+    "AuthzEngine": (".auth.authz", "AuthzEngine"),
+    "AutoField": (".models", "AutoField"),
+    "AzureBlobConfig": (".storage", "AzureBlobConfig"),
+    "AzureBlobStorage": (".storage", "AzureBlobStorage"),
+    "BackgroundTaskConfig": (".manifest", "BackgroundTaskConfig"),
+    "BadSignature": (".signing", "BadSignature"),
+    "BaseFilterBackend": (".controller", "BaseFilterBackend"),
+    "BigAutoField": (".models", "BigAutoField"),
+    "BigIntegerField": (".models", "BigIntegerField"),
+    "BinaryField": (".models", "BinaryField"),
+    "BoolFacet": (".contracts", "BoolFacet"),
+    "BooleanField": (".models", "BooleanField"),
+    "CORSMiddleware": (".middleware_ext.security", "CORSMiddleware"),
+    "CSPMiddleware": (".middleware_ext.security", "CSPMiddleware"),
+    "CSPPolicy": (".middleware_ext.security", "CSPPolicy"),
+    "CSRFError": (".middleware_ext.security", "CSRFError"),
+    "CSRFMiddleware": (".middleware_ext.security", "CSRFMiddleware"),
+    "CSRFSigner": (".signing", "CSRFSigner"),
+    "CacheBackend": (".cache", "CacheBackend"),
+    "CacheBackendFault": (".cache", "CacheBackendFault"),
+    "CacheCapacityFault": (".cache", "CacheCapacityFault"),
+    "CacheConfig": (".cache", "CacheConfig"),
+    "CacheConfigFault": (".cache", "CacheConfigFault"),
+    "CacheConnectionFault": (".cache", "CacheConnectionFault"),
+    "CacheEffect": (".effects", "CacheEffect"),
+    "CacheEntry": (".cache", "CacheEntry"),
+    "CacheFault": (".cache", "CacheFault"),
+    "CacheHealthFault": (".cache", "CacheHealthFault"),
+    "CacheIntegration": (".integrations", "CacheIntegration"),
+    "CacheKeySigner": (".signing", "CacheKeySigner"),
+    "CacheMiddleware": (".cache", "CacheMiddleware"),
+    "CacheMissFault": (".cache", "CacheMissFault"),
+    "CacheProvider": (".effects", "CacheProvider"),
+    "CacheSerializationFault": (".cache", "CacheSerializationFault"),
+    "CacheService": (".cache", "CacheService"),
+    "CacheStampedeFault": (".cache", "CacheStampedeFault"),
+    "CacheStats": (".cache", "CacheStats"),
+    "CartState": (".sessions.state", "CartState"),
+    "CastFault": (".contracts", "CastFault"),
+    "CatalogLoadFault": (".i18n", "CatalogLoadFault"),
+    "ChannelResolver": (".versioning", "ChannelResolver"),
+    "CharField": (".models", "CharField"),
+    "ChoiceFacet": (".contracts", "ChoiceFacet"),
+    "ClassProvider": (".di", "ClassProvider"),
+    "Clearance": (".auth.clearance", "Clearance"),
+    "ClearanceEngine": (".auth.clearance", "ClearanceEngine"),
+    "ClearanceGuard": (".auth.clearance", "ClearanceGuard"),
+    "ClearanceVerdict": (".auth.clearance", "ClearanceVerdict"),
+    "CompiledPattern": (".patterns", "CompiledPattern"),
+    "ComponentKind": (".manifest", "ComponentKind"),
+    "ComponentRef": (".manifest", "ComponentRef"),
+    "CompositeBackend": (".cache", "CompositeBackend"),
+    "CompositeConfig": (".storage", "CompositeConfig"),
+    "CompositeResolver": (".versioning", "CompositeResolver"),
+    "CompositeStorage": (".storage", "CompositeStorage"),
+    "Computed": (".contracts", "Computed"),
+    "Config": (".config", "Config"),
+    "ConfigLoader": (".config", "ConfigLoader"),
+    "ConfigValue": (".pyconfig", "ConfigValue"),
+    "ConsoleProvider": (".integrations", "ConsoleProvider"),
+    "Constant": (".contracts", "Constant"),
+    "Container": (".di", "Container"),
+    "ContentNegotiator": (".controller", "ContentNegotiator"),
+    "ContentType": (".admin", "ContentType"),
+    "ContentTypeContract": (".admin", "ContentTypeContract"),
+    "Contract": (".contracts", "Contract"),
+    "ContractFault": (".contracts", "ContractFault"),
+    "ContractMeta": (".contracts", "ContractMeta"),
+    "Controller": (".controller", "Controller"),
+    "ControllerFactory": (".controller", "ControllerFactory"),
+    "ControllerMetadata": (".controller", "ControllerMetadata"),
+    "CookieSigner": (".signing", "CookieSigner"),
+    "CookieTransport": (".sessions", "CookieTransport"),
+    "CorsIntegration": (".integrations", "CorsIntegration"),
+    "CspIntegration": (".integrations", "CspIntegration"),
+    "CsrfIntegration": (".integrations", "CsrfIntegration"),
+    "CursorPagination": (".controller", "CursorPagination"),
+    "DBTx": (".effects", "DBTx"),
+    "DBTxProvider": (".effects", "DBTxProvider"),
+    "DELETE": (".controller", "DELETE"),
+    "DIBody": (".di", "Body"),
+    "DIHeader": (".di", "Header"),
+    "DIQuery": (".di", "Query"),
+    "DIRegistry": (".di", "Registry"),
+    "DatabaseConfig": (".manifest", "DatabaseConfig"),
+    "DatabaseConnectionFault": (".faults", "DatabaseConnectionFault"),
+    "DatabaseError": (".db", "DatabaseError"),
+    "DatabaseIntegration": (".integrations", "DatabaseIntegration"),
+    "DateFacet": (".contracts", "DateFacet"),
+    "DateField": (".models", "DateField"),
+    "DateTimeFacet": (".contracts", "DateTimeFacet"),
+    "DateTimeField": (".models", "DateTimeField"),
+    "DebugPageRenderer": (".debug", "DebugPageRenderer"),
+    "DecimalFacet": (".contracts", "DecimalFacet"),
+    "DecimalField": (".models", "DecimalField"),
+    "DefaultKeyBuilder": (".cache", "DefaultKeyBuilder"),
+    "Dep": (".di", "Dep"),
+    "DependencyCycleError": (".aquilary", "DependencyCycleError"),
+    "DiIntegration": (".integrations", "DiIntegration"),
+    "DictFacet": (".contracts", "DictFacet"),
+    "DotEnv": (".dotenv", "DotEnv"),
+    "DotEnvLoader": (".dotenv", "DotEnvLoader"),
+    "DurationFacet": (".contracts", "DurationFacet"),
+    "DurationField": (".models", "DurationField"),
+    "Effect": (".effects", "Effect"),
+    "EffectKind": (".effects", "EffectKind"),
+    "EffectProvider": (".effects", "EffectProvider"),
+    "EffectRegistry": (".effects", "EffectRegistry"),
+    "EffectScope": (".flow", "EffectScope"),
+    "EmailFacet": (".contracts", "EmailFacet"),
+    "EmailField": (".models", "EmailField"),
+    "EmailMessage": (".mail", "EmailMessage"),
+    "EmailMultiAlternatives": (".mail", "EmailMultiAlternatives"),
+    "Env": (".pyconfig", "Env"),
+    "EnvCastType": (".pyconfig", "EnvCastType"),
+    "EnvCaster": (".pyconfig", "EnvCaster"),
+    "EnvelopeStatus": (".mail", "EnvelopeStatus"),
+    "Event": (".sockets", "Event"),
+    "EvictionPolicy": (".cache", "EvictionPolicy"),
+    "ExceptionFilter": (".controller", "ExceptionFilter"),
+    "Facet": (".contracts", "Facet"),
+    "FactoryProvider": (".di", "FactoryProvider"),
+    "Fault": (".faults", "Fault"),
+    "FaultContext": (".faults", "FaultContext"),
+    "FaultEngine": (".faults", "FaultEngine"),
+    "FaultHandler": (".faults", "FaultHandler"),
+    "FaultHandlingIntegration": (".integrations", "FaultHandlingIntegration"),
+    "Field": (".models", "Field"),
+    "FieldValidationError": (".models", "FieldValidationError"),
+    "FileCatalog": (".i18n", "FileCatalog"),
+    "FileFacet": (".contracts", "FileFacet"),
+    "FileField": (".models", "FileField"),
+    "FilePathField": (".models", "FilePathField"),
+    "FileProvider": (".integrations", "FileProvider"),
+    "FilterSet": (".controller", "FilterSet"),
+    "FloatFacet": (".contracts", "FloatFacet"),
+    "FloatField": (".models", "FloatField"),
+    "FlowContext": (".flow", "FlowContext"),
+    "FlowError": (".flow", "FlowError"),
+    "FlowNode": (".flow", "FlowNode"),
+    "FlowNodeType": (".flow", "FlowNodeType"),
+    "FlowPipeline": (".flow", "FlowPipeline"),
+    "FlowResult": (".flow", "FlowResult"),
+    "FlowStatus": (".flow", "FlowStatus"),
+    "ForeignKey": (".models", "ForeignKey"),
+    "FormData": ("._uploads", "FormData"),
+    "GCSConfig": (".storage", "GCSConfig"),
+    "GCSStorage": (".storage", "GCSStorage"),
+    "GET": (".controller", "GET"),
+    "GeneratedField": (".models", "GeneratedField"),
+    "GenericIPAddressField": (".models", "GenericIPAddressField"),
+    "HEAD": (".controller", "HEAD"),
+    "HSTSMiddleware": (".middleware_ext.security", "HSTSMiddleware"),
+    "HStoreField": (".models", "HStoreField"),
+    "HTMLRenderer": (".controller", "HTMLRenderer"),
+    "HTTPEffect": (".effects", "HTTPEffect"),
+    "HTTPProvider": (".effects", "HTTPProvider"),
+    "HTTPSRedirectMiddleware": (".middleware_ext.security", "HTTPSRedirectMiddleware"),
+    "Handler": (".middleware", "Handler"),
+    "HashKeyBuilder": (".cache", "HashKeyBuilder"),
+    "HeaderResolver": (".versioning", "HeaderResolver"),
+    "Headers": ("._datastructures", "Headers"),
+    "HealthRegistry": (".health", "HealthRegistry"),
+    "HealthStatus": (".health", "HealthStatus"),
+    "Hidden": (".contracts", "Hidden"),
+    "HmacSignerBackend": (".signing", "HmacSignerBackend"),
+    "I18nConfig": (".i18n", "I18nConfig"),
+    "I18nFault": (".i18n", "I18nFault"),
+    "I18nIntegration": (".integrations", "I18nIntegration"),
+    "I18nMiddleware": (".i18n", "I18nMiddleware"),
+    "I18nService": (".i18n", "I18nService"),
+    "IMailProvider": (".mail", "IMailProvider"),
+    "IPFacet": (".contracts", "IPFacet"),
+    "Identity": (".auth.core", "Identity"),
+    "IdentityStatus": (".auth.core", "IdentityStatus"),
+    "ImageField": (".models", "ImageField"),
+    "ImprintFault": (".contracts", "ImprintFault"),
+    "Index": (".models", "Index"),
+    "Inject": (".di", "Inject"),
+    "InstantiationMode": (".controller", "InstantiationMode"),
+    "IntFacet": (".contracts", "IntFacet"),
+    "IntegerField": (".models", "IntegerField"),
+    "Integration": (".integrations", "Integration"),
+    "IntegrationConfig": (".integrations", "IntegrationConfig"),
+    "Interceptor": (".controller", "Interceptor"),
+    "InvalidLocaleFault": (".i18n", "InvalidLocaleFault"),
+    "InvalidVersionError": (".versioning", "InvalidVersionError"),
+    "JSONFacet": (".contracts", "JSONFacet"),
+    "JSONField": (".models", "JSONField"),
+    "JSONRenderer": (".controller", "JSONRenderer"),
+    "Job": (".tasks", "Job"),
+    "JobResult": (".tasks", "JobResult"),
+    "JobState": (".tasks", "JobState"),
+    "JsonCacheSerializer": (".cache", "JsonCacheSerializer"),
+    "KeyRing": (".auth.tokens", "KeyRing"),
+    "Layer": (".flow", "Layer"),
+    "LayerComposition": (".flow", "LayerComposition"),
+    "LazyString": (".i18n", "LazyString"),
+    "Lens": (".contracts", "Lens"),
+    "LifecycleCoordinator": (".lifecycle", "LifecycleCoordinator"),
+    "LifecycleError": (".lifecycle", "LifecycleError"),
+    "LifecycleManager": (".lifecycle", "LifecycleManager"),
+    "LifecyclePhase": (".lifecycle", "LifecyclePhase"),
+    "LimitOffsetPagination": (".controller", "LimitOffsetPagination"),
+    "ListFacet": (".contracts", "ListFacet"),
+    "LiveServerTestCase": (".testing", "LiveServerTestCase"),
+    "LocalConfig": (".storage", "LocalConfig"),
+    "LocalStorage": (".storage", "LocalStorage"),
+    "LocalUploadStore": ("._uploads", "LocalUploadStore"),
+    "Locale": (".i18n", "Locale"),
+    "LoggingIntegration": (".integrations", "LoggingIntegration"),
+    "LoggingMiddleware": (".middleware", "LoggingMiddleware"),
+    "MailAuth": (".integrations", "MailAuth"),
+    "MailConfig": (".mail", "MailConfig"),
+    "MailConfigFault": (".mail", "MailConfigFault"),
+    "MailEnvelope": (".mail", "MailEnvelope"),
+    "MailFault": (".mail", "MailFault"),
+    "MailIntegration": (".integrations", "MailIntegration"),
+    "MailRateLimitFault": (".mail", "MailRateLimitFault"),
+    "MailSendFault": (".mail", "MailSendFault"),
+    "MailService": (".mail.service", "MailService"),
+    "MailSuppressedFault": (".mail", "MailSuppressedFault"),
+    "MailTemplateFault": (".mail", "MailTemplateFault"),
+    "MailValidationFault": (".mail", "MailValidationFault"),
+    "ManifestValidationError": (".aquilary", "ManifestValidationError"),
+    "ManyToManyField": (".models", "ManyToManyField"),
+    "MediaTypeResolver": (".versioning", "MediaTypeResolver"),
+    "MemoryAuditStore": (".auth.audit", "MemoryAuditStore"),
+    "MemoryBackend": (".tasks", "MemoryBackend"),
+    "MemoryCatalog": (".i18n", "MemoryCatalog"),
+    "MemoryConfig": (".storage", "MemoryConfig"),
+    "MemoryStorage": (".storage", "MemoryStorage"),
+    "MergedCatalog": (".i18n", "MergedCatalog"),
+    "MessageFormatter": (".i18n", "MessageFormatter"),
+    "Middleware": (".middleware", "Middleware"),
+    "MiddlewareChain": (".integrations", "MiddlewareChain"),
+    "MiddlewareEntry": (".integrations", "MiddlewareEntry"),
+    "MiddlewareStack": (".middleware", "MiddlewareStack"),
+    "MigrationConflictFault": (".faults", "MigrationConflictFault"),
+    "MigrationEngine": (".models", "MigrationEngine"),
+    "MigrationFault": (".faults", "MigrationFault"),
+    "MissingTranslationFault": (".i18n", "MissingTranslationFault"),
+    "MissingVersionError": (".versioning", "MissingVersionError"),
+    "Model": (".models", "Model"),
+    "ModelAdmin": (".admin", "ModelAdmin"),
+    "ModelFault": (".faults", "ModelFault"),
+    "ModelMeta": (".models", "ModelMeta"),
+    "ModelNotFoundFault": (".faults", "ModelNotFoundFault"),
+    "ModelRegistrationFault": (".faults", "ModelRegistrationFault"),
+    "ModelRegistry": (".models", "ModelRegistry"),
+    "Module": (".config", "Module"),
+    "MultiDict": ("._datastructures", "MultiDict"),
+    "NamespacedCatalog": (".i18n", "NamespacedCatalog"),
+    "NoPagination": (".controller", "NoPagination"),
+    "NullBackend": (".cache", "NullBackend"),
+    "OPTIONS": (".controller", "OPTIONS"),
+    "OnConnect": (".sockets", "OnConnect"),
+    "OnDisconnect": (".sockets", "OnDisconnect"),
+    "OneToOneField": (".models", "OneToOneField"),
+    "OrderingFilter": (".controller", "OrderingFilter"),
+    "PATCH": (".controller", "PATCH"),
+    "POST": (".controller", "POST"),
+    "PRIORITY_AUTH": (".flow", "PRIORITY_AUTH"),
+    "PRIORITY_CLEANUP": (".flow", "PRIORITY_CLEANUP"),
+    "PRIORITY_CRITICAL": (".flow", "PRIORITY_CRITICAL"),
+    "PRIORITY_DEFAULT": (".flow", "PRIORITY_DEFAULT"),
+    "PRIORITY_ENRICH": (".flow", "PRIORITY_ENRICH"),
+    "PRIORITY_LOG": (".flow", "PRIORITY_LOG"),
+    "PRIORITY_TRANSFORM": (".flow", "PRIORITY_TRANSFORM"),
+    "PRIORITY_VALIDATE": (".flow", "PRIORITY_VALIDATE"),
+    "PUT": (".controller", "PUT"),
+    "PackageScanner": (".discovery", "PackageScanner"),
+    "PageNumberPagination": (".controller", "PageNumberPagination"),
+    "ParameterMetadata": (".controller", "ParameterMetadata"),
+    "ParsedContentType": ("._datastructures", "ParsedContentType"),
+    "PasswordHasher": (".auth.hashing", "PasswordHasher"),
+    "PatternCompiler": (".patterns", "PatternCompiler"),
+    "PatternMatcher": (".patterns", "PatternMatcher"),
+    "PatternTypeRegistry": (".patterns", "TypeRegistry"),
+    "PatternsIntegration": (".integrations", "PatternsIntegration"),
+    "PickleCacheSerializer": (".cache", "PickleCacheSerializer"),
+    "PlainTextRenderer": (".controller", "PlainTextRenderer"),
+    "PluralCategory": (".i18n", "PluralCategory"),
+    "PluralRuleFault": (".i18n", "PluralRuleFault"),
+    "PositiveIntegerField": (".models", "PositiveIntegerField"),
+    "PositiveSmallIntegerField": (".models", "PositiveSmallIntegerField"),
+    "Priority": (".mail", "Priority"),
+    "ProjectionFault": (".contracts", "ProjectionFault"),
+    "Provider": (".di", "Provider"),
+    "ProviderMeta": (".di", "ProviderMeta"),
+    "ProviderResult": (".mail", "ProviderResult"),
+    "ProviderResultStatus": (".mail", "ProviderResultStatus"),
+    "ProxyFixMiddleware": (".middleware_ext.security", "ProxyFixMiddleware"),
+    "PyConfigLoader": (".pyconfig", "PyConfigLoader"),
+    "Q": (".models", "Q"),
+    "QueryFault": (".faults", "QueryFault"),
+    "QueryParamResolver": (".versioning", "QueryParamResolver"),
+    "QueueEffect": (".effects", "QueueEffect"),
+    "QueueProvider": (".effects", "QueueProvider"),
+    "RBACEngine": (".auth.authz", "RBACEngine"),
+    "RELEASE_NAME": ("aquilia._version", "RELEASE_NAME"),
+    "Range": ("._datastructures", "Range"),
+    "RateLimitIntegration": (".integrations", "RateLimitIntegration"),
+    "RateLimitMiddleware": (".middleware_ext.rate_limit", "RateLimitMiddleware"),
+    "RateLimitRule": (".middleware_ext.rate_limit", "RateLimitRule"),
+    "ReadOnly": (".contracts", "ReadOnly"),
+    "RecoveryStrategy": (".faults", "RecoveryStrategy"),
+    "RedisBackend": (".cache", "RedisBackend"),
+    "RegistryError": (".aquilary", "RegistryError"),
+    "RegistryFingerprint": (".aquilary", "RegistryFingerprint"),
+    "RegistryIntegration": (".integrations", "RegistryIntegration"),
+    "RegistryMode": (".aquilary", "RegistryMode"),
+    "RenderIntegration": (".integrations", "RenderIntegration"),
+    "Request": (".request", "Request"),
+    "RequestCtx": (".controller", "RequestCtx"),
+    "RequestDAG": (".di", "RequestDAG"),
+    "RequestIdMiddleware": (".middleware", "RequestIdMiddleware"),
+    "Response": (".response", "Response"),
+    "RotatingSigner": (".signing", "RotatingSigner"),
+    "RouteConflictError": (".aquilary", "RouteConflictError"),
+    "RouteMetadata": (".controller", "RouteMetadata"),
+    "RoutingIntegration": (".integrations", "RoutingIntegration"),
+    "RuntimeConfig": (".runtime", "RuntimeConfig"),
+    "RuntimePhase": (".runtime", "RuntimePhase"),
+    "RuntimeRegistry": (".aquilary", "RuntimeRegistry"),
+    "S3Config": (".storage", "S3Config"),
+    "S3Storage": (".storage", "S3Storage"),
+    "SFTPConfig": (".storage", "SFTPConfig"),
+    "SFTPStorage": (".storage", "SFTPStorage"),
+    "SSEEvent": (".sse", "SSEEvent"),
+    "SSEResponse": (".sse", "SSEResponse"),
+    "SchemaFault": (".faults", "SchemaFault"),
+    "SealFault": (".contracts", "SealFault"),
+    "SearchFilter": (".controller", "SearchFilter"),
+    "Secret": (".pyconfig", "Secret"),
+    "SecurityHeadersMiddleware": (".middleware_ext.security", "SecurityHeadersMiddleware"),
+    "SendGridProvider": (".integrations", "SendGridProvider"),
+    "SerializersIntegration": (".integrations", "SerializersIntegration"),
+    "SesProvider": (".integrations", "SesProvider"),
+    "Session": (".sessions", "Session"),
+    "SessionAuthBridge": (".auth.integration.aquila_sessions", "SessionAuthBridge"),
+    "SessionContext": (".sessions.decorators", "SessionContext"),
+    "SessionEngine": (".sessions", "SessionEngine"),
+    "SessionExpiredFault": (".sessions", "SessionExpiredFault"),
+    "SessionFault": (".sessions", "SessionFault"),
+    "SessionField": (".sessions.state", "Field"),
+    "SessionID": (".sessions", "SessionID"),
+    "SessionIntegration": (".integrations", "SessionIntegration"),
+    "SessionMemoryStore": (".sessions", "MemoryStore"),
+    "SessionPolicy": (".sessions", "SessionPolicy"),
+    "SessionPrincipal": (".sessions", "SessionPrincipal"),
+    "SessionRequiredFault": (".sessions.decorators", "SessionRequiredFault"),
+    "SessionSigner": (".signing", "SessionSigner"),
+    "SessionState": (".sessions.state", "SessionState"),
+    "SignatureExpired": (".signing", "SignatureExpired"),
+    "SignatureMalformed": (".signing", "SignatureMalformed"),
+    "Signer": (".signing", "Signer"),
+    "SignerBackend": (".signing", "SignerBackend"),
+    "SigningConfig": (".signing", "SigningConfig"),
+    "SigningError": (".signing", "SigningError"),
+    "SimpleTestCase": (".testing", "SimpleTestCase"),
+    "SlugFacet": (".contracts", "SlugFacet"),
+    "SlugField": (".models", "SlugField"),
+    "SmallIntegerField": (".models", "SmallIntegerField"),
+    "SmtpProvider": (".integrations", "SmtpProvider"),
+    "Socket": (".sockets", "Socket"),
+    "SocketController": (".sockets", "SocketController"),
+    "SocketGuard": (".sockets", "SocketGuard"),
+    "SocketRouter": (".sockets", "SocketRouter"),
+    "SpeculaBuilder": (".specula", "SpeculaBuilder"),
+    "SpeculaConfig": (".specula", "SpeculaConfig"),
+    "SpeculaController": (".specula", "SpeculaController"),
+    "SpeculaRenderer": (".specula", "SpeculaRenderer"),
+    "SpeculaService": (".specula", "SpeculaService"),
+    "StaticFilesIntegration": (".integrations", "StaticFilesIntegration"),
+    "StaticMiddleware": (".middleware_ext.static", "StaticMiddleware"),
+    "StorageBackend": (".storage", "StorageBackend"),
+    "StorageConfig": (".storage", "StorageConfig"),
+    "StorageEffect": (".effects", "StorageEffect"),
+    "StorageEffectProvider": (".storage", "StorageEffectProvider"),
+    "StorageError": (".storage", "StorageError"),
+    "StorageFile": (".storage", "StorageFile"),
+    "StorageIntegration": (".integrations", "StorageIntegration"),
+    "StorageMetadata": (".storage", "StorageMetadata"),
+    "StorageProvider": (".effects", "StorageProvider"),
+    "StorageRegistry": (".storage", "StorageRegistry"),
+    "StorageSubsystem": (".storage", "StorageSubsystem"),
+    "SubsystemStatus": (".health", "SubsystemStatus"),
+    "SunsetPolicy": (".versioning", "SunsetPolicy"),
+    "SunsetRegistry": (".versioning", "SunsetRegistry"),
+    "TRACE": (".controller", "TRACE"),
+    "TaskBackend": (".tasks", "TaskBackend"),
+    "TaskManager": (".tasks", "TaskManager"),
+    "TaskPriority": (".tasks", "Priority"),
+    "TasksIntegration": (".integrations", "TasksIntegration"),
+    "TemplateMessage": (".mail", "TemplateMessage"),
+    "TemplatesIntegration": (".integrations", "TemplatesIntegration"),
+    "TestClient": (".testing", "TestClient"),
+    "TestServer": (".testing", "TestServer"),
+    "TextFacet": (".contracts", "TextFacet"),
+    "TextField": (".models", "TextField"),
+    "Throttle": (".controller", "Throttle"),
+    "TimeFacet": (".contracts", "TimeFacet"),
+    "TimeField": (".models", "TimeField"),
+    "TimestampSigner": (".signing", "TimestampSigner"),
+    "TokenClaims": (".auth.core", "TokenClaims"),
+    "TokenManager": (".auth.tokens", "TokenManager"),
+    "TransactionTestCase": (".testing", "TransactionTestCase"),
+    "TranslationCatalog": (".i18n", "TranslationCatalog"),
+    "TransportPolicy": (".sessions", "TransportPolicy"),
+    "URL": ("._datastructures", "URL"),
+    "URLFacet": (".contracts", "URLFacet"),
+    "URLField": (".models", "URLField"),
+    "URLPathResolver": (".versioning", "URLPathResolver"),
+    "UUIDFacet": (".contracts", "UUIDFacet"),
+    "UUIDField": (".models", "UUIDField"),
+    "UniqueConstraint": (".models", "UniqueConstraint"),
+    "UnsupportedAlgorithmError": (".signing", "UnsupportedAlgorithmError"),
+    "UnsupportedVersionError": (".versioning", "UnsupportedVersionError"),
+    "UploadFile": ("._uploads", "UploadFile"),
+    "UploadStore": ("._uploads", "UploadStore"),
+    "UserPreferencesState": (".sessions.state", "UserPreferencesState"),
+    "VALID_HTTP_METHODS": (".controller", "VALID_HTTP_METHODS"),
+    "VERSION_ANY": (".versioning", "VERSION_ANY"),
+    "VERSION_MISSING": (".versioning", "VERSION_MISSING"),
+    "VERSION_NEUTRAL": (".versioning", "VERSION_NEUTRAL"),
+    "ValueProvider": (".di", "ValueProvider"),
+    "VersionChannel": (".versioning", "VersionChannel"),
+    "VersionConfig": (".versioning", "VersionConfig"),
+    "VersionError": (".versioning", "VersionError"),
+    "VersionGraph": (".versioning", "VersionGraph"),
+    "VersionMiddleware": (".versioning", "VersionMiddleware"),
+    "VersionNegotiator": (".versioning", "VersionNegotiator"),
+    "VersionStatus": (".versioning", "VersionStatus"),
+    "VersionStrategy": (".versioning", "VersionStrategy"),
+    "VersionSunsetError": (".versioning", "VersionSunsetError"),
+    "VersioningIntegration": (".integrations", "VersioningIntegration"),
+    "WS": (".controller", "WS"),
+    "Worker": (".tasks", "Worker"),
+    "Workspace": (".config", "Workspace"),
+    "WriteOnly": (".contracts", "WriteOnly"),
+    "XMLRenderer": (".controller", "XMLRenderer"),
+    "YAMLRenderer": (".controller", "YAMLRenderer"),
+    "__version__": ("aquilia._version", "__version__"),
+    "api_session_policy": (".auth.integration.aquila_sessions", "api_session_policy"),
+    "asend_mail": (".mail", "asend_mail"),
+    "authenticated": (".auth", "authenticated"),
+    "autodiscover": (".admin", "autodiscover"),
+    "b64_decode": (".signing", "b64_decode"),
+    "b64_encode": (".signing", "b64_encode"),
+    "bind_contract_to_request": (".contracts", "bind_contract_to_request"),
+    "bind_identity": (".auth.integration.aquila_sessions", "bind_identity"),
+    "cache_aside": (".cache", "cache_aside"),
+    "cached": (".cache", "cached"),
+    "configure_database": (".db", "configure_database"),
+    "configure_signing": (".signing", "configure"),
+    "constant_time_compare": (".signing", "constant_time_compare"),
+    "create_auth_container": (".auth.integration.di_providers", "create_auth_container"),
+    "create_auth_middleware_stack": (".auth.integration.middleware", "create_auth_middleware_stack"),
+    "create_i18n_service": (".i18n", "create_i18n_service"),
+    "create_test_server": (".testing", "create_test_server"),
+    "csrf_exempt": (".middleware_ext.security", "csrf_exempt"),
+    "csrf_token_func": (".middleware_ext.security", "csrf_token_func"),
+    "derive_key": (".signing", "derive_key"),
+    "dotenv_values": (".dotenv", "dotenv_values"),
+    "ensure_dotenv_loaded": (".dotenv", "ensure_dotenv_loaded"),
+    "exempt": (".auth.clearance", "exempt"),
+    "extract_controller_metadata": (".controller", "extract_controller_metadata"),
+    "factory": (".di", "factory"),
+    "find_dotenv": (".dotenv", "find_dotenv"),
+    "format_currency": (".i18n", "format_currency"),
+    "format_date": (".i18n", "format_date"),
+    "format_datetime": (".i18n", "format_datetime"),
+    "format_message": (".i18n", "format_message"),
+    "format_number": (".i18n", "format_number"),
+    "format_ordinal": (".i18n", "format_ordinal"),
+    "format_percent": (".i18n", "format_percent"),
+    "format_time": (".i18n", "format_time"),
+    "from_pipeline_list": (".flow", "from_pipeline_list"),
+    "generate_component_schemas": (".contracts", "generate_component_schemas"),
+    "generate_schema": (".contracts", "generate_schema"),
+    "get_database": (".db", "get_database"),
+    "get_default_cache_service": (".cache", "get_default_cache_service"),
+    "get_required_effects": (".flow", "get_required_effects"),
+    "grant": (".auth.clearance", "grant"),
+    "guard": (".flow", "guard"),
+    "handler": (".flow", "handler"),
+    "hook": (".flow", "hook"),
+    "inject": (".di", "inject"),
+    "invalidate": (".cache", "invalidate"),
+    "is_contract_class": (".contracts", "is_contract_class"),
+    "is_dotenv_loaded": (".dotenv", "is_dotenv_loaded"),
+    "is_owner_or_admin": (".auth.clearance", "is_owner_or_admin"),
+    "is_same_tenant": (".auth.clearance", "is_same_tenant"),
+    "is_verified": (".auth.clearance", "is_verified"),
+    "lazy_t": (".i18n", "lazy_t"),
+    "lazy_tn": (".i18n", "lazy_tn"),
+    "load_dotenv": (".dotenv", "load_dotenv"),
+    "make_signer": (".signing", "make_signer"),
+    "make_timestamp_signer": (".signing", "make_timestamp_signer"),
+    "match_locale": (".i18n", "match_locale"),
+    "negotiate_locale": (".i18n", "negotiate_locale"),
+    "normalize_locale": (".i18n", "normalize_locale"),
+    "optional_auth": (".auth", "optional_auth"),
+    "override_settings": (".testing", "override_settings"),
+    "parse_locale": (".i18n", "parse_locale"),
+    "pipeline": (".flow", "pipeline"),
+    "register": (".admin", "register"),
+    "register_auth_providers": (".auth.integration.di_providers", "register_auth_providers"),
+    "render_contract_response": (".contracts", "render_contract_response"),
+    "render_debug_exception_page": (".debug", "render_debug_exception_page"),
+    "render_http_error_page": (".debug", "render_http_error_page"),
+    "render_welcome_page": (".debug", "render_welcome_page"),
+    "requires": (".flow", "requires"),
+    "reset_dotenv_state": (".dotenv", "reset_dotenv_state"),
+    "roles_required": (".auth", "roles_required"),
+    "route": (".controller", "route"),
+    "scopes_required": (".auth", "scopes_required"),
+    "section": (".pyconfig", "section"),
+    "select_plural": (".i18n", "select_plural"),
+    "send_mail": (".mail", "send_mail"),
+    "service": (".di", "service"),
+    "session": (".sessions.decorators", "session"),
+    "set_database": (".db", "set_database"),
+    "set_default_cache_service": (".cache", "set_default_cache_service"),
+    "signing_dumps": (".signing", "dumps"),
+    "signing_loads": (".signing", "loads"),
+    "stateful": (".sessions.decorators", "stateful"),
+    "task": (".tasks", "task"),
+    "transform": (".flow", "transform"),
+    "user_session_policy": (".auth.integration.aquila_sessions", "user_session_policy"),
+    "version": (".versioning", "version"),
+    "version_neutral": (".versioning", "version_neutral"),
+    "version_range": (".versioning", "version_range"),
+    "versioning": (".manifest", "versioning"),
+    "within_quota": (".auth.clearance", "within_quota"),
+}
 
-# ============================================================================
-# Aquilary Registry (Replaces Legacy Registry)
-# ============================================================================
-from .aquilary import (
-    AppContext,
-    Aquilary,
-    AquilaryRegistry,
-    DependencyCycleError,
-    ManifestValidationError,
-    RegistryError,
-    RegistryFingerprint,
-    RegistryMode,
-    RouteConflictError,
-    RuntimeRegistry,
-)
-from .auth import (
-    authenticated,
-    optional_auth,
-    requires,
-    roles_required,
-    scopes_required,
-)
+_OPTIONAL_HINTS: dict[str, str] = {
+    "TemplateEngine": "Jinja2 is required for template features. Install it with: pip install aquilia[template]",
+    "TemplateMiddleware": "Jinja2 is required for template features. Install it with: pip install aquilia[template]",
+    "AquiliaTestCase": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+    "LiveServerTestCase": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+    "SimpleTestCase": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+    "TestClient": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+    "TestServer": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+    "TransactionTestCase": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+    "create_test_server": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+    "override_settings": "The testing framework requires pytest. Install it with: pip install aquilia[test]",
+}
 
-# Audit Trail
-from .auth.audit import (
-    AuditEvent,
-    AuditEventType,
-    AuditSeverity,
-    AuditTrail,
-    MemoryAuditStore,
-)
-from .auth.authz import ABACEngine, AuthzEngine, RBACEngine
 
-# Clearance System (Unique Aquilia declarative access control)
-from .auth.clearance import (
-    AccessLevel,
-    Clearance,
-    ClearanceEngine,
-    ClearanceGuard,
-    ClearanceVerdict,
-    exempt,
-    grant,
-    is_owner_or_admin,
-    is_same_tenant,
-    is_verified,
-    within_quota,
-)
+def _resolve_optional(name: str):
+    """Resolve a name whose backing package is an optional dependency."""
+    target = _OPTIONAL_TARGETS.get(name)
+    if target is None:
+        raise AttributeError(name)
+    module_name, attr = target
+    try:
+        module = importlib.import_module(module_name, __name__)
+    except ImportError as exc:
+        raise ImportError(_OPTIONAL_HINTS[name]) from exc
+    return getattr(module, attr)
 
-# ============================================================================
-# Auth System (Complete Integration)
-# ============================================================================
-from .auth.core import (
-    Identity,
-    IdentityStatus,
-    TokenClaims,
-)
 
-# Security Hardening
-from .auth.hashing import PasswordHasher
+_OPTIONAL_TARGETS: dict[str, tuple[str, str]] = {
+    "AquiliaTestCase": (".testing", "AquiliaTestCase"),
+    "LiveServerTestCase": (".testing", "LiveServerTestCase"),
+    "SimpleTestCase": (".testing", "SimpleTestCase"),
+    "TemplateEngine": (".templates", "TemplateEngine"),
+    "TemplateMiddleware": (".templates", "TemplateMiddleware"),
+    "TestClient": (".testing", "TestClient"),
+    "TestServer": (".testing", "TestServer"),
+    "TransactionTestCase": (".testing", "TransactionTestCase"),
+    "create_test_server": (".testing", "create_test_server"),
+    "override_settings": (".testing", "override_settings"),
+}
 
-# Auth Integration
-from .auth.integration.aquila_sessions import (
-    AuthPrincipal,
-    SessionAuthBridge,
-    api_session_policy,
-    bind_identity,
-    user_session_policy,
-)
-from .auth.integration.di_providers import (
-    create_auth_container,
-    register_auth_providers,
-)
-from .auth.integration.middleware import (
-    AquilAuthMiddleware,
-    create_auth_middleware_stack,
-)
-from .auth.manager import AuthManager
-from .auth.tokens import KeyRing, TokenManager
-
-# ============================================================================
-# Cache System
-# ============================================================================
-from .cache import (
-    # Core types
-    CacheBackend,
-    CacheBackendFault,
-    CacheCapacityFault,
-    CacheConfig,
-    CacheConfigFault,
-    CacheConnectionFault,
-    CacheEntry,
-    # Faults
-    CacheFault,
-    CacheHealthFault,
-    # Middleware
-    CacheMiddleware,
-    CacheMissFault,
-    CacheSerializationFault,
-    # Service
-    CacheService,
-    CacheStampedeFault,
-    CacheStats,
-    CompositeBackend,
-    # Key builders
-    DefaultKeyBuilder,
-    EvictionPolicy,
-    HashKeyBuilder,
-    # Serializers
-    JsonCacheSerializer,
-    # Backends
-    MemoryBackend,
-    NullBackend,
-    PickleCacheSerializer,
-    RedisBackend,
-    cache_aside,
-    # Decorators
-    cached,
-    get_default_cache_service,
-    invalidate,
-    set_default_cache_service,
-)
-from .config import (
-    AquilaConfig,
-    Config,
-    ConfigLoader,
-    Env,
-    Integration,
-    Module,
-    Secret,
-    Workspace,
-    section,
-)
-
-# ============================================================================
-# Contracts (Model ↔ World Contracts)
-# ============================================================================
-from .contracts import (
-    BoolFacet,
-    CastFault,
-    ChoiceFacet,
-    # Special Facets
-    Computed,
-    Constant,
-    Contract,
-    # Exceptions
-    ContractFault,
-    ContractMeta,
-    DateFacet,
-    DateTimeFacet,
-    DecimalFacet,
-    DictFacet,
-    DurationFacet,
-    EmailFacet,
-    # Facets
-    Facet,
-    FileFacet,
-    FloatFacet,
-    Hidden,
-    ImprintFault,
-    Inject,
-    IntFacet,
-    IPFacet,
-    JSONFacet,
-    # Lenses
-    Lens,
-    ListFacet,
-    ProjectionFault,
-    ReadOnly,
-    SealFault,
-    SlugFacet,
-    TextFacet,
-    TimeFacet,
-    URLFacet,
-    UUIDFacet,
-    WriteOnly,
-    bind_contract_to_request,
-    generate_component_schemas,
-    # Schema
-    generate_schema,
-    # Integration
-    is_contract_class,
-    render_contract_response,
-)
-
-# ============================================================================
-# Controller System (NEW - First-class controllers)
-# ============================================================================
-from .controller import (
-    DELETE,
-    GET,
-    HEAD,
-    OPTIONS,
-    PATCH,
-    POST,
-    PUT,
-    TRACE,
-    VALID_HTTP_METHODS,
-    WS,
-    Attributes,
-    BaseFilterBackend,
-    ContentNegotiator,
-    Controller,
-    ControllerFactory,
-    ControllerMetadata,
-    CursorPagination,
-    ExceptionFilter,
-    # Filtering & Search
-    FilterSet,
-    HTMLRenderer,
-    InstantiationMode,
-    Interceptor,
-    # Content Negotiation & Rendering
-    JSONRenderer,
-    LimitOffsetPagination,
-    NoPagination,
-    OrderingFilter,
-    # Pagination
-    PageNumberPagination,
-    ParameterMetadata,
-    PlainTextRenderer,
-    RequestCtx,
-    RouteMetadata,
-    SearchFilter,
-    Throttle,
-    XMLRenderer,
-    YAMLRenderer,
-    extract_controller_metadata,
-    route,
-)
-from .db import (
-    AquiliaDatabase,
-    DatabaseError,
-    configure_database,
-    get_database,
-    set_database,
-)
-
-# ============================================================================
-# Debug Pages
-# ============================================================================
-from .debug import (
-    DebugPageRenderer,
-    render_debug_exception_page,
-    render_http_error_page,
-    render_welcome_page,
-)
-from .di import (
-    Body as DIBody,
-)
-
-# ============================================================================
-# Engine
-# ============================================================================
-# Note: RequestCtx is imported from .controller above; do not re-import
-# from .engine to avoid shadowing.
-# ============================================================================
-# DI System (Complete)
-# ============================================================================
-from .di import (
-    ClassProvider,
-    Container,
-    # Annotation-driven DI (steroids)
-    Dep,
-    FactoryProvider,
-    Inject,
-    Provider,
-    ProviderMeta,
-    RequestDAG,
-    ValueProvider,
-    factory,
-    inject,
-    service,
-)
-from .di import (
-    Header as DIHeader,
-)
-from .di import (
-    Query as DIQuery,
-)
-from .di import (
-    Registry as DIRegistry,
-)
-
-# ============================================================================
-# Discovery
-# ============================================================================
-from .discovery import PackageScanner
-
-# ============================================================================
-# Native Dotenv (zero-dependency .env loading)
-# ============================================================================
-from .dotenv import (
-    DotEnv,
-    DotEnvLoader,
-    dotenv_values,
-    ensure_dotenv_loaded,
-    find_dotenv,
-    is_dotenv_loaded,
-    load_dotenv,
-    reset_dotenv_state,
-)
-
-# ============================================================================
-# Effects & Patterns
-# ============================================================================
-from .effects import (
-    CacheEffect,
-    CacheProvider,
-    DBTx,
-    DBTxProvider,
-    Effect,
-    EffectKind,
-    EffectProvider,
-    EffectRegistry,
-    HTTPEffect,
-    HTTPProvider,
-    QueueEffect,
-    QueueProvider,
-    StorageEffect,
-    StorageProvider,
-)
-
-# ============================================================================
-# Faults System
-# ============================================================================
-from .faults import (
-    DatabaseConnectionFault,
-    Fault,
-    FaultContext,
-    FaultEngine,
-    FaultHandler,
-    MigrationConflictFault,
-    MigrationFault,
-    # Model faults
-    ModelFault,
-    ModelNotFoundFault,
-    ModelRegistrationFault,
-    QueryFault,
-    RecoveryStrategy,
-    SchemaFault,
-)
-
-# ============================================================================
-# Flow Pipeline System
-# ============================================================================
-from .flow import (
-    PRIORITY_AUTH,
-    PRIORITY_CLEANUP,
-    # Priority constants
-    PRIORITY_CRITICAL,
-    PRIORITY_DEFAULT,
-    PRIORITY_ENRICH,
-    PRIORITY_LOG,
-    PRIORITY_TRANSFORM,
-    PRIORITY_VALIDATE,
-    # Effect scope
-    EffectScope,
-    FlowContext,
-    FlowError,
-    # Core types
-    FlowNode,
-    FlowNodeType,
-    FlowPipeline,
-    FlowResult,
-    FlowStatus,
-    # Layer system (Effect-TS pattern)
-    Layer,
-    LayerComposition,
-    from_pipeline_list,
-    get_required_effects,
-    guard,
-    handler,
-    hook,
-    # Factory functions
-    pipeline,
-    # Decorators
-    requires,
-    transform,
-)
-from .health import HealthRegistry, HealthStatus, SubsystemStatus
-
-# ============================================================================
-# I18n (Internationalization)
-# ============================================================================
-from .i18n import (
-    CatalogLoadFault,
-    FileCatalog,
-    I18nConfig,
-    # Faults
-    I18nFault,
-    # Middleware
-    I18nMiddleware,
-    # Service
-    I18nService,
-    InvalidLocaleFault,
-    # Lazy
-    LazyString,
-    # Locale
-    Locale,
-    MemoryCatalog,
-    MergedCatalog,
-    # Formatting
-    MessageFormatter,
-    MissingTranslationFault,
-    NamespacedCatalog,
-    # Plural
-    PluralCategory,
-    PluralRuleFault,
-    # Catalog
-    TranslationCatalog,
-    create_i18n_service,
-    format_currency,
-    format_date,
-    format_datetime,
-    format_message,
-    format_number,
-    format_ordinal,
-    format_percent,
-    format_time,
-    lazy_t,
-    lazy_tn,
-    match_locale,
-    negotiate_locale,
-    normalize_locale,
-    parse_locale,
-    select_plural,
-)
-
-# ── Typed integration configs (new API) ───────────────────────────────
-from .integrations import (
-    AdminAudit,
-    AdminContainers,
-    AdminIntegration,
-    AdminModules,
-    AdminMonitoring,
-    AdminPods,
-    AdminSecurity,
-    AdminSidebar,
-    AuthIntegration,
-    CacheIntegration,
-    ConsoleProvider,
-    CorsIntegration,
-    CspIntegration,
-    CsrfIntegration,
-    DatabaseIntegration,
-    DiIntegration,
-    FaultHandlingIntegration,
-    FileProvider,
-    I18nIntegration,
-    Integration,  # typed wrapper — delegates to typed dataclasses
-    IntegrationConfig,
-    LoggingIntegration,
-    MailAuth,
-    MailIntegration,
-    MiddlewareChain,
-    MiddlewareEntry,
-    PatternsIntegration,
-    RateLimitIntegration,
-    RegistryIntegration,
-    RenderIntegration,
-    RoutingIntegration,
-    SendGridProvider,
-    SerializersIntegration,
-    SesProvider,
-    SessionIntegration,
-    SmtpProvider,
-    StaticFilesIntegration,
-    StorageIntegration,
-    TasksIntegration,
-    TemplatesIntegration,
-    VersioningIntegration,
-)
-
-# ============================================================================
-# Lifecycle
-# ============================================================================
-from .lifecycle import (
-    LifecycleCoordinator,
-    LifecycleError,
-    LifecycleManager,
-    LifecyclePhase,
-)
-
-# ============================================================================
-# Mail (AquilaMail)
-# ============================================================================
-from .mail import (
-    # Message types
-    EmailMessage,
-    EmailMultiAlternatives,
-    EnvelopeStatus,
-    # Providers
-    IMailProvider,
-    # Config
-    MailConfig,
-    MailConfigFault,
-    # Envelope
-    MailEnvelope,
-    # Faults
-    MailFault,
-    MailRateLimitFault,
-    MailSendFault,
-    MailSuppressedFault,
-    MailTemplateFault,
-    MailValidationFault,
-    Priority,
-    ProviderResult,
-    ProviderResultStatus,
-    TemplateMessage,
-    asend_mail,
-    # Convenience API
-    send_mail,
-)
-from .mail.service import MailService
-
-# ============================================================================
-# Core Framework
-# ============================================================================
-from .manifest import (
-    AppManifest,
-    AppVersioningConfig,
-    BackgroundTaskConfig,
-    ComponentKind,
-    ComponentRef,
-    DatabaseConfig,
-    versioning,
-)
-
-# ============================================================================
-# Middleware System
-# ============================================================================
-from .middleware import (
-    Handler,
-    LoggingMiddleware,
-    Middleware,
-    MiddlewareStack,
-    RequestIdMiddleware,
-)
-from .middleware_ext.rate_limit import (
-    RateLimitMiddleware,
-    RateLimitRule,
-)
-
-# Extended Middleware (Security, Rate Limiting, Static Files)
-from .middleware_ext.security import (
-    CORSMiddleware,
-    CSPMiddleware,
-    CSPPolicy,
-    CSRFError,
-    CSRFMiddleware,
-    HSTSMiddleware,
-    HTTPSRedirectMiddleware,
-    ProxyFixMiddleware,
-    SecurityHeadersMiddleware,
-    csrf_exempt,
-    csrf_token_func,
-)
-from .middleware_ext.static import StaticMiddleware
-
-# ============================================================================
-# Model System (Pure Python ORM)
-# ============================================================================
-from .models import (
-    ArrayField,
-    AutoField,
-    BigAutoField,
-    BigIntegerField,
-    BinaryField,
-    BooleanField,
-    CharField,
-    DateField,
-    DateTimeField,
-    DecimalField,
-    DurationField,
-    EmailField,
-    # Fields
-    Field,
-    FieldValidationError,
-    FileField,
-    FilePathField,
-    FloatField,
-    ForeignKey,
-    GeneratedField,
-    GenericIPAddressField,
-    HStoreField,
-    ImageField,
-    Index,
-    IntegerField,
-    JSONField,
-    ManyToManyField,
-    # Migrations
-    MigrationEngine,
-    # New pure-Python model system
-    Model,
-    ModelMeta,
-    ModelRegistry,
-    OneToOneField,
-    PositiveIntegerField,
-    PositiveSmallIntegerField,
-    Q,
-    SlugField,
-    SmallIntegerField,
-    TextField,
-    TimeField,
-    UniqueConstraint,
-    URLField,
-    UUIDField,
-)
-
-# ============================================================================
-# Patterns
-# ============================================================================
-from .patterns import (
-    CompiledPattern,
-    PatternCompiler,
-    PatternMatcher,
-)
-from .patterns import (
-    TypeRegistry as PatternTypeRegistry,
-)
-
-# ============================================================================
-# Python-native Configuration (pyconfig)
-# ============================================================================
-from .pyconfig import (
-    AquilaConfig,
-    ConfigValue,
-    Env,
-    EnvCaster,
-    EnvCastType,
-    PyConfigLoader,
-    Secret,
-    section,
-)
-from .request import Request
-from .response import Response
-
-# ============================================================================
-# Runtime Management
-# ============================================================================
-from .runtime import AquiliaRuntime, RuntimeConfig, RuntimePhase
-from .server import AquiliaServer
-
-# ============================================================================
-# Sessions System
-# ============================================================================
-from .sessions import (
-    CookieTransport,
-    Session,
-    SessionEngine,
-    SessionExpiredFault,
-    SessionFault,
-    SessionID,
-    SessionPolicy,
-    SessionPrincipal,
-    TransportPolicy,
-)
-from .sessions import (
-    MemoryStore as SessionMemoryStore,
-)
-
-# Session decorators and state (NEW - Unique Aquilia syntax)
-# Session guards & context managers (merged from enhanced.py into decorators)
-from .sessions.decorators import (
-    SessionContext,
-    SessionRequiredFault,
-    session,
-    stateful,
-)
-from .sessions.state import (
-    CartState,
-    SessionState,
-    UserPreferencesState,
-)
-from .sessions.state import (
-    Field as SessionField,
-)
-
-# ============================================================================
-# Sockets (WebSockets)
-# ============================================================================
-from .sockets import (
-    AquilaSockets,
-    Event,
-    OnConnect,
-    OnDisconnect,
-    Socket,
-    SocketController,
-    SocketGuard,
-    SocketRouter,
-)
-from .sse import SSEEvent, SSEResponse
-
-# Storage system (production-grade, async-first)
-from .storage import (
-    AzureBlobConfig,
-    AzureBlobStorage,
-    CompositeConfig,
-    CompositeStorage,
-    GCSConfig,
-    GCSStorage,
-    LocalConfig,
-    LocalStorage,
-    MemoryConfig,
-    MemoryStorage,
-    S3Config,
-    S3Storage,
-    SFTPConfig,
-    SFTPStorage,
-    StorageBackend,
-    StorageConfig,
-    StorageEffectProvider,
-    StorageError,
-    StorageFile,
-    StorageMetadata,
-    StorageRegistry,
-    StorageSubsystem,
-)
-
-# ============================================================================
-# Tasks (Background Jobs)
-# ============================================================================
-from .tasks import (
-    Job,
-    JobResult,
-    JobState,
-    MemoryBackend,
-    TaskBackend,
-    TaskManager,
-    Worker,
-    task,
-)
-from .tasks import (
-    Priority as TaskPriority,
-)
-
-# ============================================================================
-# Templates (lazy-loaded via __getattr__)
-# ============================================================================
-# ============================================================================
-# API Versioning System
-# ============================================================================
-from .versioning import (
-    VERSION_ANY,
-    VERSION_MISSING,
-    VERSION_NEUTRAL,
-    ApiVersion,
-    ChannelResolver,
-    CompositeResolver,
-    # Resolvers
-    HeaderResolver,
-    InvalidVersionError,
-    MediaTypeResolver,
-    MissingVersionError,
-    QueryParamResolver,
-    SunsetPolicy,
-    SunsetRegistry,
-    UnsupportedVersionError,
-    URLPathResolver,
-    VersionChannel,
-    VersionConfig,
-    # Errors
-    VersionError,
-    VersionGraph,
-    VersionMiddleware,
-    VersionNegotiator,
-    VersionStatus,
-    VersionStrategy,
-    VersionSunsetError,
-    # Decorators
-    version,
-    version_neutral,
-    version_range,
-)
-
-# ============================================================================
-# Testing Framework
-# ============================================================================
-
-try:
-    from .testing import (
-        AquiliaTestCase,
-        LiveServerTestCase,
-        SimpleTestCase,
-        TestClient,
-        TestServer,
-        TransactionTestCase,
-        create_test_server,
-        override_settings,
-    )
-except ImportError:
-    # Testing framework is optional and requires pytest
-    pass
-
-# ============================================================================
-# Signing Engine  (aquilia.signing — zero-dependency HMAC signing)
-# ============================================================================
-
-# ============================================================================
-# Admin System (AquilAdmin -- auto-detecting admin)
-# ============================================================================
-from .admin import (
-    AdminAction,
-    AdminActionFault,
-    AdminAuditLog,
-    AdminAuthenticationFault,
-    AdminAuthorizationFault,
-    AdminController,
-    AdminFault,
-    AdminGroup,
-    AdminGroupContract,
-    AdminLogEntry,
-    AdminLogEntryContract,
-    AdminModelNotFoundFault,
-    AdminPermission,
-    AdminPermissionContract,
-    AdminRecordNotFoundFault,
-    AdminRole,
-    AdminSession,
-    AdminSessionContract,
-    AdminSite,
-    AdminUser,
-    AdminUserContract,
-    AdminValidationFault,
-    ContentType,
-    ContentTypeContract,
-    ModelAdmin,
-    autodiscover,
-    register,
-)
-from .signing import (
-    ActivationLinkSigner,
-    APIKeySigner,
-    BadSignature,
-    CacheKeySigner,
-    CookieSigner,
-    CSRFSigner,
-    HmacSignerBackend,
-    RotatingSigner,
-    # Specialised subsystem signers
-    SessionSigner,
-    SignatureExpired,
-    SignatureMalformed,
-    # Core signer classes
-    Signer,
-    # Backend protocol + default
-    SignerBackend,
-    # Configuration
-    SigningConfig,
-    # Exceptions
-    SigningError,
-    TimestampSigner,
-    UnsupportedAlgorithmError,
-    b64_decode,
-    # Low-level primitives
-    b64_encode,
-    constant_time_compare,
-    derive_key,
-    make_signer,
-    make_timestamp_signer,
-)
-from .signing import (
-    configure as configure_signing,
-)
-from .signing import (
-    # Structured payload helpers
-    dumps as signing_dumps,
-)
-from .signing import (
-    loads as signing_loads,
-)
-
-# ============================================================================
-# Exports
-# ============================================================================
+for _name in _OPTIONAL_TARGETS:
+    _EXPORTS.pop(_name, None)
 
 __all__ = [
-    # Core
     "AquiliaServer",
     "AppManifest",
     "DatabaseConfig",
@@ -918,16 +665,13 @@ __all__ = [
     "ConfigLoader",
     "Request",
     "Response",
-    # SSE
     "SSEEvent",
     "SSEResponse",
-    # Native Dotenv
     "load_dotenv",
     "dotenv_values",
     "find_dotenv",
     "DotEnv",
     "DotEnvLoader",
-    # Python-native Configuration (pyconfig)
     "AquilaConfig",
     "PyConfigLoader",
     "Secret",
@@ -937,7 +681,6 @@ __all__ = [
     "ConfigValue",
     "EnvCaster",
     "EnvCastType",
-    # Signing engine
     "SigningError",
     "BadSignature",
     "SignatureExpired",
@@ -964,18 +707,15 @@ __all__ = [
     "b64_decode",
     "constant_time_compare",
     "derive_key",
-    # Request data structures
     "MultiDict",
     "Headers",
     "URL",
     "ParsedContentType",
     "Range",
-    # Upload handling
     "UploadFile",
     "FormData",
     "UploadStore",
     "LocalUploadStore",
-    # Storage system
     "StorageBackend",
     "StorageFile",
     "StorageMetadata",
@@ -998,13 +738,11 @@ __all__ = [
     "AzureBlobConfig",
     "SFTPConfig",
     "CompositeConfig",
-    # Aquilary
     "Aquilary",
     "AquilaryRegistry",
     "RuntimeRegistry",
     "AppContext",
     "RegistryMode",
-    # Controller (NEW - First-class)
     "Controller",
     "Attributes",
     "RequestCtx",
@@ -1021,24 +759,20 @@ __all__ = [
     "extract_controller_metadata",
     "ControllerFactory",
     "InstantiationMode",
-    # Filtering & Search
     "FilterSet",
     "SearchFilter",
     "OrderingFilter",
     "BaseFilterBackend",
-    # Pagination
     "PageNumberPagination",
     "LimitOffsetPagination",
     "CursorPagination",
     "NoPagination",
-    # Content Negotiation & Rendering
     "JSONRenderer",
     "XMLRenderer",
     "YAMLRenderer",
     "PlainTextRenderer",
     "HTMLRenderer",
     "ContentNegotiator",
-    # API Versioning
     "ApiVersion",
     "VersionChannel",
     "VersionStatus",
@@ -1066,7 +800,6 @@ __all__ = [
     "UnsupportedVersionError",
     "VersionSunsetError",
     "MissingVersionError",
-    # DI
     "Container",
     "DIRegistry",
     "Provider",
@@ -1078,7 +811,6 @@ __all__ = [
     "factory",
     "inject",
     "Inject",
-    # Sessions
     "Session",
     "SessionID",
     "SessionPolicy",
@@ -1087,7 +819,6 @@ __all__ = [
     "SessionMemoryStore",
     "CookieTransport",
     "TransportPolicy",
-    # Session decorators (NEW - Unique syntax)
     "session",
     "authenticated",
     "roles_required",
@@ -1099,14 +830,10 @@ __all__ = [
     "SessionField",
     "CartState",
     "UserPreferencesState",
-    # Enhanced session features (NEW - Advanced patterns)
     "SessionContext",
-    # Config builders (NEW - Python config)
     "Workspace",
     "Module",
-    # Integration (typed wrapper — delegates to typed dataclasses)
     "Integration",
-    # Typed Integration configs (modern API)
     "IntegrationConfig",
     "AuthIntegration",
     "DatabaseIntegration",
@@ -1147,14 +874,12 @@ __all__ = [
     "PatternsIntegration",
     "RegistryIntegration",
     "SerializersIntegration",
-    # Auth - Core
     "Identity",
     "AuthManager",
     "TokenManager",
     "KeyRing",
     "PasswordHasher",
     "AuthzEngine",
-    # Auth - Integration
     "AuthPrincipal",
     "SessionAuthBridge",
     "bind_identity",
@@ -1164,7 +889,6 @@ __all__ = [
     "create_auth_container",
     "AquilAuthMiddleware",
     "create_auth_middleware_stack",
-    # Cache
     "CacheBackend",
     "CacheEntry",
     "CacheStats",
@@ -1194,7 +918,6 @@ __all__ = [
     "HashKeyBuilder",
     "JsonCacheSerializer",
     "PickleCacheSerializer",
-    # I18n
     "Locale",
     "parse_locale",
     "normalize_locale",
@@ -1228,7 +951,6 @@ __all__ = [
     "InvalidLocaleFault",
     "CatalogLoadFault",
     "PluralRuleFault",
-    # Faults
     "Fault",
     "FaultContext",
     "FaultEngine",
@@ -1242,7 +964,6 @@ __all__ = [
     "QueryFault",
     "DatabaseConnectionFault",
     "SchemaFault",
-    # Middleware
     "Middleware",
     "Handler",
     "MiddlewareStack",
@@ -1260,12 +981,10 @@ __all__ = [
     "RateLimitMiddleware",
     "RateLimitRule",
     "StaticMiddleware",
-    # Debug Pages
     "DebugPageRenderer",
     "render_debug_exception_page",
     "render_http_error_page",
     "render_welcome_page",
-    # Effects
     "Effect",
     "EffectKind",
     "EffectProvider",
@@ -1280,7 +999,6 @@ __all__ = [
     "QueueProvider",
     "HTTPProvider",
     "StorageProvider",
-    # Flow Pipeline System
     "FlowNode",
     "FlowNodeType",
     "FlowContext",
@@ -1307,7 +1025,6 @@ __all__ = [
     "PRIORITY_ENRICH",
     "PRIORITY_LOG",
     "PRIORITY_CLEANUP",
-    # Sockets (WebSockets)
     "SocketController",
     "Socket",
     "OnConnect",
@@ -1316,10 +1033,8 @@ __all__ = [
     "AquilaSockets",
     "SocketRouter",
     "SocketGuard",
-    # Templates
     "TemplateEngine",
     "TemplateMiddleware",
-    # Mail (AquilaMail)
     "EmailMessage",
     "EmailMultiAlternatives",
     "TemplateMessage",
@@ -1340,7 +1055,6 @@ __all__ = [
     "MailSuppressedFault",
     "MailRateLimitFault",
     "MailValidationFault",
-    # Tasks (Background Jobs)
     "TaskManager",
     "TaskBackend",
     "MemoryBackend",
@@ -1350,14 +1064,11 @@ __all__ = [
     "JobResult",
     "Worker",
     "task",
-    # Patterns
     "PatternCompiler",
     "PatternMatcher",
     "CompiledPattern",
     "PatternTypeRegistry",
-    # Discovery
     "PackageScanner",
-    # Contracts (Model ↔ World Contracts)
     "Contract",
     "ContractMeta",
     "Facet",
@@ -1397,10 +1108,8 @@ __all__ = [
     "is_contract_class",
     "render_contract_response",
     "bind_contract_to_request",
-    # Lifecycle
     "LifecycleCoordinator",
     "LifecycleManager",
-    # Model System (Pure Python ORM)
     "Model",
     "ModelMeta",
     "ModelRegistry",
@@ -1441,15 +1150,12 @@ __all__ = [
     "ArrayField",
     "HStoreField",
     "GeneratedField",
-    # Migrations
     "MigrationEngine",
-    # Database
     "AquiliaDatabase",
     "configure_database",
     "get_database",
     "set_database",
     "DatabaseError",
-    # Testing Framework
     "TestClient",
     "TestServer",
     "AquiliaTestCase",
@@ -1457,7 +1163,6 @@ __all__ = [
     "TransactionTestCase",
     "LiveServerTestCase",
     "override_settings",
-    # Admin System (AquilAdmin)
     "AdminSite",
     "ModelAdmin",
     "register",
@@ -1474,7 +1179,6 @@ __all__ = [
     "AdminRecordNotFoundFault",
     "AdminValidationFault",
     "AdminActionFault",
-    # Specula API Observatory (lazy-loaded via __getattr__)
     "SpeculaConfig",
     "SpeculaService",
     "SpeculaBuilder",
@@ -1482,21 +1186,4 @@ __all__ = [
     "SpeculaRenderer",
 ]
 
-
-def __getattr__(name: str):
-    if name in ("TemplateEngine", "TemplateMiddleware"):
-        try:
-            from .templates import TemplateEngine, TemplateMiddleware
-
-            if name == "TemplateEngine":
-                return TemplateEngine
-            return TemplateMiddleware
-        except ImportError as e:
-            raise ImportError(
-                "Jinja2 is required for template features. Install it with: pip install aquilia[template]"
-            ) from e
-    if name in ("SpeculaConfig", "SpeculaService", "SpeculaBuilder", "SpeculaController", "SpeculaRenderer"):
-        import aquilia.specula as _specula
-
-        return getattr(_specula, name)
-    raise AttributeError(f"module 'aquilia' has no attribute '{name}'")
+install_lazy_exports(__name__, globals(), _EXPORTS, fallback=_resolve_optional)

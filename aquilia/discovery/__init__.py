@@ -23,9 +23,7 @@ Usage:
     report = engine.sync_manifest("users")
 """
 
-from aquilia.utils.scanner import PackageScanner
-
-from .engine import (
+from aquilia.discovery.engine import (
     ASTClassifier,
     AutoDiscoveryEngine,
     ClassifiedComponent,
@@ -37,6 +35,7 @@ from .engine import (
     SyncAction,
     SyncReport,
 )
+from aquilia.utils.scanner import PackageScanner
 
 __all__ = [
     "PackageScanner",

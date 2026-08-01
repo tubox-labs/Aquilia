@@ -21,14 +21,10 @@ from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
 
-from ..di.decorators import service
-from ..faults.domains import (
-    DatabaseConnectionFault,
-    QueryFault,
-    SchemaFault,
-)
-from .backends.base import AdapterCapabilities, ColumnInfo, DatabaseAdapter
-from .configs import DatabaseConfig
+from aquilia.db.backends.base import AdapterCapabilities, ColumnInfo, DatabaseAdapter
+from aquilia.db.configs import DatabaseConfig
+from aquilia.di.decorators import service
+from aquilia.faults.domains import DatabaseConnectionFault, QueryFault, SchemaFault
 
 logger = logging.getLogger("aquilia.db")
 
@@ -63,19 +59,19 @@ def _sanitize_savepoint(name: str) -> str:
 def _create_adapter(driver: str) -> DatabaseAdapter:
     """Factory -- instantiate the correct backend adapter."""
     if driver == "sqlite":
-        from .backends.sqlite import SQLiteAdapter
+        from aquilia.db.backends.sqlite import SQLiteAdapter
 
         return SQLiteAdapter()
     elif driver == "postgresql":
-        from .backends.postgres import PostgresAdapter
+        from aquilia.db.backends.postgres import PostgresAdapter
 
         return PostgresAdapter()
     elif driver == "mysql":
-        from .backends.mysql import MySQLAdapter
+        from aquilia.db.backends.mysql import MySQLAdapter
 
         return MySQLAdapter()
     elif driver == "oracle":
-        from .backends.oracle import OracleAdapter
+        from aquilia.db.backends.oracle import OracleAdapter
 
         return OracleAdapter()
     else:

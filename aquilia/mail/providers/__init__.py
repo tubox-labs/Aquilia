@@ -109,11 +109,11 @@ class IMailProvider(Protocol):
 
 
 # ── Provider implementations ────────────────────────────────────────
-from .console import ConsoleProvider
-from .file import FileProvider
-from .sendgrid import SendGridProvider
-from .ses import SESProvider
-from .smtp import SMTPProvider
+from aquilia.mail.providers.console import ConsoleProvider
+from aquilia.mail.providers.file import FileProvider
+from aquilia.mail.providers.sendgrid import SendGridProvider
+from aquilia.mail.providers.ses import SESProvider
+from aquilia.mail.providers.smtp import SMTPProvider
 
 # ── Convenience re-exports ─────────────────────────────────────────
 

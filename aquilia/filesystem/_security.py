@@ -19,12 +19,8 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePosixPath
 
-from ._config import FileSystemConfig
-from ._errors import (
-    PathTooLongFault,
-    PathTraversalFault,
-    PermissionDeniedFault,
-)
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._errors import PathTooLongFault, PathTraversalFault, PermissionDeniedFault
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Path Validation

@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from aquilia.sessions import CookieTransport, MemoryStore, SessionPolicy
+
 
 @dataclass
 class SessionIntegration:
@@ -29,11 +31,6 @@ class SessionIntegration:
     transport: Any | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        from aquilia.sessions import (
-            CookieTransport,
-            MemoryStore,
-            SessionPolicy,
-        )
 
         policy = self.policy
         if policy is None:

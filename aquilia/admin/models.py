@@ -45,6 +45,8 @@ import secrets
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
+from aquilia.faults.domains import ConfigInvalidFault, ConfigMissingFault
+
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
 
@@ -271,8 +273,6 @@ if _ORM_AVAILABLE:
             Caller is responsible for calling ``.save()`` afterward.
             """
             if _pw_hasher is None:
-                from aquilia.faults.domains import ConfigMissingFault
-
                 raise ConfigMissingFault(
                     key="auth.password_hasher",
                     metadata={
@@ -340,8 +340,6 @@ if _ORM_AVAILABLE:
         def set_role(self, role: str) -> None:
             """Validate and assign a new role."""
             if role not in VALID_ROLES:
-                from aquilia.faults.domains import ConfigInvalidFault
-
                 raise ConfigInvalidFault(
                     key="admin_user.role",
                     reason=f"Invalid role {role!r}. Must be one of {VALID_ROLES}",
@@ -430,8 +428,6 @@ if _ORM_AVAILABLE:
         ) -> AdminUser:
             """Internal factory shared by ``create_superuser`` / ``create_staff_user``."""
             if _pw_hasher is None:
-                from aquilia.faults.domains import ConfigMissingFault
-
                 raise ConfigMissingFault(
                     key="auth.password_hasher",
                     metadata={
@@ -1017,7 +1013,6 @@ else:
 
         @classmethod
         async def create_superuser(cls, username: str, password: str, email: str, **kw: Any) -> AdminUser:
-            from aquilia.faults.domains import ConfigMissingFault
 
             raise ConfigMissingFault(
                 key="orm",
@@ -1026,7 +1021,6 @@ else:
 
         @classmethod
         async def create_staff_user(cls, username: str, password: str, email: str, **kw: Any) -> AdminUser:
-            from aquilia.faults.domains import ConfigMissingFault
 
             raise ConfigMissingFault(
                 key="orm",

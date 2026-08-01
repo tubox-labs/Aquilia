@@ -20,9 +20,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from .interceptors import HTTPInterceptor
-from .request import HTTPClientRequest
-from .response import HTTPClientResponse
+from aquilia.http.interceptors import HTTPInterceptor
+from aquilia.http.request import HTTPClientRequest
+from aquilia.http.response import HTTPClientResponse
 
 logger = logging.getLogger("aquilia.http.auth")
 

@@ -1,6 +1,6 @@
 """MCP transport implementations."""
 
-from .socket import SocketTransport
-from .stdio import StdioTransport
+from aquilia.mcp.transport.socket import SocketTransport
+from aquilia.mcp.transport.stdio import StdioTransport
 
 __all__ = ["StdioTransport", "SocketTransport"]

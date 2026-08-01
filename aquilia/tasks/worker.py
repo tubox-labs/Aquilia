@@ -28,8 +28,8 @@ import asyncio
 import contextlib
 import logging
 
-from .engine import TaskManager
-from .job import Job, JobState
+from aquilia.tasks.engine import TaskManager
+from aquilia.tasks.job import Job, JobState
 
 logger = logging.getLogger("aquilia.tasks")
 

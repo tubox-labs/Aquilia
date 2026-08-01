@@ -8,8 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from ..diagnostics.errors import PatternSyntaxError
-from .ast_nodes import (
+from aquilia.patterns.compiler.ast_nodes import (
     BaseSegment,
     Constraint,
     ConstraintKind,
@@ -22,6 +21,7 @@ from .ast_nodes import (
     TokenSegment,
     Transform,
 )
+from aquilia.patterns.diagnostics.errors import PatternSyntaxError
 
 
 class TokenType(str, Enum):

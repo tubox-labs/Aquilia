@@ -37,13 +37,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from ..faults.domains import DIFault
-from .core import ProviderMeta
+from aquilia.di.core import ProviderMeta
+from aquilia.faults.domains import DIFault
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from .core import Provider, ResolveCtx
+    from aquilia.di.core import Provider, ResolveCtx
 
 
 class InterceptContext:

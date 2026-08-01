@@ -11,14 +11,8 @@ Provides:
 """
 
 # Re-export fault types for convenience
-from ..faults.domains import (
-    DatabaseConnectionFault,
-    QueryFault,
-    SchemaFault,
-)
-
 # Backend adapters
-from .backends import (
+from aquilia.db.backends import (
     AdapterCapabilities,
     DatabaseAdapter,
     MySQLAdapter,
@@ -28,20 +22,9 @@ from .backends import (
 )
 
 # Typed config classes
-from .configs import (
-    DatabaseConfig,
-    MysqlConfig,
-    OracleConfig,
-    PostgresConfig,
-    SqliteConfig,
-)
-from .engine import (
-    AquiliaDatabase,
-    DatabaseError,
-    configure_database,
-    get_database,
-    set_database,
-)
+from aquilia.db.configs import DatabaseConfig, MysqlConfig, OracleConfig, PostgresConfig, SqliteConfig
+from aquilia.db.engine import AquiliaDatabase, DatabaseError, configure_database, get_database, set_database
+from aquilia.faults.domains import DatabaseConnectionFault, QueryFault, SchemaFault
 
 __all__ = [
     "AquiliaDatabase",

@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from .faults import TaskSerializationFault
+from aquilia.tasks.faults import TaskSerializationFault
 
 
 class JobState(str, Enum):

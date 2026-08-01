@@ -26,12 +26,9 @@ import time
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
-from .core import CacheBackend, CacheConfig, CacheStats
-from .faults import (
-    CacheBackendFault,
-    CacheConnectionFault,
-)
-from .key_builder import KeyBuilder, build_key_builder
+from aquilia.cache.core import CacheBackend, CacheConfig, CacheStats
+from aquilia.cache.faults import CacheBackendFault, CacheConnectionFault
+from aquilia.cache.key_builder import KeyBuilder, build_key_builder
 
 logger = logging.getLogger("aquilia.cache")
 
@@ -185,8 +182,6 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            import time
-
             from aquilia.inspector.trace import current_trace
 
             trace = current_trace()
@@ -216,8 +211,6 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                import time
-
                 from aquilia.inspector.trace import Lane, SpanStatus
 
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
@@ -263,8 +256,6 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            import time
-
             from aquilia.inspector.trace import current_trace
 
             trace = current_trace()
@@ -293,8 +284,6 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                import time
-
                 from aquilia.inspector.trace import Lane, SpanStatus
 
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
@@ -318,8 +307,6 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            import time
-
             from aquilia.inspector.trace import current_trace
 
             trace = current_trace()
@@ -332,8 +319,6 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                import time
-
                 from aquilia.inspector.trace import Lane, SpanStatus
 
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
@@ -359,8 +344,6 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            import time
-
             from aquilia.inspector.trace import current_trace
 
             trace = current_trace()
@@ -373,8 +356,6 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                import time
-
                 from aquilia.inspector.trace import Lane, SpanStatus
 
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0

@@ -3,12 +3,13 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
+from aquilia.pyconfig import AquilaConfig, Env, Secret, _class_to_dict
+
 
 def resolve_config_value(val: Any) -> Any:
     """
     Unwrap Env, Secret, and PyConfig wrappers recursively to their runtime values.
     """
-    from aquilia.pyconfig import AquilaConfig, Env, Secret, _class_to_dict
 
     if isinstance(val, Env):
         return val.resolve()

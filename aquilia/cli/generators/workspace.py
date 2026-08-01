@@ -1761,11 +1761,7 @@ class WorkspaceGenerator:
         These are generated as part of ``aq init workspace`` so that new
         workspaces are immediately deployable.
         """
-        from .deployment import (
-            ComposeGenerator,
-            DockerfileGenerator,
-            WorkspaceIntrospector,
-        )
+        from aquilia.cli.generators.deployment import ComposeGenerator, DockerfileGenerator, WorkspaceIntrospector
 
         try:
             wctx = WorkspaceIntrospector(self.path).introspect()

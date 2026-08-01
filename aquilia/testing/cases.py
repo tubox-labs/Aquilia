@@ -14,10 +14,9 @@ import unittest
 from typing import Any
 
 from aquilia.manifest import AppManifest
-
-from .assertions import AquiliaAssertions
-from .client import TestClient, TestResponse
-from .server import TestServer
+from aquilia.testing.assertions import AquiliaAssertions
+from aquilia.testing.client import TestClient, TestResponse
+from aquilia.testing.server import TestServer
 
 logger = logging.getLogger("aquilia.testing.cases")
 

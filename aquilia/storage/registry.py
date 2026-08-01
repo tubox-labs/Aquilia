@@ -19,11 +19,8 @@ import logging
 from collections.abc import Iterator
 from typing import Any
 
-from .base import BackendUnavailableError, StorageBackend, StorageConfigFault
-from .configs import (
-    StorageConfig,
-    config_from_dict,
-)
+from aquilia.storage.base import BackendUnavailableError, StorageBackend, StorageConfigFault
+from aquilia.storage.configs import StorageConfig, config_from_dict
 
 logger = logging.getLogger("aquilia.storage.registry")
 

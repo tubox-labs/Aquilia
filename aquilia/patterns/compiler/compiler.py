@@ -9,11 +9,7 @@ from dataclasses import dataclass
 from re import Pattern
 from typing import Any
 
-from ..diagnostics.errors import PatternSemanticError
-from ..transforms.registry import TransformRegistry
-from ..types.registry import TypeRegistry
-from ..validators.registry import ConstraintRegistry
-from .ast_nodes import (
+from aquilia.patterns.compiler.ast_nodes import (
     BaseSegment,
     Constraint,
     ConstraintKind,
@@ -24,7 +20,11 @@ from .ast_nodes import (
     StaticSegment,
     TokenSegment,
 )
-from .specificity import calculate_specificity
+from aquilia.patterns.compiler.specificity import calculate_specificity
+from aquilia.patterns.diagnostics.errors import PatternSemanticError
+from aquilia.patterns.transforms.registry import TransformRegistry
+from aquilia.patterns.types.registry import TypeRegistry
+from aquilia.patterns.validators.registry import ConstraintRegistry
 
 
 @dataclass

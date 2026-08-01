@@ -19,11 +19,13 @@ import sys
 
 import click
 
+from aquilia.artifacts import ArtifactStore
+from aquilia.artifacts.cache_root import resolve_artifact_root
+from aquilia.artifacts.registry import get_all_descriptors
+
 
 def _get_store(root: str | None = None) -> ArtifactStore:
     """Return a configured ArtifactStore."""
-    from aquilia.artifacts import ArtifactStore
-    from aquilia.artifacts.cache_root import resolve_artifact_root
 
     artifact_root = resolve_artifact_root(config_root=root)
     return ArtifactStore.for_root(artifact_root)
@@ -128,7 +130,6 @@ def artifacts_verify(artifact_type: str | None, key: str, root: str | None, veri
     This closes the "manual step" gap in the audit (§3.1): previously operators
     had to manually inspect fingerprints; this command automates the check.
     """
-    from aquilia.artifacts.registry import get_all_descriptors
 
     store = _get_store(root)
 

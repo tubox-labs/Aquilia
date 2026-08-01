@@ -1,6 +1,6 @@
 """Command implementations package."""
 
-from . import (
+from aquilia.cli.commands import (
     add,
     analytics,
     cache,

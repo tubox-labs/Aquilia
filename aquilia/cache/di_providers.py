@@ -11,12 +11,15 @@ import contextlib
 import logging
 from typing import Any
 
-from aquilia.faults.domains import ConfigInvalidFault
-
-from .backends.memory import MemoryBackend
-from .backends.null import NullBackend
-from .core import CacheBackend, CacheConfig
-from .service import CacheService
+from aquilia.cache.backends.composite import CompositeBackend
+from aquilia.cache.backends.memory import MemoryBackend
+from aquilia.cache.backends.null import NullBackend
+from aquilia.cache.backends.redis import RedisBackend
+from aquilia.cache.core import CacheBackend, CacheConfig
+from aquilia.cache.serializers import get_serializer
+from aquilia.cache.service import CacheService
+from aquilia.di.providers import ValueProvider
+from aquilia.faults.domains import ConfigInvalidFault, DIFault
 
 logger = logging.getLogger("aquilia.cache.di")
 
@@ -50,8 +53,6 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
         )
 
     elif backend_type == "redis":
-        from .backends.redis import RedisBackend
-
         return RedisBackend(
             url=config.redis_url,
             max_connections=config.redis_max_connections,
@@ -63,8 +64,6 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
         )
 
     elif backend_type == "composite":
-        from .backends.composite import CompositeBackend
-
         l1 = MemoryBackend(
             max_size=config.l1_max_size,
             eviction_policy=config.eviction_policy,
@@ -72,8 +71,6 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
         )
 
         if config.l2_backend == "redis":
-            from .backends.redis import RedisBackend
-
             l2 = RedisBackend(
                 url=config.redis_url,
                 max_connections=config.redis_max_connections,
@@ -114,7 +111,6 @@ def _build_serializer(config: CacheConfig) -> object:
             ``serializer_secret_key``, since unsigned pickle payloads are a
             remote-code-execution vector.
     """
-    from .serializers import get_serializer
 
     secret = config.serializer_secret_key or None
     if config.serializer == "pickle" and not secret:
@@ -204,8 +200,6 @@ def register_cache_providers(container: Any, cache_service: CacheService) -> Non
         container: Aquilia DI Container
         cache_service: Configured CacheService instance
     """
-    from aquilia.di.providers import ValueProvider
-    from aquilia.faults.domains import DIFault
 
     # Register the CacheService singleton
     try:

@@ -19,12 +19,12 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from aquilia.filesystem._config import FileSystemConfig
+from aquilia.filesystem._errors import FileSystemIOFault, wrap_os_error
+from aquilia.filesystem._path import _get_default_pool as _get
+from aquilia.filesystem._pool import FileSystemPool
+from aquilia.filesystem._security import validate_path
 from aquilia.typing import PathLike
-
-from ._config import FileSystemConfig
-from ._errors import FileSystemIOFault, wrap_os_error
-from ._pool import FileSystemPool
-from ._security import validate_path
 
 # ═══════════════════════════════════════════════════════════════════════════
 # DirEntry — Async-friendly directory entry
@@ -477,6 +477,5 @@ def _check_depth(path: str, max_depth: int) -> None:
 
 def _get_default_pool() -> FileSystemPool:
     """Get the default filesystem pool (lazy singleton)."""
-    from ._path import _get_default_pool as _get
 
     return _get()

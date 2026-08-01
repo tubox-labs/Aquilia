@@ -13,9 +13,12 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, Any
 
-from .core import Contract
-from .exceptions import SealFault
-from .lenses import _ProjectedRef
+from aquilia._datastructures import MultiDict
+from aquilia.contracts.core import Contract
+from aquilia.contracts.exceptions import SealFault
+from aquilia.contracts.lenses import _ProjectedRef
+from aquilia.di.dep import Body as BodyExtractor
+from aquilia.di.dep import Cookie, Header, Path, Query
 
 if TYPE_CHECKING:
     pass
@@ -115,8 +118,6 @@ def extract_value_from_request(
 ) -> Any:
     """Extract field/parameter value from request using extractor metadata or default lookup order."""
     from aquilia.contracts.facets import UNSET, ListFacet, SetFacet, TupleFacet
-    from aquilia.di.dep import Body as BodyExtractor
-    from aquilia.di.dep import Cookie, Header, Path, Query
 
     # 1. Determine key to look up
     lookup_key = name
@@ -207,7 +208,7 @@ def extract_value_from_request(
                 if f"{lookup_key}[]" in body:
                     return body[f"{lookup_key}[]"]
             try:
-                from .._uploads import FormData
+                from aquilia._uploads import FormData
             except ImportError:
                 FormData = None
             if FormData is not None and isinstance(body, FormData):
@@ -241,7 +242,7 @@ def extract_value_from_request(
                 if f"{lookup_key}[]" in body:
                     return body[f"{lookup_key}[]"]
             try:
-                from .._uploads import FormData
+                from aquilia._uploads import FormData
             except ImportError:
                 FormData = None
             if FormData is not None and isinstance(body, FormData):
@@ -424,10 +425,8 @@ async def bind_contract_to_request(
                 except Exception:
                     body = {}
 
-    from .._datastructures import MultiDict
-
     try:
-        from .._uploads import FormData
+        from aquilia._uploads import FormData
     except ImportError:
         FormData = None
 
@@ -496,8 +495,6 @@ async def bind_contract_to_request(
         # Fallback check for old default-based metadata
         if extractor is None:
             default_val = getattr(facet, "default", None)
-            from ..di.dep import Body as BodyExtractor
-            from ..di.dep import Cookie, Header, Path, Query
 
             if isinstance(default_val, (Query, Header, BodyExtractor, Cookie, Path)):
                 extractor = default_val
