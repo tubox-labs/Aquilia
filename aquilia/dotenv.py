@@ -603,7 +603,7 @@ class DotEnvLoader:
     @classmethod
     def reset(cls) -> None:
         """
-        Reset the loader state.
+        Reset the loader state and configuration.
 
         Use this in tests to allow reloading with different configuration.
         Does NOT remove values from os.environ.
@@ -612,6 +612,10 @@ class DotEnvLoader:
             cls._loaded = False
             cls._loaded_files = []
             cls._loaded_values = {}
+            cls._search_paths = None
+            cls._auto_load = True
+            cls._override = False
+            cls._interpolate = True
 
 
 # ============================================================================
