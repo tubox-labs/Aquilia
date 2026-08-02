@@ -186,6 +186,7 @@ class ADPTerminalUI:
         cfg = self._config
         is_tty = sys.stdout.isatty()
         from pathlib import Path
+
         startup_ms = (time.monotonic() - self._started_at) * 1000.0
 
         bind = f"unix:{cfg.uds}" if cfg.uds else (f"fd:{cfg.fd}" if cfg.fd else f"http://{cfg.host}:{cfg.port}")
@@ -205,7 +206,7 @@ class ADPTerminalUI:
                 f"Process:      {os.getpid()}",
                 f"Startup:      {startup_ms:.0f}ms",
                 f"Workspace:    {workspace}",
-                ""
+                "",
             ]
             _w("\n".join(lines))
             return
@@ -236,6 +237,7 @@ class ADPTerminalUI:
         ]
 
         import shutil
+
         term_width = shutil.get_terminal_size((80, 20)).columns
         target_width = max(term_width, 80)
 
@@ -249,7 +251,7 @@ class ADPTerminalUI:
             r"███████║██║   ██║██║   ██║██║██║     ██║███████║",
             r"██╔══██║██║▄▄ ██║██║   ██║██║██║     ██║██╔══██║",
             r"██║  ██║╚██████╔╝╚██████╔╝██║███████╗██║██║  ██║",
-            r"╚═╝  ╚═╝ ╚══▀▀═╝  ╚═════╝ ╚═╝╚══════╝╚═╝╚═╝  ╚═╝"
+            r"╚═╝  ╚═╝ ╚══▀▀═╝  ╚═════╝ ╚═╝╚══════╝╚═╝╚═╝  ╚═╝",
         ]
 
         ascii_margin = max(0, (target_width - 48) // 2)
@@ -271,7 +273,7 @@ class ADPTerminalUI:
         for label, val, color in fields:
             max_val_len = 40
             if len(val) > max_val_len:
-                val = "..." + val[-(max_val_len - 3):]
+                val = "..." + val[-(max_val_len - 3) :]
 
             lbl_plain = f"{label:<12}"
             lbl_colored = c_label(lbl_plain)

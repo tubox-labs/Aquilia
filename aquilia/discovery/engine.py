@@ -14,7 +14,6 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from aquilia.artifacts.backends.json_file import JSONFileBackend
 from aquilia.manifest import ComponentKind
 
 logger = logging.getLogger("aquilia.discovery")
