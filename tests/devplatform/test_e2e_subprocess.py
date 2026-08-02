@@ -66,9 +66,9 @@ class TestEndToEnd:
                 _get("127.0.0.1", port, "/")
         finally:
             out = proc.stop(signal.SIGINT)
-        # The dashboard default must not dump per-request access logs to stdout.
-        assert "GET / 200" not in out
-        assert out.count("GET /") <= 1
+        # Raw uvicorn / standard access log flood must not be dumped to stdout.
+        assert 'HTTP/1.1"' not in out
+        assert '"GET / HTTP/' not in out
 
     def test_sigint_graceful_shutdown(self, dev_server_process):
         port = free_port()
