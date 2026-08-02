@@ -72,7 +72,12 @@ class PortManager:
                 s.bind((host, port))
                 return True
             except OSError as exc:
-                if exc.errno in (errno.EADDRINUSE, errno.EADDRNOTAVAIL):
+                wsa_eacces = getattr(errno, "WSAEACCES", 10013)
+                if (
+                    exc.errno in (errno.EADDRINUSE, errno.EADDRNOTAVAIL, wsa_eacces)
+                    or getattr(exc, "winerror", None) == 10013
+                    or isinstance(exc, PermissionError)
+                ):
                     return False
                 raise
 

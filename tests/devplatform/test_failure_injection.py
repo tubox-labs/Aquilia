@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import builtins
 
+import socket
+
 import pytest
 
 from aquilia.devplatform.config import AquiliaDevelopmentConfig
@@ -94,13 +96,14 @@ class TestUDSHardening:
             AquiliaDevelopmentServer._prepare_uds_path(str(f))
         assert f.exists()  # not clobbered
 
+    @pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="AF_UNIX support required")
     def test_unlinks_stale_socket(self):
         import os
         import socket as _s
         import tempfile
 
-        # AF_UNIX paths are limited (~104 chars on macOS); use a short tmpdir.
-        with tempfile.TemporaryDirectory(dir="/tmp") as d:
+        tmpdir_kwargs = {"dir": "/tmp"} if os.path.exists("/tmp") else {}
+        with tempfile.TemporaryDirectory(**tmpdir_kwargs) as d:
             path = os.path.join(d, "s.sock")
             srv = _s.socket(_s.AF_UNIX, _s.SOCK_STREAM)
             srv.bind(path)

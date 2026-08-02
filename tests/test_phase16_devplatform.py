@@ -213,6 +213,7 @@ class TestSecurity:
         out = redact_body_preview(big, limit=100)
         assert len(out) <= 102  # 100 + ellipsis
 
+    @pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="AF_UNIX support required")
     def test_prepare_uds_unlinks_stale_socket(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "test.sock")

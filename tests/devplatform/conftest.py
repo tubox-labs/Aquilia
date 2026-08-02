@@ -257,7 +257,10 @@ class DevServerProcess:
         if self.proc is None:
             return ""
         if self.proc.poll() is None:
-            self.proc.send_signal(sig if sig is not None else _signal.SIGINT)
+            if sys.platform == "win32":
+                self.proc.terminate()
+            else:
+                self.proc.send_signal(sig if sig is not None else _signal.SIGINT)
         try:
             out, _ = self.proc.communicate(timeout=10)
         except subprocess.TimeoutExpired:

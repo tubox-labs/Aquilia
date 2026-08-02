@@ -137,7 +137,12 @@ class AquiliaDevelopmentServer:
                 )
                 logger.info("Listening on http://%s:%d (PID %d)", self.config.host, self.config.port, os.getpid())
         except OSError as exc:
-            if exc.errno == errno.EADDRINUSE:
+            wsa_eacces = getattr(errno, "WSAEACCES", 10013)
+            if (
+                exc.errno in (errno.EADDRINUSE, wsa_eacces)
+                or getattr(exc, "winerror", None) == 10013
+                or isinstance(exc, PermissionError)
+            ):
                 report_fault(
                     StartupFault(
                         f"port {self.config.port} already in use (EADDRINUSE)",

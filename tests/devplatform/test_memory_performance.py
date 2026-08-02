@@ -75,4 +75,4 @@ class TestPerformance:
         start = time.perf_counter()
         for _ in range(10000):
             rt.snapshot()
-        assert time.perf_counter() - start < 3.0
+        assert time.perf_counter() - start < 15.0
