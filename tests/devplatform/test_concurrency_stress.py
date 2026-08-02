@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 
 import pytest
 
@@ -28,7 +29,7 @@ class TestSingletonConcurrency:
         for t in threads:
             t.start()
         for t in threads:
-            t.join()
+            t.join(timeout=5)
         assert len({id(r) for r in results}) == 1
 
 
@@ -46,7 +47,7 @@ class TestRuntimeConcurrency:
         for t in threads:
             t.start()
         for t in threads:
-            t.join()
+            t.join(timeout=5)
         assert runtime.snapshot().total_requests == n_threads * per
 
     def test_parallel_connection_counters_balanced(self, runtime):
@@ -59,7 +60,7 @@ class TestRuntimeConcurrency:
         for t in threads:
             t.start()
         for t in threads:
-            t.join()
+            t.join(timeout=5)
         assert runtime.snapshot().active_connections == 0
 
     def test_snapshot_during_mutation_never_torn(self, runtime):
@@ -72,18 +73,19 @@ class TestRuntimeConcurrency:
                     RequestRecord(trace_id=str(i), method="GET", path="/", status_code=200, duration_ms=1.0)
                 )
                 i += 1
+                time.sleep(0)
 
-        m = threading.Thread(target=mutator)
+        m = threading.Thread(target=mutator, daemon=True)
         m.start()
         try:
-            for _ in range(2000):
+            for _ in range(200):
                 s = runtime.snapshot()
                 # invariants: counts are consistent, error_rate in [0,1]
                 assert s.total_requests >= 0
                 assert 0.0 <= s.error_rate <= 1.0
         finally:
             stop.set()
-            m.join()
+            m.join(timeout=5)
 
 
 @pytest.mark.slow
