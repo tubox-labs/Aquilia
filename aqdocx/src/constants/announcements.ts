@@ -8,6 +8,14 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Record<string, Announcement> = {
+  '1.4.0b0': {
+    version: '1.4.0b0',
+    badgeText: 'V1.4.0b0 Release',
+    title: 'Aquilia Native Developer Platform (ADP) — native ASGI dev server, h11 transport, WebSocket engine & AST hot reload:',
+    highlightText: 'Foredeck Watch',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.4.0b0',
+  },
   '1.3.10': {
     version: '1.3.10',
     badgeText: 'V1.3.10 Release',
@@ -102,5 +110,5 @@ export function getLatestAnnouncement(version?: string): Announcement {
   if (version && ANNOUNCEMENTS[version]) {
     return ANNOUNCEMENTS[version]
   }
-  return ANNOUNCEMENTS['1.3.10']
+  return ANNOUNCEMENTS['1.4.0b0']
 }
