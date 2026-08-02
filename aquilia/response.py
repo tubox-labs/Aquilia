@@ -321,6 +321,17 @@ class HLSManifestError(Fault):
     severity = Severity.ERROR
 
 
+def _is_client_disconnect(exc: BaseException) -> bool:
+    """Return True if ``exc`` is an expected client-side connection loss.
+
+    A browser refresh, tab close, or aborted request severs the socket, which
+    surfaces as ``ConnectionError``/``BrokenPipeError`` (from ``writer.drain``)
+    or ``CancelledError``. These are not application failures — the transport
+    layer must log them quietly rather than as an unhandled 500.
+    """
+    return isinstance(exc, (ConnectionError, BrokenPipeError, asyncio.CancelledError))
+
+
 # ============================================================================
 # Main Response Class
 # ============================================================================
@@ -1368,7 +1379,15 @@ class Response:
             )
         except ResponseStreamError:
             raise
+        except ClientDisconnectError:
+            raise
         except Exception as e:
+            if _is_client_disconnect(e):
+                await self._aclose_if_possible(self._content)
+                raise ClientDisconnectError(
+                    message="Client disconnected",
+                    details={"bytes_sent": self._bytes_sent},
+                )
             raise ResponseStreamError(
                 message=f"Response stream error: {e}",
                 details={"error": str(e), "bytes_sent": self._bytes_sent},
@@ -1583,6 +1602,11 @@ class Response:
                 if self._is_sse_response():
                     await self._emit_sse_error_frame(send, exc)
                     return
+                if _is_client_disconnect(exc):
+                    raise ClientDisconnectError(
+                        message="Client disconnected",
+                        details={"bytes_sent": self._bytes_sent},
+                    )
                 raise ResponseStreamError(
                     message=f"Async stream failed: {exc}",
                     details={"error": str(exc), "bytes_sent": self._bytes_sent},
@@ -1624,6 +1648,11 @@ class Response:
                         }
                     )
             except Exception as exc:
+                if _is_client_disconnect(exc):
+                    raise ClientDisconnectError(
+                        message="Client disconnected",
+                        details={"bytes_sent": self._bytes_sent},
+                    )
                 raise ResponseStreamError(
                     message=f"Sync stream failed: {exc}",
                     details={"error": str(exc), "bytes_sent": self._bytes_sent},

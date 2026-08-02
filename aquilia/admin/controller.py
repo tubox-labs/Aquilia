@@ -4177,6 +4177,75 @@ class AdminController(Controller):
 
         return SSEResponse.json(cleanup_generator(), event_name="trace")
 
+    @GET("/__aquilia__/inspector/devplatform/profile/{request_id}/")
+    async def inspector_profile_api(self, request, ctx: RequestCtx) -> Response:
+        """
+        Render a captured per-request cProfile as flamegraph JSON or a call tree.
+
+        Query params:
+            format: "flamegraph" (default — Speedscope JSON) or "tree" (plain text).
+
+        Serves data captured by the Aquilia Native Development Platform
+        (``aquilia.devplatform``). Returns 404 if devplatform is not
+        installed, the request ID is unknown, or the request was not
+        profiled (enable via ``adp_profiler`` or the ``X-Aquilia-Profile:
+        true`` header).
+        """
+        import json
+
+        if not self._is_debug():
+            return Response(b"Forbidden", status=403)
+
+        auth_resp = self._check_inspector_auth(request)
+        if auth_resp is not None:
+            return auth_resp
+
+        request_id = request.state.get("path_params", {}).get("request_id") or ""
+
+        try:
+            from aquilia.devplatform.core.runtime import RuntimeStateStore
+            from aquilia.devplatform.profiler.call_tree import CallTreePrinter
+            from aquilia.devplatform.profiler.flamegraph import FlamegraphFormatter
+        except ImportError:
+            return Response(
+                b'{"error":"devplatform not installed"}',
+                status=404,
+                headers={"content-type": "application/json"},
+            )
+
+        record = RuntimeStateStore.get_instance().get_request(request_id)
+        if record is None:
+            return Response(b'{"error":"request not found"}', status=404, headers={"content-type": "application/json"})
+        if not record.profile_stats:
+            return Response(
+                json.dumps(
+                    {
+                        "error": "request was not profiled",
+                        "hint": "enable adp_profiler or send X-Aquilia-Profile: true",
+                    }
+                ).encode("utf-8"),
+                status=404,
+                headers={"content-type": "application/json; charset=utf-8"},
+            )
+
+        fmt = ""
+        if hasattr(request, "query_params"):
+            fmt = (request.query_params.get("format") or "").lower()
+        if fmt == "tree":
+            text = CallTreePrinter().print_text(record.profile_stats)
+            return Response(
+                content=text.encode("utf-8"),
+                status=200,
+                headers={"content-type": "text/plain; charset=utf-8"},
+            )
+
+        speedscope_json = FlamegraphFormatter().format(record.profile_stats, trace_id=request_id)
+        return Response(
+            content=speedscope_json.encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
     # ── Mailer Page ────────────────────────────────────────────────
 
     @GET("/mailer/")

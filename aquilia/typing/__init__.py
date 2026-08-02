@@ -67,6 +67,16 @@ from aquilia.typing.controller import (
     RoutePath,
     RouteQuery,
 )
+from aquilia.typing.devplatform import (
+    AdpLogLevel,
+    AdpTransport,
+    AdpWsMode,
+    Hook,
+    ReloadStrategy,
+    RequestRecordDict,
+    SpanDict,
+    SQLRecordDict,
+)
 from aquilia.typing.effects import EffectMap, EffectMetadata, EffectMode, EffectName, EffectProviderProtocol
 from aquilia.typing.manifest import ManifestCollection, ManifestDescriptor, ManifestLike, ManifestMetadata
 from aquilia.typing.middleware import (
@@ -168,4 +178,13 @@ __all__ = [
     "SessionLike",
     "FlowContext",
     "GuardCallable",
+    # DevPlatform types
+    "AdpLogLevel",
+    "AdpTransport",
+    "AdpWsMode",
+    "Hook",
+    "ReloadStrategy",
+    "RequestRecordDict",
+    "SpanDict",
+    "SQLRecordDict",
 ]

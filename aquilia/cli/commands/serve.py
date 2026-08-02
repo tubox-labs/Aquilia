@@ -69,9 +69,9 @@ def serve_production(
         host = rt.get("host", "0.0.0.0")
         port = rt.get("port", 8000)
 
-    from aquilia.cli.commands.run import _find_available_port
+    from .run import _resolve_port
 
-    port = _find_available_port(host, port)
+    port = _resolve_port(host, port)
 
     workers = workers if workers is not None else rt.get("workers", 1)
 

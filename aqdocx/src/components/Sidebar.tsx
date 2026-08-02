@@ -515,6 +515,27 @@ export const sections: SidebarSection[] = [
     ]
   },
   {
+    title: 'Dev Platform',
+    icon: <Zap className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Dev Platform', path: '/docs/devplatform', icon: <Server className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/devplatform/overview' },
+          { label: 'Getting Started', path: '/docs/devplatform/getting-started' },
+          { label: 'Architecture', path: '/docs/devplatform/architecture' },
+          { label: 'Configuration', path: '/docs/devplatform/configuration' },
+          { label: 'Terminal UI', path: '/docs/devplatform/terminal-ui' },
+          { label: 'Hot Reload', path: '/docs/devplatform/hot-reload' },
+          { label: 'Diagnostics', path: '/docs/devplatform/diagnostics' },
+          { label: 'Transport Engine', path: '/docs/devplatform/transport-engine' },
+          { label: 'Plugins', path: '/docs/devplatform/plugins' },
+          { label: 'Faults', path: '/docs/devplatform/faults' },
+        ]
+      }
+    ]
+  },
+  {
     title: 'Deployment & Providers',
     icon: <Cloud className="w-3 h-3" />,
     items: [

@@ -151,79 +151,82 @@ _init_default_rules()
 # ============================================================================
 
 
+def _detect_cache_backend() -> str:
+    """Return ``"surp"`` if the optional ``surp`` binary-serialization backend
+    is importable, otherwise ``"json"``.
+
+    ``surp`` is an optional dependency (``pip install aquilia[surp]``). When it
+    is absent we fall back to a stdlib ``json`` cache rather than failing — the
+    discovery cache is a pure performance optimization, never a correctness
+    requirement, so its backend must degrade silently.
+    """
+    try:
+        import surp  # noqa: F401  # type: ignore[import-untyped]
+
+        return "surp"
+    except Exception:
+        return "json"
+
+
 class DiscoveryCache:
-    """Maintains file metadata hashes to avoid redundant AST parsing using JSON format."""
+    """Maintains file metadata hashes to avoid redundant AST parsing.
+
+    Uses the optional ``surp`` binary format when installed, transparently
+    falling back to a stdlib ``json`` file otherwise. The absence of ``surp``
+    is expected (it is an optional extra) and never produces a warning — only
+    genuine, unexpected I/O failures are surfaced, and even then non-fatally
+    (the cache simply misses and discovery re-parses).
+    """
 
     def __init__(self, cache_file: Path):
+        self._backend = _detect_cache_backend()
+        # When surp is unavailable, use a sibling ``.json`` path so a stale
+        # ``.surp`` file written by a surp-enabled run is never misread as JSON
+        # (and vice versa).
+        if self._backend == "json" and cache_file.suffix == ".surp":
+            cache_file = cache_file.with_suffix(".json")
         self.cache_file = cache_file
         self._data: dict[str, dict] = {}
-
-        self._backend = JSONFileBackend()
         self.load()
 
     def load(self) -> None:
-        """Load discovery cache via ArtifactStore backend."""
-        try:
-            raw = self._backend.read_sync(self.cache_file)
-            if raw is None:
-                self._data = {}
-                return
-
-            # Support both ArtifactEnvelope format and legacy bare dict
-            if raw.get("format") == "aquilia-artifact" or raw.get("schema_version"):
-                # New envelope format — payload holds entries
-                from aquilia.artifacts.envelope import ArtifactEnvelope
-
-                try:
-                    envelope = ArtifactEnvelope.from_dict(raw)
-                    entries = envelope.payload.get("entries", {})
-                except Exception:
-                    # Legacy versioned envelope without full ArtifactEnvelope structure
-                    entries = raw.get("entries", raw)
-            else:
-                entries = raw  # Legacy: bare dict of file entries
-
-            # Prune entries for files that no longer exist on disk
-            pruned_count = 0
+        if not self.cache_file.exists():
             self._data = {}
-            for file_path, meta in entries.items():
-                if Path(file_path).exists():
-                    self._data[file_path] = meta
-                else:
-                    pruned_count += 1
+            return
+        try:
+            if self._backend == "surp":
+                import surp as surp_backend  # type: ignore[import-untyped]
 
-            if pruned_count > 0:
-                logger.debug(
-                    "Discovery cache: pruned %d entries for deleted/renamed files",
-                    pruned_count,
-                )
+                self._data = surp_backend.decode_from_file(str(self.cache_file)) or {}
+            else:
+                import json
 
-        except Exception as exc:
-            logger.warning(
-                "Failed to load discovery cache from %s: %s. Starting with empty cache.",
-                self.cache_file,
-                exc,
-            )
+                with open(self.cache_file, encoding="utf-8") as fh:
+                    loaded = json.load(fh)
+                self._data = loaded if isinstance(loaded, dict) else {}
+        except Exception as e:
+            # Corrupt/unreadable cache is non-fatal: start empty, re-parse.
+            logger.debug("Discovery cache unreadable (%s) — starting empty.", e)
             self._data = {}
 
     def save(self) -> None:
-        """Atomically persist discovery cache via ArtifactStore backend."""
+        """Atomically persist discovery cache."""
         try:
-            from aquilia.artifacts.canonical import bare_fingerprint
-            from aquilia.artifacts.envelope import ArtifactEnvelope
+            self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+            if self._backend == "surp":
+                import surp as surp_backend  # type: ignore[import-untyped]
 
-            payload = {"entries": self._data}
-            fp = bare_fingerprint(payload, exclude_keys=frozenset())
-            envelope = ArtifactEnvelope.build(
-                artifact_type="discovery_cache",
-                key="main",
-                schema_version="1.0",
-                payload=payload,
-                fingerprint=fp,
-            )
-            self._backend.write_sync(self.cache_file, envelope.to_dict())
+                surp_backend.encode_to_file(self._data, str(self.cache_file))
+            else:
+                import json
+
+                with open(self.cache_file, "w", encoding="utf-8") as fh:
+                    json.dump(self._data, fh)
         except Exception as e:
-            logger.warning("Failed to save discovery cache: %s", e)
+            # Saving is best-effort; a failed write only costs a cache miss next
+            # run. Log at debug so an optional-dep or read-only-FS situation
+            # never floods the terminal.
+            logger.debug("Failed to save discovery cache (%s) — continuing without cache.", e)
 
     def get(self, file_path: str) -> dict | None:
         return self._data.get(file_path)

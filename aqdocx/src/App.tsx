@@ -338,6 +338,18 @@ import { RenderPage as ProvidersRender } from './pages/docs/providers/Render'
 import { SecurityPage as ProvidersSecurity } from './pages/docs/providers/Security'
 import { CliPage as ProvidersCli } from './pages/docs/providers/Cli'
 
+// Dev Platform
+import { ADPOverviewPage } from './pages/docs/devplatform/Overview'
+import { ADPGettingStartedPage } from './pages/docs/devplatform/GettingStarted'
+import { ADPArchitecturePage } from './pages/docs/devplatform/Architecture'
+import { ADPConfigurationPage } from './pages/docs/devplatform/Configuration'
+import { ADPTerminalUIPage } from './pages/docs/devplatform/TerminalUI'
+import { ADPHotReloadPage } from './pages/docs/devplatform/HotReload'
+import { ADPDiagnosticsPage } from './pages/docs/devplatform/Diagnostics'
+import { ADPTransportEnginePage } from './pages/docs/devplatform/TransportEngine'
+import { ADPPluginsPage } from './pages/docs/devplatform/Plugins'
+import { ADPFaultsPage } from './pages/docs/devplatform/Faults'
+
 import { PrintAllDocs } from './pages/PrintAllDocs'
 
 export default function App() {
@@ -730,6 +742,19 @@ export default function App() {
           <Route path="providers/render" element={<ProvidersRender />} />
           <Route path="providers/security" element={<ProvidersSecurity />} />
           <Route path="providers/cli" element={<ProvidersCli />} />
+
+          {/* Dev Platform */}
+          <Route path="devplatform" element={<ADPOverviewPage />} />
+          <Route path="devplatform/overview" element={<ADPOverviewPage />} />
+          <Route path="devplatform/getting-started" element={<ADPGettingStartedPage />} />
+          <Route path="devplatform/architecture" element={<ADPArchitecturePage />} />
+          <Route path="devplatform/configuration" element={<ADPConfigurationPage />} />
+          <Route path="devplatform/terminal-ui" element={<ADPTerminalUIPage />} />
+          <Route path="devplatform/hot-reload" element={<ADPHotReloadPage />} />
+          <Route path="devplatform/diagnostics" element={<ADPDiagnosticsPage />} />
+          <Route path="devplatform/transport-engine" element={<ADPTransportEnginePage />} />
+          <Route path="devplatform/plugins" element={<ADPPluginsPage />} />
+          <Route path="devplatform/faults" element={<ADPFaultsPage />} />
 
           {/* Docs Wildcard 404 */}
           <Route path="*" element={<NotFoundPage />} />

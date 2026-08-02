@@ -265,9 +265,10 @@ name = "aquilia"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
+    { name = "h11" },
     { name = "jinja2" },
     { name = "markupsafe" },
-    { name = "uvicorn" },
+    { name = "watchfiles" },
 ]
 
 [package.optional-dependencies]
@@ -299,7 +300,6 @@ full = [
     { name = "opentelemetry-sdk" },
     { name = "python-multipart" },
     { name = "redis" },
-    { name = "surp" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 mail = [
@@ -333,9 +333,6 @@ server = [
 sqlite-compat = [
     { name = "aiosqlite" },
 ]
-surp = [
-    { name = "surp" },
-]
 template = [
     { name = "jinja2" },
     { name = "markupsafe" },
@@ -351,7 +348,7 @@ requires-dist = [
     { name = "aiobotocore", marker = "extra == 'mail-ses'", specifier = ">=2.9.0" },
     { name = "aiosmtplib", marker = "extra == 'mail'", specifier = ">=3.0.0" },
     { name = "aiosqlite", marker = "extra == 'sqlite-compat'", specifier = ">=0.20.0" },
-    { name = "aquilia", extras = ["auth", "mail", "mail-dkim", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server", "surp", "template"], marker = "extra == 'full'" },
+    { name = "aquilia", extras = ["auth", "mail", "mail-dkim", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server", "template"], marker = "extra == 'full'" },
     { name = "aquilia", extras = ["testing"], marker = "extra == 'dev'" },
     { name = "argon2-cffi", marker = "extra == 'auth'", specifier = ">=23.1.0" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.31.0" },
@@ -359,6 +356,7 @@ requires-dist = [
     { name = "cryptography", marker = "extra == 'auth'", specifier = ">=42.0.0" },
     { name = "dkimpy", marker = "extra == 'mail-dkim'", specifier = ">=1.1.0" },
     { name = "gunicorn", marker = "extra == 'server'", specifier = ">=22.0.0" },
+    { name = "h11", specifier = ">=0.14.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "jinja2", marker = "extra == 'template'", specifier = ">=3.1.0" },
     { name = "markupsafe", specifier = ">=2.1.0" },
@@ -375,11 +373,10 @@ requires-dist = [
     { name = "python-multipart", marker = "extra == 'multipart'", specifier = ">=0.0.9" },
     { name = "redis", extras = ["asyncio"], marker = "extra == 'redis'", specifier = ">=5.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.15" },
-    { name = "surp", marker = "extra == 'surp'", specifier = ">=1.0.2" },
-    { name = "uvicorn", specifier = ">=0.30.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.30.0" },
+    { name = "watchfiles", specifier = ">=1.2.0" },
 ]
-provides-extras = ["template", "surp", "sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "mail-dkim", "server", "postgres", "otel", "full", "testing", "dev"]
+provides-extras = ["template", "sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "mail-dkim", "server", "postgres", "otel", "full", "testing", "dev"]
 
 [[package]]
 name = "argon2-cffi"
@@ -2148,15 +2145,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
-]
-
-[[package]]
-name = "surp"
-version = "1.0.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e1/67/eb9015564f9680eb3105ce8382a13b1d4558f054263d3954a22bc162f704/surp-1.0.2.tar.gz", hash = "sha256:20977e55f629c86a4bb12eca7afc80842e05c91cf1821dde0cb18cd0df1b6f72", size = 149889, upload-time = "2026-05-18T07:50:22.734Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/b0/c4ef9007627a1fc4bf7aa6e45766d41627089a8adef426f94de73fea26b2/surp-1.0.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:889db5144219b6e909c4433a8da7ca787faf6935efcfaf066e0a199786399e6e", size = 560623, upload-time = "2026-05-18T07:50:21.157Z" },
 ]
 
 [[package]]

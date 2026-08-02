@@ -105,6 +105,19 @@ _UVICORN_KNOWN_PARAMS = frozenset(
     }
 )
 
+# ADP-specific keys in AquilaConfig.Server that are NOT forwarded to uvicorn
+_ADP_CONFIG_KEYS = frozenset(
+    {
+        "use_adp",
+        "adp_inspector",
+        "adp_max_request_history",
+        "adp_profiler",
+        "adp_sql_explain_threshold_ms",
+        "adp_n_plus_one_detection",
+        "adp_memory_snapshot_interval_s",
+    }
+)
+
 
 def _build_uvicorn_kwargs(
     rt: dict[str, Any],
@@ -113,7 +126,7 @@ def _build_uvicorn_kwargs(
 ) -> dict[str, Any]:
     """
     Build a ``uvicorn.run()`` keyword-argument dict from the runtime
-    config section (``AquilaConfig.Server`` → ``to_dict()["server"]``).
+    config section (``AquilaConfig.Server`` → ``to_dict()[\"server\"]``).
 
     Only keys that match a known ``uvicorn.Config`` parameter are
     included.  ``None`` values are omitted so uvicorn uses its own
@@ -130,6 +143,56 @@ def _build_uvicorn_kwargs(
             if val is not None:
                 kwargs[key] = val
     return kwargs
+
+
+def _build_adp_config(rt: dict[str, Any], *, overrides: dict[str, Any] | None = None) -> Any:
+    """
+    Build an AquiliaDevelopmentConfig from the runtime config section.
+
+    Reads all adp_* keys from AquilaConfig.Server and applies CLI overrides.
+    Returns an AquiliaDevelopmentConfig instance.
+
+    Raises:
+        ConfigurationFault: if any resolved value fails
+            ``AquiliaDevelopmentConfig.__post_init__`` validation.
+    """
+    from pathlib import Path
+
+    from aquilia.devplatform.config import AquiliaDevelopmentConfig
+
+    overrides = overrides or {}
+
+    def _pick(cli_key: str, rt_key: str, default: Any) -> Any:
+        """CLI flag > workspace config > default. None-safe (fd=0 is valid)."""
+        cli_val = overrides.get(cli_key)
+        if cli_val is not None:
+            return cli_val
+        rt_val = rt.get(rt_key)
+        if rt_val is not None:
+            return rt_val
+        return default
+
+    reload_dirs_raw = rt.get("reload_dirs") or [str(Path.cwd())]
+
+    return AquiliaDevelopmentConfig(
+        host=_pick("host", "host", "127.0.0.1"),
+        port=_pick("port", "port", 8000),
+        uds=_pick("uds", "adp_uds", None),
+        fd=_pick("fd", "adp_fd", None),
+        http=_pick("http", "adp_http", "h11"),
+        ws=_pick("ws", "adp_ws", "auto"),
+        reload=_pick("reload", "reload", True),
+        reload_dirs=[Path(d) for d in reload_dirs_raw],
+        reload_excludes=rt.get("reload_excludes") or [],
+        log_level=(rt.get("log_level") or "INFO").upper(),
+        inspector_enabled=rt.get("adp_inspector", True),
+        max_request_history=rt.get("adp_max_request_history", 500),
+        profiler_enabled=rt.get("adp_profiler", False),
+        sql_explain_threshold_ms=rt.get("adp_sql_explain_threshold_ms", 50.0),
+        n_plus_one_detection=rt.get("adp_n_plus_one_detection", True),
+        memory_snapshot_interval_s=rt.get("adp_memory_snapshot_interval_s", 30.0),
+        timeout_graceful_shutdown=float(rt.get("timeout_graceful_shutdown") or 5.0),
+    )
 
 
 def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> list[str]:
@@ -420,90 +483,9 @@ def _discover_and_display_routes(workspace_root: Path, verbose: bool = False) ->
         sorted_names = sorted(discovered_modules.keys())
         validation = {"valid": True, "warnings": [], "errors": []}
 
-    print("\n  Discovered Routes & Modules")
-    print("=" * 70)
-
-    # Display module table with controller details
-    print(f"\n{'Module':<20} {'Route Prefix':<25} {'Controllers':<12} {'Services':<10} {'Sockets':<10}")
-    print(f"{'-' * 20} {'-' * 25} {'-' * 12} {'-' * 10} {'-' * 10}")
-
-    for mod_name in sorted_names:
-        if mod_name not in discovered_modules:
-            continue
-        mod = discovered_modules[mod_name]
-        route = mod["route_prefix"]
-        controllers_count = mod.get("controllers_count", 0)
-        services_count = mod.get("services_count", 0)
-        sockets_count = mod.get("sockets_count", 0)
-        print(f"{mod_name:<20} {route:<25} {controllers_count:<12} {services_count:<10} {sockets_count:<10}")
-
-    # Show detailed controller information
-    total_controllers = sum(mod.get("controllers_count", 0) for mod in discovered_modules.values())
-    if total_controllers > 0:
-        print("\n  Controller Details:")
-        for mod_name in sorted_names:
-            if mod_name not in discovered_modules:
-                continue
-            mod = discovered_modules[mod_name]
-            controllers_list = mod.get("controllers_list", [])
-            if controllers_list:
-                print(f"  {mod_name}:")
-                for controller in controllers_list:
-                    # Extract controller class name
-                    controller_class = controller.split(":")[1] if ":" in controller else controller.split(".")[-1]
-                    print(f"    • {controller_class}")
-
-    # Show WebSocket controller details
-    total_sockets = sum(mod.get("sockets_count", 0) for mod in discovered_modules.values())
-    if total_sockets > 0:
-        print("\n  WebSocket Controllers:")
-        for mod_name in sorted_names:
-            if mod_name not in discovered_modules:
-                continue
-            mod = discovered_modules[mod_name]
-            sockets_list = mod.get("sockets_list", [])
-            if sockets_list:
-                print(f"  {mod_name}:")
-                for sock in sockets_list:
-                    sock_path = sock["path"] if isinstance(sock, dict) else sock
-                    namespace = sock.get("namespace", "") if isinstance(sock, dict) else ""
-                    sock_class = sock_path.split(":")[1] if ":" in sock_path else sock_path.split(".")[-1]
-                    if namespace:
-                        print(f"    -> {sock_class} -> {namespace}")
-                    else:
-                        print(f"    -> {sock_class}")
-
-    print()
-
-    # Summary
-    print("\n  Summary:")
-    with_services = sum(1 for m in discovered_modules.values() if m["has_services"])
-    with_controllers = sum(1 for m in discovered_modules.values() if m["has_controllers"])
-    with_sockets = sum(1 for m in discovered_modules.values() if m.get("has_sockets", False))
-
-    total_services = sum(m.get("services_count", 0) for m in discovered_modules.values())
-    total_controllers = sum(m.get("controllers_count", 0) for m in discovered_modules.values())
-    total_sockets = sum(m.get("sockets_count", 0) for m in discovered_modules.values())
-
-    print(f"  Total Modules: {len(discovered_modules)}")
-    print(f"  With Services: {with_services} ({total_services} total)")
-    print(f"  With Controllers: {with_controllers} ({total_controllers} total)")
-    if total_sockets > 0:
-        print(f"  With Sockets: {with_sockets} ({total_sockets} total)")
-
-    # Validation status
-    if validation["errors"]:
-        print(f"\n  Validation Errors: {len(validation['errors'])}")
-        for error in validation["errors"]:
-            print(f"    - {error}")
-    elif validation["warnings"]:
-        print(f"\n  Validation Warnings: {len(validation['warnings'])}")
-        for warning in validation["warnings"][:3]:
-            print(f"    - {warning}")
-    else:
-        print("\n  All modules validated!")
-
-    print(f"{'=' * 70}\n")
+    # Discovery data is collected above and available in discovered_modules.
+    # Presentation is handled by `aq discover` or the ADP terminal UI (D key).
+    # No print() output during server startup — keeps the launch banner clean.
 
 
 def _write_discovery_report(workspace_root: Path, discovered: dict, sorted_names: list[str], validation: dict) -> None:
@@ -593,31 +575,47 @@ def run_dev_server(
     host: str | None = None,
     port: int | None = None,
     reload: bool | None = None,
+    uds: str | None = None,
+    fd: int | None = None,
+    http: str | None = None,
+    ws: str | None = None,
     verbose: bool = False,
 ) -> None:
     """
-    Start development server using uvicorn.
+    Start the Aquilia Native Development Platform (ADP) server.
 
-    Resolution order for host / port / workers / reload:
-    1. Explicit CLI flags (``--host``, ``--port``, ``--reload``)
-    2. AquilaConfig values from ``workspace.py``
-    3. Hardcoded fallback defaults
+    The ADP is the default development server since Aquilia 1.3+.
+    It provides framework-aware hot-reload, N+1 query detection, and
+    memory tracking. Debugging surfaces through Aquilia's Inspector
+    (``/__aquilia__/inspector/``), not a separate dashboard.
+
+    Set ``use_adp = False`` in ``AquilaConfig.Server`` to fall back to
+    plain uvicorn. Production mode (``mode="prod"``) always uses uvicorn
+    regardless of ``use_adp`` — the ADP is a development tool, not a
+    production ASGI server.
+
+    Resolution order for host / port / reload / uds / fd / http / ws:
+    1. Explicit CLI flags (``--host``, ``--port``, ``--reload``, ``--uds``,
+       ``--fd``, ``--http``, ``--ws``)
+    2. AquilaConfig values from ``workspace.py`` (``adp_uds``, ``adp_http``,
+       ``adp_ws`` — see ``_build_adp_config``)
+    3. Hardcoded fallback defaults (``http="h11"``, ``ws="auto"``, no
+       ``uds``/``fd``)
+
+    ``uds``/``fd`` take priority over ``host``/``port`` at bind time (see
+    ``AquiliaDevelopmentServer.start``) — set at most one binding mode.
 
     Args:
         mode: Runtime mode (dev, test)
         host: Server host (None = read from workspace config)
         port: Server port (None = read from workspace config)
         reload: Enable hot-reload (None = read from workspace config)
+        uds: UNIX domain socket path to bind instead of host:port
+        fd: Inherited file descriptor to bind instead of host:port
+        http: HTTP transport engine — "h11" (native, default) or "auto" (uvicorn)
+        ws: WebSocket support — "auto" (native RFC 6455, default) or "none"
         verbose: Enable verbose output
     """
-    try:
-        import uvicorn
-    except ImportError:
-        raise ImportError(
-            "uvicorn is required to run the development server.\n"
-            "Install it with: pip install uvicorn\n"
-            "Or with extras: pip install 'aquilia[server]'"
-        )
 
     workspace_root = Path.cwd()
 
@@ -629,7 +627,7 @@ def run_dev_server(
     rt = _load_workspace_runtime_config(workspace_root)
     host = host if host is not None else rt.get("host", "127.0.0.1")
     port = port if port is not None else rt.get("port", 8000)
-    port = _find_available_port(host, port)
+    port = _resolve_port(host, port)
     reload = reload if reload is not None else rt.get("reload", True)
 
     # Set environment variables
@@ -637,12 +635,9 @@ def run_dev_server(
     os.environ["AQUILIA_WORKSPACE"] = str(workspace_root)
 
     # ===== AUTO-DISCOVER & UPDATE MANIFESTS FIRST =====
-    # This must happen BEFORE creating the app so that workspace.py is up-to-date
-    print("  Auto-discovering controllers and services...")
     _discover_and_update_manifests(workspace_root, verbose)
 
     # VALIDATE WORKSPACE CONFIGURATION BEFORE PROCEEDING
-    print("  Validating workspace configuration...")
     validation_errors = _validate_workspace_config(workspace_root, verbose)
     if validation_errors:
         import click
@@ -672,10 +667,7 @@ def run_dev_server(
     if workspace_config.exists():
         if verbose:
             print("  Found workspace configuration: workspace.py")
-
-        # Create a runtime app loader
         app_module = _create_workspace_app(workspace_root, mode, verbose)
-
         if verbose:
             print("  Using workspace-generated app")
     else:
@@ -715,18 +707,254 @@ def run_dev_server(
         print(f"  Host: {host}:{port}")
         print(f"  Reload: {reload}")
         print(f"  App: {app_module}")
-        if rt:
-            extras = {
-                k: v for k, v in rt.items() if k not in ("host", "port", "reload", "mode", "debug") and v is not None
-            }
-            if extras:
-                print(f"  Server config: {extras}")
-        print()
 
     # Discover and display all routes before starting server
     _discover_and_display_routes(workspace_root, verbose)
 
-    # Build uvicorn kwargs from AquilaConfig.Server, with CLI overrides
+    # ── Decide ADP vs uvicorn ─────────────────────────────────────────
+    # ADP is a development tool only. Production mode always uses uvicorn
+    # regardless of use_adp; in dev/test mode use_adp (default True) applies.
+    use_adp: bool = rt.get("use_adp", True) and mode != "prod"
+
+    if rt.get("use_adp", True) and mode == "prod":
+        import click
+
+        click.secho("  ADP is development-only — production mode uses uvicorn.", fg="yellow")
+
+    if use_adp:
+        _run_with_adp(
+            app_module=app_module,
+            workspace_root=workspace_root,
+            mode=mode,
+            rt=rt,
+            host=host,
+            port=port,
+            reload=reload,
+            uds=uds,
+            fd=fd,
+            http=http,
+            ws=ws,
+            verbose=verbose,
+        )
+    else:
+        _run_with_uvicorn_legacy(
+            app_module=app_module,
+            workspace_root=workspace_root,
+            rt=rt,
+            host=host,
+            port=port,
+            reload=reload,
+            verbose=verbose,
+        )
+
+
+def _run_with_adp(
+    app_module: str,
+    workspace_root: Path,
+    mode: str,
+    rt: dict,
+    host: str,
+    port: int,
+    reload: bool,
+    uds: str | None = None,
+    fd: int | None = None,
+    http: str | None = None,
+    ws: str | None = None,
+    verbose: bool = False,
+) -> None:
+    """
+    Start the Aquilia Native Development Platform.
+
+    Loads the ASGI app from app_module, wraps it in ADP instrumentation, and
+    serves it.
+
+    Transport is selected by ``http``:
+      - "h11" (default) — native h11-based ASGI transport built into ADP
+        (aquilia.devplatform.core.h11_transport). Pure-python, predictable,
+        no external HTTP server dependency for the dev loop.
+      - "auto" — uvicorn as the HTTP transport, ADP instrumentation wrapped
+        around the app. Use when you need uvicorn-specific behavior (HTTP/2,
+        proven production parity) during development.
+
+    Falls back to uvicorn if the ADP package itself cannot be imported.
+    """
+    import asyncio
+    import importlib
+
+    import click
+
+    try:
+        from aquilia.devplatform.devserver import AquiliaDevelopmentServer
+    except ImportError as exc:
+        click.secho(
+            f"  ! ADP import failed ({exc}) — falling back to uvicorn.",
+            fg="yellow",
+        )
+        _run_with_uvicorn_legacy(
+            app_module=app_module,
+            workspace_root=workspace_root,
+            rt=rt,
+            host=host,
+            port=port,
+            reload=reload,
+            verbose=verbose,
+        )
+        return
+
+    # Build ADP config from AquilaConfig.Server values
+    adp_config = _build_adp_config(
+        rt,
+        overrides={"host": host, "port": port, "reload": reload, "uds": uds, "fd": fd, "http": http, "ws": ws},
+    )
+
+    if adp_config.http == "auto":
+        # Uvicorn as the transport, ADP instrumentation wrapped around the app.
+        try:
+            import uvicorn
+        except ImportError:
+            click.secho("  ! --http auto requires uvicorn, but it is not installed. Using h11 instead.", fg="yellow")
+            adp_config.http = "h11"
+        else:
+            _write_adp_runtime_wrapper(workspace_root, app_module, adp_config, mode)
+            adp_app_module = "runtime._adp_app:adp_app"
+
+            uv_kwargs = {
+                "host": adp_config.host,
+                "port": adp_config.port,
+                "reload": adp_config.reload,
+                "reload_dirs": [str(d) for d in adp_config.reload_dirs] if adp_config.reload else None,
+                "log_level": adp_config.log_level.lower(),
+                "use_colors": True,
+            }
+            uv_kwargs = {k: v for k, v in uv_kwargs.items() if v is not None}
+            uvicorn.run(app=adp_app_module, **uv_kwargs)
+            return
+
+    # Native h11 transport (default): AquiliaDevelopmentServer drives its own
+    # asyncio TCP/UDS acceptor — see aquilia.devplatform.core.h11_transport.
+    async def _adp_main() -> None:
+        mod_path, _, attr = app_module.partition(":")
+        mod = importlib.import_module(mod_path.replace("/", ".").replace(".py", ""))
+        app = getattr(mod, attr or "app")
+
+        from aquilia.devplatform.ui import ADPTerminalUI
+
+        dev_server = AquiliaDevelopmentServer(adp_config)
+        loop = asyncio.get_running_loop()
+
+        def _on_quit() -> None:
+            # Called from the UI keyboard thread — hop back onto the event loop
+            # to run the async graceful shutdown safely.
+            loop.call_soon_threadsafe(lambda: asyncio.ensure_future(dev_server.stop()))
+
+        def _on_reload() -> None:
+            # Manual reload (R key): trigger a full process restart via the
+            # reload executor from the event loop thread.
+            from aquilia.devplatform.reload.analyzer import ReloadPlan, ReloadStrategy
+            from aquilia.devplatform.reload.executor import ModuleReloadExecutor
+
+            async def _do_reload() -> None:
+                plan = ReloadPlan(strategy=ReloadStrategy.FULL, reason="manual reload (R)")
+                executor = ModuleReloadExecutor(
+                    plan, dev_server.get_runtime(), shutdown_timeout=adp_config.timeout_graceful_shutdown
+                )
+                await executor.execute()
+
+            loop.call_soon_threadsafe(lambda: asyncio.ensure_future(_do_reload()))
+
+        ui = ADPTerminalUI(
+            adp_config,
+            runtime=dev_server.get_runtime(),
+            mode=mode,
+            on_reload=_on_reload,
+            on_quit=_on_quit,
+        )
+        ui.render_header()
+        ui.start()
+        try:
+            await dev_server.start(app)
+        finally:
+            ui.stop()
+
+    asyncio.run(_adp_main())
+
+
+def _write_adp_runtime_wrapper(
+    workspace_root: Path,
+    app_module: str,
+    adp_config: Any,
+    mode: str,
+) -> None:
+    """
+    Generate runtime/_adp_app.py — a thin ASGI wrapper that layers ADP
+    instrumentation around the workspace's Aquilia app.
+
+    This file is re-generated on every ``aq run`` so it always reflects
+    the current ADP configuration.
+    """
+    runtime_dir = workspace_root / "runtime"
+    runtime_dir.mkdir(exist_ok=True)
+
+    # Ensure runtime/__init__.py exists
+    init_path = runtime_dir / "__init__.py"
+    if not init_path.exists():
+        init_path.write_text("# Auto-generated by Aquilia ADP\n", encoding="utf-8")
+
+    # Serialize the full config via its own to_dict() — single source of
+    # truth. Adding a field to AquiliaDevelopmentConfig automatically flows
+    # through here; no per-field kwarg list to keep in sync.
+    config_dict = adp_config.to_dict()
+
+    wrapper_code = f'''\
+"""
+Aquilia ADP Runtime Wrapper — auto-generated by ``aq run``.
+DO NOT EDIT — regenerated on every launch.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+from aquilia.devplatform.config import AquiliaDevelopmentConfig
+from aquilia.devplatform.core.lifespan import ASGILifespanManager
+from aquilia.devplatform.core.protocol import ADPProtocolHandler
+from aquilia.devplatform.core.runtime import RuntimeStateStore
+
+# ── Load base Aquilia app ────────────────────────────────────────────────────
+from runtime.app import app as _aquilia_app
+
+# ── Build ADP config (serialized from the resolved workspace config) ────────
+_config_dict = {config_dict!r}
+_config_dict["reload_dirs"] = [Path(d) for d in _config_dict["reload_dirs"]]
+_adp_config = AquiliaDevelopmentConfig(**_config_dict)
+
+# ── Wrap with ADP protocol handler ──────────────────────────────────────────
+_runtime = RuntimeStateStore.get_instance()
+_lifespan_app = ASGILifespanManager(_aquilia_app, _adp_config, _runtime)
+adp_app = ADPProtocolHandler(_lifespan_app, _adp_config, _runtime)
+'''
+    wrapper_path = runtime_dir / "_adp_app.py"
+    wrapper_path.write_text(wrapper_code, encoding="utf-8")
+
+
+def _run_with_uvicorn_legacy(
+    app_module: str,
+    workspace_root: Path,
+    rt: dict,
+    host: str,
+    port: int,
+    reload: bool,
+    verbose: bool,
+) -> None:
+    """Legacy uvicorn-only dev server (use_adp=False in AquilaConfig.Server)."""
+    try:
+        import uvicorn
+    except ImportError:
+        raise ImportError(
+            "uvicorn is required to run the development server.\n"
+            "Install it with: pip install uvicorn\n"
+            "Or with extras: pip install 'aquilia[server]'"
+        )
+
     uv_kwargs = _build_uvicorn_kwargs(
         rt,
         overrides={
@@ -735,7 +963,6 @@ def run_dev_server(
             "reload": reload,
         },
     )
-    # Dev-mode defaults that kick in unless the user overrode them
     uv_kwargs.setdefault("reload_dirs", [str(workspace_root)] if reload else None)
     uv_kwargs.setdefault("use_colors", True)
     if verbose:
@@ -913,36 +1140,21 @@ def _find_app_module(workspace_root: Path, verbose: bool = False) -> str | None:
     return None
 
 
-def _find_available_port(host: str, port: int) -> int:
+def _resolve_port(host: str, port: int) -> int:
     """
-    Find the next available port starting from the given port.
-    If the port is occupied, it increments by 1 and checks again,
-    up to 100 attempts.
-    """
-    import socket
+    Resolve the port to bind via the devplatform :class:`PortManager`.
 
+    Port recovery now lives in ``aquilia.devplatform.portmanager`` and probes
+    with the same socket options the dev server binds with (``SO_REUSEADDR``),
+    so a just-terminated server's ``TIME_WAIT`` port is reclaimed instead of
+    triggering a false 8000 -> 8001 hop. Only a genuinely live listener causes
+    a switch. The manager's ``reason`` is surfaced to the developer.
+    """
     import click
 
-    original_port = port
-    current_port = port
-    check_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    from aquilia.devplatform.portmanager import PortManager
 
-    max_attempts = 100
-    for _ in range(max_attempts):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.bind((check_host, current_port))
-                break
-            except OSError:
-                current_port += 1
-    else:
-        # If we couldn't find any free port in 100 attempts, fall back to the original port
-        current_port = original_port
-
-    if current_port != original_port:
-        click.secho(
-            f"⚡ Port {original_port} is occupied. Switching to port {current_port}.",
-            fg="yellow",
-            bold=True,
-        )
-    return current_port
+    decision = PortManager().resolve(host, port)
+    if decision.switched:
+        click.secho(decision.reason, fg="yellow", bold=True)
+    return decision.port

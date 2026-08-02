@@ -1126,9 +1126,23 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool, deprecated: b
 @click.option(
     "--reload/--no-reload", default=None, help="Enable hot-reload (default: from workspace.py AquilaConfig, or True)"
 )
+@click.option("--uds", type=str, default=None, help="Bind to a UNIX domain socket path instead of host:port")
+@click.option("--fd", type=int, default=None, help="Bind to an inherited file descriptor instead of host:port")
+@click.option(
+    "--http",
+    type=click.Choice(["auto", "h11"]),
+    default=None,
+    help="HTTP transport engine (default: h11 — pure-python, native ADP transport)",
+)
+@click.option(
+    "--ws",
+    type=click.Choice(["auto", "none"]),
+    default=None,
+    help="WebSocket support (default: auto — native RFC 6455 transport; none disables upgrades)",
+)
 @click.option("--skip-checks", is_flag=True, help="Skip pre-flight dependency checks")
 @click.pass_context
-def run(ctx, mode: str, port, host, reload, skip_checks: bool):
+def run(ctx, mode: str, port, host, reload, uds, fd, http, ws, skip_checks: bool):
     """
     Start development server.
 
@@ -1172,6 +1186,10 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
             host=host,
             port=port,
             reload=reload,
+            uds=uds,
+            fd=fd,
+            http=http,
+            ws=ws,
             verbose=ctx.obj["verbose"],
         )
 
@@ -1182,6 +1200,53 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
     except Exception as e:
         error(f"  {_CROSS} Server error: {e}")
         sys.exit(1)
+
+
+# `aq dev` — Vite/Next-style alias for `aq run`. Same command, friendlier name
+# for the native ADP dev-server workflow.
+cli.add_command(run, name="dev")
+
+
+@cli.command("inspector")
+@click.option("--host", type=str, default=None, help="Dev server host (default: from workspace.py, or 127.0.0.1)")
+@click.option("--port", type=int, default=None, help="Dev server port (default: from workspace.py, or 8000)")
+@click.option("--no-browser", is_flag=True, help="Print the Inspector URL instead of opening a browser")
+@click.pass_context
+def inspector_cmd(ctx, host, port, no_browser: bool):
+    """
+    Open Aquilia Inspector — the primary debugging surface for a running
+    ADP dev server (request timelines, DI/DB/HTTP spans, live SSE stream).
+
+    Requires ``aq run``/``aq dev`` already running in another terminal;
+    this command only opens/prints the URL, it doesn't start a server.
+
+    Not to be confused with ``aq inspect`` (static manifest/DI/route
+    introspection) — this opens the *live* runtime debugger.
+
+    Examples:
+      aq inspector
+      aq inspector --port=3000
+      aq inspector --no-browser
+    """
+    import webbrowser
+
+    from .commands.run import _load_workspace_runtime_config
+
+    workspace_root = Path.cwd()
+    rt = _load_workspace_runtime_config(workspace_root)
+    host = host or rt.get("host", "127.0.0.1")
+    port = port or rt.get("port", 8000)
+    mount_path = "/__aquilia__/inspector"
+    url = f"http://{host}:{port}{mount_path}"
+
+    if no_browser:
+        click.echo(url)
+        return
+
+    info(f"  Opening Inspector → {url}")
+    opened = webbrowser.open(url)
+    if not opened:
+        click.echo(url)
 
 
 @cli.command("serve")
