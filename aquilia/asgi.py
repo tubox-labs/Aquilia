@@ -22,7 +22,7 @@ import logging
 import time
 from typing import Any, cast
 
-from aquilia.controller.base import _ctx_pool
+from aquilia.controller.base import RequestCtx
 from aquilia.controller.router import ControllerRouter
 from aquilia.debug.pages import render_http_error_page, render_welcome_page
 from aquilia.di import Container
@@ -380,10 +380,9 @@ class ASGIAdapter:
     async def handle_http(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None:
         """Handle HTTP request with optimized hot path.
 
-        Performance (v3 — scalability):
-        - Uses RequestCtx object pool to avoid per-request allocation.
+        Performance (v4 — pool retired):
+        - RequestCtx constructed directly (pool was net-negative: 1,972 ns vs 588 ns).
         - Single metrics.request_started() call (no double-counting).
-        - Returns ctx to pool after response is sent.
         """
 
         # ── Build middleware chain once (idempotent) ──
@@ -492,8 +491,14 @@ class ASGIAdapter:
         # _token_to_key(Request), so type- and string-keyed lookups both hit.
         di_container._cache[_REQUEST_TOKEN_KEY] = request
 
-        # ── Acquire RequestCtx from pool (zero-alloc hot path) ──
-        ctx = _ctx_pool.acquire(
+        # ── Construct RequestCtx directly ──
+        # The former _ctx_pool.acquire() was net-negative: 1,972 ns versus
+        # 588 ns for direct construction, because pooling routed 16 field
+        # writes through RequestCtx.__setattr__ and called os.urandom per
+        # acquire. request_id is left None here — RequestIdMiddleware assigns
+        # the real one (honouring an inbound X-Request-ID header) and falls
+        # back to ctx.request_id, so generating one here was wasted work.
+        ctx = RequestCtx(
             request=request,
             identity=None,
             session=None,
@@ -593,8 +598,8 @@ class ASGIAdapter:
             # the shutdown call below as a safety net.
             # ──────────────────────────────────────────────────────────────
 
-            # ── Return ctx to pool for reuse ──
-            _ctx_pool.release(ctx)
+            # ── ctx is garbage-collected normally (pool retired; see
+            # aquilia/controller/base.py for the measurement) ──
 
         # ── ARCH-05: Strip body for HEAD requests ──
         if is_head_fallback and response is not None:
