@@ -20,7 +20,7 @@ import asyncio
 import contextlib
 import inspect
 import logging
-from typing import Any
+from typing import Any, get_type_hints
 
 from aquilia.auth.clearance import ClearanceEngine, _build_clearance_denied_response, build_merged_clearance
 from aquilia.contracts.exceptions import SealFault
@@ -33,6 +33,16 @@ from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
 from aquilia.inspector.trace import Lane, SpanStatus, current_trace
 from aquilia.request import ParsedContentType, Request
 from aquilia.response import Response
+
+# ── SSEResponse, hoisted to module scope ─────────────────────────────────
+# ``_to_response`` runs on every handler return value and used to execute a
+# ``try: from aquilia.sse import SSEResponse`` per call. ``aquilia.sse`` only
+# imports ``aquilia.response`` and ``aquilia.faults``, both already imported
+# above, so hoisting introduces no new import cycle.
+try:
+    from aquilia.sse import SSEResponse as _SSEResponse
+except ImportError:  # pragma: no cover - sse is an optional subsystem
+    _SSEResponse = None
 
 
 class LazyServiceProxy:
@@ -128,6 +138,7 @@ class ControllerEngine:
     _has_lifecycle_hooks: dict[type, tuple] = {}  # class -> (has_on_request, has_on_response)
     _simple_route_cache: dict[int, bool] = {}  # id(route) -> is_simple
     _clearance_cache: dict[int, Any] = {}  # id(route) -> merged Clearance or None
+    _type_hints_cache: dict[int, dict] = {}  # id(callable) -> get_type_hints() result
 
     def __init__(
         self,
@@ -1490,14 +1501,22 @@ class ControllerEngine:
         self, handler_method: Any, request: Request, ctx: RequestCtx, kwargs: dict[str, Any]
     ) -> None:
         """Bind special context/request parameters based on type or name."""
-        from typing import get_type_hints
-
         sig = self._get_cached_signature(handler_method)
-        type_hints = {}
-        try:
-            type_hints = get_type_hints(handler_method)
-        except Exception:
-            pass
+
+        # Cache get_type_hints keyed by the underlying function id (same key as
+        # _signature_cache). Bound methods produce a fresh object each call so
+        # we unwrap __func__ first, exactly as _get_cached_signature does.
+        target = handler_method
+        if hasattr(handler_method, "__func__"):
+            target = handler_method.__func__
+        fid = id(target)
+        type_hints = ControllerEngine._type_hints_cache.get(fid)
+        if type_hints is None:
+            try:
+                type_hints = get_type_hints(target)
+            except Exception:
+                type_hints = {}
+            ControllerEngine._type_hints_cache[fid] = type_hints
 
         for param_name, param in sig.parameters.items():
             if param_name in ("self", "cls"):
@@ -1775,6 +1794,7 @@ class ControllerEngine:
         cls._simple_route_cache.clear()
         cls._clearance_cache.clear()
         cls._is_coro_cache.clear()
+        cls._type_hints_cache.clear()
 
     def _to_response(self, result: Any) -> Response:
         """Convert handler result to Response.
@@ -1785,13 +1805,8 @@ class ControllerEngine:
         if isinstance(result, Response):
             return result
 
-        try:
-            from aquilia.sse import SSEResponse
-
-            if isinstance(result, SSEResponse):
-                return Response.sse(result._resolve_source(), status=result._status)
-        except ImportError:
-            pass
+        if _SSEResponse is not None and isinstance(result, _SSEResponse):
+            return Response.sse(result._resolve_source(), status=result._status)
 
         if isinstance(result, (dict, list, tuple)):
             return Response.json(result)
