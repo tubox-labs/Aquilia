@@ -22,6 +22,26 @@ from aquilia.faults import RoutingFault
 from aquilia.faults.domains import RouteNotFoundFault
 from aquilia.patterns import PatternMatcher
 
+# ── Versioning sentinels, hoisted to module scope ────────────────────────
+# ``_version_matches`` runs on every candidate of every route match and used
+# to execute two ``from aquilia.versioning.core import ...`` statements per
+# call — measured at ~421 ns of a 782 ns static match (64% of the total).
+# ``aquilia.versioning`` imports only stdlib plus its own submodules and never
+# imports ``aquilia.controller``, so hoisting introduces no import cycle.
+try:
+    from aquilia.versioning.core import VERSION_MISSING as _VM
+    from aquilia.versioning.core import VERSION_NEUTRAL as _VN
+    from aquilia.versioning.core import ApiVersion as _AV
+    from aquilia.versioning.parser import SemanticVersionParser as _SemVerParser
+
+    _VERSIONING_AVAILABLE = True
+except ImportError:  # pragma: no cover - versioning is an optional subsystem
+    _VM = None
+    _VN = None
+    _AV = None
+    _SemVerParser = None
+    _VERSIONING_AVAILABLE = False
+
 
 @dataclass
 class ControllerRouteMatch:
@@ -378,13 +398,13 @@ class ControllerRouter:
         This check runs **after** a path/method match succeeds, so it never
         affects latency for unversioned apps.
         """
-        try:
-            from aquilia.versioning.core import VERSION_MISSING as _VM
-            from aquilia.versioning.core import VERSION_NEUTRAL as _VN
-        except ImportError:
-            _VM = None
-            _VN = None
-
+        # NOTE: ``_VM``/``_VN``/``_AV``/``_SemVerParser`` are module-level names
+        # (hoisted for performance). They must NOT be re-imported inside this
+        # function: an ``import ... as _VN`` anywhere in the body would make
+        # ``_VN`` function-local for the whole scope and turn the read below
+        # into an UnboundLocalError. When versioning is unavailable ``_VM`` is
+        # ``None``, which preserves the original ``api_version is _VM``
+        # behaviour for the ``api_version is None`` case.
         if api_version is _VM:
             # A version was expected/active, but none was provided by the request.
             # Only match version-neutral or completely unversioned routes.
@@ -402,20 +422,17 @@ class ControllerRouter:
             if api_version is None:
                 return True
             try:
-                from aquilia.versioning.core import ApiVersion as _AV
-
                 api_parsed = _AV.parse(str(api_version)) if not isinstance(api_version, _AV) else api_version
                 return bound_version == api_parsed
             except Exception:
+                # Also covers ``_AV is None`` (versioning unavailable), which
+                # previously surfaced as the ImportError caught here.
                 return str(api_version) == str(bound_version)
 
         if api_version is None:
             return True  # versioning not active
 
-        # Import sentinels lazily (zero cost when versioning is off)
-        try:
-            from aquilia.versioning.core import VERSION_NEUTRAL as _VN
-        except ImportError:
+        if not _VERSIONING_AVAILABLE:
             return True  # versioning module not available
 
         vm = getattr(route, "version_metadata", None)
@@ -435,9 +452,7 @@ class ControllerRouter:
             max_v = vm.get("max_version")
             if min_v or max_v:
                 try:
-                    from aquilia.versioning.parser import SemanticVersionParser
-
-                    parser = SemanticVersionParser()
+                    parser = _SemVerParser()
                     if min_v:
                         parsed_min = parser.parse(str(min_v))
                         if api_version < parsed_min:
@@ -459,8 +474,6 @@ class ControllerRouter:
 
         # Compare by parsing both sides to handle "1.0" == ApiVersion(1, 0)
         try:
-            from aquilia.versioning.core import ApiVersion as _AV
-
             ctrl_parsed = _AV.parse(str(ctrl_version)) if not isinstance(ctrl_version, _AV) else ctrl_version
             api_parsed = _AV.parse(str(api_version)) if not isinstance(api_version, _AV) else api_version
             return ctrl_parsed == api_parsed
