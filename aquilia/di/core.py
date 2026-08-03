@@ -10,10 +10,13 @@ from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import (
+    Annotated,
     Any,
     Optional,
     Protocol,
     TypeVar,
+    get_args,
+    get_origin,
     runtime_checkable,
 )
 
@@ -1260,7 +1263,15 @@ class Container:
         Returns:
             Tuple of ``(unwrapped_token, effective_tag, effective_optional)``.
         """
-        from typing import get_args, get_origin
+        # ── Fast path: a plain concrete class, the >99% case ──────────────
+        # Runs before any hasattr/get_origin work. ``type(token) is type``
+        # (exact, not isinstance) is deliberate: it matches only classes whose
+        # metaclass is ``type``, so it cannot swallow a custom-metaclass class
+        # that might expose ``_inject_*`` attributes, nor any typing construct
+        # (Annotated/Optional/generic alias), Inject/Dep marker, or string.
+        # Those all fall through to the full logic below unchanged.
+        if type(token) is type:
+            return token, tag, optional
 
         # Handle direct Inject instance or object with DI metadata attributes
         if hasattr(token, "_inject_token") or hasattr(token, "_inject_tag") or hasattr(token, "_inject_optional"):
@@ -1273,40 +1284,33 @@ class Container:
 
         origin = get_origin(token)
         if origin is not None:
-            try:
-                from typing import Annotated
+            if origin is Annotated:
+                args = get_args(token)
+                base_type = args[0]
+                eff_token = base_type
+                eff_tag = tag
+                eff_optional = optional
 
-                if origin is Annotated:
-                    args = get_args(token)
-                    base_type = args[0]
-                    eff_token = base_type
-                    eff_tag = tag
-                    eff_optional = optional
+                for meta in args[1:]:
+                    if (
+                        hasattr(meta, "_inject_token")
+                        or hasattr(meta, "_inject_tag")
+                        or hasattr(meta, "_inject_optional")
+                        or hasattr(meta, "token")
+                        or hasattr(meta, "tag")
+                    ):
+                        injected_tok = getattr(meta, "_inject_token", None) or getattr(meta, "token", None)
+                        if injected_tok is not None:
+                            eff_token = injected_tok
+                        if eff_tag is None:
+                            eff_tag = getattr(meta, "_inject_tag", None) or getattr(meta, "tag", None)
+                        if not eff_optional:
+                            eff_optional = getattr(meta, "_inject_optional", False) or getattr(meta, "optional", False)
+                    elif hasattr(meta, "is_container_lookup"):
+                        if eff_tag is None and getattr(meta, "tag", None) is not None:
+                            eff_tag = meta.tag
 
-                    for meta in args[1:]:
-                        if (
-                            hasattr(meta, "_inject_token")
-                            or hasattr(meta, "_inject_tag")
-                            or hasattr(meta, "_inject_optional")
-                            or hasattr(meta, "token")
-                            or hasattr(meta, "tag")
-                        ):
-                            injected_tok = getattr(meta, "_inject_token", None) or getattr(meta, "token", None)
-                            if injected_tok is not None:
-                                eff_token = injected_tok
-                            if eff_tag is None:
-                                eff_tag = getattr(meta, "_inject_tag", None) or getattr(meta, "tag", None)
-                            if not eff_optional:
-                                eff_optional = getattr(meta, "_inject_optional", False) or getattr(
-                                    meta, "optional", False
-                                )
-                        elif hasattr(meta, "is_container_lookup"):
-                            if eff_tag is None and getattr(meta, "tag", None) is not None:
-                                eff_tag = meta.tag
-
-                    return self._unwrap_token(eff_token, tag=eff_tag, optional=eff_optional)
-            except ImportError:
-                pass
+                return self._unwrap_token(eff_token, tag=eff_tag, optional=eff_optional)
 
         from aquilia.di.providers import _normalize_optional_token
 
