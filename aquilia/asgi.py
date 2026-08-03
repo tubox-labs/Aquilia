@@ -36,6 +36,12 @@ from aquilia.typing import ASGIReceive, ASGIScope, ASGISend
 from aquilia.typing.controller import ControllerRouteMatchLike
 from aquilia.versioning.errors import VersionError
 
+# DI cache key for the per-request Request binding. Derived from the class
+# rather than hardcoded so it cannot drift from Container._token_to_key() if
+# Request ever moves module. Must stay identical to the string token that
+# ContractProvider resolves ("aquilia.request.Request").
+_REQUEST_TOKEN_KEY: str = f"{RequestClass.__module__}.{RequestClass.__qualname__}"
+
 
 class ASGIAdapter:
     """
@@ -468,12 +474,23 @@ class ASGIAdapter:
         if di_container is None:
             di_container = Container(scope="request")
 
-        # Register Request instance in container for ContractProvider request lookup.
-        # Use register_instance() (COW-safe) instead of writing _providers directly —
-        # a direct write mutates the shared parent app dict (§6.5).
-
-        await di_container.register_instance(RequestClass, request, scope="request")
-        di_container._cache["aquilia.request.Request"] = request
+        # Bind the Request into the request-scoped container for
+        # ContractProvider lookup (aquilia/di/providers.py resolves the string
+        # token "aquilia.request.Request").
+        #
+        # A direct _cache write replaces the former register_instance() call.
+        # register_instance allocated a ValueProvider, forked the copy-on-write
+        # provider dict, emitted a diagnostic event and ran the plugin hook —
+        # 3.68 us/request, scaling to 7.2 us at 1000 providers — and then the
+        # very next line wrote the cache anyway, which is what actually served
+        # every subsequent lookup.
+        #
+        # Correctness: resolve_async checks _cache BEFORE _lookup_provider
+        # (di/core.py), and _cache is per-request (create_request_scope gives
+        # each request a fresh dict), so this neither mutates the shared parent
+        # provider dict nor leaks across requests. _REQUEST_TOKEN_KEY is exactly
+        # _token_to_key(Request), so type- and string-keyed lookups both hit.
+        di_container._cache[_REQUEST_TOKEN_KEY] = request
 
         # ── Acquire RequestCtx from pool (zero-alloc hot path) ──
         ctx = _ctx_pool.acquire(
