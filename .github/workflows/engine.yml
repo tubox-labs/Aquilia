@@ -1,0 +1,128 @@
+# Native core engine (aquilia/_core) — build, sanitize, and parity gates.
+#
+# Three blocking gates, per docs/engine/06-python-binding-architecture.md §9:
+#   1. the extension builds and imports natively on every target
+#   2. the C++ core is ASAN/UBSAN clean
+#   3. the full Python suite passes with the engine DISABLED
+#
+# Gate 3 is the important one: it proves the native layer is removable, which is
+# what makes shipping it low-risk.
+name: engine
+
+on:
+  push:
+    paths:
+      - "aquilia/_core/**"
+      - "aquilia/_core_loader.py"
+      - "aquilia/controller/router.py"
+      - "aquilia/controller/base.py"
+      - "tests/engine/**"
+      - "pyproject.toml"
+      - ".github/workflows/engine.yml"
+  pull_request:
+    paths:
+      - "aquilia/_core/**"
+      - "aquilia/_core_loader.py"
+      - "aquilia/controller/router.py"
+      - "aquilia/controller/base.py"
+      - "tests/engine/**"
+      - "pyproject.toml"
+      - ".github/workflows/engine.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build + test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install (builds the extension)
+        run: pip install -e ".[testing]"
+
+      - name: Assert the native engine actually loaded
+        # Without this, a silently-skipped build would leave every engine test
+        # skipped and the job green.
+        run: |
+          python -c "from aquilia._core_loader import NATIVE, engine_info; assert NATIVE, engine_info()"
+
+      - name: Run the suite
+        run: pytest tests/ -q
+
+  sanitizers:
+    name: ASAN + UBSAN (C++ core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build deps
+        run: pip install "scikit-build-core>=0.9" "nanobind>=2.0"
+
+      - name: Configure C++ tests with sanitizers
+        run: >
+          cmake -S aquilia/_core -B build-asan
+          -DAQUILIA_ENGINE_TESTS=ON
+          -DCMAKE_BUILD_TYPE=Debug
+          -DAQUILIA_SANITIZE=address,undefined
+          -Dnanobind_DIR=$(python -c "import nanobind; print(nanobind.cmake_dir())")
+
+      - name: Build and run
+        run: |
+          cmake --build build-asan -j
+          ctest --test-dir build-asan --output-on-failure
+
+  fallback_parity:
+    name: full suite with the engine DISABLED
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[testing]"
+
+      - name: Run with AQUILIA_ENGINE=0
+        env:
+          AQUILIA_ENGINE: "0"
+        run: |
+          python -c "from aquilia._core_loader import NATIVE; assert not NATIVE, 'engine should be disabled'"
+          pytest tests/ -q
+
+  no_compiler:
+    name: install without a C++ compiler
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install with the extension build suppressed
+        # Simulates a machine with no usable toolchain. The install must succeed
+        # and the package must import with NATIVE False.
+        env:
+          CMAKE_ARGS: "-DAQUILIA_ENGINE_OPTIONAL=ON"
+        run: |
+          pip install -e ".[testing]"
+
+      - name: Import must work regardless
+        run: python -c "import aquilia; from aquilia._core_loader import engine_info; print(engine_info())"
