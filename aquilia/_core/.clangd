@@ -1,0 +1,5 @@
+# clangd has no compile_commands.json until CMake generates one, so it falls
+# back to C++98 defaults and flags every C++17/20 construct in the headers.
+# The real standard is set in CMakeLists.txt (CMAKE_CXX_STANDARD 20).
+CompileFlags:
+  Add: [-std=c++20, -Isrc]

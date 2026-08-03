@@ -7,8 +7,34 @@
 # ============================================================================
 
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.9", "nanobind>=2.0"]
+build-backend = "scikit_build_core.build"
+
+# ---------------------------------------------------------------------------
+# Native core engine (aquilia/_core) — OPTIONAL
+# ---------------------------------------------------------------------------
+# The extension is a pure accelerator. aquilia/_core_loader.py falls back to
+# pure Python when it is absent, so an install on a machine without a C++20
+# compiler still produces a fully working package -- just without the native
+# router and request context. See docs/engine/06-python-binding-architecture.md.
+[tool.scikit-build]
+cmake.source-dir = "aquilia/_core"
+cmake.build-type = "Release"
+cmake.version = ">=3.21"
+wheel.packages = ["aquilia"]
+sdist.include = ["aquilia/_core/**/*.hpp", "aquilia/_core/**/*.cpp", "aquilia/_core/CMakeLists.txt"]
+# When nanobind or a C++20 compiler is unavailable, skip the extension instead of
+# failing the whole install. Honoured by aquilia/_core/CMakeLists.txt.
+cmake.define.AQUILIA_ENGINE_OPTIONAL = "ON"
+
+# Version stays sourced from aquilia/_version.py -- the setuptools dynamic-version
+# hook does not apply under this backend.
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "aquilia/_version.py"
+# The `(?::\s*[^=]+)?` branch is required: the assignment is annotated
+# (`__version__: str = "..."`), which a bare `__version__\s*=` pattern misses.
+regex = '''(?m)^__version__\s*(?::\s*[^=]+)?=\s*["'](?P<value>[^"']+)["']'''
 
 # ---------------------------------------------------------------------------
 # Project metadata
