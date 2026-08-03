@@ -5,8 +5,15 @@ Provides the base Controller class, RequestCtx abstraction,
 and controller-level features: versioning, throttling, interceptors,
 exception filters, and handler timeouts.
 
-Performance (v4 — pool retired):
-- RequestCtx uses __slots__ for ~40% faster attribute access.
+Performance (v5 — native context):
+- When the native engine is available, RequestCtx subclasses the C++
+  ``RequestContext``, whose slots are nanobind data descriptors. A slot write is
+  then a direct field store instead of a ``__setattr__`` round trip: measured
+  58 ns -> 14.5 ns per write, and construction 555 ns -> 34 ns. With ~24 writes
+  per request that is the dominant remaining per-request cost.
+- Without the native engine, the pure-Python ``__slots__`` implementation is
+  used unchanged. Both expose an identical API, including the ``_extra``
+  escape hatch.
 - The object pool was removed after measurement showed it was net-negative
   (1,972 ns acquire+release vs 588 ns direct construction). ``_ctx_pool``
   remains as a no-op shim for import compatibility.
@@ -18,6 +25,8 @@ import time
 from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING, Any, Literal, Optional, overload
 
+from aquilia._core_loader import NATIVE as _NATIVE
+from aquilia._core_loader import RequestContext as _NativeRequestContext
 from aquilia._datastructures import Headers, MultiDict
 from aquilia._uploads import FormData
 from aquilia.faults.domains import EffectNotAcquiredFault
@@ -72,25 +81,48 @@ def _get_current_request_ctx() -> "RequestCtx | None":
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class RequestCtx:
+# ── Base selection for RequestCtx ────────────────────────────────────────
+# With the native engine, RequestCtx derives from the C++ RequestContext, whose
+# seven slots are nanobind data descriptors. Attribute writes then bypass
+# __setattr__ entirely (58 ns -> 14.5 ns) and construction drops 555 ns -> 34 ns.
+#
+# The native base is declared with dynamic_attr(), so instances get a __dict__
+# and unknown attribute writes land there instead of raising -- which is what
+# keeps the `_extra` escape hatch working without a __setattr__ override.
+#
+# Without the engine, the base is `object` and the pure-Python __slots__ path
+# below is used unchanged.
+_CtxBase: Any = _NativeRequestContext if _NATIVE else object
+
+
+class RequestCtx(_CtxBase):
     """
     Request context provided to controller methods.
 
-    Uses __slots__ for compact memory layout and faster attribute access.
-    Pooled via _RequestCtxPool to eliminate per-request heap allocation.
-    Middleware/plugins can still attach data via the ``state`` dict or
-    the ``_extra`` dict (escape hatch for truly dynamic attributes).
+    Compact memory layout and fast attribute access: native fixed slots when the
+    core engine is available, ``__slots__`` otherwise.  Middleware/plugins can
+    attach data via the ``state`` dict or by setting attributes directly (the
+    ``_extra`` escape hatch for truly dynamic attributes).
     """
 
+    # Only meaningful on the pure-Python path. When the base is the native type,
+    # the seven real fields are descriptors on that base and instances carry a
+    # __dict__ from dynamic_attr(), so declaring __slots__ here would shadow the
+    # descriptors with empty slot storage. `_extra` alone is declared so the
+    # attribute exists on both paths.
     __slots__ = (
-        "request",
-        "identity",
-        "session",
-        "auth",
-        "container",
-        "state",
-        "request_id",
-        "_extra",
+        (
+            "request",
+            "identity",
+            "session",
+            "auth",
+            "container",
+            "state",
+            "request_id",
+            "_extra",
+        )
+        if not _NATIVE
+        else ()
     )
 
     def __init__(
@@ -103,6 +135,9 @@ class RequestCtx:
         state: dict[str, Any] | None = None,
         request_id: str | None = None,
     ):
+        if _NATIVE:
+            # The native base has a nullary constructor; slots default to None.
+            super().__init__()
         self.request = request
         self.identity = identity
         self.session = session
@@ -110,7 +145,10 @@ class RequestCtx:
         self.container = container
         self.state: dict[str, Any] = state if state is not None else {}
         self.request_id = request_id
-        self._extra: dict[str, Any] | None = None
+        if not _NATIVE:
+            # On the native path `_extra` is served by __getattr__/__setattr__
+            # over the instance __dict__; there is no slot to initialise.
+            self._extra: dict[str, Any] | None = None
 
     @overload
     def get_effect(self, name: Literal["DBTx", "db"]) -> DBTxHandle: ...
@@ -166,25 +204,45 @@ class RequestCtx:
         return False
 
     # -- dynamic attribute escape hatch for plugins/middleware -------
-    def __getattr__(self, name: str) -> Any:
-        """Fallback for dynamic attributes stored in _extra."""
-        # __slots__ attrs are handled natively; this only fires for unknowns
-        extra = object.__getattribute__(self, "_extra")
-        if extra is not None and name in extra:
-            return extra[name]
-        raise AttributeError(f"'RequestCtx' object has no attribute {name!r}")
+    if _NATIVE:
+        # Native path: the seven real fields are data descriptors on the C++ base
+        # and dynamic_attr() gives instances a __dict__, so normal attribute
+        # lookup already handles both. NO __setattr__ override is defined here on
+        # purpose -- defining one would reintroduce the 58 ns/write cost this
+        # phase exists to remove, on every field write of every request.
+        #
+        # Only __getattr__ is needed, and only for the `_extra` contract: reading
+        # `ctx._extra` must yield the dynamic attributes as a dict (or None when
+        # there are none), matching the pure-Python behaviour.
+        def __getattr__(self, name: str) -> Any:
+            # Only called when normal lookup fails, so slots and __dict__ entries
+            # never reach here.
+            if name == "_extra":
+                d = object.__getattribute__(self, "__dict__")
+                return d if d else None
+            raise AttributeError(f"'RequestCtx' object has no attribute {name!r}")
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        """Allow setting extra dynamic attributes via _extra dict."""
-        # Fast path: known slots
-        try:
-            object.__setattr__(self, name, value)
-        except AttributeError:
+    else:
+
+        def __getattr__(self, name: str) -> Any:
+            """Fallback for dynamic attributes stored in _extra."""
+            # __slots__ attrs are handled natively; this only fires for unknowns
             extra = object.__getattribute__(self, "_extra")
-            if extra is None:
-                extra = {}
-                object.__setattr__(self, "_extra", extra)
-            extra[name] = value
+            if extra is not None and name in extra:
+                return extra[name]
+            raise AttributeError(f"'RequestCtx' object has no attribute {name!r}")
+
+        def __setattr__(self, name: str, value: Any) -> None:
+            """Allow setting extra dynamic attributes via _extra dict."""
+            # Fast path: known slots
+            try:
+                object.__setattr__(self, name, value)
+            except AttributeError:
+                extra = object.__getattribute__(self, "_extra")
+                if extra is None:
+                    extra = {}
+                    object.__setattr__(self, "_extra", extra)
+                extra[name] = value
 
     @property
     def path(self) -> str:
