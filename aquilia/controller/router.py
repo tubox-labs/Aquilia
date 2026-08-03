@@ -17,10 +17,20 @@ Performance (v3 — scalability):
 from dataclasses import dataclass
 from typing import Any
 
+from aquilia._core_loader import DEFER as _DEFER
+from aquilia._core_loader import NATIVE as _NATIVE
+from aquilia._core_loader import ParamKind as _ParamKind
+from aquilia._core_loader import Router as _NativeRouter
 from aquilia.controller.compiler import CompiledController, CompiledRoute
 from aquilia.faults import RoutingFault
 from aquilia.faults.domains import RouteNotFoundFault
 from aquilia.patterns import PatternMatcher
+
+# ── Native engine eligibility ────────────────────────────────────────────
+# Param types the native router can convert with identical results to the
+# Python castor. Anything else (bool, uuid, slug, json, any, path) keeps its
+# whole method on the Python path -- see _build_native_router.
+_NATIVE_PARAM_KINDS = {"str": "STR", "int": "INT", "float": "FLOAT"} if _NATIVE else {}
 
 # ── Versioning sentinels, hoisted to module scope ────────────────────────
 # ``_version_matches`` runs on every candidate of every route match and used
@@ -43,9 +53,15 @@ except ImportError:  # pragma: no cover - versioning is an optional subsystem
     _VERSIONING_AVAILABLE = False
 
 
-@dataclass
+@dataclass(slots=True)
 class ControllerRouteMatch:
-    """Result of a successful controller route match."""
+    """Result of a successful controller route match.
+
+    ``slots=True`` because this is allocated once per matched request and was
+    measured at 93 ns without it -- more than double the 42 ns native match it
+    wraps. Slots remove the per-instance ``__dict__``, which is pure overhead
+    here: the three fields are fixed and nothing attaches attributes to a match.
+    """
 
     route: CompiledRoute
     params: dict[str, Any]
@@ -110,6 +126,13 @@ class ControllerRouter:
         # §11.11 / §7 url_for() index: name -> CompiledRoute (O(1) reverse lookup)
         # Keys: "ControllerName.handler_name" and bare "handler_name"
         self._name_index: dict[str, CompiledRoute] = {}
+
+        # ── Native engine state (built during initialize) ──
+        # {method: True} for methods the native router may answer on its own.
+        self._native_methods: dict[str, bool] = {}
+        # Dense route id -> (route, params_template, query_template)
+        self._native_routes: list[CompiledRoute] = []
+        self._native: Any | None = None
 
     def add_controller(self, compiled_controller: CompiledController):
         """Add a compiled controller to the router."""
@@ -193,6 +216,120 @@ class ControllerRouter:
 
         self._initialized = True
 
+        if _NATIVE:
+            self._build_native_router()
+
+    # ------------------------------------------------------------------
+    # Native engine
+    # ------------------------------------------------------------------
+
+    def _build_native_router(self) -> None:
+        """Compile the route table into the native router where it is safe to.
+
+        Eligibility is decided **per method**, not per route, and conservatively.
+        A method is native only if every one of its routes is representable with
+        identical semantics; otherwise that method keeps using the Python tiers
+        untouched. This is what keeps the native path a pure accelerator rather
+        than a second, subtly different matcher.
+
+        A method is disqualified by any of:
+
+        * **Version metadata** on any route. Version filtering is precomputed at
+          freeze time in the design, but that changes conflict detection from a
+          per-request 500 into a startup failure. Not worth the behaviour change
+          for the unversioned-app fast path that already dominates.
+        * **Query-param requirements.** The native router matches paths only;
+          query validation, casting, and defaults stay in Python.
+        * **Validators on a path param.** The native side evaluates no Python
+          callables by design.
+        * **A param type outside str/int/float.** bool/uuid/slug/json/path have
+          castor semantics the native converter does not reproduce.
+        * **A regex-tier route**, which the trie cannot represent at all.
+        * **Any conflict** -- duplicate static path or duplicate trie terminal.
+          The Python path raises ``RoutingFault(ROUTE_CONFLICT)`` for these and
+          must keep doing so.
+        """
+        native = _NativeRouter()
+        routes: list[CompiledRoute] = []
+        eligible: dict[str, bool] = {}
+
+        for method, method_routes in self.routes_by_method.items():
+            pending = self._native_candidates(method_routes)
+            if pending is None:
+                eligible[method] = False
+                continue
+
+            # Register only after the whole method is known clean, so a late
+            # disqualification cannot leave half a method in the trie.
+            first_id = len(routes)
+            ok = True
+            for route, path, kinds in pending:
+                rid = len(routes)
+                added = (
+                    native.add_static(method, path, rid) if not kinds else native.add_route(method, path, kinds, rid)
+                )
+                if not added:
+                    # A conflict, or a shape the checks did not anticipate. The
+                    # ids already in the trie become unreachable because the
+                    # method is never consulted natively again.
+                    del routes[first_id:]
+                    ok = False
+                    break
+                routes.append(route)
+            eligible[method] = ok
+
+        native.freeze()
+        self._native = native
+        self._native_methods = eligible
+        self._native_routes = routes
+
+    @staticmethod
+    def _native_candidates(
+        method_routes: list[CompiledRoute],
+    ) -> list[tuple[CompiledRoute, str, dict[str, Any]]] | None:
+        """Return per-route native registration data, or None if any route in
+        this method disqualifies the whole method.
+
+        See :meth:`_build_native_router` for why disqualification is per method.
+        """
+        out: list[tuple[CompiledRoute, str, dict[str, Any]]] = []
+
+        for route in method_routes:
+            cp = route.compiled_pattern
+
+            # Versioned routes keep Python's per-request version filtering.
+            if (
+                getattr(route, "version_metadata", None) is not None
+                or getattr(route, "bound_version", None) is not None
+                or getattr(route.controller_metadata, "version", None) is not None
+            ):
+                return None
+
+            # Query params are matched, cast, and defaulted in Python.
+            if cp.query:
+                return None
+
+            kinds: dict[str, Any] = {}
+            for pname, pmeta in cp.params.items():
+                if pmeta.validators:
+                    return None
+                kind_name = _NATIVE_PARAM_KINDS.get(pmeta.param_type)
+                if kind_name is None:
+                    return None
+                kinds[pname] = getattr(_ParamKind, kind_name)
+
+            # Register from the COMPILED pattern, not route.full_path. The HTTP
+            # decorators normalise `{name}` to `<name:type>` before compilation,
+            # so for `@GET("/t/{name}")` full_path is "/t/{name}" while cp.raw is
+            # "/t/<name:str>" and cp.params contains "name". Registering
+            # full_path would make the native router treat `{name}` as a literal
+            # segment and match only that text, while the Python trie matched it
+            # as a parameter. cp.raw is the only string that agrees with
+            # cp.params, which is what the Python tiers use.
+            out.append((route, cp.raw.rstrip("/") or "/", kinds))
+
+        return out
+
     # ------------------------------------------------------------------
     # Trie helpers
     # ------------------------------------------------------------------
@@ -272,6 +409,25 @@ class ControllerRouter:
         """
         if not self._initialized:
             self.initialize()
+
+        # ── Tier 0: native engine ──
+        # Only consulted for methods whose entire route set was proven
+        # representable at initialize() time (see _build_native_router). A None
+        # result from an eligible method is a definitive miss: the native trie
+        # holds every route that method has. DEFER means the native matcher
+        # declined to decide (a param value outside its ASCII fast path) and the
+        # Python tiers below must run.
+        if self._native is not None and self._native_methods.get(method):
+            native_result = self._native.match(method, path)
+            if native_result is None:
+                return None
+            if native_result is not _DEFER:
+                route_id, params = native_result
+                return ControllerRouteMatch(
+                    route=self._native_routes[route_id],
+                    params=params if params else _EMPTY_DICT,
+                    query=_EMPTY_DICT,
+                )
 
         # ── Normalize path once ──
         norm_path = path[:-1] if len(path) > 1 and path[-1] == "/" else path
