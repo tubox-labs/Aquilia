@@ -49,6 +49,10 @@ enum FieldFlags : std::uint8_t {
     kFieldAllowNull = 1 << 1,
     kFieldHasDefault = 1 << 2,
     kFieldReadOnly = 1 << 3,
+    // TextFacet.trim defaults to True, so a plan that ignored it would diverge
+    // on almost every contract; TextFacet.seal rejects "" unless allow_blank.
+    kFieldTrim = 1 << 4,
+    kFieldAllowBlank = 1 << 5,
 };
 
 }  // namespace aq

@@ -30,6 +30,11 @@ struct Constructors {
     PyObject* date_fromisoformat = nullptr;
     PyObject* datetime_fromisoformat = nullptr;
     PyObject* time_fromisoformat = nullptr;
+    // The types themselves, for the "already the right type" fast paths in
+    // fieldplan, where a payload may arrive pre-parsed.
+    PyTypeObject* date_type = nullptr;
+    PyTypeObject* datetime_type = nullptr;
+    PyTypeObject* time_type = nullptr;
     PyObject* decimal_type = nullptr;
     PyObject* json_loads = nullptr;
     PyTypeObject* uuid_type = nullptr;

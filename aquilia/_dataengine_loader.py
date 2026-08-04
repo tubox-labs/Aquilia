@@ -38,6 +38,7 @@ from typing import Any
 __all__ = [
     "DATAENGINE_NATIVE",
     "dataengine_info",
+    "native_module",
 ]
 
 
@@ -71,6 +72,16 @@ if _dataengine_enabled():
         _LOAD_ERROR = str(exc)
 else:
     _LOAD_ERROR = "disabled via AQUILIA_DATAENGINE"
+
+
+def native_module() -> Any:
+    """The native extension itself, or None when it is absent or disabled.
+
+    The plan compilers need the module's ``FieldPlan``/``TypeCode`` attributes.
+    Handing them the module keeps this loader the single import site, so no
+    other part of ``aquilia`` ever names :mod:`aquilia._dataengine` directly.
+    """
+    return _dataengine
 
 
 def dataengine_info() -> dict[str, Any]:

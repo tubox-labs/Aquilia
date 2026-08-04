@@ -22,6 +22,7 @@ from typing import (
     overload,
 )
 
+from aquilia.contracts._native_plan import field_plan_for
 from aquilia.contracts.annotations import (
     Field,
     LazyContractFacet,
@@ -1368,14 +1369,27 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
         # Phase 1 + 2: Structural validation via Sigil
         strict_override = self.context.get("strict", None)
-        errors, validated_dict = self._sigil.validate(
-            data,
-            strict=strict_override,
-            partial=self.partial,
-            context=self.context,
-            _async_pending=_async_pending,
-        )
-        self._errors.update(errors)
+
+        # Native fast path. Only for the plain, common shape: an exact dict,
+        # full (non-partial) validation, no strict override. Everything else --
+        # and any payload the plan cannot decide with certainty -- returns None
+        # and falls through to the Python path below, which stays the reference
+        # implementation and the source of every error message.
+        validated_dict = None
+        if type(data) is dict and not self.partial and strict_override is None and _async_pending is None:
+            plan = field_plan_for(self.__class__)
+            if plan is not None:
+                validated_dict = plan.execute(data)
+
+        if validated_dict is None:
+            errors, validated_dict = self._sigil.validate(
+                data,
+                strict=strict_override,
+                partial=self.partial,
+                context=self.context,
+                _async_pending=_async_pending,
+            )
+            self._errors.update(errors)
         validated.update(validated_dict)
 
         if self._errors:

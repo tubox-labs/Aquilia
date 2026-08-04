@@ -33,19 +33,19 @@ bool init_constructors() {
     PyObject* date_cls = import_from("datetime", "date");
     if (!date_cls) return false;
     g_ctors.date_fromisoformat = PyObject_GetAttrString(date_cls, "fromisoformat");
-    Py_DECREF(date_cls);
+    g_ctors.date_type = reinterpret_cast<PyTypeObject*>(date_cls);  // keeps the ref
     if (!g_ctors.date_fromisoformat) return false;
 
     PyObject* dt_cls = import_from("datetime", "datetime");
     if (!dt_cls) return false;
     g_ctors.datetime_fromisoformat = PyObject_GetAttrString(dt_cls, "fromisoformat");
-    Py_DECREF(dt_cls);
+    g_ctors.datetime_type = reinterpret_cast<PyTypeObject*>(dt_cls);  // keeps the ref
     if (!g_ctors.datetime_fromisoformat) return false;
 
     PyObject* time_cls = import_from("datetime", "time");
     if (!time_cls) return false;
     g_ctors.time_fromisoformat = PyObject_GetAttrString(time_cls, "fromisoformat");
-    Py_DECREF(time_cls);
+    g_ctors.time_type = reinterpret_cast<PyTypeObject*>(time_cls);  // keeps the ref
     if (!g_ctors.time_fromisoformat) return false;
 
     // _decimal is C; Decimal(str) is 44.7 ns, at parity with one crossing.
