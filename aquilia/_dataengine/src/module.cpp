@@ -14,6 +14,7 @@
 
 #include "convert.hpp"
 #include "fieldplan.hpp"
+#include "rowplan.hpp"
 #include "typecode.hpp"
 
 namespace nb = nanobind;
@@ -126,4 +127,44 @@ NB_MODULE(_dataengine, m) {
             nb::arg("payload"),
             "Validate a payload. Returns the validated dict, or None to fall back to Python.")
         .def("__len__", &aq::FieldPlan::size);
+
+    // ---------------------------------------------------------------------
+    // RowPlan
+    // ---------------------------------------------------------------------
+    nb::module_ cf = m.def_submodule("ColumnFlags", "Per-column flag bits for RowPlan.");
+    cf.attr("FK_WRAP") = static_cast<int>(aq::kFlagFkWrap);
+    cf.attr("NULLABLE") = static_cast<int>(aq::kFlagNullable);
+
+    nb::class_<aq::RowPlan>(m, "RowPlan")
+        .def(nb::init<>())
+        .def(
+            "set_model",
+            [](aq::RowPlan& self, nb::object model_cls, nb::object related_not_loaded, nb::object model_name) {
+                self.set_model(model_cls.ptr(), related_not_loaded.ptr(), model_name.ptr());
+            },
+            nb::arg("model_cls"), nb::arg("related_not_loaded"), nb::arg("model_name"))
+        .def(
+            "add",
+            [](aq::RowPlan& self, nb::object key, nb::object attr, int code, int flags) {
+                self.add(key.ptr(), attr.ptr(), static_cast<aq::TypeCode>(code),
+                         static_cast<std::uint8_t>(flags));
+            },
+            nb::arg("key"), nb::arg("attr"), nb::arg("code"), nb::arg("flags"))
+        .def(
+            "execute",
+            [](const aq::RowPlan& self, nb::object rows) -> nb::object {
+                PyObject* result = self.execute(rows.ptr());
+                if (!result) {
+                    // nullptr WITH an error set is a real failure; nullptr
+                    // without one means "fall back", and the caller re-runs the
+                    // batch through Model.from_row. A batch either completes or
+                    // produces nothing -- never a partial result.
+                    if (PyErr_Occurred()) throw nb::python_error();
+                    return nb::none();
+                }
+                return nb::steal(result);
+            },
+            nb::arg("rows"),
+            "Hydrate a list of row dicts. Returns None to fall back to Python.")
+        .def("__len__", &aq::RowPlan::size);
 }

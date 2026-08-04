@@ -151,6 +151,113 @@ PyObject* uuid_from_string(PyObject* s) {
     return u;
 }
 
+namespace {
+
+// True for a str that is empty or all-whitespace, which every date/decimal/uuid
+// to_python maps to None. Only ASCII is decided here; a non-ASCII string defers,
+// because str.strip() follows Unicode whitespace rules this does not model.
+// Returns: 1 = blank, 0 = not blank, -1 = cannot decide.
+int ascii_blank(PyObject* s) {
+    if (!PyUnicode_IS_ASCII(s)) return -1;
+    const Py_ssize_t n = PyUnicode_GET_LENGTH(s);
+    for (Py_ssize_t i = 0; i < n; ++i) {
+        const Py_UCS4 c = PyUnicode_READ_CHAR(s, i);
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != '\v' && c != '\f') return 0;
+    }
+    return 1;
+}
+
+}  // namespace
+
+PyObject* convert_hydrate(TypeCode code, PyObject* raw) {
+    switch (code) {
+        case TypeCode::Str:
+            // CharField and friends inherit the base to_python, a passthrough.
+            return Py_NewRef(raw);
+
+        case TypeCode::Int:
+            if (PyLong_CheckExact(raw)) return Py_NewRef(raw);
+            return Py_NewRef(raw);  // base to_python is a passthrough
+
+        case TypeCode::Float:
+            if (PyFloat_CheckExact(raw)) return Py_NewRef(raw);
+            return Py_NewRef(raw);  // base to_python is a passthrough
+
+        case TypeCode::Bool:
+            // BooleanField.to_python: bool(value), by truthiness.
+            return PyBool_FromLong(PyObject_IsTrue(raw));
+
+        case TypeCode::Date:
+        case TypeCode::DateTime:
+        case TypeCode::Time: {
+            PyTypeObject* want = code == TypeCode::Date     ? g_ctors.date_type
+                                 : code == TypeCode::DateTime ? g_ctors.datetime_type
+                                                              : g_ctors.time_type;
+            // DateField accepts any datetime.date instance as-is, and datetime
+            // subclasses date, so isinstance is correct here -- unlike the
+            // contracts path, which needs the exact type.
+            if (PyObject_TypeCheck(raw, want)) return Py_NewRef(raw);
+            if (!PyUnicode_CheckExact(raw)) return Py_NewRef(raw);  // passthrough
+            const int blank = ascii_blank(raw);
+            if (blank < 0) return nullptr;               // cannot decide -> fall back
+            if (blank) return Py_NewRef(Py_None);        // blank string -> None
+            PyObject* fn = code == TypeCode::Date       ? g_ctors.date_fromisoformat
+                           : code == TypeCode::DateTime ? g_ctors.datetime_fromisoformat
+                                                        : g_ctors.time_fromisoformat;
+            return PyObject_CallFunctionObjArgs(fn, raw, nullptr);
+        }
+
+        case TypeCode::Decimal: {
+            if (PyUnicode_CheckExact(raw)) {
+                const int blank = ascii_blank(raw);
+                if (blank < 0) return nullptr;
+                if (blank) return Py_NewRef(Py_None);
+            }
+            // DecimalField.to_python is Decimal(str(value)); the str() matters
+            // for float input, where Decimal(float) would keep binary error.
+            PyObject* as_str = PyObject_Str(raw);
+            if (!as_str) return nullptr;
+            PyObject* v = PyObject_CallFunctionObjArgs(g_ctors.decimal_type, as_str, nullptr);
+            Py_DECREF(as_str);
+            return v;
+        }
+
+        case TypeCode::Uuid: {
+            if (Py_IS_TYPE(raw, g_ctors.uuid_type)) return Py_NewRef(raw);
+            if (!PyUnicode_CheckExact(raw)) {
+                // to_python does uuid.UUID(str(value)); defer the odd shapes.
+                return nullptr;
+            }
+            const int blank = ascii_blank(raw);
+            if (blank < 0) return nullptr;
+            if (blank) return Py_NewRef(Py_None);
+            PyObject* u = uuid_from_string(raw);
+            if (u) return u;
+            if (PyErr_Occurred()) PyErr_Clear();
+            return PyObject_CallFunctionObjArgs(reinterpret_cast<PyObject*>(g_ctors.uuid_type), raw, nullptr);
+        }
+
+        case TypeCode::Json: {
+            if (!PyUnicode_Check(raw) && !PyBytes_Check(raw)) {
+                // Already-decoded values (PostgreSQL JSONB) pass through.
+                return Py_NewRef(raw);
+            }
+            PyObject* v = PyObject_CallFunctionObjArgs(g_ctors.json_loads, raw, nullptr);
+            if (v) return v;
+            // JSONField deliberately returns an unparseable string AS-IS rather
+            // than raising, so an invalid value is not an error here.
+            PyErr_Clear();
+            return Py_NewRef(raw);
+        }
+
+        case TypeCode::Bytes:
+            return Py_NewRef(raw);
+
+        default:
+            return nullptr;  // fall back
+    }
+}
+
 PyObject* convert(TypeCode code, PyObject* raw) {
     switch (code) {
         case TypeCode::Passthrough:

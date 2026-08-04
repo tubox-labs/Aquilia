@@ -39,6 +39,7 @@ nanobind_add_module(_dataengine
   src/uuid_parse.cpp
   src/convert.cpp
   src/fieldplan.cpp
+  src/rowplan.cpp
   src/module.cpp
 )
 target_include_directories(_dataengine PRIVATE src)

@@ -63,6 +63,23 @@ const Constructors& ctors();
 // -- identical message, fault code, and traceback.
 PyObject* convert(TypeCode code, PyObject* raw);
 
+// Convert one raw DB value the way Model.from_row's field.to_python does.
+//
+// This is deliberately SEPARATE from convert(): the ORM's to_python methods are
+// not the same function as the contracts' facet casts, and several differ in
+// ways that would be silent data corruption if merged.
+//
+//   * DateField/DateTimeField/TimeField/DecimalField/UUIDField map a blank or
+//     whitespace-only string to None, because a blank text column and a real
+//     NULL both mean "no value" (fields_module.py).
+//   * DecimalField is Decimal(str(value)) -- the str() is load-bearing for
+//     float input.
+//   * JSONField returns an unparseable string AS-IS rather than raising.
+//
+// Returns a new reference, nullptr with an error set on a genuine failure, or
+// nullptr with NO error set when the caller must fall back to Python.
+PyObject* convert_hydrate(TypeCode code, PyObject* raw);
+
 // Build a uuid.UUID from a string without re-entering its pure-Python __init__.
 // Exposed separately so the M3 gate can measure it directly. Returns nullptr
 // WITHOUT setting an error when the string is outside the narrow grammar

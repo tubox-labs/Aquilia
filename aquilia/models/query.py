@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from aquilia.db.engine import current_model_var, get_database
 from aquilia.faults.domains import ModelNotFoundFault, QueryFault, SecurityFault
+from aquilia.models._native_plan import row_plan_for
 from aquilia.models.fields.lookups import lookup_registry, resolve_lookup
 
 logger = logging.getLogger("aquilia.models.query")
@@ -362,6 +363,7 @@ class Q(Generic[TModel]):
     Every chain method returns a NEW Q instance (immutable cloning).
     Terminal methods (all, first, count, etc.) are async and execute SQL.
 
+    ```
     Chain methods (return new Q):
         filter(**kwargs)          -- Field lookup filter
         exclude(**kwargs)         -- Negated filter
@@ -398,6 +400,7 @@ class Q(Generic[TModel]):
         explain()                -- str (query plan)
         latest(field)            -- Model
         earliest(field)          -- Model
+    ```
     """
 
     __slots__ = (
@@ -532,12 +535,14 @@ class Q(Generic[TModel]):
             .filter(QNode(name="Alice") | QNode(name="Bob"))
             .filter(QNode(active=True) & QNode(role="admin"), age__gt=18)
 
+        ```
         Usage:
             .filter(name="John")                    # exact match
             .filter(age__gt=18, active=True)         # AND conditions
             .filter(name__icontains="john")          # case-insensitive contains
             .filter(id__in=[1, 2, 3])                # IN clause
             .filter(created_at__range=(start, end))  # BETWEEN
+        ```
         """
         new = self._clone()
 
@@ -603,6 +608,7 @@ class Q(Generic[TModel]):
             .exclude(QNode(role="banned") | QNode(role="suspended"))
 
         Usage:
+
             .exclude(active=False)             # WHERE NOT (active = 0)
             .exclude(email__contains="spam")   # WHERE NOT (email LIKE '%spam%')
         """
@@ -630,6 +636,7 @@ class Q(Generic[TModel]):
         Also accepts F().desc() / F().asc() OrderBy objects.
 
         Usage:
+
             .order("-created_at", "name")         # string-based
             .order("?")                           # RANDOM()
             .order(F("name").asc())                # expression-based
@@ -681,6 +688,7 @@ class Q(Generic[TModel]):
         By default removes duplicates. Pass all=True for UNION ALL.
 
         Usage:
+
             qs1 = User.objects.filter(role="admin")
             qs2 = User.objects.filter(role="staff")
             combined = qs1.union(qs2)
@@ -697,6 +705,7 @@ class Q(Generic[TModel]):
         Combine with INTERSECT -- only rows in ALL querysets.
 
         Usage:
+
             admins = User.objects.filter(role="admin")
             active = User.objects.filter(active=True)
             active_admins = admins.intersection(active)
@@ -711,6 +720,7 @@ class Q(Generic[TModel]):
         Combine with EXCEPT -- rows in this set but not in others.
 
         Usage:
+
             all_users = User.objects.filter(active=True)
             admins = User.objects.filter(role="admin")
             non_admins = all_users.difference(admins)
@@ -763,6 +773,7 @@ class Q(Generic[TModel]):
         Defer loading of specified fields.
 
         Usage:
+
             users = await User.objects.defer("bio", "avatar").all()
         """
         for f in fields:
@@ -776,6 +787,7 @@ class Q(Generic[TModel]):
         Add aggregate/expression annotations to each row.
 
         Usage:
+
             from aquilia.models import Avg, Count, F
 
             qs = User.objects.annotate(
@@ -817,6 +829,7 @@ class Q(Generic[TModel]):
         Reduces N+1 queries for FK relationships.
 
         Usage:
+
             orders = await Order.objects.select_related("user").all()
             orders[0].user.name  # no extra query
         """
@@ -831,6 +844,7 @@ class Q(Generic[TModel]):
         Accepts field names or Prefetch objects for custom querysets.
 
         Usage:
+
             users = await User.objects.prefetch_related("posts").all()
             users = await User.objects.prefetch_related(
                 Prefetch("posts", queryset=Post.objects.filter(published=True))
@@ -851,6 +865,7 @@ class Q(Generic[TModel]):
             skip_locked: If True, skip rows that are currently locked (PostgreSQL/MySQL).
 
         Usage:
+
             async with atomic():
                 product = await Product.objects.select_for_update().filter(id=1).one()
                 product.stock -= 1
@@ -877,6 +892,7 @@ class Q(Generic[TModel]):
         of silently querying the default connection.
 
         Usage:
+
             users = await User.objects.using("replica").filter(active=True).all()
         """
 
@@ -891,6 +907,7 @@ class Q(Generic[TModel]):
         Apply a QNode filter to this queryset (Aquilia-only).
 
         Usage:
+
             q = QNode(active=True) | QNode(is_staff=True)
             users = await User.objects.apply_q(q).all()
         """
@@ -904,6 +921,7 @@ class Q(Generic[TModel]):
         in batches of ``chunk_size`` during async iteration.
 
         Usage:
+
             async for user in User.objects.filter(active=True).iterator(chunk_size=500):
                 process(user)
         """
@@ -918,6 +936,7 @@ class Q(Generic[TModel]):
         Useful for conditional query building.
 
         Usage:
+
             qs = User.objects.none()
             await qs.all()  # → []
             await qs.count()  # → 0
@@ -957,6 +976,7 @@ class Q(Generic[TModel]):
         Support Python slicing on querysets.
 
         Usage:
+        
             top_5 = User.objects.order("-score")[:5]
             page  = User.objects.order("id")[10:20]
         """
@@ -1412,6 +1432,24 @@ class Q(Generic[TModel]):
                         delattr(instance, sr_key)
                 instances.append(instance)
             return instances
+
+        # Native batch hydration. One boundary crossing for the whole page
+        # instead of a Python frame per row: at 100 rows the crossing is ~0.07 ns
+        # per value, so the interpretation loop is what actually moves.
+        #
+        # The plan is keyed on (model, row shape) because row shape varies with
+        # only()/defer()/values(). It returns None -- and the batch runs in
+        # Python -- for any shape or value it cannot handle with certainty, and
+        # a batch either completes fully or produces nothing, never a partial
+        # result (04 §7).
+        if rows:
+            first = rows[0]
+            if type(rows) is list and isinstance(first, dict):
+                plan = row_plan_for(self._model_cls, tuple(first.keys()))
+                if plan is not None:
+                    hydrated = plan.execute(rows)
+                    if hydrated is not None:
+                        return hydrated
 
         return [self._model_cls.from_row(row) for row in rows]
 
