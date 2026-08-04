@@ -1,0 +1,13 @@
+{
+  "bool_from_int": 15.954562506522052,
+  "bytes_from_str": 12.174958508694544,
+  "date_fromisoformat": 44.62808297830634,
+  "datetime_fromisoformat": 49.734833010006696,
+  "decimal_from_str": 55.504916002973914,
+  "float_from_str": 28.9249170164112,
+  "int_from_str": 38.27604197431356,
+  "json_loads": 390.61916497303173,
+  "str_passthrough": 12.189687506179325,
+  "time_fromisoformat": 45.42362500797026,
+  "uuid_from_str": 378.66041500819847
+}

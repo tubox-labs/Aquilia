@@ -1,0 +1,16 @@
+{
+  "cols_16_per_col_ns": 168.06914063636214,
+  "cols_32_per_col_ns": 165.5043609389395,
+  "cols_4_per_col_ns": 241.53541271516588,
+  "cols_64_per_col_ns": 154.81634140996903,
+  "cols_8_per_col_ns": 192.46849369665142,
+  "fields_16_per_field_ns": 418.4184936093516,
+  "fields_32_per_field_ns": 425.1212218150613,
+  "fields_4_per_field_ns": 444.2791745532304,
+  "fields_8_per_field_ns": 427.500524892821,
+  "rows_10000_per_row_ns": 3008.441660203971,
+  "rows_1000_per_row_ns": 2932.133199647069,
+  "rows_100_per_row_ns": 2961.812511784956,
+  "rows_10_per_row_ns": 2911.3750060787424,
+  "rows_1_per_row_ns": 2895.978992455639
+}

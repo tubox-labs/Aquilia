@@ -1,0 +1,38 @@
+{
+  "rows_1": {
+    "driver_us": 27.905000024475157,
+    "hydrate_pct": 8.786240211871041,
+    "hydrate_plus_rowbuild_pct": 14.898924885524739,
+    "hydrate_us": 2.8810450749006122,
+    "rowbuild_us": 2.00437498278916,
+    "rows": 1.0,
+    "total_us": 32.79042008216493
+  },
+  "rows_10": {
+    "driver_us": 32.197499967878684,
+    "hydrate_pct": 41.50062328710681,
+    "hydrate_plus_rowbuild_pct": 53.65154171717008,
+    "hydrate_us": 28.829789953306317,
+    "rowbuild_us": 8.441040117759256,
+    "rows": 10.0,
+    "total_us": 69.46833003894426
+  },
+  "rows_100": {
+    "driver_us": 85.7924998854287,
+    "hydrate_pct": 69.38405981335862,
+    "hydrate_plus_rowbuild_pct": 80.16249449823276,
+    "hydrate_us": 300.0695799710229,
+    "rowbuild_us": 46.61417013267055,
+    "rows": 100.0,
+    "total_us": 432.47624998912215
+  },
+  "rows_1000": {
+    "driver_us": 572.0583008951508,
+    "hydrate_pct": 74.74054717404096,
+    "hydrate_plus_rowbuild_pct": 86.88704093505069,
+    "hydrate_us": 3260.58750069933,
+    "rowbuild_us": 529.8958494677207,
+    "rows": 1000.0,
+    "total_us": 4362.541651062202
+  }
+}
