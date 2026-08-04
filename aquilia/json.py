@@ -115,8 +115,6 @@ def backend() -> str:
 if native:  # pragma: no cover - selected by build configuration
     _n_dumps = _native_mod.dumps
     _n_loads = _native_mod.loads
-    _NativeDecodeError = _native_mod.DecodeError
-    _NativeEncodeError = _native_mod.EncodeError
 
     def dumps(obj: Any, *, default: Any = default_serializer) -> bytes:
         """Serialise ``obj`` to UTF-8 JSON bytes.
@@ -134,7 +132,12 @@ if native:  # pragma: no cover - selected by build configuration
         """
         try:
             return _n_dumps(obj, default)
-        except _NativeEncodeError as exc:
+        except (TypeError, ValueError) as exc:
+            # The native layer raises the same builtins the stdlib codec does --
+            # TypeError for an unserialisable object, ValueError for a
+            # non-finite float or excessive nesting. Re-raised as the module's
+            # own type, which subclasses TypeError, so handlers written against
+            # either keep working.
             raise JSONEncodeError(str(exc)) from None
 
     def loads(data: bytes | bytearray | memoryview | str) -> Any:
@@ -151,7 +154,7 @@ if native:  # pragma: no cover - selected by build configuration
         """
         try:
             return _n_loads(data)
-        except _NativeDecodeError as exc:
+        except (ValueError, TypeError, UnicodeDecodeError) as exc:
             raise JSONDecodeError(str(exc)) from None
 
 else:
