@@ -11,20 +11,34 @@ requires = ["scikit-build-core>=0.9", "nanobind>=2.0"]
 build-backend = "scikit_build_core.build"
 
 # ---------------------------------------------------------------------------
-# Native core engine (aquilia/_core) — OPTIONAL
+# Native extensions (aquilia/_core, aquilia/_dataengine) — both OPTIONAL
 # ---------------------------------------------------------------------------
-# The extension is a pure accelerator. aquilia/_core_loader.py falls back to
-# pure Python when it is absent, so an install on a machine without a C++20
-# compiler still produces a fully working package -- just without the native
-# router and request context. See docs/engine/06-python-binding-architecture.md.
+# Both are pure accelerators. aquilia/_core_loader.py and
+# aquilia/_dataengine_loader.py fall back to pure Python when their extension is
+# absent, so an install on a machine without a C++20 compiler still produces a
+# fully working package -- just without the native router/request context
+# (_core) and the native row/field plans (_dataengine).
+# See docs/engine/06-python-binding-architecture.md and docs/models-engine/03.
+#
+# cmake.source-dir is the repo root, whose CMakeLists.txt owns both extensions.
+# Each still configures standalone (`cmake -S aquilia/_core`), which the
+# sanitizer CI jobs depend on.
 [tool.scikit-build]
-cmake.source-dir = "aquilia/_core"
+cmake.source-dir = "."
 cmake.build-type = "Release"
 cmake.version = ">=3.21"
 wheel.packages = ["aquilia"]
-sdist.include = ["aquilia/_core/**/*.hpp", "aquilia/_core/**/*.cpp", "aquilia/_core/CMakeLists.txt"]
-# When nanobind or a C++20 compiler is unavailable, skip the extension instead of
-# failing the whole install. Honoured by aquilia/_core/CMakeLists.txt.
+sdist.include = [
+    "CMakeLists.txt",
+    "aquilia/_core/**/*.hpp",
+    "aquilia/_core/**/*.cpp",
+    "aquilia/_core/CMakeLists.txt",
+    "aquilia/_dataengine/**/*.hpp",
+    "aquilia/_dataengine/**/*.cpp",
+    "aquilia/_dataengine/CMakeLists.txt",
+]
+# When nanobind or a C++20 compiler is unavailable, skip the extensions instead
+# of failing the whole install. Honoured by each extension's CMakeLists.txt.
 cmake.define.AQUILIA_ENGINE_OPTIONAL = "ON"
 
 # Version stays sourced from aquilia/_version.py -- the setuptools dynamic-version

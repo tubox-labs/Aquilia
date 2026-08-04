@@ -1,0 +1,176 @@
+# Native data engine (aquilia/_dataengine) — build, sanitize, and parity gates.
+#
+# Deliberately separate from engine.yml. The two extensions are independent
+# (docs/models-engine/09-implementation-plan.md §7): separate loaders, separate
+# env vars, separate gates. Neither can break the other, and either can be
+# disabled alone.
+#
+# Four blocking gates, per docs/models-engine/07-testing-strategy.md §11:
+#   1. the extension builds and imports natively on every target
+#   2. the C++ core is ASAN/UBSAN clean
+#   3. the full Python suite passes with the engine DISABLED (env var)
+#   4. the full Python suite passes with the extension DELETED (ImportError)
+#
+# Gates 3 and 4 are not the same test, and §1 of the testing strategy is explicit
+# about why: the env var short-circuits before the import, so only deleting the
+# .so proves the dlopen failure is actually caught.
+name: dataengine
+
+on:
+  push:
+    paths:
+      - "aquilia/_dataengine/**"
+      - "aquilia/_dataengine_loader.py"
+      - "aquilia/_dataengine.pyi"
+      - "aquilia/models/query.py"
+      - "aquilia/models/base.py"
+      - "aquilia/contracts/core.py"
+      - "aquilia/contracts/sigil.py"
+      - "tests/dataengine/**"
+      - "CMakeLists.txt"
+      - "pyproject.toml"
+      - ".github/workflows/dataengine.yml"
+  pull_request:
+    paths:
+      - "aquilia/_dataengine/**"
+      - "aquilia/_dataengine_loader.py"
+      - "aquilia/_dataengine.pyi"
+      - "aquilia/models/query.py"
+      - "aquilia/models/base.py"
+      - "aquilia/contracts/core.py"
+      - "aquilia/contracts/sigil.py"
+      - "tests/dataengine/**"
+      - "CMakeLists.txt"
+      - "pyproject.toml"
+      - ".github/workflows/dataengine.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dataengine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build + test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install (builds both extensions)
+        run: pip install -e ".[testing]"
+
+      - name: Assert the native data engine actually loaded
+        # Without this, a silently-skipped build would skip every dataengine
+        # test and leave the job green -- the exact failure mode the Phase 9 CI
+        # was written to catch.
+        run: |
+          python -c "from aquilia._dataengine_loader import DATAENGINE_NATIVE, dataengine_info; assert DATAENGINE_NATIVE, dataengine_info()"
+
+      - name: Run the suite
+        run: pytest tests/ -q
+
+  sanitizers:
+    name: ASAN + UBSAN (C++ data engine)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build deps
+        run: pip install "scikit-build-core>=0.9" "nanobind>=2.0"
+
+      - name: Configure C++ tests with sanitizers
+        # Configures the extension directory standalone rather than the repo
+        # root, so a failure here is unambiguously this engine's.
+        run: >
+          cmake -S aquilia/_dataengine -B build-asan-data
+          -DAQUILIA_ENGINE_TESTS=ON
+          -DCMAKE_BUILD_TYPE=Debug
+          -DAQUILIA_SANITIZE=address,undefined
+          -Dnanobind_DIR=$(python -c "import nanobind; print(nanobind.cmake_dir())")
+
+      - name: Build and run
+        run: |
+          cmake --build build-asan-data -j
+          ctest --test-dir build-asan-data --output-on-failure
+
+  fallback_parity:
+    name: full suite with the data engine DISABLED
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[testing]"
+
+      - name: Run with AQUILIA_DATAENGINE=0
+        env:
+          AQUILIA_DATAENGINE: "0"
+        run: |
+          python -c "from aquilia._dataengine_loader import DATAENGINE_NATIVE; assert not DATAENGINE_NATIVE, 'data engine should be disabled'"
+          pytest tests/ -q
+
+  no_extension:
+    name: full suite with the extension DELETED
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[testing]"
+
+      - name: Delete the built extension
+        # Exercises the ImportError/dlopen path in the loader, which the env var
+        # never reaches because it short-circuits before the import.
+        run: |
+          python - <<'PY'
+          import pathlib
+          from aquilia import _dataengine
+          p = pathlib.Path(_dataengine.__file__)
+          p.unlink()
+          print(f"deleted {p}")
+          PY
+
+      - name: Suite must still pass, with the engine inactive
+        run: |
+          python -c "from aquilia._dataengine_loader import DATAENGINE_NATIVE, dataengine_info; assert not DATAENGINE_NATIVE, 'should have fallen back'; print(dataengine_info())"
+          pytest tests/ -q
+
+  no_compiler:
+    name: install without a C++ compiler
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install with the extension build suppressed
+        # Simulates a machine with no usable toolchain. The install must succeed
+        # and the package must import with both engines inactive.
+        env:
+          CMAKE_ARGS: "-DAQUILIA_ENGINE_OPTIONAL=ON"
+        run: |
+          pip install -e ".[testing]"
+
+      - name: Import must work regardless
+        run: |
+          python -c "import aquilia; from aquilia._dataengine_loader import dataengine_info; print(dataengine_info())"
