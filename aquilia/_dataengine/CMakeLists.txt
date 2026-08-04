@@ -36,6 +36,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # the limited ABI exposes.
 nanobind_add_module(_dataengine
   NB_STATIC
+  src/uuid_parse.cpp
+  src/convert.cpp
   src/module.cpp
 )
 target_include_directories(_dataengine PRIVATE src)
