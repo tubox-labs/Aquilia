@@ -418,6 +418,7 @@ class ControllerEngine:
                 ctx,
                 path_params,
                 container,
+                handler_method,
             )
 
             # Execute handler (full path — has_on_request/has_on_response already
@@ -722,6 +723,7 @@ class ControllerEngine:
         ctx: RequestCtx,
         path_params: dict[str, Any],
         container: Container,
+        handler: Any = None,
     ) -> tuple[dict[str, Any], Any]:
         """
         Bind parameters from request to handler arguments.
@@ -767,6 +769,13 @@ class ControllerEngine:
         _body_consumed = False
         _body_cache = None
         all_contract_errors = {}
+
+        # Parameters a decorator has claimed ownership of. `validate_body`
+        # injects `body` itself, so the engine must not also bind it -- doing
+        # both raised "got multiple values for keyword argument 'body'" and
+        # turned every such request into a 500. Exactly one layer owns a
+        # parameter; the decorator declares which, the engine honours it.
+        _decorator_owned: frozenset[str] = getattr(handler, "__aquilia_owned_params__", frozenset())
 
         async def _get_body():
             nonlocal _body_cache
@@ -814,6 +823,10 @@ class ControllerEngine:
 
             # Skip ctx/context (injected directly in execute)
             if param_name in ("ctx", "context"):
+                continue
+
+            # Skip anything a decorator owns (see _decorator_owned above).
+            if param_name in _decorator_owned:
                 continue
 
             # ── Contract injection ──────────────────────────────────────

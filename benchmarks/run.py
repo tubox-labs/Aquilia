@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
+import platform
 import subprocess
+import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -66,6 +70,67 @@ def wait_for_server(url: str, timeout: float = 8.0) -> bool:
         except Exception:
             time.sleep(0.1)
     return False
+
+
+def probe_endpoint(url: str, method: str, extra_args: list[str]) -> tuple[int | None, str]:
+    """Issue one request and report the status code.
+
+    Used as a preflight before each measured run: a benchmark of an endpoint
+    that does not work is not a benchmark of anything.
+
+    Args:
+        url: Full endpoint URL.
+        method: HTTP method the run will use.
+        extra_args: The oha flags for this scenario, used to recover the request
+            body and content type so the probe matches the real traffic.
+
+    Returns:
+        ``(status_code, detail)``. ``status_code`` is None when the request
+        could not be completed at all, in which case ``detail`` carries the
+        reason.
+    """
+    data: bytes | None = None
+    headers: dict[str, str] = {}
+
+    # Recover body/content-type from the oha flags so the probe is
+    # representative -- a GET probe against a POST endpoint proves nothing.
+    if "-D" in extra_args:
+        body_path = Path(extra_args[extra_args.index("-D") + 1])
+        try:
+            data = body_path.read_bytes()
+        except OSError as exc:
+            return None, f"unreadable payload {body_path}: {exc}"
+    if "-T" in extra_args:
+        headers["content-type"] = extra_args[extra_args.index("-T") + 1]
+    if "-F" in extra_args:
+        # multipart: build a minimal body matching the file oha will send.
+        spec = extra_args[extra_args.index("-F") + 1]
+        field, _, path = spec.partition("=@")
+        try:
+            payload = Path(path).read_bytes()
+        except OSError as exc:
+            return None, f"unreadable upload {path}: {exc}"
+        boundary = "----aquiliabenchprobe"
+        data = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="{field}"; filename="probe.txt"\r\n'
+            f"Content-Type: text/plain\r\n\r\n"
+        ).encode() + payload + f"\r\n--{boundary}--\r\n".encode()
+        headers["content-type"] = f"multipart/form-data; boundary={boundary}"
+
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=10.0) as conn:
+            return conn.status, f"HTTP {conn.status}"
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read()[:200].decode("utf-8", "replace")
+        except Exception:
+            pass
+        return exc.code, f"HTTP {exc.code}: {body}"
+    except Exception as exc:
+        return None, f"{type(exc).__name__}: {exc}"
 
 
 def run_scenario(scenario: str, framework: str, duration: str, concurrency: int) -> dict | None:
@@ -134,6 +199,28 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
         + [url]
     )
 
+    # Preflight: prove the endpoint actually works before spending the run on it.
+    #
+    # Without this, a broken endpoint is measured at full speed and published as
+    # a fast result. Checking one request costs milliseconds and is the
+    # difference between "this framework validates bodies at 1809 rps" and "this
+    # framework 500s at 1809 rps".
+    preflight_status, preflight_detail = probe_endpoint(url, method, extra_args)
+    if preflight_status is None or not (200 <= preflight_status < 400):
+        print(f"     [FAIL] {scenario}: preflight returned {preflight_detail}")
+        return {
+            "qps": 0.0,
+            "avg_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "success_rate": 0.0,
+            "status_codes": {str(preflight_status): 1} if preflight_status else {},
+            "requests_ok": 0,
+            "requests_total": 1 if preflight_status else 0,
+            "error": f"preflight failed: {preflight_detail}",
+        }
+
     # Run oha
     print(f"  -> Testing {scenario} endpoint...")
     res = subprocess.run(oha_cmd, capture_output=True, text=True)
@@ -155,7 +242,27 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
         p50_ms = (latency.get("p50") or 0.0) * 1000.0
         p95_ms = (latency.get("p95") or 0.0) * 1000.0
         p99_ms = (latency.get("p99") or 0.0) * 1000.0
-        success_rate = summary.get("successRate", 0.0) * 100.0
+
+        # Success is 2xx/3xx, not "the server said something".
+        #
+        # oha's own `successRate` counts any completed HTTP exchange, so an
+        # endpoint returning 500 on every request reports 100% success. That is
+        # exactly what happened: the `validation` scenario 500'd on every
+        # request for an entire release cycle and was published as a
+        # performance result at "100.0%" success. Throughput for an error path
+        # is not a measurement of the feature.
+        codes = metrics.get("statusCodeDistribution", {}) or {}
+        total = 0
+        ok = 0
+        for code, count in codes.items():
+            try:
+                status = int(code)
+            except (TypeError, ValueError):
+                continue
+            total += count
+            if 200 <= status < 400:
+                ok += count
+        success_rate = (ok / total * 100.0) if total else 0.0
 
         return {
             "qps": qps,
@@ -164,6 +271,9 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
             "p95_ms": p95_ms,
             "p99_ms": p99_ms,
             "success_rate": success_rate,
+            "status_codes": {str(k): v for k, v in codes.items()},
+            "requests_ok": ok,
+            "requests_total": total,
         }
     except Exception as exc:
         print(f"     [ERROR] Failed to parse oha output: {exc}")
@@ -177,6 +287,13 @@ def main():
     parser.add_argument("--frameworks", help="Comma-separated list of frameworks to benchmark")
     parser.add_argument("--scenarios", help="Comma-separated list of scenarios to run")
     parser.add_argument("--output", default="benchmarks/report.md", help="Path to write the report markdown")
+    parser.add_argument(
+        "--no-strict",
+        dest="strict",
+        action="store_false",
+        help="Report endpoints that served non-2xx responses without failing the run",
+    )
+    parser.set_defaults(strict=True)
     args = parser.parse_args()
 
     # Determine framework list
@@ -303,6 +420,64 @@ def main():
     )
     print(f"\nBenchmarking complete! Report written to: {report_path}")
 
+    # Fail the run when any endpoint served errors.
+    #
+    # This is the gate that would have stopped the `validation` scenario from
+    # being published as a performance result while returning 500 on every
+    # request. A benchmark harness that cannot tell "fast" from "broken" is
+    # worse than no harness: it produces confident, wrong numbers.
+    broken: list[str] = []
+    for fw in target_frameworks:
+        for sc, metrics in run_results[fw].items():
+            if not metrics:
+                continue
+            if metrics.get("error") or metrics.get("success_rate", 0.0) < 100.0:
+                rate = metrics.get("success_rate", 0.0)
+                codes = metrics.get("status_codes", {})
+                broken.append(f"{fw}/{sc}: success_rate={rate:.1f}% codes={codes}")
+
+    if broken:
+        print("\n" + "=" * 60)
+        print("BENCHMARK INTEGRITY FAILURE — endpoints returned non-2xx/3xx:")
+        for item in broken:
+            print(f"  - {item}")
+        print("=" * 60)
+        if args.strict:
+            sys.exit(1)
+        print("(--no-strict set: not failing the run)")
+
+
+def environment_note() -> str:
+    """Describe the interpreter and Aquilia build actually under test.
+
+    The previous report hardcoded "Python 3.13" and said nothing about which
+    JSON codec or native extensions were present. That is how a run measuring
+    stdlib ``json`` -- because the intended codec was never installed -- looked
+    identical on paper to one measuring the fast path. A performance number
+    without its build provenance is not reproducible.
+
+    Returns:
+        A single-line description for the report header.
+    """
+    parts = [
+        f"Python {platform.python_version()} ({platform.python_implementation()})",
+        f"{platform.system()} {platform.machine()}",
+        "Uvicorn, single worker",
+    ]
+    try:
+        from aquilia.json import backend as _json_backend
+
+        parts.append(f"JSON backend: `{_json_backend()}`")
+    except Exception:
+        parts.append("JSON backend: unknown")
+    for mod, label in (("aquilia._core", "_core"), ("aquilia._dataengine", "_dataengine"), ("aquilia._json", "_json")):
+        try:
+            importlib.import_module(mod)
+            parts.append(f"`{label}` present")
+        except ImportError:
+            parts.append(f"`{label}` ABSENT")
+    return " — ".join(parts)
+
 
 def write_report(
     path: Path,
@@ -323,8 +498,12 @@ def write_report(
         f.write("- **Load Testing Utility**: `oha` (Rust-based HTTP/1.1 load generator)\n")
         f.write(f"- **Concurrency Level**: `{concurrency}` simultaneous connections\n")
         f.write(f"- **Duration**: `{duration}` per endpoint run\n")
-        f.write("- **Server Environment**: Python 3.13 served via Uvicorn (Single worker thread)\n")
-        f.write("- **Database Engine**: SQLite 3 (Standard 10,000-row TechEmpower Schema)\n\n")
+        f.write(f"- **Server Environment**: {environment_note()}\n")
+        f.write("- **Database Engine**: SQLite 3 (Standard 10,000-row TechEmpower Schema)\n")
+        f.write(
+            "- **Success Rate**: fraction of responses with a 2xx/3xx status. "
+            "Endpoints failing a single-request preflight are reported as 0 and excluded from ranking.\n\n"
+        )
 
         # 1. Cold Startup / Boot Performance
         if startup_results:

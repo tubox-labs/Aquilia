@@ -68,6 +68,26 @@ class SqlitePoolConfig:
     echo: bool = False  # log all SQL when True
     auto_commit: bool = True  # auto-commit outside transactions
 
+    # ── Inline execution ─────────────────────────────────────────────
+    # Run statements the query planner proves are O(1) index seeks directly on
+    # the event loop instead of dispatching to the thread pool.
+    #
+    # The hop costs ~27us against ~1.5us of actual SQLite work for an indexed
+    # point lookup -- an 18x tax to avoid blocking for 1.5us. Statements that do
+    # not provably use an index (anything containing a SCAN) still go to the
+    # pool, so a table scan can never stall the loop.
+    #
+    # Set False to force every statement through the executor. Keep it False if
+    # you run large SQLite queries whose plans you do not control; the escape
+    # hatch exists because a plan can change under you when a table grows or an
+    # index is dropped.
+    inline_fast_queries: bool = True
+
+    # Statements whose measured runtime exceeds this are demoted to the thread
+    # pool permanently, even if the planner said they were cheap. This is the
+    # backstop for "the plan was right when we probed it and wrong later".
+    inline_max_duration_ms: float = 1.0
+
     # ── Security ─────────────────────────────────────────────────────
     enforce_path_security: bool = True
     sandbox_root: str | None = None
