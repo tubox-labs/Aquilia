@@ -3,8 +3,10 @@
 Audit and design for a native engine covering `aquilia/models/`, `aquilia/db/`,
 `aquilia/sqlite/`, and `aquilia/contracts/`.
 
-**Nothing here is implemented.** These are analysis and design documents. The
-first implementation step is `06-python-fixes.md`, which needs no C++ at all.
+**This is now implemented.** `10-results.md` records what was measured, which
+gates were met and missed, and the three places the design documents below had
+to be corrected against reality. Read it alongside `03`–`05`, which are left as
+written so the corrections stay visible.
 
 ---
 
@@ -17,10 +19,19 @@ first implementation step is `06-python-fixes.md`, which needs no C++ at all.
 | [03-engine-design.md](03-engine-design.md) | Batch-boundary architecture, type codes, plan compile-and-replay, memory model, GIL policy |
 | [04-hydration-engine-spec.md](04-hydration-engine-spec.md) | `RowPlan`: eligibility, the six semantics that must be preserved exactly, execution |
 | [05-validation-engine-spec.md](05-validation-engine-spec.md) | `FieldPlan`: eligibility, `IntFacet` cast semantics, error-shape contract |
-| [06-python-fixes.md](06-python-fixes.md) | **Start here for implementation.** Six verified Python-only fixes, plus the rejected-components register |
+| [06-python-fixes.md](06-python-fixes.md) | Six verified Python-only fixes, plus the rejected-components register |
 | [07-testing-strategy.md](07-testing-strategy.md) | Parity strategy, the highest-severity tests, memory and concurrency gates |
 | [08-benchmark-strategy.md](08-benchmark-strategy.md) | Methodology, missing benchmarks, regression gates |
 | [09-implementation-plan.md](09-implementation-plan.md) | Milestones M0–M7 with exit gates, risk register, and stop conditions |
+| [10-results.md](10-results.md) | **What actually happened.** Gates met and missed, corrections to `04`/`05`/`06`, honest assessment |
+
+---
+
+## Outcome in one line
+
+**2.08× end-to-end on a real 100-row query** — hydration 3.9×, validation 16.9×
+on eligible shapes — with the whole native layer removable via
+`AQUILIA_DATAENGINE=0`.
 
 ---
 

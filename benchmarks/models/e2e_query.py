@@ -166,12 +166,27 @@ async def measure(rows: int, iterations: int) -> dict[str, float]:
     from_row = Wide.from_row
     t_hydrate = _min_of(lambda: [from_row(r) for r in row_objs], iterations)
 
+    # -- Stage 3b: the same hydration through the native RowPlan, when the shape
+    # is eligible. Reported alongside rather than instead of the Python number,
+    # so the end-to-end effect is measured rather than inferred by arithmetic.
+    t_hydrate_native = None
+    try:
+        from aquilia.models._native_plan import row_plan_for
+
+        plan = row_plan_for(Wide, tuple(row_objs[0].keys()))
+        if plan is not None and plan.execute(list(row_objs)) is not None:
+            rows_list = list(row_objs)
+            t_hydrate_native = _min_of(lambda: plan.execute(rows_list), iterations)
+    except Exception:
+        # The native engine is optional; its absence is not a benchmark failure.
+        t_hydrate_native = None
+
     conn.close()
 
     t_rowbuild = max(t_driver_rows - t_driver, 0.0)
     total = t_driver_rows + t_hydrate
 
-    return {
+    result = {
         "rows": float(rows),
         "driver_us": t_driver * 1e6,
         "rowbuild_us": t_rowbuild * 1e6,
@@ -183,6 +198,13 @@ async def measure(rows: int, iterations: int) -> dict[str, float]:
         # gate is reported both ways rather than only the flattering one.
         "hydrate_plus_rowbuild_pct": (t_hydrate + t_rowbuild) / total * 100.0,
     }
+    if t_hydrate_native is not None:
+        native_total = t_driver_rows + t_hydrate_native
+        result["hydrate_native_us"] = t_hydrate_native * 1e6
+        result["total_native_us"] = native_total * 1e6
+        result["hydrate_speedup"] = t_hydrate / t_hydrate_native
+        result["end_to_end_speedup"] = total / native_total
+    return result
 
 
 def report(res: dict[str, float]) -> None:
@@ -198,6 +220,14 @@ def report(res: dict[str, float]) -> None:
     print(f"  {'TOTAL':36} {res['total_us']:9.1f} us  100.0%")
     print(f"\n  hydration alone            {res['hydrate_pct']:5.1f}%")
     print(f"  hydration + row build      {res['hydrate_plus_rowbuild_pct']:5.1f}%")
+    if "hydrate_native_us" in res:
+        print("\n  with the native RowPlan:")
+        print(f"    {'hydration (native)':34} {res['hydrate_native_us']:9.1f} us  ({res['hydrate_speedup']:.2f}x)")
+        print(
+            f"    {'TOTAL (native)':34} {res['total_native_us']:9.1f} us  ({res['end_to_end_speedup']:.2f}x end-to-end)"
+        )
+    else:
+        print("\n  (native RowPlan unavailable or shape ineligible -- Python path only)")
 
 
 def main() -> int:
