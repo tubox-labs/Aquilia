@@ -446,6 +446,37 @@ def main():
             sys.exit(1)
         print("(--no-strict set: not failing the run)")
 
+    # Fail the run when Aquilia's throughput regressed below its floor.
+    #
+    # A benchmark that only reports numbers cannot catch a regression; someone
+    # has to notice the number moved. These floors make CI do the noticing.
+    gates_path = BENCH_DIR / "regression" / "gates.json"
+    if gates_path.exists() and "aquilia" in target_frameworks:
+        try:
+            gates_data = json.loads(gates_path.read_text())
+            floors = gates_data.get("floors", {})
+            regressed: list[str] = []
+            for sc, floor_qps in floors.items():
+                metrics = run_results.get("aquilia", {}).get(sc)
+                if not metrics:
+                    continue
+                actual_qps = metrics.get("qps", 0.0)
+                if actual_qps < floor_qps:
+                    regressed.append(f"{sc}: {actual_qps:.0f} req/s < floor {floor_qps} req/s")
+
+            if regressed:
+                print("\n" + "=" * 60)
+                print("REGRESSION GATE FAILURE — Aquilia throughput fell below floor:")
+                for item in regressed:
+                    print(f"  - {item}")
+                print("=" * 60)
+                if args.strict:
+                    sys.exit(1)
+                print("(--no-strict set: not failing the run)")
+        except Exception as e:
+            print(f"Warning: could not load regression gates from {gates_path}: {e}")
+
+
 
 def environment_note() -> str:
     """Describe the interpreter and Aquilia build actually under test.
