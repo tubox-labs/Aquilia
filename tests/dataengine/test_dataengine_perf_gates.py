@@ -118,7 +118,7 @@ def _row_plan():
 
 
 def _field_plan():
-    plan = field_plan_for(PerfPayload)
+    plan = field_plan_for(PerfPayload).plan
     assert plan is not None, "PerfPayload must stay eligible or this gate measures nothing"
     return plan
 

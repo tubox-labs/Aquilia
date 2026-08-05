@@ -62,7 +62,64 @@ nb::object make_float(const char* data, std::size_t len) {
     return nb::steal(v);
 }
 
+// -- RequestContext GC hooks ------------------------------------------------
+// nanobind installs tp_traverse/tp_clear for the dynamic_attr __dict__, but it
+// cannot see the C++ PyRef fields -- a bound type owning Python references in
+// its own storage is invisible to it. So before these existed, a cycle running
+// through a slot (ctx.state = {"ctx": ctx}) was uncollectable and the instance
+// leaked forever: one leaked RequestCtx per request, unbounded growth.
+//
+// Supplying Py_tp_traverse makes nanobind skip installing its own, so these
+// must also do what its version did -- visit the dict and the type.
+//
+// Both are called by the collector on instances that may not be constructed
+// yet: nanobind allocates the Python object, then runs the C++ constructor, and
+// a collection can land in between. nb::inst_ready() gates the slot access;
+// the dict and type are valid either way.
+
+int ctx_traverse(PyObject* self, visitproc visit, void* arg) {
+    if (nb::inst_ready(nb::handle(self))) {
+        PyObject** slots = nb::inst_ptr<aq::RequestContext>(nb::handle(self))->slots();
+        for (std::size_t i = 0; i < aq::RequestContext::kSlotCount; ++i) {
+            Py_VISIT(slots[i]);
+        }
+    }
+
+    if (PyObject** dict = _PyObject_GetDictPtr(self); dict != nullptr) {
+        Py_VISIT(*dict);
+    }
+    Py_VISIT(Py_TYPE(self));  // heap type: the instance keeps it alive
+    return 0;
+}
+
+int ctx_clear(PyObject* self) {
+    if (nb::inst_ready(nb::handle(self))) {
+        PyObject** slots = nb::inst_ptr<aq::RequestContext>(nb::handle(self))->slots();
+        // Py_CLEAR nulls the field before dropping the reference, so a __del__
+        // reached during the decref sees an empty slot rather than a dangling
+        // one and cannot resurrect a half-torn-down context.
+        for (std::size_t i = 0; i < aq::RequestContext::kSlotCount; ++i) {
+            Py_CLEAR(slots[i]);
+        }
+    }
+
+    if (PyObject** dict = _PyObject_GetDictPtr(self); dict != nullptr) {
+        Py_CLEAR(*dict);
+    }
+    return 0;
+}
+
+PyType_Slot ctx_gc_slots[] = {
+    {Py_tp_traverse, reinterpret_cast<void*>(ctx_traverse)},
+    {Py_tp_clear, reinterpret_cast<void*>(ctx_clear)},
+    {0, nullptr},
+};
+
 // -- RequestContext slot accessors -----------------------------------------
+// def_prop_rw over PyRef rather than def_rw: nanobind needs a type caster to
+// bind a field directly, and an explicit getter/setter pair keeps the incref
+// rules visible at each use. Both are still data descriptors on the type, so a
+// slot write is a direct field store and never enters __setattr__.
 // def_prop_rw over PyRef rather than def_rw: nanobind needs a type caster to
 // bind a field directly, and an explicit getter/setter pair keeps the incref
 // rules visible at each use. Both are still data descriptors on the type, so a
@@ -152,7 +209,13 @@ void bind_request_ctx(nb::module_& m) {
     // instead of raising, so middleware that attaches ad-hoc attributes keeps
     // working. Declared slots resolve through their descriptors first and never
     // touch the dict.
-    nb::class_<aq::RequestContext>(m, "RequestContext", nb::dynamic_attr())
+    //
+    // type_slots(): supplies the GC hooks below. nanobind installs its own
+    // traverse/clear for the dynamic_attr dict, but stops there -- it has no way
+    // to know a bound C++ type owns Python references in its fields. Ours does,
+    // seven of them, so without this a cycle through a slot was uncollectable.
+    nb::class_<aq::RequestContext>(m, "RequestContext", nb::dynamic_attr(),
+                                   nb::type_slots(ctx_gc_slots))
         .def(nb::init<>())
         .AQ_SLOT(request)
         .AQ_SLOT(identity)

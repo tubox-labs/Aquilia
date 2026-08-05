@@ -6,8 +6,10 @@ import random
 from aquilia import GET, POST, Controller, RequestCtx, Response
 from aquilia.controller.validation import validate_body
 from aquilia.db import AquiliaDatabase
+from aquilia.models import atomic
 from benchmarks.frameworks.shared import LARGE_PAYLOAD, UserProfileContract, jinja_env
 
+from .models import Fortune, World
 from .services import TopService
 
 
@@ -39,8 +41,8 @@ class BenchmarkController(Controller):
     @GET("/db")
     async def db_single(self, ctx: RequestCtx):
         row_id = random.randint(1, 10000)
-        row = await self.db.fetch_one("SELECT id, randomNumber FROM world WHERE id = ?", [row_id])
-        return Response.json({"id": row["id"], "randomNumber": row["randomNumber"]})
+        row = await World.objects.get(id=row_id)
+        return Response.json({"id": row.id, "randomNumber": row.randomNumber})
 
     @GET("/queries")
     async def db_queries(self, ctx: RequestCtx):
@@ -54,8 +56,8 @@ class BenchmarkController(Controller):
         results = []
         for _ in range(q_val):
             row_id = random.randint(1, 10000)
-            row = await self.db.fetch_one("SELECT id, randomNumber FROM world WHERE id = ?", [row_id])
-            results.append({"id": row["id"], "randomNumber": row["randomNumber"]})
+            row = await World.objects.get(id=row_id)
+            results.append({"id": row.id, "randomNumber": row.randomNumber})
         return Response.json(results)
 
     @GET("/updates")
@@ -68,20 +70,21 @@ class BenchmarkController(Controller):
         q_val = max(1, min(500, q_val))
 
         results = []
-        # Run updates inside transaction block
-        async with self.db.transaction():
+        # Run updates inside atomic transaction block using ORM model
+        async with atomic():
             for _ in range(q_val):
                 row_id = random.randint(1, 10000)
                 new_num = random.randint(1, 10000)
-                row = await self.db.fetch_one("SELECT id, randomNumber FROM world WHERE id = ?", [row_id])
-                await self.db.execute("UPDATE world SET randomNumber = ? WHERE id = ?", [new_num, row_id])
-                results.append({"id": row_id, "randomNumber": new_num})
+                row = await World.objects.get(id=row_id)
+                row.randomNumber = new_num
+                await row.save()
+                results.append({"id": row.id, "randomNumber": new_num})
         return Response.json(results)
 
     @GET("/fortunes")
     async def fortunes(self, ctx: RequestCtx):
-        rows = await self.db.fetch_all("SELECT id, message FROM fortune")
-        fortunes_list = [{"id": r["id"], "message": r["message"]} for r in rows]
+        rows = await Fortune.objects.all()
+        fortunes_list = [{"id": r.id, "message": r.message} for r in rows]
 
         fortunes_list.append({"id": 0, "message": "Additional fortune added at runtime."})
         fortunes_list.sort(key=lambda x: x["message"])
@@ -106,8 +109,8 @@ class BenchmarkController(Controller):
             row_id = random.randint(1, 10000)
             val = self.CACHE_STORE.get(row_id)
             if val is None:
-                row = await self.db.fetch_one("SELECT randomNumber FROM world WHERE id = ?", [row_id])
-                val = row["randomNumber"]
+                row = await World.objects.get(id=row_id)
+                val = row.randomNumber
                 self.CACHE_STORE[row_id] = val
             results.append({"id": row_id, "randomNumber": val})
         return Response.json(results)

@@ -18,6 +18,10 @@ manifest = AppManifest(
         "benchmarks.frameworks.aquilia.modules.bench.services:TopService",
         "benchmarks.frameworks.aquilia.modules.bench.services:AquiliaDatabaseProvider",
     ],
+    models=[
+        "benchmarks.frameworks.aquilia.modules.bench.models:World",
+        "benchmarks.frameworks.aquilia.modules.bench.models:Fortune",
+    ],
     auto_discover=False,
 )
 

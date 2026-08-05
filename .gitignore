@@ -129,3 +129,6 @@ aquilia/_json/build/
 
 aquilia/_json/.cache
 aquilia/_json/build
+# SQLite WAL/SHM sidecars from benchmark runs
+benchmarks/techempower/*.db-shm
+benchmarks/techempower/*.db-wal

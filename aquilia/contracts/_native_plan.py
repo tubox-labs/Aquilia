@@ -1,42 +1,74 @@
 """Compile a Contract's Sigil into a native FieldPlan, when it is safe to.
 
 This module owns **eligibility** -- the rule that keeps the native validation
-path safe (``docs/models-engine/03-engine-design.md`` §8). A plan compiles only
-when every field is representable; if any field is not, the whole plan is
-rejected and the contract keeps the pure-Python path forever.
+path safe (``docs/models-engine/03-engine-design.md`` §8).
 
-There is deliberately no such thing as a partial plan. A mixed path would be a
-second implementation of the same semantics that could silently diverge, so the
-choice is made once, per contract, at first use.
+Eligibility is decided **per field**, not per contract
+---------------------------------------------------
+The original rule rejected the whole plan if any single field was not
+representable. A ``NestedContractFacet`` is not representable, and nested
+objects are the normal case in real APIs, so one nested field disabled native
+validation for the entire contract -- the native path was effectively dead in
+production while carrying its full maintenance cost.
 
-Two independent layers of conservatism:
+The resolution is compositional. A field the native plan cannot represent is
+not a reason to reject its fourteen siblings; it is simply **escaped**. The
+compiled plan carries only the fields it can decide, and :func:`field_plan_for`
+returns the escaped names alongside it. The caller runs the native plan for the
+first set and ``Sigil.validate(..., _only=escaped)`` for the second.
+
+Why this does not reintroduce divergence risk
+---------------------------------------------
+The safety property is unchanged because escaped fields are not reimplemented
+anywhere -- they run the *identical* ``Sigil.validate`` loop that would have
+handled them if no plan existed at all. There is no second implementation of a
+field's semantics, so there is nothing that can silently drift. Only the
+*granularity* of the native/Python decision changed: it was per contract, it is
+now per field.
+
+Two independent layers of conservatism remain:
 
 1. **Compile time (here).** A facet with a pipeline, validators, a
-   ``default_factory``, a regex pattern, or a custom subclass never produces a
-   plan at all.
+   ``default_factory``, a regex pattern, or a custom subclass is escaped to
+   Python rather than represented.
 2. **Run time (fieldplan.cpp).** Even within a compiled plan, any *value* the
-   native code cannot decide with certainty aborts the payload back to
+   native code cannot decide with certainty aborts the whole payload back to
    ``Sigil.validate``. That is what makes error messages byte-identical and
    correctly localised: failures are always rendered by the Python path.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import sys
+from typing import Any, NamedTuple
 
 from aquilia._dataengine_loader import DATAENGINE_NATIVE, native_module
 
-__all__ = ["field_plan_for", "plan_cache_size"]
+__all__ = ["CompiledPlan", "field_plan_for", "plan_cache_size"]
 
 
-# Contract class -> FieldPlan, or None when the contract is ineligible. The
+class CompiledPlan(NamedTuple):
+    """A native plan plus the fields it does not cover.
+
+    Attributes:
+        plan: The native ``FieldPlan`` handling ``covered`` fields.
+        escaped: Field names the plan does not represent. The caller must run
+            these through ``Sigil.validate(..., _only=escaped)``. Empty means
+            the plan covers the whole contract and no Python pass is needed.
+    """
+
+    plan: Any
+    escaped: frozenset[str]
+
+
+# Contract class -> CompiledPlan, or None when the contract is ineligible. The
 # None entries matter as much as the plans: they stop a rejected contract from
 # being re-analysed on every request.
 #
 # Keyed by the class object itself. Plans are immutable once built, and dev-mode
 # hot reload creates new classes which miss the cache naturally, so there is no
 # invalidation path and therefore no staleness bug (03 §11).
-_PLAN_CACHE: dict[type, Any] = {}
+_PLAN_CACHE: dict[type, CompiledPlan | None] = {}
 
 
 def plan_cache_size() -> int:
@@ -88,7 +120,13 @@ def _facet_type_code(facet: Any, tc: Any) -> int | None:
 
 
 def _field_is_eligible(spec: Any, facet: Any) -> bool:
-    """Every condition that forces a field -- and so its whole plan -- to Python."""
+    """Whether a field can be represented natively.
+
+    False is not a failure -- the field is escaped to ``Sigil.validate``, which
+    is the same code that would have run for it anyway. So the bar here is
+    "can the native plan reproduce this field's semantics *exactly*", and
+    anything short of certainty answers no.
+    """
     # User code. None of this can run natively, by the rule in 01 §6: the engine
     # may compute plans and convert values, but must never call a Python callable.
     if spec.pipeline is not None:
@@ -122,8 +160,8 @@ def _field_is_eligible(spec: Any, facet: Any) -> bool:
     return True
 
 
-def _build_plan(contract_cls: type) -> Any:
-    """Compile, or return None when any field is ineligible."""
+def _build_plan(contract_cls: type) -> CompiledPlan | None:
+    """Compile the representable fields; escape the rest to Python."""
     de = native_module()
     if de is None:
         return None
@@ -134,32 +172,42 @@ def _build_plan(contract_cls: type) -> Any:
     if sigil is None:
         return None
 
+    # These are whole-contract properties, not per-field ones, so they still
+    # reject outright -- there is no subset of fields for which they are false.
+    #
     # strict mode has *different* semantics -- cast is skipped entirely
     # (sigil.py) -- so it is a separate execution mode, not a flag.
     if sigil.strict:
         return None
-    # Schema migrations run before the field loop and rewrite the payload.
+    # Schema migrations run before the field loop and rewrite the payload, so a
+    # plan that read the original payload would validate pre-migration data.
     if sigil.revision is not None and sigil.migrate_from:
         return None
 
     tc = de.TypeCode
     ff = de.FieldFlags
     plan = de.FieldPlan()
+    escaped: set[str] = set()
 
     for fname, spec in sigil.fields.items():
         facet = spec.facet
 
         # Computed/Constant are skipped by the Python loop and Inject resolves
-        # from request context; none is payload-derived.
+        # from request context; none is payload-derived. They cost nothing in
+        # the Python loop, so escaping them is free and keeps this compiler from
+        # having to model three more kinds.
         if isinstance(facet, (Computed, Constant, Inject)):
-            return None
+            escaped.add(fname)
+            continue
 
         if not _field_is_eligible(spec, facet):
-            return None
+            escaped.add(fname)
+            continue
 
         code = _facet_type_code(facet, tc)
         if code is None:
-            return None
+            escaped.add(fname)
+            continue
 
         flags = 0
         if facet.required:
@@ -184,7 +232,7 @@ def _build_plan(contract_cls: type) -> Any:
             # sys.intern so the native dict lookup hits its pointer-equality
             # fast path rather than comparing string contents per field per
             # payload.
-            _intern(fname),
+            sys.intern(fname),
             code,
             flags,
             default if has_default else None,
@@ -194,22 +242,17 @@ def _build_plan(contract_cls: type) -> Any:
             -1 if max_length is None else int(max_length),
         )
 
-    # A contract with no eligible fields would "succeed" trivially on every
-    # payload, which is not a useful fast path and hides mistakes.
+    # Nothing native to do. Returning a plan here would add a failed dict lookup
+    # per field and a second validate() call for no gain, so this is strictly
+    # worse than not having a plan at all.
     if len(plan) == 0:
         return None
 
-    return plan
+    return CompiledPlan(plan, frozenset(escaped))
 
 
-def _intern(s: str) -> str:
-    import sys
-
-    return sys.intern(s)
-
-
-def field_plan_for(contract_cls: type) -> Any:
-    """Return the cached FieldPlan for a contract, or None if it is ineligible.
+def field_plan_for(contract_cls: type) -> CompiledPlan | None:
+    """Return the cached :class:`CompiledPlan` for a contract, or None.
 
     One plan per contract class: the Sigil is immutable after class build
     (01 §4.1), so the plan is too.

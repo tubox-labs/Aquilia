@@ -176,6 +176,7 @@ class Sigil:
         _depth: int = 0,
         _async_pending: list[Any] | None = None,
         _path: tuple[str, ...] = (),
+        _only: frozenset[str] | None = None,
     ) -> tuple[dict[str, list[str]], dict[str, Any]]:
         """
         Validate input data against this schema. Never raises.
@@ -204,6 +205,13 @@ class Sigil:
             _path: Internal. Dotted field path of this Sigil within the outer
                 Contract, used to report nested async ward errors at the right
                 location.
+            _only: Internal. When supplied, validate *only* these field names
+                and ignore the rest. Used by the native FieldPlan path: the
+                compiled plan handles the fields it can represent and hands the
+                remainder back here, so a contract with one exotic field keeps
+                native handling for the others. Escaped fields run this exact
+                loop, so their values and messages cannot diverge from the
+                all-Python path.
 
         Returns:
             ``(errors, validated)``. ``errors`` maps field name to a list of
@@ -253,6 +261,11 @@ class Sigil:
                             }, {}
 
         for fname, spec in self.fields.items():
+            # Native FieldPlan already produced a value for every field outside
+            # `_only`; re-validating them here would duplicate the work and, for
+            # a facet with a side effect, duplicate that too.
+            if _only is not None and fname not in _only:
+                continue
             facet = spec.facet
             if isinstance(facet, (Computed, Constant)):
                 continue

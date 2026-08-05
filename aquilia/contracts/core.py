@@ -1372,14 +1372,33 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
 
         # Native fast path. Only for the plain, common shape: an exact dict,
         # full (non-partial) validation, no strict override. Everything else --
-        # and any payload the plan cannot decide with certainty -- returns None
-        # and falls through to the Python path below, which stays the reference
-        # implementation and the source of every error message.
+        # and any payload the plan cannot decide with certainty -- leaves
+        # `validated_dict` None and falls through to the Python path below,
+        # which stays the reference implementation and the source of every
+        # error message.
+        #
+        # A plan covers the fields it can represent; `compiled.escaped` names
+        # the rest. Those run the ordinary Sigil loop restricted to them, so a
+        # contract with one nested or otherwise exotic field still gets native
+        # handling for its siblings instead of losing the plan entirely.
         validated_dict = None
         if type(data) is dict and not self.partial and strict_override is None and _async_pending is None:
-            plan = field_plan_for(self.__class__)
-            if plan is not None:
-                validated_dict = plan.execute(data)
+            compiled = field_plan_for(self.__class__)
+            if compiled is not None:
+                validated_dict = compiled.plan.execute(data)
+                if validated_dict is not None and compiled.escaped:
+                    errors, escaped_validated = self._sigil.validate(
+                        data,
+                        strict=strict_override,
+                        partial=self.partial,
+                        context=self.context,
+                        _async_pending=_async_pending,
+                        _only=compiled.escaped,
+                    )
+                    self._errors.update(errors)
+                    # Disjoint by construction: a name is either in the plan or
+                    # in `escaped`, never both.
+                    validated_dict.update(escaped_validated)
 
         if validated_dict is None:
             errors, validated_dict = self._sigil.validate(
