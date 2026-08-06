@@ -9,11 +9,13 @@ DB_PATH = Path(__file__).resolve().parent / "techempower.db"
 
 def init_db(db_path: Path = DB_PATH):
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    if db_path.exists():
-        try:
-            db_path.unlink()
-        except OSError:
-            pass
+    for ext in ["", "-shm", "-wal", "-journal"]:
+        p = Path(str(db_path) + ext)
+        if p.exists():
+            try:
+                p.unlink()
+            except OSError:
+                pass
 
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()

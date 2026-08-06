@@ -307,8 +307,10 @@ def main():
         target_scenarios = [s.strip() for s in args.scenarios.split(",") if s.strip() in SCENARIOS]
 
     # Setup temp files
+    from benchmarks.frameworks.shared import VALIDATION_INPUT
+
     with open(TEMP_PAYLOAD, "w") as f:
-        json.dump({"username": "test_user", "email": "test@example.com", "age": 25, "is_active": True}, f)
+        json.dump(VALIDATION_INPUT, f)
     with open(TEMP_UPLOAD, "w") as f:
         f.write("A" * 10240)  # 10KB dummy file
 
@@ -354,6 +356,8 @@ def main():
             env = os.environ.copy()
             env["PYTHONPATH"] = str(WORKSPACE_ROOT)
             env["MIDDLEWARE_LAYERS"] = str(layers)
+            env["AQUILIA_ENGINE"] = os.environ.get("AQUILIA_ENGINE", "1")
+            env["AQUILIA_DATAENGINE"] = os.environ.get("AQUILIA_DATAENGINE", "1")
 
             # Start Uvicorn process
             cmd = [
@@ -451,13 +455,13 @@ def main():
     # A benchmark that only reports numbers cannot catch a regression; someone
     # has to notice the number moved. These floors make CI do the noticing.
     gates_path = BENCH_DIR / "regression" / "gates.json"
-    if gates_path.exists() and "aquilia" in target_frameworks:
+    if gates_path.exists() and "Aquilia" in target_frameworks:
         try:
             gates_data = json.loads(gates_path.read_text())
             floors = gates_data.get("floors", {})
             regressed: list[str] = []
             for sc, floor_qps in floors.items():
-                metrics = run_results.get("aquilia", {}).get(sc)
+                metrics = run_results.get("Aquilia", {}).get(sc)
                 if not metrics:
                     continue
                 actual_qps = metrics.get("qps", 0.0)
