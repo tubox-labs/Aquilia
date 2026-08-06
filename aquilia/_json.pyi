@@ -5,7 +5,8 @@ Nothing in ``aquilia`` should import this module directly -- go through
 normalises the exception types.
 """
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 def dumps(obj: Any, default: Callable[[Any], Any] | None = ...) -> bytes:
     """Serialise ``obj`` to UTF-8 JSON bytes.
