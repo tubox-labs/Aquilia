@@ -43,11 +43,13 @@ def _field_type_code(field: Any, tc: Any) -> int | None:
     exact = type(field)
 
     # Str-like: to_python is a passthrough for all of these.
-    if exact in (fm.CharField, fm.TextField, fm.EmailField, fm.SlugField, fm.URLField):
+    if exact in (fm.CharField, fm.TextField, fm.EmailField, fm.SlugField, fm.URLField,
+                 fm.VarcharField, fm.CICharField, fm.CIEmailField, fm.CITextField):
         return tc.STR
-    if exact in (fm.IntegerField, fm.BigIntegerField, fm.SmallIntegerField):
+    if exact in (fm.IntegerField, fm.BigIntegerField, fm.SmallIntegerField,
+                 fm.PositiveIntegerField, fm.PositiveSmallIntegerField, fm.PositiveBigIntegerField):
         return tc.INT
-    if exact in (fm.AutoField, fm.BigAutoField):
+    if exact in (fm.AutoField, fm.BigAutoField, fm.SmallAutoField):
         return tc.INT
     if exact is fm.FloatField:
         return tc.FLOAT
