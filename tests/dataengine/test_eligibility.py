@@ -26,7 +26,7 @@ from decimal import Decimal
 import pytest
 
 from aquilia._dataengine_loader import DATAENGINE_NATIVE
-from aquilia.contracts import Contract
+from aquilia.contracts import Contract, ward
 from aquilia.contracts._native_plan import field_plan_for
 from aquilia.contracts.facets import Computed, TextFacet
 
@@ -113,10 +113,7 @@ class WithNested(Contract):
     "contract",
     [
         pytest.param(WithValidator, id="validator"),
-        pytest.param(WithPattern, id="pattern"),
         pytest.param(WithCallableDefault, id="callable-default"),
-        pytest.param(WithDecimal, id="decimal-v1-exclusion"),
-        pytest.param(WithNested, id="nested-contract"),
     ],
 )
 def test_single_ineligible_field_yields_no_plan(contract):
@@ -126,6 +123,45 @@ def test_single_ineligible_field_yields_no_plan(contract):
     second validate() call, so it is worse than no plan.
     """
     assert field_plan_for(contract) is None
+
+
+def test_decimal_is_representable_since_tier2():
+    """DecimalFacet was a documented v1 exclusion; Tier 2 lifted it.
+
+    The exclusion existed because ``DecimalFacet.seal`` enforces ``max_digits``
+    and ``decimal_places``, which need exponent-aware inspection. Those are now
+    read off ``Decimal.as_tuple()`` natively -- the same source the Python code
+    reads -- so the field compiles rather than escaping.
+    """
+    compiled = field_plan_for(WithDecimal)
+    assert compiled is not None
+    assert not compiled.escaped
+    assert len(compiled.plan) == 1
+
+
+def test_pattern_is_representable_since_tier3():
+    """A regex pattern was a v1 exclusion; Tier 3 lifted it.
+
+    The native seal calls the *compiled* ``re.Pattern.search`` -- C code in
+    ``_sre``, so a builtin call rather than user Python. Reimplementing a regex
+    engine natively was never on the table; borrowing CPython's is exact.
+    """
+    compiled = field_plan_for(WithPattern)
+    assert compiled is not None
+    assert not compiled.escaped
+    assert len(compiled.plan) == 1
+
+
+def test_plain_nested_contract_is_representable_since_tier3():
+    """A nested Contract with no wards and no validate() override compiles.
+
+    ``run_nested_contract`` reduces to the child's structural pass in that case,
+    which is exactly what a recursively compiled sub-plan reproduces.
+    """
+    compiled = field_plan_for(WithNested)
+    assert compiled is not None
+    assert not compiled.escaped
+    assert len(compiled.plan) == 1
 
 
 def test_custom_facet_subclass_escapes():
@@ -151,14 +187,32 @@ class NestedSibling(Contract):
     """The case that made the native path dead in production.
 
     Nested objects are the normal shape of a real API payload. Under the old
-    all-or-nothing rule this contract compiled to None and all four scalars
-    were validated in Python.
+    all-or-nothing rule this contract compiled to None and all four scalars were
+    validated in Python. Since Tier 3 the nested field compiles too, so this now
+    covers all four -- kept as the regression guard for that.
     """
 
     name: str
     count: int
     ratio: float
     inner: Inner
+
+
+class WardedInner(Contract):
+    """A nested child whose ward is user Python, so it cannot go native."""
+
+    x: int
+
+    @ward
+    def always_ok(self, data):  # noqa: ANN001, ANN201
+        """Passes. Its *existence* is what forces the parent field to escape."""
+
+
+class WardedNestedSibling(Contract):
+    name: str
+    count: int
+    ratio: float
+    inner: WardedInner
 
 
 class ValidatorSibling(Contract):
@@ -174,10 +228,10 @@ class ComputedSibling(Contract):
 @pytest.mark.parametrize(
     ("contract", "escaped", "covered"),
     [
-        pytest.param(NestedSibling, {"inner"}, 3, id="nested"),
+        pytest.param(WardedNestedSibling, {"inner"}, 3, id="nested-with-ward"),
         pytest.param(ValidatorSibling, {"checked"}, 1, id="validator"),
         pytest.param(ComputedSibling, {"label"}, 1, id="computed"),
-        pytest.param(WithDecimal, None, None, id="control-all-escaped"),
+        pytest.param(WithValidator, None, None, id="control-all-escaped"),
     ],
 )
 def test_ineligible_field_escapes_without_sinking_siblings(contract, escaped, covered):
@@ -188,6 +242,18 @@ def test_ineligible_field_escapes_without_sinking_siblings(contract, escaped, co
     assert compiled is not None
     assert set(compiled.escaped) == escaped
     assert len(compiled.plan) == covered
+
+
+def test_plain_nested_sibling_now_covers_everything():
+    """The contract that motivated per-field escape is now fully native.
+
+    Kept alongside the escape test so the two cases stay visibly distinct: a
+    *plain* nested child compiles, a nested child carrying user Python does not.
+    """
+    compiled = field_plan_for(NestedSibling)
+    assert compiled is not None
+    assert not compiled.escaped
+    assert len(compiled.plan) == 4
 
 
 def test_escaped_and_covered_fields_are_disjoint():
