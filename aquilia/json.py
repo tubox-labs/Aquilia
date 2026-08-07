@@ -99,7 +99,7 @@ try:  # pragma: no cover - exercised by whichever branch the build produced
 except (ImportError, AttributeError):
     _native_mod = None
 
-native: Final[bool] = _native_mod is not None
+native: Final[bool] = _native_mod is not None and hasattr(_native_mod, "dumps")
 _BACKEND: Final[str] = "aquilia._json" if native else "stdlib"
 
 

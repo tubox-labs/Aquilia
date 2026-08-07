@@ -63,8 +63,11 @@ if _dataengine_enabled():
     try:
         from aquilia import _dataengine as _dataengine_mod  # type: ignore[attr-defined]
 
-        _dataengine = _dataengine_mod
-        DATAENGINE_NATIVE = True
+        if hasattr(_dataengine_mod, "FieldPlan"):
+            _dataengine = _dataengine_mod
+            DATAENGINE_NATIVE = True
+        else:
+            _LOAD_ERROR = "module has no FieldPlan attribute"
     except (ImportError, AttributeError) as exc:  # pragma: no cover - depends on build environment
         # Extension absent (pure-Python install), built for a different Python
         # minor version, or built for a different architecture. All three are
