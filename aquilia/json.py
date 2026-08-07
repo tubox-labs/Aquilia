@@ -96,7 +96,7 @@ def default_serializer(o: Any) -> Any:
 _native_mod: Any = None
 try:  # pragma: no cover - exercised by whichever branch the build produced
     from aquilia import _json as _native_mod  # type: ignore[attr-defined]
-except ImportError:
+except (ImportError, AttributeError):
     _native_mod = None
 
 native: Final[bool] = _native_mod is not None

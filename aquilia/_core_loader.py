@@ -67,7 +67,7 @@ if _engine_enabled():
         )
 
         NATIVE = True
-    except ImportError as exc:  # pragma: no cover - depends on build environment
+    except (ImportError, AttributeError) as exc:  # pragma: no cover - depends on build environment
         # Extension absent (pure-Python install), built for a different Python
         # minor version, or built for a different architecture. All three are
         # legitimate and all three fall back.
