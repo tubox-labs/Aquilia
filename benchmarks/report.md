@@ -6,34 +6,24 @@ This document presents the objective, reproducible, and statistically valid benc
 - **Load Testing Utility**: `oha` (Rust-based HTTP/1.1 load generator)
 - **Concurrency Level**: `50` simultaneous connections
 - **Duration**: `5s` per endpoint run
-- **Server Environment**: Python 3.11.15 (CPython) — Darwin arm64 — Uvicorn, single worker — JSON backend: `aquilia._json` — `_core` present — `_dataengine` present — `_json` present
+- **Server Environment**: Python 3.13.14 (CPython) — Darwin arm64 — Uvicorn, single worker — JSON backend: `aquilia._json` — `_core` present — `_dataengine` present — `_json` present
 - **Database Engine**: SQLite 3 (Standard 10,000-row TechEmpower Schema)
 - **Success Rate**: fraction of responses with a 2xx/3xx status. Endpoints failing a single-request preflight are reported as 0 and excluded from ranking.
-
-> **Provenance note.** All scenarios below except `validation` were measured
-> *before* the native validation engine was connected. `_native_plan.py`
-> compiled a `FieldPlan` per contract but nothing invoked it, so contract
-> validation ran the pure-Python field loop while this header printed
-> `` `_dataengine` present ``. The engine is now wired into `Sigil.validate`.
->
-> The `validation` row is from a re-run after that fix. Scenarios touching
-> contracts or ORM hydration should be treated as provisional until the full
-> suite is re-run in one pass.
 
 ## 1. Cold Startup & Importing Overhead
 Measures the pure framework importing and initialization time. Fast cold start times are critical for Serverless deployments and developer container boot-ups.
 
 | Rank | Framework | Mean Startup (ms) | StdDev (ms) | Min (ms) | Max (ms) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Starlette | 180.89ms | ±1.97ms | 178.39ms | 183.31ms |
-| 2 | Django | 219.64ms | ±3.35ms | 214.81ms | 224.70ms |
-| 3 | Flask | 220.69ms | ±2.94ms | 216.06ms | 223.33ms |
-| 4 | Aquilia | 233.85ms | ±3.23ms | 229.82ms | 238.71ms |
-| 5 | Falcon | 234.04ms | ±2.76ms | 230.82ms | 237.86ms |
-| 6 | Quart | 249.02ms | ±3.37ms | 245.55ms | 254.47ms |
-| 7 | Sanic | 255.12ms | ±3.60ms | 250.57ms | 261.56ms |
-| 8 | FastAPI | 302.26ms | ±3.65ms | 297.63ms | 307.13ms |
-| 9 | Litestar | 382.68ms | ±3.17ms | 377.38ms | 386.57ms |
+| 1 | Starlette | 160.41ms | ±1.95ms | 157.94ms | 163.16ms |
+| 2 | Django | 207.52ms | ±4.57ms | 200.76ms | 211.78ms |
+| 3 | Flask | 208.19ms | ±4.05ms | 204.55ms | 216.11ms |
+| 4 | Aquilia | 213.76ms | ±1.90ms | 211.21ms | 216.31ms |
+| 5 | Falcon | 223.51ms | ±5.38ms | 217.21ms | 237.26ms |
+| 6 | Sanic | 233.23ms | ±7.88ms | 223.94ms | 246.44ms |
+| 7 | Quart | 245.03ms | ±3.62ms | 238.95ms | 250.57ms |
+| 8 | FastAPI | 289.82ms | ±5.00ms | 281.14ms | 298.90ms |
+| 9 | Litestar | 592.07ms | ±79.34ms | 526.07ms | 736.88ms |
 
 ## 2. HTTP Throughput and Latency Results
 The tables below highlight framework performance metrics across various workload scenarios.
@@ -43,200 +33,194 @@ GET `/plaintext` returning 'Hello, World!' (Measures raw HTTP parsing and serial
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 69826.11 req/s | 0.71 ms | 0.78 ms | 0.88 ms | 100.0% |
-| 2 | Starlette | 58748.74 req/s | 0.85 ms | 0.85 ms | 0.88 ms | 100.0% |
-| 3 | Litestar | 43211.64 req/s | 1.16 ms | 1.15 ms | 1.22 ms | 100.0% |
-| 4 | Aquilia | 34222.54 req/s | 1.46 ms | 1.44 ms | 1.53 ms | 100.0% |
-| 5 | Sanic | 34217.59 req/s | 1.46 ms | 1.23 ms | 1.90 ms | 100.0% |
-| 6 | FastAPI | 32914.32 req/s | 1.52 ms | 1.51 ms | 1.58 ms | 100.0% |
-| 7 | Quart | 16548.93 req/s | 3.02 ms | 2.74 ms | 2.93 ms | 100.0% |
-| 8 | Django | 3845.35 req/s | 13.02 ms | 11.55 ms | 27.07 ms | 100.0% |
-| 9 | Flask | 2466.27 req/s | 20.28 ms | 25.83 ms | 47.23 ms | 56.2% |
+| 1 | Falcon | 77214.38 req/s | 0.65 ms | 0.71 ms | 0.80 ms | 100.0% |
+| 2 | Starlette | 70225.71 req/s | 0.71 ms | 0.74 ms | 0.85 ms | 100.0% |
+| 3 | Litestar | 47446.60 req/s | 1.05 ms | 1.04 ms | 1.11 ms | 100.0% |
+| 4 | Aquilia | 43243.17 req/s | 1.15 ms | 1.15 ms | 1.22 ms | 100.0% |
+| 5 | FastAPI | 38856.05 req/s | 1.29 ms | 1.28 ms | 1.34 ms | 100.0% |
+| 6 | Sanic | 38752.53 req/s | 1.29 ms | 1.18 ms | 2.45 ms | 100.0% |
+| 7 | Quart | 19697.60 req/s | 2.54 ms | 2.46 ms | 2.68 ms | 100.0% |
+| 8 | Django | 4192.29 req/s | 11.93 ms | 11.63 ms | 12.69 ms | 100.0% |
+| 9 | Flask | 2182.76 req/s | 22.90 ms | 30.73 ms | 46.19 ms | 59.0% |
 
 ### Scenario: `json`
 GET `/json` returning a small JSON dictionary. (Measures JSON encoding overhead).
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 59832.81 req/s | 0.83 ms | 0.83 ms | 0.87 ms | 100.0% |
-| 2 | Starlette | 53942.80 req/s | 0.93 ms | 0.92 ms | 0.97 ms | 100.0% |
-| 3 | Litestar | 41811.27 req/s | 1.19 ms | 1.18 ms | 1.25 ms | 100.0% |
-| 4 | Aquilia | 34504.55 req/s | 1.45 ms | 1.44 ms | 1.52 ms | 100.0% |
-| 5 | Sanic | 33390.11 req/s | 1.50 ms | 1.26 ms | 1.95 ms | 100.0% |
-| 6 | FastAPI | 29234.40 req/s | 1.71 ms | 1.70 ms | 1.78 ms | 100.0% |
-| 7 | Quart | 15602.76 req/s | 3.20 ms | 2.92 ms | 3.17 ms | 100.0% |
-| 8 | Django | 3676.89 req/s | 13.60 ms | 12.69 ms | 27.67 ms | 100.0% |
-| 9 | Flask | 3570.60 req/s | 14.00 ms | 18.35 ms | 25.09 ms | 67.0% |
+| 1 | Falcon | 66609.62 req/s | 0.75 ms | 0.76 ms | 0.87 ms | 100.0% |
+| 2 | Starlette | 62609.09 req/s | 0.80 ms | 0.79 ms | 0.83 ms | 100.0% |
+| 3 | Litestar | 46666.53 req/s | 1.07 ms | 1.06 ms | 1.13 ms | 100.0% |
+| 4 | Aquilia | 42993.21 req/s | 1.16 ms | 1.15 ms | 1.22 ms | 100.0% |
+| 5 | Sanic | 38218.61 req/s | 1.31 ms | 1.20 ms | 2.54 ms | 100.0% |
+| 6 | FastAPI | 34586.58 req/s | 1.44 ms | 1.44 ms | 1.50 ms | 100.0% |
+| 7 | Quart | 18447.11 req/s | 2.71 ms | 2.63 ms | 2.86 ms | 100.0% |
+| 8 | Django | 4171.54 req/s | 11.99 ms | 11.77 ms | 12.55 ms | 100.0% |
+| 9 | Flask | 2697.80 req/s | 18.53 ms | 23.08 ms | 36.08 ms | 67.2% |
 
 ### Scenario: `json_large`
 GET `/json/large` returning a nested 100KB JSON payload. (Measures large serialization performance).
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Litestar | 6692.46 req/s | 7.47 ms | 7.29 ms | 7.49 ms | 100.0% |
-| 2 | Aquilia | 4542.18 req/s | 11.01 ms | 10.67 ms | 11.36 ms | 100.0% |
-| 3 | Sanic | 2322.10 req/s | 21.56 ms | 20.83 ms | 22.08 ms | 100.0% |
-| 4 | Starlette | 1332.03 req/s | 37.65 ms | 36.84 ms | 37.17 ms | 100.0% |
-| 5 | Falcon | 1304.08 req/s | 38.46 ms | 37.74 ms | 38.20 ms | 100.0% |
-| 6 | Quart | 1150.36 req/s | 43.61 ms | 43.33 ms | 43.82 ms | 100.0% |
-| 7 | Flask | 984.31 req/s | 51.00 ms | 50.73 ms | 66.07 ms | 94.7% |
-| 8 | Django | 981.80 req/s | 51.15 ms | 50.31 ms | 65.54 ms | 100.0% |
-| 9 | FastAPI | 171.94 req/s | 240.40 ms | 183.05 ms | 327.80 ms | 100.0% |
+| 1 | Litestar | 6864.71 req/s | 7.28 ms | 7.11 ms | 7.32 ms | 100.0% |
+| 2 | Aquilia | 4613.83 req/s | 10.84 ms | 10.54 ms | 10.98 ms | 100.0% |
+| 3 | Sanic | 2179.16 req/s | 22.98 ms | 22.21 ms | 24.38 ms | 100.0% |
+| 4 | Falcon | 1612.96 req/s | 31.07 ms | 30.17 ms | 32.07 ms | 100.0% |
+| 5 | Starlette | 1609.06 req/s | 31.15 ms | 30.11 ms | 31.67 ms | 100.0% |
+| 6 | Quart | 1246.74 req/s | 40.25 ms | 40.27 ms | 40.92 ms | 100.0% |
+| 7 | Django | 1201.31 req/s | 41.74 ms | 41.23 ms | 44.41 ms | 100.0% |
+| 8 | Flask | 1009.45 req/s | 49.61 ms | 47.69 ms | 72.48 ms | 92.8% |
+| 9 | FastAPI | 201.09 req/s | 224.75 ms | 166.34 ms | 291.48 ms | 100.0% |
 
 ### Scenario: `db_single`
 GET `/db` executing 1 SQL query. (Measures single database retrieval latency).
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Aquilia | 17286.29 req/s | 2.89 ms | 2.70 ms | 4.08 ms | 100.0% |
-| 2 | Falcon | 6696.93 req/s | 7.46 ms | 7.38 ms | 8.70 ms | 100.0% |
-| 3 | Starlette | 6164.71 req/s | 8.11 ms | 7.96 ms | 9.44 ms | 100.0% |
-| 4 | Litestar | 6082.51 req/s | 8.22 ms | 8.08 ms | 9.47 ms | 100.0% |
-| 5 | Sanic | 5720.67 req/s | 8.74 ms | 8.44 ms | 10.24 ms | 100.0% |
-| 6 | FastAPI | 5411.45 req/s | 9.24 ms | 8.92 ms | 10.81 ms | 100.0% |
-| 7 | Quart | 4827.30 req/s | 10.36 ms | 10.01 ms | 11.86 ms | 100.0% |
-| 8 | Flask | 3116.04 req/s | 16.06 ms | 19.51 ms | 25.56 ms | 75.2% |
-| 9 | Django | 1301.00 req/s | 38.55 ms | 31.35 ms | 54.38 ms | 100.0% |
+| 1 | Aquilia | 23929.71 req/s | 2.09 ms | 2.07 ms | 2.18 ms | 100.0% |
+| 2 | Falcon | 6343.64 req/s | 7.88 ms | 7.76 ms | 9.52 ms | 100.0% |
+| 3 | Starlette | 6301.62 req/s | 7.94 ms | 7.82 ms | 9.49 ms | 100.0% |
+| 4 | Litestar | 5991.84 req/s | 8.34 ms | 8.23 ms | 10.01 ms | 100.0% |
+| 5 | Sanic | 5650.21 req/s | 8.85 ms | 8.57 ms | 11.26 ms | 100.0% |
+| 6 | FastAPI | 5567.03 req/s | 8.98 ms | 8.86 ms | 10.79 ms | 100.0% |
+| 7 | Quart | 4774.85 req/s | 10.47 ms | 10.28 ms | 12.57 ms | 100.0% |
+| 8 | Flask | 2574.85 req/s | 19.44 ms | 24.42 ms | 31.59 ms | 75.5% |
+| 9 | Django | 1551.20 req/s | 32.29 ms | 32.19 ms | 38.97 ms | 100.0% |
 
 ### Scenario: `db_queries`
 GET `/queries` executing 5 random SQL queries sequentially.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Aquilia | 7114.24 req/s | 7.02 ms | 5.60 ms | 14.96 ms | 100.0% |
-| 2 | Falcon | 2936.94 req/s | 17.04 ms | 16.88 ms | 19.66 ms | 100.0% |
-| 3 | Flask | 2860.97 req/s | 17.48 ms | 20.95 ms | 26.92 ms | 77.8% |
-| 4 | Starlette | 2681.46 req/s | 18.66 ms | 18.55 ms | 21.26 ms | 100.0% |
-| 5 | Litestar | 2669.13 req/s | 18.75 ms | 18.62 ms | 21.30 ms | 100.0% |
-| 6 | Sanic | 2548.61 req/s | 19.64 ms | 19.30 ms | 22.37 ms | 100.0% |
-| 7 | FastAPI | 2492.94 req/s | 20.08 ms | 19.85 ms | 23.03 ms | 100.0% |
-| 8 | Quart | 2367.91 req/s | 21.14 ms | 20.94 ms | 23.95 ms | 100.0% |
-| 9 | Django | 914.72 req/s | 54.93 ms | 52.29 ms | 72.32 ms | 100.0% |
+| 1 | Aquilia | 11623.52 req/s | 4.30 ms | 4.28 ms | 4.44 ms | 100.0% |
+| 2 | Falcon | 2651.35 req/s | 18.85 ms | 18.64 ms | 22.02 ms | 100.0% |
+| 3 | Starlette | 2572.36 req/s | 19.46 ms | 19.28 ms | 22.73 ms | 100.0% |
+| 4 | Litestar | 2519.71 req/s | 19.87 ms | 19.67 ms | 23.17 ms | 100.0% |
+| 5 | Flask | 2494.59 req/s | 20.07 ms | 23.95 ms | 31.14 ms | 78.2% |
+| 6 | Sanic | 2434.96 req/s | 20.56 ms | 20.20 ms | 24.39 ms | 100.0% |
+| 7 | FastAPI | 2361.76 req/s | 21.20 ms | 21.05 ms | 24.69 ms | 100.0% |
+| 8 | Quart | 2257.99 req/s | 22.17 ms | 21.85 ms | 25.94 ms | 100.0% |
+| 9 | Django | 919.48 req/s | 54.45 ms | 53.62 ms | 65.94 ms | 100.0% |
 
 ### Scenario: `db_updates`
 GET `/updates` executing 5 select-update SQL statements under a database transaction.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Flask | 4033.35 req/s | 33.79 ms | 21.77 ms | 47.93 ms | 86.9% |
-| 2 | Aquilia | 1909.41 req/s | 26.23 ms | 25.91 ms | 28.00 ms | 100.0% |
-| 3 | Falcon | 1593.90 req/s | 27.94 ms | 0.68 ms | 82.68 ms | 100.0% |
-| 4 | Starlette | 1580.52 req/s | 26.85 ms | 0.70 ms | 87.53 ms | 100.0% |
-| 5 | Litestar | 1569.40 req/s | 27.62 ms | 0.71 ms | 84.21 ms | 100.0% |
-| 6 | Sanic | 1558.42 req/s | 27.84 ms | 0.73 ms | 83.05 ms | 100.0% |
-| 7 | FastAPI | 1530.39 req/s | 28.02 ms | 1.83 ms | 83.44 ms | 100.0% |
-| 8 | Quart | 1513.96 req/s | 29.36 ms | 1.93 ms | 87.34 ms | 100.0% |
-| 9 | Django | 965.49 req/s | 52.07 ms | 47.54 ms | 85.92 ms | 17.2% |
+| 1 | Aquilia | 2259.09 req/s | 22.16 ms | 21.86 ms | 24.03 ms | 100.0% |
+| 2 | Flask | 2042.99 req/s | 24.48 ms | 27.66 ms | 35.71 ms | 75.3% |
+| 3 | Starlette | 1576.52 req/s | 28.55 ms | 0.69 ms | 88.71 ms | 100.0% |
+| 4 | Falcon | 1568.19 req/s | 27.31 ms | 0.68 ms | 85.42 ms | 100.0% |
+| 5 | Litestar | 1555.94 req/s | 28.89 ms | 0.71 ms | 84.59 ms | 100.0% |
+| 6 | Sanic | 1547.02 req/s | 29.48 ms | 0.72 ms | 85.22 ms | 100.0% |
+| 7 | Quart | 1487.86 req/s | 29.68 ms | 1.91 ms | 87.96 ms | 100.0% |
+| 8 | FastAPI | 1445.31 req/s | 30.76 ms | 1.83 ms | 86.26 ms | 100.0% |
+| 9 | Django | 1038.51 req/s | 48.36 ms | 46.02 ms | 124.81 ms | 13.6% |
 
 ### Scenario: `fortunes`
 GET `/fortunes` fetching fortunes from database, adding a custom fortune, sorting, and rendering to HTML via Jinja2.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Aquilia | 5211.78 req/s | 9.60 ms | 9.48 ms | 10.49 ms | 100.0% |
-| 2 | Flask | 3387.23 req/s | 19.55 ms | 20.55 ms | 28.37 ms | 79.4% |
-| 3 | Starlette | 2994.96 req/s | 16.70 ms | 16.34 ms | 21.88 ms | 100.0% |
-| 4 | Litestar | 2967.35 req/s | 16.86 ms | 16.39 ms | 21.30 ms | 100.0% |
-| 5 | Falcon | 2952.53 req/s | 16.94 ms | 16.79 ms | 21.75 ms | 100.0% |
-| 6 | Sanic | 2707.83 req/s | 18.48 ms | 18.10 ms | 23.33 ms | 100.0% |
-| 7 | FastAPI | 2614.33 req/s | 19.14 ms | 18.60 ms | 24.81 ms | 100.0% |
-| 8 | Quart | 2511.69 req/s | 19.93 ms | 19.58 ms | 24.37 ms | 100.0% |
-| 9 | Django | 1139.93 req/s | 44.02 ms | 41.04 ms | 65.51 ms | 100.0% |
+| 1 | Aquilia | 5109.65 req/s | 9.79 ms | 9.71 ms | 10.74 ms | 100.0% |
+| 2 | Starlette | 2811.32 req/s | 17.80 ms | 17.72 ms | 22.41 ms | 100.0% |
+| 3 | Litestar | 2729.53 req/s | 18.33 ms | 18.20 ms | 23.07 ms | 100.0% |
+| 4 | Falcon | 2652.89 req/s | 18.86 ms | 18.08 ms | 23.91 ms | 100.0% |
+| 5 | FastAPI | 2651.88 req/s | 18.88 ms | 18.65 ms | 24.04 ms | 100.0% |
+| 6 | Sanic | 2629.32 req/s | 19.03 ms | 18.78 ms | 24.48 ms | 100.0% |
+| 7 | Flask | 2596.25 req/s | 19.26 ms | 21.98 ms | 32.35 ms | 79.9% |
+| 8 | Quart | 2518.93 req/s | 19.88 ms | 19.61 ms | 25.22 ms | 100.0% |
+| 9 | Django | 1222.33 req/s | 41.02 ms | 40.68 ms | 50.04 ms | 100.0% |
 
 ### Scenario: `cached`
 GET `/cached` retrieving 5 random items from memory cache with fallback to DB.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 46513.75 req/s | 1.07 ms | 1.07 ms | 1.14 ms | 100.0% |
-| 2 | Starlette | 38696.61 req/s | 1.29 ms | 1.29 ms | 1.36 ms | 100.0% |
-| 3 | Litestar | 33763.64 req/s | 1.48 ms | 1.47 ms | 1.55 ms | 100.0% |
-| 4 | Aquilia | 27464.67 req/s | 1.82 ms | 1.80 ms | 1.89 ms | 100.0% |
-| 5 | Sanic | 26119.13 req/s | 1.91 ms | 1.62 ms | 2.29 ms | 100.0% |
-| 6 | FastAPI | 16886.47 req/s | 2.96 ms | 2.95 ms | 3.03 ms | 100.0% |
-| 7 | Quart | 13831.71 req/s | 3.61 ms | 3.33 ms | 3.59 ms | 100.0% |
-| 8 | Flask | 3460.46 req/s | 14.46 ms | 15.23 ms | 29.74 ms | 73.7% |
-| 9 | Django | 3256.33 req/s | 15.37 ms | 14.07 ms | 30.51 ms | 100.0% |
+| 1 | Falcon | 50976.27 req/s | 0.98 ms | 0.97 ms | 1.04 ms | 100.0% |
+| 2 | Starlette | 44726.18 req/s | 1.12 ms | 1.11 ms | 1.16 ms | 100.0% |
+| 3 | Litestar | 38041.31 req/s | 1.31 ms | 1.30 ms | 1.37 ms | 100.0% |
+| 4 | Aquilia | 34543.98 req/s | 1.45 ms | 1.44 ms | 1.50 ms | 100.0% |
+| 5 | Sanic | 28799.57 req/s | 1.73 ms | 1.51 ms | 3.22 ms | 100.0% |
+| 6 | FastAPI | 19379.91 req/s | 2.58 ms | 2.56 ms | 2.65 ms | 100.0% |
+| 7 | Quart | 16010.65 req/s | 3.12 ms | 3.05 ms | 3.30 ms | 100.0% |
+| 8 | Django | 3845.88 req/s | 13.00 ms | 12.71 ms | 13.67 ms | 100.0% |
+| 9 | Flask | 3332.05 req/s | 15.00 ms | 17.13 ms | 27.20 ms | 77.1% |
 
 ### Scenario: `validation`
 POST `/validation` parsing and validating a nested payload (Contract vs Pydantic vs Dataclasses).
 
-**Re-measured after the native `FieldPlan` was wired into `Sigil.validate`.**
-Aquilia moved from 16066.99 req/s to 18355.03 req/s (+14.2%) on the same
-payload. In isolation the same validation is 2.3x faster
-(`benchmarks/engine/microbench_contracts.py`); the HTTP delta is smaller
-because transport and the rest of the pipeline dominate the request.
-
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 44412.97 req/s | 1.12 ms | 1.12 ms | 1.19 ms | 100.0% |
-| 2 | Starlette | 39355.20 req/s | 1.27 ms | 1.27 ms | 1.34 ms | 100.0% |
-| 3 | Litestar | 27787.86 req/s | 1.80 ms | 1.79 ms | 1.87 ms | 100.0% |
-| 4 | Sanic | 26805.72 req/s | 1.86 ms | 1.56 ms | 2.33 ms | 100.0% |
-| 5 | FastAPI | 19790.29 req/s | 2.53 ms | 2.51 ms | 2.61 ms | 100.0% |
-| 6 | Aquilia | 18355.03 req/s | 2.72 ms | 2.71 ms | 2.81 ms | 100.0% |
-| 7 | Quart | 13634.06 req/s | 3.67 ms | 3.47 ms | 3.69 ms | 100.0% |
-| 8 | Flask | 4859.29 req/s | 10.29 ms | 12.31 ms | 15.08 ms | 78.8% |
-| 9 | Django | 3535.22 req/s | 14.16 ms | 13.17 ms | 28.08 ms | 100.0% |
+| 1 | Falcon | 48898.57 req/s | 1.02 ms | 1.01 ms | 1.08 ms | 100.0% |
+| 2 | Starlette | 43647.72 req/s | 1.14 ms | 1.14 ms | 1.20 ms | 100.0% |
+| 3 | Litestar | 30684.19 req/s | 1.63 ms | 1.62 ms | 1.70 ms | 100.0% |
+| 4 | Sanic | 29639.22 req/s | 1.69 ms | 1.49 ms | 3.20 ms | 100.0% |
+| 5 | Aquilia | 22773.82 req/s | 2.19 ms | 2.18 ms | 2.26 ms | 100.0% |
+| 6 | FastAPI | 22474.66 req/s | 2.22 ms | 2.21 ms | 2.29 ms | 100.0% |
+| 7 | Quart | 15068.78 req/s | 3.32 ms | 3.22 ms | 3.41 ms | 100.0% |
+| 8 | Django | 3919.06 req/s | 12.76 ms | 12.57 ms | 13.50 ms | 100.0% |
+| 9 | Flask | 3182.62 req/s | 15.73 ms | 16.99 ms | 30.17 ms | 78.3% |
 
 ### Scenario: `route_static`
 GET `/route/static` matched against a large route table containing 500 placeholder routes. (Measures routing lookup performance).
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 58420.40 req/s | 0.85 ms | 0.85 ms | 0.89 ms | 100.0% |
-| 2 | Starlette | 48647.25 req/s | 1.03 ms | 1.02 ms | 1.08 ms | 100.0% |
-| 3 | Litestar | 41414.38 req/s | 1.21 ms | 1.20 ms | 1.27 ms | 100.0% |
-| 4 | Sanic | 33243.41 req/s | 1.50 ms | 1.27 ms | 1.96 ms | 100.0% |
-| 5 | Aquilia | 33051.47 req/s | 1.51 ms | 1.49 ms | 1.58 ms | 100.0% |
-| 6 | Quart | 15071.25 req/s | 3.32 ms | 2.99 ms | 3.22 ms | 100.0% |
-| 7 | FastAPI | 4150.91 req/s | 12.05 ms | 12.07 ms | 12.33 ms | 100.0% |
-| 8 | Django | 3515.68 req/s | 14.23 ms | 12.40 ms | 30.07 ms | 100.0% |
-| 9 | Flask | 3294.69 req/s | 16.42 ms | 13.00 ms | 38.45 ms | 76.4% |
+| 1 | Falcon | 64400.63 req/s | 0.78 ms | 0.77 ms | 0.88 ms | 100.0% |
+| 2 | Starlette | 56544.43 req/s | 0.88 ms | 0.87 ms | 0.92 ms | 100.0% |
+| 3 | Litestar | 46658.91 req/s | 1.07 ms | 1.06 ms | 1.14 ms | 100.0% |
+| 4 | Aquilia | 42400.69 req/s | 1.18 ms | 1.17 ms | 1.24 ms | 100.0% |
+| 5 | Sanic | 36935.68 req/s | 1.35 ms | 1.21 ms | 2.63 ms | 100.0% |
+| 6 | Quart | 18357.83 req/s | 2.72 ms | 2.64 ms | 2.87 ms | 100.0% |
+| 7 | FastAPI | 6124.10 req/s | 8.16 ms | 8.14 ms | 8.47 ms | 100.0% |
+| 8 | Django | 4081.52 req/s | 12.25 ms | 12.03 ms | 12.96 ms | 100.0% |
+| 9 | Flask | 2991.11 req/s | 16.70 ms | 13.55 ms | 39.07 ms | 79.1% |
 
 ### Scenario: `route_params`
 GET `/route/params/<user_id>/orders/<order_id>` parsing path variables.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 55976.45 req/s | 0.89 ms | 0.89 ms | 0.93 ms | 100.0% |
-| 2 | Starlette | 46075.94 req/s | 1.08 ms | 1.08 ms | 1.14 ms | 100.0% |
-| 3 | Litestar | 38020.38 req/s | 1.31 ms | 1.31 ms | 1.38 ms | 100.0% |
-| 4 | Sanic | 32858.81 req/s | 1.52 ms | 1.28 ms | 1.99 ms | 100.0% |
-| 5 | Aquilia | 32294.09 req/s | 1.55 ms | 1.50 ms | 1.65 ms | 100.0% |
-| 6 | Quart | 14608.92 req/s | 3.42 ms | 3.11 ms | 3.37 ms | 100.0% |
-| 7 | FastAPI | 3912.66 req/s | 12.78 ms | 12.73 ms | 13.03 ms | 100.0% |
-| 8 | Django | 3457.33 req/s | 14.47 ms | 13.38 ms | 29.34 ms | 100.0% |
-| 9 | Flask | 2934.39 req/s | 17.05 ms | 12.86 ms | 41.04 ms | 77.5% |
+| 1 | Falcon | 62176.73 req/s | 0.80 ms | 0.80 ms | 0.83 ms | 100.0% |
+| 2 | Starlette | 53718.87 req/s | 0.93 ms | 0.92 ms | 0.97 ms | 100.0% |
+| 3 | Litestar | 42482.61 req/s | 1.18 ms | 1.17 ms | 1.23 ms | 100.0% |
+| 4 | Aquilia | 40907.14 req/s | 1.22 ms | 1.21 ms | 1.28 ms | 100.0% |
+| 5 | Sanic | 36651.05 req/s | 1.36 ms | 1.23 ms | 2.68 ms | 100.0% |
+| 6 | Quart | 17345.10 req/s | 2.88 ms | 2.80 ms | 3.01 ms | 100.0% |
+| 7 | FastAPI | 5574.30 req/s | 8.97 ms | 8.96 ms | 9.26 ms | 100.0% |
+| 8 | Django | 4056.30 req/s | 12.33 ms | 12.09 ms | 12.97 ms | 100.0% |
+| 9 | Flask | 2973.48 req/s | 17.98 ms | 13.45 ms | 46.05 ms | 80.2% |
 
 ### Scenario: `di`
 GET `/di` resolving a nested dependency injection hierarchy (Leaf -> Mid -> Top).
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 59447.46 req/s | 0.84 ms | 0.84 ms | 0.91 ms | 100.0% |
-| 2 | Starlette | 47252.89 req/s | 1.06 ms | 1.06 ms | 1.11 ms | 100.0% |
-| 3 | Litestar | 41657.75 req/s | 1.20 ms | 1.20 ms | 1.26 ms | 100.0% |
-| 4 | Sanic | 33355.85 req/s | 1.50 ms | 1.26 ms | 1.96 ms | 100.0% |
-| 5 | Aquilia | 33319.24 req/s | 1.50 ms | 1.49 ms | 1.57 ms | 100.0% |
-| 6 | Quart | 15595.98 req/s | 3.20 ms | 2.90 ms | 3.13 ms | 100.0% |
-| 7 | Flask | 4327.68 req/s | 27.55 ms | 11.63 ms | 46.29 ms | 88.4% |
-| 8 | Django | 3464.35 req/s | 14.40 ms | 13.34 ms | 29.10 ms | 100.0% |
-| 9 | FastAPI | 3001.07 req/s | 16.68 ms | 16.09 ms | 20.26 ms | 100.0% |
+| 1 | Falcon | 65375.17 req/s | 0.76 ms | 0.77 ms | 0.88 ms | 100.0% |
+| 2 | Starlette | 55744.59 req/s | 0.90 ms | 0.88 ms | 0.94 ms | 100.0% |
+| 3 | Litestar | 46395.04 req/s | 1.08 ms | 1.07 ms | 1.13 ms | 100.0% |
+| 4 | Aquilia | 41870.39 req/s | 1.19 ms | 1.19 ms | 1.25 ms | 100.0% |
+| 5 | Sanic | 37560.27 req/s | 1.33 ms | 1.20 ms | 2.61 ms | 100.0% |
+| 6 | Quart | 18580.26 req/s | 2.69 ms | 2.62 ms | 2.82 ms | 100.0% |
+| 7 | FastAPI | 4166.53 req/s | 12.01 ms | 11.71 ms | 14.28 ms | 100.0% |
+| 8 | Django | 4040.93 req/s | 12.37 ms | 12.10 ms | 13.08 ms | 100.0% |
+| 9 | Flask | 2860.39 req/s | 18.05 ms | 13.17 ms | 44.64 ms | 81.4% |
 
 ### Scenario: `multipart`
 POST `/body/multipart` uploading a 10KB text file. (Measures multipart parsing).
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Sanic | 22578.27 req/s | 2.21 ms | 1.91 ms | 2.71 ms | 100.0% |
-| 2 | Falcon | 21879.46 req/s | 2.28 ms | 2.09 ms | 2.85 ms | 100.0% |
-| 3 | Starlette | 15967.05 req/s | 3.13 ms | 3.12 ms | 3.21 ms | 100.0% |
-| 4 | Aquilia | 9773.39 req/s | 5.11 ms | 5.06 ms | 5.21 ms | 100.0% |
-| 5 | Quart | 7076.38 req/s | 7.06 ms | 6.78 ms | 7.08 ms | 100.0% |
-| 6 | Flask | 3589.39 req/s | 20.15 ms | 16.74 ms | 35.53 ms | 84.2% |
-| 7 | FastAPI | 3334.59 req/s | 15.01 ms | 15.06 ms | 15.32 ms | 100.0% |
-| 8 | Django | 2810.25 req/s | 17.81 ms | 16.59 ms | 33.74 ms | 100.0% |
+| 1 | Sanic | 24636.69 req/s | 2.03 ms | 1.79 ms | 3.79 ms | 100.0% |
+| 2 | Falcon | 23550.04 req/s | 2.12 ms | 1.96 ms | 2.73 ms | 100.0% |
+| 3 | Starlette | 18217.14 req/s | 2.74 ms | 2.72 ms | 2.82 ms | 100.0% |
+| 4 | Aquilia | 10127.28 req/s | 4.93 ms | 4.85 ms | 5.23 ms | 100.0% |
+| 5 | Quart | 7212.59 req/s | 6.93 ms | 6.75 ms | 7.55 ms | 100.0% |
+| 6 | FastAPI | 4492.77 req/s | 11.14 ms | 10.91 ms | 11.97 ms | 100.0% |
+| 7 | Django | 2998.43 req/s | 16.68 ms | 15.92 ms | 19.20 ms | 100.0% |
+| 8 | Flask | 2863.11 req/s | 17.48 ms | 17.00 ms | 28.76 ms | 87.5% |
 | 9 | Litestar | 0.00 req/s | 0.00 ms | 0.00 ms | 0.00 ms | 0.0% |
 
 ### Scenario: `stream`
@@ -244,14 +228,14 @@ GET `/response/stream` sending a 32KB chunked-encoded stream.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 9145.23 req/s | 5.46 ms | 5.44 ms | 5.66 ms | 100.0% |
-| 2 | Aquilia | 7372.21 req/s | 6.78 ms | 6.72 ms | 6.98 ms | 100.0% |
-| 3 | Litestar | 6828.87 req/s | 7.32 ms | 7.30 ms | 7.59 ms | 100.0% |
-| 4 | Starlette | 6561.87 req/s | 7.62 ms | 7.52 ms | 8.13 ms | 100.0% |
-| 5 | Quart | 6314.60 req/s | 7.92 ms | 7.85 ms | 8.20 ms | 100.0% |
-| 6 | FastAPI | 2372.30 req/s | 21.12 ms | 20.14 ms | 31.82 ms | 100.0% |
-| 7 | Django | 1129.63 req/s | 44.43 ms | 41.76 ms | 67.06 ms | 100.0% |
-| 8 | Flask | 30.97 req/s | 1814.49 ms | 2359.30 ms | 2369.55 ms | 100.0% |
+| 1 | Falcon | 9146.56 req/s | 5.46 ms | 5.34 ms | 6.00 ms | 100.0% |
+| 2 | Aquilia | 7788.08 req/s | 6.42 ms | 6.36 ms | 6.67 ms | 100.0% |
+| 3 | Litestar | 6885.99 req/s | 7.26 ms | 7.20 ms | 7.49 ms | 100.0% |
+| 4 | Starlette | 6781.90 req/s | 7.37 ms | 7.30 ms | 7.60 ms | 100.0% |
+| 5 | Quart | 6504.69 req/s | 7.69 ms | 7.56 ms | 8.09 ms | 100.0% |
+| 6 | FastAPI | 3161.17 req/s | 15.84 ms | 15.62 ms | 17.58 ms | 100.0% |
+| 7 | Django | 1180.79 req/s | 42.49 ms | 41.21 ms | 45.87 ms | 100.0% |
+| 8 | Flask | 30.98 req/s | 1806.21 ms | 2337.40 ms | 2420.56 ms | 100.0% |
 | 9 | Sanic | 0.00 req/s | 0.00 ms | 0.00 ms | 0.00 ms | 0.0% |
 
 ### Scenario: `middleware_0`
@@ -259,45 +243,45 @@ GET `/plaintext` with 0 custom middleware layers.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 68345.54 req/s | 0.73 ms | 0.77 ms | 0.89 ms | 100.0% |
-| 2 | Starlette | 58684.59 req/s | 0.85 ms | 0.86 ms | 0.96 ms | 100.0% |
-| 3 | Litestar | 42230.84 req/s | 1.18 ms | 1.18 ms | 1.26 ms | 100.0% |
-| 4 | Aquilia | 34167.48 req/s | 1.46 ms | 1.46 ms | 1.53 ms | 100.0% |
-| 5 | Sanic | 33957.11 req/s | 1.47 ms | 1.22 ms | 1.91 ms | 100.0% |
-| 6 | FastAPI | 32220.25 req/s | 1.55 ms | 1.54 ms | 1.61 ms | 100.0% |
-| 7 | Quart | 16889.08 req/s | 2.96 ms | 2.71 ms | 2.90 ms | 100.0% |
-| 8 | Django | 3577.43 req/s | 13.98 ms | 12.99 ms | 28.71 ms | 100.0% |
-| 9 | Flask | 2426.33 req/s | 20.63 ms | 12.49 ms | 55.73 ms | 76.3% |
+| 1 | Falcon | 75697.52 req/s | 0.66 ms | 0.72 ms | 0.83 ms | 100.0% |
+| 2 | Starlette | 69055.50 req/s | 0.72 ms | 0.75 ms | 0.87 ms | 100.0% |
+| 3 | Litestar | 47644.86 req/s | 1.05 ms | 1.05 ms | 1.14 ms | 100.0% |
+| 4 | Aquilia | 42735.63 req/s | 1.17 ms | 1.16 ms | 1.23 ms | 100.0% |
+| 5 | FastAPI | 38303.05 req/s | 1.30 ms | 1.28 ms | 1.37 ms | 100.0% |
+| 6 | Sanic | 37719.36 req/s | 1.32 ms | 1.19 ms | 2.55 ms | 100.0% |
+| 7 | Quart | 19837.23 req/s | 2.52 ms | 2.43 ms | 2.69 ms | 100.0% |
+| 8 | Django | 4163.16 req/s | 12.01 ms | 11.80 ms | 12.68 ms | 100.0% |
+| 9 | Flask | 2456.13 req/s | 20.30 ms | 12.11 ms | 55.15 ms | 79.9% |
 
 ### Scenario: `middleware_5`
 GET `/plaintext` with 5 stacked custom middleware layers.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 66356.85 req/s | 0.75 ms | 0.77 ms | 0.89 ms | 100.0% |
-| 2 | Starlette | 56571.81 req/s | 0.88 ms | 0.88 ms | 0.92 ms | 100.0% |
-| 3 | Litestar | 40303.78 req/s | 1.24 ms | 1.24 ms | 1.30 ms | 100.0% |
-| 4 | Aquilia | 34712.45 req/s | 1.44 ms | 1.43 ms | 1.51 ms | 100.0% |
-| 5 | Sanic | 32230.55 req/s | 1.55 ms | 1.31 ms | 2.03 ms | 100.0% |
-| 6 | Quart | 15613.39 req/s | 3.20 ms | 2.91 ms | 3.11 ms | 100.0% |
-| 7 | FastAPI | 3357.74 req/s | 14.90 ms | 13.88 ms | 17.11 ms | 100.0% |
-| 8 | Django | 3015.12 req/s | 16.60 ms | 15.79 ms | 30.89 ms | 100.0% |
-| 9 | Flask | 2668.76 req/s | 18.72 ms | 11.92 ms | 50.58 ms | 79.9% |
+| 1 | Falcon | 73882.13 req/s | 0.68 ms | 0.72 ms | 0.83 ms | 100.0% |
+| 2 | Starlette | 68162.71 req/s | 0.73 ms | 0.75 ms | 0.87 ms | 100.0% |
+| 3 | Litestar | 46152.53 req/s | 1.08 ms | 1.08 ms | 1.14 ms | 100.0% |
+| 4 | Aquilia | 42876.92 req/s | 1.16 ms | 1.16 ms | 1.22 ms | 100.0% |
+| 5 | Sanic | 36611.79 req/s | 1.36 ms | 1.24 ms | 2.61 ms | 100.0% |
+| 6 | Quart | 18114.45 req/s | 2.76 ms | 2.64 ms | 2.97 ms | 100.0% |
+| 7 | FastAPI | 3897.00 req/s | 12.84 ms | 12.32 ms | 15.08 ms | 100.0% |
+| 8 | Django | 3429.26 req/s | 14.59 ms | 14.37 ms | 16.03 ms | 100.0% |
+| 9 | Flask | 2397.60 req/s | 20.85 ms | 12.51 ms | 55.55 ms | 80.4% |
 
 ### Scenario: `middleware_10`
 GET `/plaintext` with 10 stacked custom middleware layers.
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Falcon | 64967.75 req/s | 0.77 ms | 0.79 ms | 0.88 ms | 100.0% |
-| 2 | Starlette | 54565.71 req/s | 0.92 ms | 0.91 ms | 0.95 ms | 100.0% |
-| 3 | Litestar | 39240.04 req/s | 1.27 ms | 1.27 ms | 1.34 ms | 100.0% |
-| 4 | Aquilia | 34657.40 req/s | 1.44 ms | 1.44 ms | 1.51 ms | 100.0% |
-| 5 | Sanic | 31004.37 req/s | 1.61 ms | 1.37 ms | 2.09 ms | 100.0% |
-| 6 | Quart | 14768.65 req/s | 3.38 ms | 3.06 ms | 3.25 ms | 100.0% |
-| 7 | Django | 3000.93 req/s | 16.68 ms | 15.89 ms | 21.50 ms | 100.0% |
-| 8 | Flask | 2192.67 req/s | 22.67 ms | 12.42 ms | 64.74 ms | 76.8% |
-| 9 | FastAPI | 1774.05 req/s | 28.24 ms | 25.24 ms | 46.42 ms | 100.0% |
+| 1 | Falcon | 72313.90 req/s | 0.69 ms | 0.73 ms | 0.84 ms | 100.0% |
+| 2 | Starlette | 65689.09 req/s | 0.76 ms | 0.77 ms | 0.87 ms | 100.0% |
+| 3 | Litestar | 45183.27 req/s | 1.11 ms | 1.09 ms | 1.16 ms | 100.0% |
+| 4 | Aquilia | 42711.10 req/s | 1.17 ms | 1.16 ms | 1.23 ms | 100.0% |
+| 5 | Sanic | 35538.70 req/s | 1.41 ms | 1.28 ms | 2.64 ms | 100.0% |
+| 6 | Quart | 17620.50 req/s | 2.84 ms | 2.77 ms | 2.97 ms | 100.0% |
+| 7 | Django | 3487.09 req/s | 14.35 ms | 14.16 ms | 15.72 ms | 100.0% |
+| 8 | FastAPI | 2168.21 req/s | 23.09 ms | 21.97 ms | 25.49 ms | 100.0% |
+| 9 | Flask | 2156.74 req/s | 23.24 ms | 12.60 ms | 69.54 ms | 79.4% |
 
 ## 3. Key Performance Insights
 ### Middleware Scaling Cost
@@ -305,12 +289,13 @@ This table summarizes how throughput scales as middleware layers are stacked (0 
 
 | Framework | 0 Layers QPS | 5 Layers QPS | 10 Layers QPS | Overhead (10 vs 0) |
 | :--- | :--- | :--- | :--- | :--- |
-| Aquilia | 34167.48 | 34712.45 | 34657.40 | -1.4% decrease |
-| FastAPI | 32220.25 | 3357.74 | 1774.05 | 94.5% decrease |
-| Starlette | 58684.59 | 56571.81 | 54565.71 | 7.0% decrease |
-| Litestar | 42230.84 | 40303.78 | 39240.04 | 7.1% decrease |
-| Falcon | 68345.54 | 66356.85 | 64967.75 | 4.9% decrease |
-| Sanic | 33957.11 | 32230.55 | 31004.37 | 8.7% decrease |
-| Quart | 16889.08 | 15613.39 | 14768.65 | 12.6% decrease |
-| Flask | 2426.33 | 2668.76 | 2192.67 | 9.6% decrease |
-| Django | 3577.43 | 3015.12 | 3000.93 | 16.1% decrease |
+| Aquilia | 42735.63 | 42876.92 | 42711.10 | 0.1% decrease |
+| FastAPI | 38303.05 | 3897.00 | 2168.21 | 94.3% decrease |
+| Starlette | 69055.50 | 68162.71 | 65689.09 | 4.9% decrease |
+| Litestar | 47644.86 | 46152.53 | 45183.27 | 5.2% decrease |
+| Falcon | 75697.52 | 73882.13 | 72313.90 | 4.5% decrease |
+| Sanic | 37719.36 | 36611.79 | 35538.70 | 5.8% decrease |
+| Quart | 19837.23 | 18114.45 | 17620.50 | 11.2% decrease |
+| Flask | 2456.13 | 2397.60 | 2156.74 | 12.2% decrease |
+| Django | 4163.16 | 3429.26 | 3487.09 | 16.2% decrease |
+

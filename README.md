@@ -423,27 +423,27 @@ class LegacyUserController(Controller):
 
 ## Benchmarks
 
-The benchmark suite compares Aquilia against FastAPI and Flask. Tests were executed on macOS with single-worker ASGI configurations under identical transport loads.
+The benchmark suite compares Aquilia against 8 major Python web frameworks (Falcon, Starlette, Litestar, Sanic, Quart, FastAPI, Django, Flask). Tests were executed on macOS via `oha` load testing tool (concurrency 50, duration 5s per endpoint) with single-worker ASGI configurations under identical transport loads. Full detailed report is available in [benchmarks/report.md](benchmarks/report.md).
 
-### Application Startup Time
-How long the framework takes to initialize routes, build internal engines, and open the HTTP port. Lower is better.
+### Application Cold Startup Time
+How long the framework takes to initialize routes, build internal engines, and open the HTTP port (milliseconds). Lower is better.
 
 ![Application Startup Time](assets/benchmarks/startup_time.svg)
 
 ### Mean Throughput
-The average requests per second processed across all HTTP workloads. Higher is better.
+The average requests per second processed across all 17 HTTP workload scenarios. Higher is better.
 
 ![Mean Throughput](assets/benchmarks/mean_throughput.svg)
 
-### Throughput by Workload Scenario
-Framework throughput (requests per second) across simple serialization, complex dependency injection paths, and dense routing tables. Higher is better.
+### Mean P95 Tail Latency
+Average P95 tail latency (milliseconds) under high concurrency across key endpoints. Lower is better.
 
-![Throughput by Workload Scenario](assets/benchmarks/scenario_throughput.svg)
+![Mean P95 Tail Latency](assets/benchmarks/mean_p95_latency.svg)
 
-### P95 Tail Latency
-Tail latency (milliseconds) under high concurrency across key endpoints. Lower is better.
+### Middleware Scaling Degradation
+Percentage throughput drop when stacking 10 custom middleware layers vs 0 layers. Lower is better.
 
-![P95 Tail Latency by Workload](assets/benchmarks/latency_comparison.svg)
+![Middleware Degradation](assets/benchmarks/middleware_scaling.svg)
 
 ### Average Peak Memory Usage
 Memory footprint (Peak RSS in Megabytes) under load. Lower is better.

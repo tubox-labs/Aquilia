@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" width="100%" height="100%">
+  <style>
+    .bg { fill: #0b0f19; rx: 12px; }
+    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 700; fill: #f8fafc; }
+    .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 500; fill: #94a3b8; }
+    .axis-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .bar-value { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600; }
+    .grid-line { stroke: #1e293b; stroke-width: 1; stroke-dasharray: 4 4; }
+    .axis-line { stroke: #334155; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <linearGradient id="grad-aquilia" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="grad-falcon" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+    <linearGradient id="grad-starlette" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#f472b6" />
+    </linearGradient>
+    <linearGradient id="grad-litestar" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+    <linearGradient id="grad-sanic" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="grad-quart" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+    <linearGradient id="grad-fastapi" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#6ee7b7" />
+    </linearGradient>
+    <linearGradient id="grad-django" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#60a5fa" />
+    </linearGradient>
+    <linearGradient id="grad-flask" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#64748b" />
+      <stop offset="100%" stop-color="#94a3b8" />
+    </linearGradient>
+  </defs>
+  <rect width="720" height="380" class="bg" />
+  <text x="24" y="32" class="title">Scenario: `di` (Di) Throughput</text>
+  <text x="24" y="50" class="subtitle">GET `/di` resolving a nested dependency injection hierarchy (Leaf -> Mid -> Top). — Higher is better (QPS)</text>
+  <line x1="90" y1="325.0" x2="690" y2="325.0" class="grid-line" />
+  <text x="80" y="329.0" text-anchor="end" class="axis-label">0 req/s</text>
+  <line x1="90" y1="275.0" x2="690" y2="275.0" class="grid-line" />
+  <text x="80" y="279.0" text-anchor="end" class="axis-label">15,036 req/s</text>
+  <line x1="90" y1="225.0" x2="690" y2="225.0" class="grid-line" />
+  <text x="80" y="229.0" text-anchor="end" class="axis-label">30,073 req/s</text>
+  <line x1="90" y1="175.0" x2="690" y2="175.0" class="grid-line" />
+  <text x="80" y="179.0" text-anchor="end" class="axis-label">45,109 req/s</text>
+  <line x1="90" y1="125.0" x2="690" y2="125.0" class="grid-line" />
+  <text x="80" y="129.0" text-anchor="end" class="axis-label">60,145 req/s</text>
+  <line x1="90" y1="75.0" x2="690" y2="75.0" class="grid-line" />
+  <text x="80" y="79.0" text-anchor="end" class="axis-label">75,181 req/s</text>
+  <rect x="100.0" y="107.6" width="55.6" height="217.4" fill="url(#grad-falcon)" rx="4" />
+  <text x="127.8" y="101.6" text-anchor="middle" fill="#a78bfa" class="bar-value">65,375</text>
+  <text x="127.8" y="343" text-anchor="middle" class="axis-label" font-weight="600">Falcon</text>
+  <rect x="165.6" y="139.6" width="55.6" height="185.4" fill="url(#grad-starlette)" rx="4" />
+  <text x="193.3" y="133.6" text-anchor="middle" fill="#f472b6" class="bar-value">55,745</text>
+  <text x="193.3" y="343" text-anchor="middle" class="axis-label" font-weight="600">Starlette</text>
+  <rect x="231.1" y="170.7" width="55.6" height="154.3" fill="url(#grad-litestar)" rx="4" />
+  <text x="258.9" y="164.7" text-anchor="middle" fill="#fbbf24" class="bar-value">46,395</text>
+  <text x="258.9" y="343" text-anchor="middle" class="axis-label" font-weight="600">Litestar</text>
+  <rect x="296.7" y="185.8" width="55.6" height="139.2" fill="url(#grad-aquilia)" rx="4" />
+  <text x="324.4" y="179.8" text-anchor="middle" fill="#38bdf8" class="bar-value">41,870</text>
+  <text x="324.4" y="343" text-anchor="middle" class="axis-label" font-weight="600">Aquilia</text>
+  <rect x="362.2" y="200.1" width="55.6" height="124.9" fill="url(#grad-sanic)" rx="4" />
+  <text x="390.0" y="194.1" text-anchor="middle" fill="#34d399" class="bar-value">37,560</text>
+  <text x="390.0" y="343" text-anchor="middle" class="axis-label" font-weight="600">Sanic</text>
+  <rect x="427.8" y="263.2" width="55.6" height="61.8" fill="url(#grad-quart)" rx="4" />
+  <text x="455.6" y="257.2" text-anchor="middle" fill="#22d3ee" class="bar-value">18,580</text>
+  <text x="455.6" y="343" text-anchor="middle" class="axis-label" font-weight="600">Quart</text>
+  <rect x="493.3" y="311.1" width="55.6" height="13.9" fill="url(#grad-fastapi)" rx="4" />
+  <text x="521.1" y="305.1" text-anchor="middle" fill="#6ee7b7" class="bar-value">4,167</text>
+  <text x="521.1" y="343" text-anchor="middle" class="axis-label" font-weight="600">FastAPI</text>
+  <rect x="558.9" y="311.6" width="55.6" height="13.4" fill="url(#grad-django)" rx="4" />
+  <text x="586.7" y="305.6" text-anchor="middle" fill="#60a5fa" class="bar-value">4,041</text>
+  <text x="586.7" y="343" text-anchor="middle" class="axis-label" font-weight="600">Django</text>
+  <rect x="624.4" y="315.5" width="55.6" height="9.5" fill="url(#grad-flask)" rx="4" />
+  <text x="652.2" y="309.5" text-anchor="middle" fill="#94a3b8" class="bar-value">2,860</text>
+  <text x="652.2" y="343" text-anchor="middle" class="axis-label" font-weight="600">Flask</text>
+  <line x1="90" y1="325" x2="690" y2="325" class="axis-line" />
+</svg>
