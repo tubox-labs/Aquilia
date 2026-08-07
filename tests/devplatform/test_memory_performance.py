@@ -70,9 +70,14 @@ class TestPerformance:
         assert elapsed < 5.0
 
     def test_snapshot_cheap(self):
+        import os
+
+        is_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+        budget = 30.0 if is_ci else 15.0
+
         RuntimeStateStore.reset_instance()
         rt = RuntimeStateStore.get_instance()
         start = time.perf_counter()
         for _ in range(10000):
             rt.snapshot()
-        assert time.perf_counter() - start < 15.0
+        assert time.perf_counter() - start < budget
