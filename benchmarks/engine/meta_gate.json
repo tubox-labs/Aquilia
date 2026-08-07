@@ -1,0 +1,39 @@
+{
+  "python": "3.11.15",
+  "platform": "darwin",
+  "construction": {
+    "DISettings (frozen+slots, __post_init__)": 633.6024997290224,
+    "ProviderMeta (frozen+slots)": 460.1395901408978,
+    "ParameterMetadata (plain)": 121.10458017559722,
+    "RouteMetadata (plain)": 244.67417009873316,
+    "ParameterMetadata-shaped noslots": 84.61416990030557,
+    "ParameterMetadata-shaped slots": 78.76167015638202,
+    "RouteMetadata-shaped noslots": 167.00792009942234,
+    "RouteMetadata-shaped slots": 159.74957990692928,
+    "ParameterMetadata-shaped bytes noslots": 176,
+    "ParameterMetadata-shaped bytes slots": 80,
+    "RouteMetadata-shaped bytes noslots": 224,
+    "RouteMetadata-shaped bytes slots": 128
+  },
+  "attribute_access": {
+    "dataclass frozen+slots .scope": 14.846584002953023,
+    "dataclass slots attr": 14.793166978051886,
+    "dataclass plain attr": 14.642207999713719,
+    "dict lookup": 16.700082982424647,
+    "nanobind attr": 24.528958019800484,
+    "python noop call": 12.953124998603016,
+    "aquilia._core.noop()": 8.417083008680493,
+    "aquilia._dataengine.noop()": 8.42300002113916
+  },
+  "manifest": {
+    "build 1 manifest": 9781.812492292374,
+    "build full tree": 80898.12501566485,
+    "walk full tree": 5410.033400403336
+  },
+  "import_cost": {
+    "import aquilia": 11.509,
+    "import aquilia.manifest": 54.606,
+    "import aquilia.di.core": 19.841,
+    "import aquilia.server": 160.858
+  }
+}
