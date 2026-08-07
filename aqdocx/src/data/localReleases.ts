@@ -8580,5 +8580,314 @@ The \`SessionAuthBridge\` coordinates actions between \`AuthManager\` and \`Sess
 * \`rotate_on_privilege_escalation(session, response)\`: Rotates the session ID (session fixation protection) after an escalating event (such as completing an MFA challenge).
 * \`logout(session, response)\`: Destroys the current session.
 * \`logout_all_devices(identity_id)\`: Revokes and purges all active session identifiers linked to a given identity ID across the session store.`
+  },
+  "1.4.0b1": {
+    "README.md": `# Aquilia v1.4.0b1 Release Notes — "Foredeck Watch"
+
+Expands the native engine foundation introduced in v1.4.0b0 with three additional C++ extensions
+(\`_json\`, \`_dataengine\`, \`_core\`), a first-party native JSON engine backed by yyjson, a native
+Contract validation fast path, per-field eligibility for the FieldPlan engine, a RequestContext
+GC leak fix, sweeping hot-path correctness fixes across the controller/validation/DB/ASGI layers,
+SQLite inline-execution for bounded index seeks, and a multi-platform binary wheel distribution
+pipeline. See [releases/1.4.0b1/](releases/1.4.0b1/README.md) for full documentation.
+
+### Performance
+
+All figures measured with \`oha\`, 50 connections, 5 s, on macOS arm64 (Apple Silicon).
+
+| Scenario | Before | After | Δ |
+|---|---|---|---|
+| \`db_single\` | 5 797 rps | 19 034 rps | +228% |
+| \`db_queries\` | 1 496 rps | 8 759 rps | +485% |
+| \`db_updates\` | 744 rps | 1 965 rps | +164% |
+| \`validation\` | 1 809 rps (500s) | 15 075 rps (200s) | +733% |
+| \`fortunes\` | 4 412 rps | 5 276 rps | +20% |
+| \`json_large\` | 2 248 rps | 4 602 rps | +105% |
+| ORM \`get()\` | 120.7 µs | 9.3 µs | **13× faster** |
+| JSON encode small | — | 0.09 µs | 8.5× vs stdlib |
+| JSON encode 100 KB | — | 174.5 µs | 3.9× vs stdlib |
+| JSON decode small | — | 0.13 µs | 4.8× vs stdlib |
+| DI resolve (scope check) | 66.8 ns | 22.9 ns | 3× faster |
+`,
+    "native_engines.md": `# Native Engines
+
+- **Build system** (\`scikit-build-core\` + \`nanobind\`): CMake-based build for three optional C++20
+  extensions. Extensions are individually optional — \`AQUILIA_ENGINE_OPTIONAL=ON\` means a missing
+  C++ toolchain or compiler produces a pure-Python install, not a build failure.
+- **\`aquilia/_core\`** — Radix-trie HTTP router and fixed-slot \`RequestContext\` object.
+- **Fail-soft extension loaders** (\`aquilia/_core_loader.py\`, \`aquilia/_dataengine_loader.py\`):
+  single import gate for each extension; a missing or ABI-mismatched extension degrades to pure
+  Python. \`AQUILIA_ENGINE=0\` / \`AQUILIA_DATAENGINE=0\` force the pure-Python path.
+- **\`AQUILIA_ENGINE_OPTIONAL\`** CMake variable — when \`ON\`, a missing compiler is a warning, not
+  an error.
+`,
+    "performance.md": `# Performance
+
+- **\`DISettings.strict_scopes\`** is now a plain \`bool\` field computed in \`__post_init__\`, replacing
+  the former \`@property\` that read \`_strict_scopes\`. The private \`_strict_scopes\` field is removed.
+  The new field is part of the public API (not prefixed with \`_\`).
+- **\`DISettings.scope_check_enabled\`** added as a second derived field (was not separately cached
+  before — each resolve tested \`scope_enforcement != "off"\` inline). Per-resolve DI cost:
+  66.8 ns → 22.9 ns.
+- **\`Container.resolve_async()\`**: \`provider.meta\` hoisted to a local variable; all 11 subsequent
+  reads become plain slot reads (~19 ns each avoided).
+- **\`aquilia/sqlite/_inline.py\`** — Inline SQLite execution for statements the query planner
+  proves are bounded index seeks (\`SEARCH\` plan nodes). Thread-hop cost was 27 µs vs. 1.5 µs real
+  work. Demotes permanently any statement measured slower than \`inline_max_duration_ms\`. Disable
+  with \`inline_fast_queries=False\`.
+- **\`aquilia/sqlite/_pool.py\`**: uncontended \`acquire()\` no longer constructs an \`asyncio.wait_for\`
+  timer. Timeout semantics under real contention are unchanged.
+`,
+    "json_engine.md": `# JSON Engine
+
+- **\`aquilia/_json\`** — First-party native JSON engine (Phase 1) backed by vendored
+  [yyjson](https://github.com/ibireme/yyjson) 0.10.0 (MIT license).
+  - \`decode.cpp\`: yyjson arena parser, no per-node allocation.
+  - \`encode.cpp\`: direct emitter with heap work stack (not recursive — hostile deep nesting is a
+    clean \`ValueError\`, not a stack overflow / crash).
+  - \`escape.hpp\`: SWAR word-at-a-time scan for bytes needing escaping.
+  - \`numeric.hpp\`: \`itoa\` for integers, yyjson shortest-round-trip for floats.
+  - \`buffer.hpp\`: thread-local buffer pool — steady-state encoding stops allocating after first
+    response of a given size.
+  - Removable: every test passes with the extension absent (stdlib path).
+- **\`aquilia/json\`** — New framework-wide JSON entry point replacing three inconsistent per-module
+  fallback chains. \`dumps()\` always returns \`bytes\`; \`loads()\` accepts \`bytes | bytearray |
+  memoryview | str\`. \`backend()\` reports the active codec (\`"aquilia._json"\` or \`"stdlib"\`).
+  Third-party codecs (\`orjson\`, \`ujson\`) are deliberately not consulted.
+`,
+    "validation_engine.md": `# Validation Engine
+
+- **\`aquilia/_dataengine\`** — ORM hydration and Contract validation engines.
+  - \`FieldPlan\`: native per-field validation for Contract \`Sigil\`. Supports \`TextFacet\`, \`IntFacet\`,
+    \`FloatFacet\`, \`BoolFacet\`, \`UUIDFacet\`, \`DateFacet\`, \`DateTimeFacet\`, \`TimeFacet\`,
+    \`DecimalFacet\`, \`DurationFacet\`, \`BytesFacet\`, \`ChoiceFacet\`, \`LiteralFacet\`, \`EnumFacet\`
+    (plain only), container kinds (\`LIST\`, \`SET\`, \`TUPLE\`, \`DICT\`), regex patterns, and nested
+    sub-plans.
+  - \`RowPlan\`: native ORM row hydration — field type conversion, UUID parsing, date/time
+    construction.
+  - Native UUID parser with exhaustive parity tests.
+- **Per-field FieldPlan eligibility** (\`aquilia/contracts/_native_plan.py\`): fields the native
+  plan cannot represent are individually *escaped* to \`Sigil.validate(..., _only=escaped)\` rather
+  than sinking the whole contract. \`CompiledPlan(plan, escaped)\` named-tuple carries both sets.
+  Previously one un-representable field disabled native validation for all sibling fields.
+- **\`aquilia/contracts/sigil.py\`**: \`Sigil.validate(..., _only=frozenset)\` parameter — runs
+  validation only for the named subset of fields (used by the escape path).
+`,
+    "bug_fixes.md": `# Bug Fixes
+
+- **\`validate_body\` + controller engine double-binding**: both bound the \`body\` parameter →
+  \`TypeError: got multiple values for keyword argument 'body'\` on every decorated handler. Fixed
+  with \`__aquilia_owned_params__\` ownership protocol. (1809 → 15075 rps on the \`validation\`
+  scenario; was returning 500 on every request for an entire release cycle.)
+- **\`Response.json()\` double-encoding**: the stdlib path serialised to \`str\`, then
+  \`_encode_body()\` encoded it again, traversing and allocating large payloads twice. Now \`bytes\`.
+- **\`_check_json_depth\` recursion**: the depth guard itself raised \`RecursionError\` on deeply
+  nested input, turning a \`400 Bad Request\` into a \`500 Internal Server Error\`. Now iterative.
+- **Benchmark \`successRate\` miscalculation**: \`run.py\` computed success from oha's \`successRate\`
+  (any completed exchange), so a scenario returning 500 on every request was published at
+  "100.0% success". Success is now derived from the 2xx/3xx status distribution, with a
+  single-request preflight per scenario.
+- **\`aquilia/_json\` SWAR mask bug**: the first SWAR \`less-than\` check lacked \`& ~w\`, causing
+  every byte ≥ 0x80 to be reported as a control character — corrupted the first non-ASCII string
+  encountered.
+- **\`aquilia/_json\` bignum decoding**: integers > 2**64 were silently decoded as \`float\`, turning
+  a 30-digit ID into an approximate value. Now read with \`YYJSON_READ_BIGNUM_AS_RAW\` and
+  reconstructed as an exact Python \`int\`.
+- **\`aquilia/_json\` nested container key overwrite**: while iterating a nested object's children,
+  the parent key was overwritten; \`{"a": {"b": 1}, "c": 2}\` lost \`"a"\`. Key now lives on the
+  stack frame.
+- **\`RequestContext\` GC leak**: nanobind's \`inst_traverse\` visited only \`__dict__\`, not C++
+  fields. A cycle through a slot (e.g. \`ctx.state = {"ctx": ctx}\`) was invisible to the garbage
+  collector — 1 leaked \`RequestCtx\` per request (unbounded growth). Fixed with custom
+  \`tp_traverse\`/\`tp_clear\` visiting all 7 \`PyObject*\` slots.
+- **\`DotEnvLoader.reset()\`**: did not clear configuration state, so test isolation was broken
+  between tests that called \`reset()\`. Now fully resets the loader.
+- **Windows CI test compatibility**: \`WSAEACCES\` error handling, signal sending, UDS guards
+  for cross-platform parity.
+- **Python 3.13 Windows thread starvation** in \`test_concurrency_stress\`: now uses a condition
+  variable instead of spinning.
+`,
+    "migration.md": `# Migration Guide — Aquilia v1.4.0b0 → v1.4.0b1
+
+This guide covers all the necessary steps and information to migrate your Aquilia application from version 1.4.0b0 to 1.4.0b1. Although this is a beta release, several critical internal APIs and architectural patterns have evolved.
+
+## 1. DISettings API Change
+
+The \`DISettings.strict_scopes\` property is now a plain \`bool\` field computed during \`__post_init__\`. The private \`_strict_scopes\` field has been completely removed.
+
+**Old Code:**
+\`\`\`python
+# Previously accessing the private field or relying on the property getter
+settings = DISettings(strict_scopes="on")
+is_strict = settings._strict_scopes
+\`\`\`
+
+**New Code:**
+\`\`\`python
+# Now a public boolean field directly on the settings object
+settings = DISettings(strict_scopes="on")
+is_strict = settings.strict_scopes
+\`\`\`
+
+## 2. Aquilia JSON Unified Codec
+
+We have introduced a new framework-wide JSON entry point replacing three inconsistent per-module fallback chains. 
+
+If you previously imported \`json\`, \`orjson\`, or \`ujson\` directly in your application code for performance, you should now use the unified Aquilia JSON codec:
+
+**Old Code:**
+\`\`\`python
+import orjson
+
+def my_handler():
+    return orjson.dumps({"key": "value"})
+\`\`\`
+
+**New Code:**
+\`\`\`python
+from aquilia import json
+
+def my_handler():
+    # Automatically uses the native \`_json\` engine if available
+    return json.dumps({"key": "value"})
+\`\`\`
+
+Note: \`dumps()\` always returns \`bytes\`. \`loads()\` accepts \`bytes | bytearray | memoryview | str\`. Third-party codecs like \`orjson\` and \`ujson\` are no longer consulted by the framework.
+
+## 3. validate_body Double-Bind Fix
+
+A major bug where both \`validate_body\` and the controller engine bound the \`body\` parameter has been fixed. This previously resulted in a \`TypeError: got multiple values for keyword argument 'body'\` on decorated handlers.
+
+**No action is needed on your part.** The engine now respects the \`__aquilia_owned_params__\` protocol to avoid double-binding parameters claimed by decorators.
+
+## 4. Native Extensions
+
+Aquilia v1.4.0b1 introduces three native C++ extensions (\`_core\`, \`_dataengine\`, \`_json\`). 
+
+### Verifying Loaded Extensions
+
+You can verify which backend is active by checking the module attributes:
+
+\`\`\`python
+from aquilia import json
+print(json.backend())  # Output: "aquilia._json" or "stdlib"
+\`\`\`
+
+### Disabling Extensions
+
+If you experience issues, you can force the pure-Python fallback path by setting environment variables before starting your application:
+
+\`\`\`bash
+export AQUILIA_ENGINE=0
+export AQUILIA_DATAENGINE=0
+\`\`\`
+
+## 5. SQLite Inline Execution
+
+The query planner now executes bounded index seeks inline, reducing thread-hop cost from 27 µs to 1.5 µs.
+
+If this causes unexpected behavior in your workloads, you can disable it via configuration:
+
+\`\`\`python
+# In your database configuration
+db_config = SQLiteConfig(
+    inline_fast_queries=False,
+    # ... other settings
+)
+\`\`\`
+
+## Upgrade Checklist
+
+1. Review any direct usages of \`_strict_scopes\` and update to \`strict_scopes\`.
+2. Migrate direct third-party JSON library imports (\`orjson\`, \`ujson\`) to \`aquilia.json\`.
+3. Verify that your application handles \`bytes\` returned from \`json.dumps()\`.
+4. (Optional) Remove any workarounds previously implemented for the \`validate_body\` \`TypeError\`.
+5. Test your application to ensure native extensions are loading correctly.
+
+## Backward Compatibility Notes
+
+- The removal of the private \`_strict_scopes\` field may break internal plugins that relied on it.
+- \`Response.json()\` now consistently returns \`bytes\` (was previously returning \`str\` on the stdlib path). Ensure middleware or custom response handlers are prepared for \`bytes\`.
+`,
+    "build_and_distribution.md": `# Build & Distribution — Aquilia v1.4.0b1
+
+This release overhauls the build and distribution pipeline for Aquilia, introducing a robust, native C++ extensions build system and a comprehensive multi-platform wheel matrix.
+
+## Build System Overview
+
+Aquilia now utilizes **scikit-build-core** combined with **nanobind** and **CMake** to compile its three optional C++20 extensions (\`_core\`, \`_dataengine\`, \`_json\`). 
+
+This architecture allows us to tightly integrate native code with the Python runtime, achieving significant performance gains without sacrificing the developer experience. The use of \`nanobind\` provides lightweight, fast bindings, while CMake ensures consistent builds across all major operating systems.
+
+## Building from Source
+
+If you need to build Aquilia from source (e.g., for development or unsupported platforms), ensure you have a C++20 compatible compiler installed (GCC 10+, Clang 11+, or MSVC 2019+).
+
+\`\`\`bash
+# Clone the repository
+git clone https://github.com/tubox-labs/Aquilia.git
+cd Aquilia
+
+# Install build dependencies
+pip install -r requirements-build.txt
+
+# Build and install the package
+pip install -e .
+\`\`\`
+
+## The \`AQUILIA_ENGINE_OPTIONAL\` Flag
+
+The C++ extensions are designed to be individually optional. We have introduced the \`AQUILIA_ENGINE_OPTIONAL\` CMake variable to control the build behavior when a compiler is missing.
+
+- When \`AQUILIA_ENGINE_OPTIONAL=ON\` (the default for end-users), a missing C++ toolchain or compiler will produce a warning rather than an error, and the installation will gracefully fall back to a pure-Python build.
+- When \`AQUILIA_ENGINE_OPTIONAL=OFF\` (used in CI/CD), the build will strictly fail if the extensions cannot be compiled.
+
+## Multi-Platform Wheel Pipeline
+
+To provide a seamless installation experience, we now distribute pre-compiled binary wheels across multiple architectures and operating systems using \`cibuildwheel\`.
+
+| Platform | Architecture | Python Versions |
+|----------|--------------|-----------------|
+| Linux | \`x86_64\` | 3.10, 3.11, 3.12, 3.13 |
+| Linux | \`aarch64\` | 3.10, 3.11, 3.12, 3.13 |
+| macOS | \`x86_64\` | 3.10, 3.11, 3.12, 3.13 |
+| macOS | \`arm64\` (Apple Silicon) | 3.10, 3.11, 3.12, 3.13 |
+| Windows | \`AMD64\` | 3.10, 3.11, 3.12, 3.13 |
+
+## Installing Pre-Built Wheels vs Source
+
+For the vast majority of users, installing Aquilia via pip will automatically fetch the appropriate pre-built wheel for your system:
+
+\`\`\`bash
+pip install aquilia
+\`\`\`
+
+This skips the compilation step entirely, providing instant access to the native extensions. If you are on an exotic architecture (e.g., \`ppc64le\`), pip will automatically attempt to build from the source distribution (\`sdist\`).
+
+## Forcing a Pure-Python Install
+
+If you wish to force the installation of the pure-Python version (bypassing native extensions completely), you can set the following environment variable before installing:
+
+\`\`\`bash
+export AQUILIA_PURE_PYTHON=1
+pip install aquilia
+\`\`\`
+
+Alternatively, you can disable the extensions at runtime using \`AQUILIA_ENGINE=0\` and \`AQUILIA_DATAENGINE=0\`.
+
+## \`pyproject.toml\` Changes
+
+Several significant changes were made to \`pyproject.toml\` to support the new build system:
+
+- Added a \`[tool.cibuildwheel]\` table to configure the wheel building matrix.
+- Corrected the \`metadata.version\` key path for \`scikit-build-core\` 0.9+ compatibility. The path was updated from \`tool.scikit-build.metadata.version\` to \`tool.scikit-build.metadata.version.*\`.
+- Added \`scikit-build-core\` and \`nanobind\` to the \`build-system.requires\` list.
+
+## CI Workflow Overview
+
+Our Continuous Integration has been expanded with a dedicated Wheel Workflow (\`.github/workflows/wheels.yml\`).
+
+This workflow ensures that every commit to the main branch is validated across all matrix targets. It leverages \`cibuildwheel\` to automatically provision the correct build environments (using manylinux Docker images for Linux), compile the C++ extensions, and run the test suite against the generated wheels before they are uploaded as release artifacts.
+`
   }
 };
