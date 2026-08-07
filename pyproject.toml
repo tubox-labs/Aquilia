@@ -72,7 +72,7 @@ metadata.version.regex = '''(?m)^__version__\s*(?::\s*[^=]+)?=\s*["'](?P<value>[
 build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*"]
 skip = ["*-musllinux_*", "pp*", "*-win32", "*-manylinux_i686", "*_free_threaded", "*_nogil"]
 build-verbosity = 1
-test-requires = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0"]
+test-extras = ["testing"]
 test-command = "pytest {project}/tests/engine -v"
 
 [tool.cibuildwheel.environment]
@@ -80,7 +80,6 @@ AQUILIA_ENGINE_OPTIONAL = "OFF"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
-before-all = "yum install -y cmake || apk add cmake || apt-get update && apt-get install -y cmake"
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
 
