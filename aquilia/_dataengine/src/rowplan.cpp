@@ -10,6 +10,7 @@ RowPlan::~RowPlan() {
         Py_XDECREF(op.attr);
     }
     Py_XDECREF(model_cls_);
+    Py_XDECREF(model_new_);
     Py_XDECREF(related_not_loaded_);
     Py_XDECREF(model_name_);
     Py_XDECREF(str_original_values_);
