@@ -1,14 +1,6 @@
 """
-Root conftest.py — sets up sys.path for the authentication app.
+Root conftest.py
 """
-
-import os
-import sys
-
-# Add repo root to sys.path if not already present
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if REPO_ROOT not in sys.path:
-    sys.path.append(REPO_ROOT)
 
 
 def pytest_sessionfinish(session, exitstatus):
