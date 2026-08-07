@@ -166,38 +166,105 @@ jobs:
   # ═══════════════════════════════════════════════════════════════════════════
   # Stage 3 — Build
   # ═══════════════════════════════════════════════════════════════════════════
-  build:
-    name: "📦 Build Distribution"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Stage 3 — Build (Multi-Platform Wheels + sdist)
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-wheels:
+    name: "📦 Build wheels (${{ matrix.os }} / ${{ matrix.arch }})"
     needs: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+          - os: ubuntu-latest
+            arch: aarch64
+          - os: macos-13
+            arch: x86_64
+          - os: macos-14
+            arch: arm64
+          - os: windows-latest
+            arch: AMD64
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for Linux aarch64)
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.0
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
         with:
-          fetch-depth: 0    # full history for setuptools_scm (if used later)
-          persist-credentials: false
+          name: cibw-wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./wheelhouse/*.whl
+
+  build-sdist:
+    name: "📦 Build sdist"
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        # zizmor: ignore[cache-poisoning]
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_DEFAULT }}
-          cache: pip
 
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
           pip install build twine
 
-      - name: Build sdist & wheel
-        run: python -m build
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - name: Verify sdist
+        run: twine check dist/*
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  build:
+    name: "📦 Combine Distributions & Verify"
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT }}
+
+      - name: Install twine
+        run: pip install twine
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
 
       - name: Verify distributions
         run: |
           twine check dist/*
           echo ""
-          echo "Built artifacts:"
+          echo "Built distribution artifacts:"
           ls -lh dist/
 
       - name: Verify package version in artifact
@@ -211,15 +278,14 @@ jobs:
           PY
           )
           echo "Expected version: $PKG_VERSION"
-          # Ensure the version appears in the wheel/sdist filename
           ls dist/ | grep "$PKG_VERSION" || {
             echo "::error::Built artifacts do not contain expected version $PKG_VERSION"
             exit 1
           }
           echo "OK: Artifact version verified"
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - name: Upload final build artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/

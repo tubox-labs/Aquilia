@@ -242,13 +242,7 @@ class Sigil:
         # Skipped when `_only` is already set (this call *is* the escaped pass),
         # when partial/strict change the field semantics the plan was compiled
         # for, or when migrations would rewrite the payload first.
-        if (
-            _only is None
-            and not partial
-            and not is_strict
-            and self._owner is not None
-            and type(data) is dict
-        ):
+        if _only is None and not partial and not is_strict and self._owner is not None and type(data) is dict:
             compiled = field_plan_for(self._owner)
             if compiled is not None:
                 native = compiled.plan.execute(data)

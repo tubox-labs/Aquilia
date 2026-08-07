@@ -46,18 +46,50 @@ sdist.include = [
     # the build to work offline and for the MIT terms to travel with the code.
     "aquilia/_json/vendor/yyjson/LICENSE",
 ]
+sdist.exclude = [
+    "**/build/**",
+    "**/build-*/**",
+    "**/.clangd",
+    "**/.DS_Store",
+    "**/__pycache__/**",
+]
 # When nanobind or a C++20 compiler is unavailable, skip the extensions instead
 # of failing the whole install. Honoured by each extension's CMakeLists.txt.
 cmake.define.AQUILIA_ENGINE_OPTIONAL = "ON"
 
-# Version stays sourced from aquilia/_version.py -- the setuptools dynamic-version
-# hook does not apply under this backend.
-[tool.scikit-build.metadata.version]
-provider = "scikit_build_core.metadata.regex"
-input = "aquilia/_version.py"
+# Version stays sourced from aquilia/_version.py
+metadata.version.provider = "scikit_build_core.metadata.regex"
+metadata.version.input = "aquilia/_version.py"
 # The `(?::\s*[^=]+)?` branch is required: the assignment is annotated
 # (`__version__: str = "..."`), which a bare `__version__\s*=` pattern misses.
-regex = '''(?m)^__version__\s*(?::\s*[^=]+)?=\s*["'](?P<value>[^"']+)["']'''
+metadata.version.regex = '''(?m)^__version__\s*(?::\s*[^=]+)?=\s*["'](?P<value>[^"']+)["']'''
+
+# ---------------------------------------------------------------------------
+# cibuildwheel configuration for multi-platform binary wheel distribution
+# (Linux x86_64/aarch64, macOS x86_64/arm64, Windows AMD64 across Py 3.10-3.13)
+# ---------------------------------------------------------------------------
+[tool.cibuildwheel]
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*"]
+skip = ["*-musllinux_*", "pp*", "*-win32", "*-manylinux_i686", "*_free_threaded", "*_nogil"]
+build-verbosity = 1
+test-requires = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0"]
+test-command = "pytest {project}/tests/engine -v"
+
+[tool.cibuildwheel.environment]
+AQUILIA_ENGINE_OPTIONAL = "OFF"
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+before-all = "yum install -y cmake || apk add cmake || apt-get update && apt-get install -y cmake"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+
 
 # ---------------------------------------------------------------------------
 # Project metadata
