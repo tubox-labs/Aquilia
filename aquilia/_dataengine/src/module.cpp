@@ -75,7 +75,22 @@ NB_MODULE(_dataengine, m) {
     tc.attr("UUID") = static_cast<int>(aq::TypeCode::Uuid);
     tc.attr("JSON") = static_cast<int>(aq::TypeCode::Json);
     tc.attr("BYTES") = static_cast<int>(aq::TypeCode::Bytes);
+    // Phase 2. ChoiceFacet and its LiteralFacet subclass both compile to CHOICE,
+    // which carries a frozenset of accepted values and tests membership.
+    tc.attr("DURATION") = static_cast<int>(aq::TypeCode::Duration);
+    tc.attr("CHOICE") = static_cast<int>(aq::TypeCode::Choice);
+    tc.attr("ENUM") = static_cast<int>(aq::TypeCode::Enum);
+    tc.attr("NESTED") = static_cast<int>(aq::TypeCode::Nested);
     tc.attr("UNSUPPORTED") = static_cast<int>(aq::TypeCode::Unsupported);
+
+    // Container shapes. A container field carries its *element* type in `code`
+    // and its shape here, so element types are not duplicated per container.
+    nb::module_ ck = m.def_submodule("ContainerKind", "Container shapes for FieldPlan fields.");
+    ck.attr("NONE") = static_cast<int>(aq::ContainerKind::None);
+    ck.attr("LIST") = static_cast<int>(aq::ContainerKind::List);
+    ck.attr("SET") = static_cast<int>(aq::ContainerKind::Set);
+    ck.attr("TUPLE") = static_cast<int>(aq::ContainerKind::Tuple);
+    ck.attr("DICT") = static_cast<int>(aq::ContainerKind::Dict);
 
     // Field flag bits, same rationale as the type codes.
     nb::module_ ff = m.def_submodule("FieldFlags", "Per-field flag bits for FieldPlan.");
@@ -93,24 +108,59 @@ NB_MODULE(_dataengine, m) {
         .def(nb::init<>())
         .def(
             "add",
-            [](aq::FieldPlan& self, nb::object name, int code, int flags, nb::object default_value,
-               nb::object min_value, nb::object max_value, Py_ssize_t min_length, Py_ssize_t max_length) {
+            [](aq::FieldPlan& self, nb::object name, int code, int container, int flags,
+               nb::object default_value, nb::object min_value, nb::object max_value,
+               Py_ssize_t min_length, Py_ssize_t max_length, nb::object multiple_of, nb::object choices,
+               nb::object enum_cls, nb::object enum_by_value, nb::object enum_by_name,
+               Py_ssize_t min_items, Py_ssize_t max_items, Py_ssize_t max_digits, Py_ssize_t decimal_places,
+               nb::object pattern, nb::object nested_plan, Py_ssize_t max_keys) {
+                aq::FieldSpec spec;
+                spec.name = name.ptr();
+                spec.code = static_cast<aq::TypeCode>(code);
+                spec.container = static_cast<aq::ContainerKind>(container);
+                spec.flags = static_cast<std::uint8_t>(flags);
                 // default_value is passed through as-is, INCLUDING None:
                 // `default=None` is a legitimate default, distinct from having
                 // no default at all. Which of the two applies is carried by the
                 // HAS_DEFAULT flag, not by the pointer being null. Collapsing
                 // None to nullptr here stored a NULL in the op and segfaulted in
                 // PyDict_SetItem on the first contract that used it.
-                //
-                // min_value/max_value are different: there, None genuinely means
-                // "no bound", so the null mapping is correct.
-                self.add(name.ptr(), static_cast<aq::TypeCode>(code), static_cast<std::uint8_t>(flags),
-                         default_value.ptr(), min_value.is_none() ? nullptr : min_value.ptr(),
-                         max_value.is_none() ? nullptr : max_value.ptr(), min_length, max_length);
+                spec.default_value = default_value.ptr();
+                // Everything below is different: there, None genuinely means
+                // "no constraint", so the null mapping is correct.
+                spec.min_value = min_value.is_none() ? nullptr : min_value.ptr();
+                spec.max_value = max_value.is_none() ? nullptr : max_value.ptr();
+                spec.multiple_of = multiple_of.is_none() ? nullptr : multiple_of.ptr();
+                spec.choices = choices.is_none() ? nullptr : choices.ptr();
+                spec.enum_cls = enum_cls.is_none() ? nullptr : enum_cls.ptr();
+                spec.enum_by_value = enum_by_value.is_none() ? nullptr : enum_by_value.ptr();
+                spec.enum_by_name = enum_by_name.is_none() ? nullptr : enum_by_name.ptr();
+                spec.pattern = pattern.is_none() ? nullptr : pattern.ptr();
+                if (!nested_plan.is_none()) {
+                    // Keep the Python object alive AND cache the unwrapped
+                    // pointer: the object owns the plan's lifetime, the pointer
+                    // is what execute() dereferences per nested field per
+                    // payload without paying a cast.
+                    spec.nested_plan_obj = nested_plan.ptr();
+                    spec.nested_plan = nb::cast<const aq::FieldPlan*>(nested_plan);
+                }
+                spec.min_length = min_length;
+                spec.max_length = max_length;
+                spec.min_items = min_items;
+                spec.max_items = max_items;
+                spec.max_digits = max_digits;
+                spec.decimal_places = decimal_places;
+                spec.max_keys = max_keys;
+                self.add(spec);
             },
-            nb::arg("name"), nb::arg("code"), nb::arg("flags"), nb::arg("default_value").none(),
-            nb::arg("min_value").none(), nb::arg("max_value").none(), nb::arg("min_length"),
-            nb::arg("max_length"),
+            nb::arg("name"), nb::arg("code"), nb::arg("container"), nb::arg("flags"),
+            nb::arg("default_value").none(), nb::arg("min_value").none(), nb::arg("max_value").none(),
+            nb::arg("min_length"), nb::arg("max_length"), nb::arg("multiple_of").none() = nb::none(),
+            nb::arg("choices").none() = nb::none(), nb::arg("enum_cls").none() = nb::none(),
+            nb::arg("enum_by_value").none() = nb::none(), nb::arg("enum_by_name").none() = nb::none(),
+            nb::arg("min_items") = -1, nb::arg("max_items") = -1, nb::arg("max_digits") = -1,
+            nb::arg("decimal_places") = -1, nb::arg("pattern").none() = nb::none(),
+            nb::arg("nested_plan").none() = nb::none(), nb::arg("max_keys") = -1,
             "Append one compiled field. Called once per field at plan-build time.")
         .def(
             "execute",

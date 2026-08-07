@@ -167,4 +167,6 @@ async def test_exempt_bypasses_class_level_auth_guard():
 
     assert response is not None
     assert response.status == 200
-    assert "ok" in response._content
+    # Serialised bodies are bytes on every path (aquilia/json.py): the old str
+    # intermediate meant every JSON response was encoded twice.
+    assert b"ok" in response._content

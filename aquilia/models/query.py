@@ -976,7 +976,7 @@ class Q(Generic[TModel]):
         Support Python slicing on querysets.
 
         Usage:
-        
+
             top_5 = User.objects.order("-score")[:5]
             page  = User.objects.order("id")[10:20]
         """

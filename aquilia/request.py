@@ -17,15 +17,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import ipaddress
-
-# Try to import fastest json library
-try:
-    import orjson as fast_json
-except ImportError:
-    try:
-        import ujson as fast_json
-    except ImportError:
-        import json as fast_json
 import tempfile
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
@@ -71,6 +62,8 @@ from aquilia._uploads import (
 )
 from aquilia.faults import Fault, FaultDomain, Severity
 from aquilia.faults.domains import DIResolutionFault, EffectNotAcquiredFault
+from aquilia.json import JSONDecodeError as _JSONDecodeError
+from aquilia.json import loads as _json_loads
 from aquilia.typing import ASGIReceive, ASGIScope, RequestState
 from aquilia.typing.container import AsyncResolvableContainer, SyncResolvableContainer
 
@@ -797,19 +790,22 @@ class Request:
 
     async def json(self, model: type[T] | None = None, *, strict: bool = True) -> Any | T:
         """
-        Parse request body as JSON.
+        Parse the request body as JSON.
+
+        The parse happens at most once per request; the result is cached in
+        ``self._json`` and every other layer (notably ``validate_body``) reads
+        that cache rather than parsing again.
 
         Args:
-            model: Optional model class for validation (Pydantic, dataclass, etc.)
-            strict: Whether to enforce strict parsing
+            model: Optional model class for validation (Contract, Pydantic, dataclass).
+            strict: Whether to enforce strict parsing.
 
         Returns:
-            Parsed JSON data or validated model instance
+            Parsed JSON data, or a validated model instance when ``model`` is given.
 
         Raises:
-            InvalidJSON: If JSON is malformed
-            PayloadTooLarge: If JSON exceeds size limits
-            BadRequest: If validation fails
+            InvalidJSON: Body is malformed or exceeds the depth limit.
+            PayloadTooLarge: Body exceeds ``json_max_size``.
         """
         if self._json is not None:
             # Already parsed
@@ -827,16 +823,15 @@ class Request:
                 actual=len(body_bytes),
             )
 
-        # Parse JSON
         try:
-            if fast_json.__name__ == "orjson":
-                self._json = fast_json.loads(body_bytes)
-            else:
-                self._json = fast_json.loads(body_bytes.decode("utf-8"))
-        except (UnicodeDecodeError, ValueError, TypeError) as e:
-            raise InvalidJSON(f"Invalid JSON: {e}")
+            self._json = _json_loads(body_bytes)
+        except _JSONDecodeError as e:
+            raise InvalidJSON(f"Invalid JSON: {e}") from None
 
-        # Check depth
+        # Depth is a security limit, not a correctness one: a deeply nested
+        # payload is cheap to send and expensive to walk. Checked after parse
+        # because the check itself is a traversal -- see _check_json_depth for
+        # why it short-circuits on the common shallow case.
         if not self._check_json_depth(self._json, self.json_max_depth):
             raise InvalidJSON(
                 "JSON nesting exceeds maximum depth",
@@ -867,19 +862,47 @@ class Request:
         return await self.json(model=model, strict=strict)
 
     def _check_json_depth(self, obj: Any, max_depth: int, current_depth: int = 0) -> bool:
-        """Check if JSON nesting depth is within limits."""
+        """Report whether nesting depth is within ``max_depth``.
+
+        Iterative rather than recursive for two reasons: a Python frame per JSON
+        node is expensive on a path that already parsed the payload once, and a
+        recursive checker can itself hit ``RecursionError`` on the very input it
+        exists to reject -- turning a 400 into a 500.
+
+        Scalars are the overwhelming majority of nodes and are skipped without
+        being pushed, so the stack only ever holds containers.
+
+        Args:
+            obj: Decoded JSON value.
+            max_depth: Maximum permitted container nesting.
+            current_depth: Starting depth; retained for API compatibility.
+
+        Returns:
+            ``True`` when every path is within the limit.
+        """
+        if not isinstance(obj, (dict, list)):
+            return True
         if current_depth > max_depth:
             return False
 
-        if isinstance(obj, dict):
-            for value in obj.values():
-                if not self._check_json_depth(value, max_depth, current_depth + 1):
-                    return False
-        elif isinstance(obj, list):
-            for item in obj:
-                if not self._check_json_depth(item, max_depth, current_depth + 1):
-                    return False
-
+        stack: list[tuple[Any, int]] = [(obj, current_depth)]
+        while stack:
+            node, depth = stack.pop()
+            if depth > max_depth:
+                return False
+            child_depth = depth + 1
+            if child_depth > max_depth:
+                # Any container child would breach the limit, so only scalars
+                # are acceptable here. Checking now avoids pushing them at all.
+                values = node.values() if isinstance(node, dict) else node
+                for value in values:
+                    if isinstance(value, (dict, list)):
+                        return False
+                continue
+            values = node.values() if isinstance(node, dict) else node
+            for value in values:
+                if isinstance(value, (dict, list)):
+                    stack.append((value, child_depth))
         return True
 
     def _validate_json_model(self, data: Any, model: type[T]) -> T:

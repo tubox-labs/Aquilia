@@ -4,7 +4,7 @@ Data Utilities - Provides flexible data structures for the framework.
 
 from typing import Any
 
-from aquilia.response import _json_default_serializer
+from aquilia.json import default_serializer as _json_default_serializer
 
 
 class CallableList(list):
@@ -379,7 +379,12 @@ class DataObject(dict):
         return new_obj
 
     def to_json(self, **kwargs) -> str:
-        """Serialize the DataObject directly to a JSON string."""
+        """Serialize the DataObject to a JSON string.
+
+        Returns ``str``, unlike :func:`aquilia.json.dumps` which returns bytes:
+        this is a user-facing convenience whose signature predates the codec
+        centralisation, and callers index into the result as text.
+        """
         import json
 
         if "default" not in kwargs:

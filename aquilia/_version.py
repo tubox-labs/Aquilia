@@ -20,7 +20,7 @@ numeric version and appear in CLI banners, docs, and metadata.
 """
 
 #: Framework version — single source of truth.
-__version__: str = "1.4.0b0"
+__version__: str = "1.4.0b1"
 
 #: Version tuple for programmatic comparison.
 VERSION: tuple[int, int, int] = (1, 4, 0)

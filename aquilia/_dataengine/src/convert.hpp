@@ -35,12 +35,16 @@ struct Constructors {
     PyTypeObject* date_type = nullptr;
     PyTypeObject* datetime_type = nullptr;
     PyTypeObject* time_type = nullptr;
+    // timedelta, for DurationFacet. Only the type is needed: the numeric branch
+    // constructs through it directly and the string branches defer to Python.
+    PyTypeObject* timedelta_type = nullptr;
     PyObject* decimal_type = nullptr;
     PyObject* json_loads = nullptr;
     PyTypeObject* uuid_type = nullptr;
     PyObject* safe_uuid_unknown = nullptr;
     PyObject* str_int = nullptr;      // interned "int"
     PyObject* str_is_safe = nullptr;  // interned "is_safe"
+    PyObject* str_search = nullptr;   // interned "search", for re.Pattern.search
     // The two __slots__ member descriptors, cached so the UUID fast path can
     // drive tp_descr_set directly instead of paying an MRO walk plus a type-dict
     // lookup per attribute per parse.

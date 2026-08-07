@@ -1,0 +1,26 @@
+{
+  "_comment": "Per-scenario throughput floors for Aquilia, in requests/second.",
+  "_rationale": [
+    "A benchmark that only reports numbers cannot catch a regression; someone has to",
+    "notice the number moved. These floors make CI do the noticing.",
+    "",
+    "Each floor is set below the measured value with headroom for run-to-run noise on",
+    "a shared runner, so a failure means a real regression rather than a slow morning.",
+    "The margin is deliberately generous: a gate that cries wolf gets disabled, and a",
+    "disabled gate protects nothing.",
+    "",
+    "Raise a floor when a change legitimately improves throughput -- that is what locks",
+    "the win in. Lowering one requires justification in the commit message."
+  ],
+  "_measured_on": "darwin arm64, Python 3.11, single uvicorn worker, _core+_dataengine+_json present",
+  "floors": {
+    "plaintext": 30000,
+    "json": 30000,
+    "json_large": 6000,
+    "db_single": 8500,
+    "db_queries": 3000,
+    "db_updates": 1300,
+    "validation": 10000,
+    "fortunes": 4000
+  }
+}

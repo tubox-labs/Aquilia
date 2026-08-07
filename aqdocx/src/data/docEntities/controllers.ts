@@ -62,7 +62,7 @@ registerDocEntities([
     id: 'controller.validate_body',
     type: 'decorator',
     title: '@validate_body(contract_class)',
-    description: 'Decorator that parses and validates request bodies using an Aquilia Contract. Passes validated_data downstream as "body".',
+    description: 'Decorator that parses and validates request bodies using an Aquilia Contract. Sets __aquilia_owned_params__ on the handler to prevent the controller engine from double-binding the request body. Passes validated_data downstream as "body".',
     signature: 'def validate_body(contract_class: type, *, projection: str = "__all__") -> Callable',
     language: 'python',
     status: 'stable',

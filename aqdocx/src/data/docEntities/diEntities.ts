@@ -297,4 +297,16 @@ registerDocEntities([
     docsHref: '/docs/di/overview',
     source: { file: 'aquilia/di/cli.py', line: 309 },
   },
+  {
+    id: 'di.settings',
+    type: 'class',
+    title: 'DISettings',
+    description: 'Configuration for the DI container. Contains strict_scopes (computed in __post_init__) and the new scope_check_enabled public flag. The _strict_scopes private property was removed. Performance improved: DI resolve scope check 66.8 ns → 22.9 ns.',
+    signature: 'class DISettings:\n    strict_scopes: bool\n    scope_check_enabled: bool',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4.0b1+',
+    docsHref: '/docs/di/overview',
+    source: { file: 'aquilia/di/settings.py' },
+  },
 ])

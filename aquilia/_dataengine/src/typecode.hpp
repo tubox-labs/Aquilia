@@ -27,10 +27,30 @@ enum class TypeCode : std::uint8_t {
     Uuid = 9,   // native hex parse -- the one measured per-value win
     Json = 10,  // native scan, Python object build
     Bytes = 11,
-    // Everything else -- custom field/facet, pipeline, validator, nested
-    // contract, computed, injected -- is NOT a type code. It marks the whole
-    // plan ineligible and the batch runs in Python.
+    Duration = 14,  // timedelta passthrough + numeric seconds
+    Choice = 15,    // ChoiceFacet/LiteralFacet - frozenset membership
+    Enum = 17,      // EnumFacet - value-then-name member lookup
+    Nested = 18,    // NestedContractFacet - recursive sub-plan execution
+    // Everything else -- custom field/facet, pipeline, validator, computed,
+    // injected -- is NOT a type code. It marks the field ineligible and it is
+    // escaped to Sigil.validate.
     Unsupported = 255,
+};
+
+// Container shape wrapping a TypeCode.
+//
+// This is a separate axis from TypeCode rather than a code per (container,
+// element) pair. The pair encoding needed ListStr/ListInt/ListFloat/... and
+// would have needed the same again for Set, Tuple, and Dict -- twenty-four
+// codes to express six element types across four containers. Splitting the
+// axes keeps it at six plus four, and a nested Contract composes with every
+// container for free.
+enum class ContainerKind : std::uint8_t {
+    None = 0,   // scalar field; TypeCode applies to the value itself
+    List = 1,   // ListFacet  -> Python list
+    Set = 2,    // SetFacet   -> Python set (dedupes)
+    Tuple = 3,  // TupleFacet -> Python tuple
+    Dict = 4,   // DictFacet  -> Python dict; TypeCode applies to each *value*
 };
 
 // Per-column flags for RowPlan.

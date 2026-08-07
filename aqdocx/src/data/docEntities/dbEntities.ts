@@ -372,4 +372,17 @@ cfg = OracleConfig(
     docsHref: '/docs/database/configs',
     source: { file: 'aquilia/db/configs.py', line: 414 },
   },
+  // ── Inline Execution ──────────────────────────────────────────────────
+  {
+    id: 'db.inline_policy',
+    type: 'class',
+    title: 'InlinePolicy',
+    description: 'Policy for SQLite inline execution. Only SELECT statements with bounded index seeks execute inline. Slow statements are permanently demoted. Provides significant performance improvements for fast queries.',
+    signature: 'class InlinePolicy:\n    inline_fast_queries: bool = True\n    inline_max_duration_ms: float = 1.0',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4.0b1+',
+    docsHref: '/docs/sqlite/inline',
+    source: { file: 'aquilia/sqlite/_inline.py' },
+  },
 ])

@@ -201,7 +201,7 @@ def test_dataobject_dict_shadowing_and_json_serialization():
     # 4. Assert json serialization compiles cleanly
     import json
 
-    from aquilia.response import _json_default_serializer
+    from aquilia.json import default_serializer as _json_default_serializer
 
     serialized = json.dumps(data, default=_json_default_serializer)
     assert json.loads(serialized) == {

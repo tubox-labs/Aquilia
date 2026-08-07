@@ -59,9 +59,25 @@ def get_collector(config: InspectorConfig) -> InspectorCollector:
     global _COLLECTOR
     if _COLLECTOR is None:
         _COLLECTOR = InspectorCollector(config)
+        # Per-query recording is off by default so that production pays nothing
+        # for it (aquilia/db/engine.py::_QUERY_INSPECTION). Creating a collector
+        # is the point at which someone has asked for inspection, so turn it on
+        # here rather than leaving the DB layer to guess.
+        try:
+            from aquilia.db.engine import enable_query_inspection
+
+            enable_query_inspection(True)
+        except ImportError:  # pragma: no cover - db layer optional
+            pass
     return _COLLECTOR
 
 
 def reset_global_collector() -> None:
     global _COLLECTOR
     _COLLECTOR = None
+    try:
+        from aquilia.db.engine import enable_query_inspection
+
+        enable_query_inspection(False)
+    except ImportError:  # pragma: no cover - db layer optional
+        pass

@@ -272,6 +272,15 @@ A plan compiles only when **every** field/column is representable. Any of the fo
 
 `@ward` methods and the `validate()` hook are **not** eligibility concerns: they run in Phase 3/4 of `is_sealed`, after `Sigil.validate` returns. The native engine replaces Phase 1+2 only.
 
+> **Superseded in part.** This list is the v1 rule. Phase 2 narrowed several
+> entries — eligibility is now decided **per field** rather than per contract, and
+> nested contracts, `pattern`, `choices`, `multiple_of`, and the collection facets
+> are covered. The current rule lives in `_native_plan.py`; see
+> [`11-phase2-coverage-expansion.md`](11-phase2-coverage-expansion.md) for what
+> moved and why. A child Contract declaring a `@ward` or overriding `validate()`
+> *does* become an eligibility concern once the parent's nested field compiles
+> natively, because the sub-plan would otherwise skip that user code.
+
 ---
 
 ## 9. Memory and ownership

@@ -24,6 +24,7 @@ written so the corrections stay visible.
 | [08-benchmark-strategy.md](08-benchmark-strategy.md) | Methodology, missing benchmarks, regression gates |
 | [09-implementation-plan.md](09-implementation-plan.md) | Milestones M0–M7 with exit gates, risk register, and stop conditions |
 | [10-results.md](10-results.md) | **What actually happened.** Gates met and missed, corrections to `04`/`05`/`06`, honest assessment |
+| [11-phase2-coverage-expansion.md](11-phase2-coverage-expansion.md) | **Phase 2.** Choice/Literal/Enum/Set/Tuple/Decimal/Duration coverage, the two-axis type system, and why each addition is exact |
 
 ---
 

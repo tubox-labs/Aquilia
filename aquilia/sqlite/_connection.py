@@ -28,6 +28,7 @@ from typing import Any
 from aquilia.faults.domains import ConfigInvalidFault, QueryFault
 from aquilia.sqlite._config import SqlitePoolConfig
 from aquilia.sqlite._errors import map_sqlite_error
+from aquilia.sqlite._inline import InlinePolicy
 from aquilia.sqlite._metrics import SqliteMetrics
 from aquilia.sqlite._rows import Row
 from aquilia.sqlite._statement_cache import CacheStats, StatementCache
@@ -69,6 +70,7 @@ class AsyncConnection:
         "_in_transaction",
         "_closed",
         "_created_at",
+        "_inline",
     )
 
     def __init__(
@@ -90,6 +92,11 @@ class AsyncConnection:
         self._in_transaction = False
         self._closed = False
         self._created_at = time.monotonic()
+        self._inline = InlinePolicy(
+            raw,
+            enabled=getattr(config, "inline_fast_queries", True),
+            max_duration_ms=getattr(config, "inline_max_duration_ms", 1.0),
+        )
 
     # ── Internal: run blocking callable in thread pool ───────────────
 
@@ -256,6 +263,11 @@ class AsyncConnection:
         """
         Execute and return the first row, or None.
 
+        Runs inline on the event loop when :class:`InlinePolicy` has proved the
+        statement is a bounded index seek; the thread-pool hop costs ~27us
+        against ~1.5us of real work for such a query. Everything else still
+        dispatches to the executor.
+
         Args:
             sql: SQL text.
             params: Parameter sequence.
@@ -280,8 +292,15 @@ class AsyncConnection:
             return cur.fetchone()
 
         try:
-            row = await self._run(_do_fetch_one)
-            elapsed = time.monotonic_ns() - t0
+            if self._inline.may_run_inline(sql):
+                row = _do_fetch_one()
+                elapsed = time.monotonic_ns() - t0
+                # Feed the measurement back: a statement the planner admitted but
+                # that turns out slow is demoted for the rest of the process.
+                self._inline.record_duration(sql, elapsed / 1_000_000)
+            else:
+                row = await self._run(_do_fetch_one)
+                elapsed = time.monotonic_ns() - t0
             if self._metrics:
                 self._metrics.record_query(elapsed, row_count=1 if row else 0)
             return row  # type: ignore[return-value]

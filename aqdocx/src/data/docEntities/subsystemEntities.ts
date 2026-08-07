@@ -465,4 +465,14 @@ registerDocEntities([
     docsHref: '/docs/artifacts/registry',
     source: { file: 'aquilia/artifacts/registry.py', line: 55 },
   },
+  // ── NATIVE EXTENSIONS ─────────────────────────────────────────────────────
+  {
+    id: 'native.extensions',
+    type: 'module',
+    title: 'Native Extensions Overview',
+    description: 'Aquilia features three C++ native extensions: _core, _dataengine, and _json. They use a fail-soft loading pattern. Controlled via environment variables: AQUILIA_ENGINE=0 and AQUILIA_DATAENGINE=0 disable their respective extensions (no env var for _json currently). Use engine_info() from aquilia._core_loader and dataengine_info() from aquilia._dataengine_loader for diagnostics. Use aquilia.json.backend() to check the active JSON backend.',
+    status: 'stable',
+    version: 'v1.4.0b1+',
+    docsHref: '/docs/subsystem/native',
+  },
 ])

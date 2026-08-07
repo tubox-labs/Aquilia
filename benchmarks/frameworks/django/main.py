@@ -25,6 +25,8 @@ class DummyDjangoMiddleware:
         return self.get_response(request)
 
 
+from django.db import models, transaction
+
 # Inline Django Configuration
 if not settings.configured:
     middleware_stack = []
@@ -39,6 +41,15 @@ if not settings.configured:
         MIDDLEWARE=middleware_stack,
         ALLOWED_HOSTS=["*"],
         APPEND_SLASH=False,
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": str(DB_PATH),
+            }
+        },
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+        ],
     )
 
 # Setup Django application context
@@ -47,10 +58,22 @@ import django
 django.setup()
 
 
-def get_sync_db():
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+class World(models.Model):
+    randomNumber = models.IntegerField(db_column="randomNumber")
+
+    class Meta:
+        app_label = "benchmark"
+        db_table = "world"
+        managed = False
+
+
+class Fortune(models.Model):
+    message = models.CharField(max_length=2048, db_column="message")
+
+    class Meta:
+        app_label = "benchmark"
+        db_table = "fortune"
+        managed = False
 
 
 # Views
@@ -71,11 +94,9 @@ def json_large(request):
 
 
 def db_single(request):
-    with get_sync_db() as db:
-        row_id = random.randint(1, 10000)
-        cursor = db.execute("SELECT id, randomNumber FROM world WHERE id = ?", (row_id,))
-        row = cursor.fetchone()
-        return JsonResponse({"id": row["id"], "randomNumber": row["randomNumber"]})
+    row_id = random.randint(1, 10000)
+    row = World.objects.get(id=row_id)
+    return JsonResponse({"id": row.id, "randomNumber": row.randomNumber})
 
 
 def db_queries(request):
@@ -87,12 +108,10 @@ def db_queries(request):
     q_val = max(1, min(500, q_val))
 
     results = []
-    with get_sync_db() as db:
-        for _ in range(q_val):
-            row_id = random.randint(1, 10000)
-            cursor = db.execute("SELECT id, randomNumber FROM world WHERE id = ?", (row_id,))
-            row = cursor.fetchone()
-            results.append({"id": row["id"], "randomNumber": row["randomNumber"]})
+    for _ in range(q_val):
+        row_id = random.randint(1, 10000)
+        row = World.objects.get(id=row_id)
+        results.append({"id": row.id, "randomNumber": row.randomNumber})
     return JsonResponse(results, safe=False)
 
 
@@ -105,23 +124,20 @@ def db_updates(request):
     q_val = max(1, min(500, q_val))
 
     results = []
-    with get_sync_db() as db:
+    with transaction.atomic():
         for _ in range(q_val):
             row_id = random.randint(1, 10000)
             new_num = random.randint(1, 10000)
-            cursor = db.execute("SELECT id, randomNumber FROM world WHERE id = ?", (row_id,))
-            row = cursor.fetchone()
-            db.execute("UPDATE world SET randomNumber = ? WHERE id = ?", (new_num, row_id))
-            results.append({"id": row_id, "randomNumber": new_num})
-        db.commit()
+            row = World.objects.get(id=row_id)
+            row.randomNumber = new_num
+            row.save()
+            results.append({"id": row.id, "randomNumber": new_num})
     return JsonResponse(results, safe=False)
 
 
 def fortunes(request):
-    with get_sync_db() as db:
-        cursor = db.execute("SELECT id, message FROM fortune")
-        rows = cursor.fetchall()
-        fortunes_list = [{"id": r["id"], "message": r["message"]} for r in rows]
+    rows = Fortune.objects.all()
+    fortunes_list = [{"id": r.id, "message": r.message} for r in rows]
 
     fortunes_list.append({"id": 0, "message": "Additional fortune added at runtime."})
     fortunes_list.sort(key=lambda x: x["message"])
@@ -147,11 +163,9 @@ def cached_test(request):
         row_id = random.randint(1, 10000)
         val = CACHE_STORE.get(row_id)
         if val is None:
-            with get_sync_db() as db:
-                cursor = db.execute("SELECT randomNumber FROM world WHERE id = ?", (row_id,))
-                row = cursor.fetchone()
-                val = row["randomNumber"]
-                CACHE_STORE[row_id] = val
+            row = World.objects.get(id=row_id)
+            val = row.randomNumber
+            CACHE_STORE[row_id] = val
         results.append({"id": row_id, "randomNumber": val})
     return JsonResponse(results, safe=False)
 

@@ -549,10 +549,17 @@ class Container:
                 return None
             self._raise_not_found(token_key, tag)
 
+        # `meta` is a Protocol property, so every `provider.meta.x` pays a Python
+        # property call (~19 ns) before the slot read. This function reads it 11
+        # times; hoisting once turns the other 10 into plain slot reads. Bound to
+        # the Protocol attribute, not `_meta`, so third-party Provider
+        # implementations that compute `meta` keep working.
+        _meta = provider.meta
+
         # Scope Delegation: singleton/app → parent
         # Only delegate when the provider was inherited from the parent,
         # not when the child registered it locally.
-        if self._parent and provider.meta.scope in ("singleton", "app"):
+        if self._parent and _meta.scope in ("singleton", "app"):
             parent_provider = self._parent._providers.get(cache_key)
             if parent_provider is provider:
                 return await self._parent.resolve_async(token, tag=tag, optional=optional, ctx=ctx)
@@ -569,13 +576,13 @@ class Container:
         if _di_settings.scope_check_enabled:
             from aquilia.di.scopes import ScopeValidator
 
-            if not ScopeValidator.validate_injection(provider.meta.scope, self._scope):
+            if not ScopeValidator.validate_injection(_meta.scope, self._scope):
                 if _di_settings.strict_scopes:
                     from aquilia.di.errors import ScopeViolationError
 
                     raise ScopeViolationError(
-                        provider_token=provider.meta.token,
-                        provider_scope=provider.meta.scope,
+                        provider_token=_meta.token,
+                        provider_scope=_meta.scope,
                         consumer_token=token_key,
                         consumer_scope=self._scope,
                     )
@@ -584,8 +591,8 @@ class Container:
                 _log.getLogger("aquilia.di").warning(
                     "Scope violation: %s-scoped provider '%s' resolved in %s-scoped "
                     "container. This may cause captive dependency issues.",
-                    provider.meta.scope,
-                    provider.meta.name,
+                    _meta.scope,
+                    _meta.name,
                     self._scope,
                 )
 
@@ -607,7 +614,7 @@ class Container:
             from aquilia.di.diagnostics import DIEventType as _DET
 
             _t0 = _time.monotonic()
-            self._diagnostics.emit(_DET.RESOLUTION_START, token=token_key, tag=tag, provider_name=provider.meta.name)
+            self._diagnostics.emit(_DET.RESOLUTION_START, token=token_key, tag=tag, provider_name=_meta.name)
 
         # ── Cross-link cycle guard ──
         # The ResolveCtx stack is per-container and is reset across dependency
@@ -627,7 +634,7 @@ class Container:
         # Under parallel_resolution, two sibling branches can reach here for the
         # same uncached token before either caches. Without this guard each
         # builds its own instance, breaking the singleton/app/request guarantee.
-        _cacheable = provider.meta.scope in _CACHEABLE_SCOPES
+        _cacheable = _meta.scope in _CACHEABLE_SCOPES
         if _cacheable:
             if self._inflight is None:
                 self._inflight = {}
@@ -647,7 +654,7 @@ class Container:
             # Cache if appropriate for scope
             if _cacheable:
                 self._cache[cache_key] = instance
-                await self._check_lifecycle_hooks(instance, provider.meta.name)
+                await self._check_lifecycle_hooks(instance, _meta.name)
                 # Skip finalizer probing on lazy proxies: hasattr() would trip
                 # __getattr__ and force eager (possibly in-loop-sync) resolution.
                 from aquilia.di.providers import _LazyProxy
@@ -664,7 +671,7 @@ class Container:
                     _DET.RESOLUTION_SUCCESS,
                     token=token_key,
                     tag=tag,
-                    provider_name=provider.meta.name,
+                    provider_name=_meta.name,
                     duration=_time.monotonic() - _t0,
                 )
             return instance
@@ -676,7 +683,7 @@ class Container:
                     _DET.RESOLUTION_FAILURE,
                     token=token_key,
                     tag=tag,
-                    provider_name=provider.meta.name,
+                    provider_name=_meta.name,
                     duration=_time.monotonic() - _t0,
                     error=_exc,
                 )

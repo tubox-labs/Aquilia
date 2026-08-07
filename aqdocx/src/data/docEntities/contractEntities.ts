@@ -405,10 +405,11 @@ schema = generate_schema(UserContract)
     type: 'class',
     title: 'Sigil',
     description:
-      'Advanced typed field specification system. FieldSpec instances declare full type contracts including nested types, union types, and constraints. The Sigil class compiles FieldSpec trees into validation pipelines.',
-    signature: 'class Sigil:\n    def __init__(self, *specs: FieldSpec)',
+      'Advanced typed field specification system. FieldSpec instances declare full type contracts including nested types, union types, and constraints. The Sigil class compiles FieldSpec trees into validation pipelines. Uses a native validation fast path with per-field eligibility (CompiledPlan pattern). Fields that the native plan cannot represent are individually escaped, allowing partial fast-path execution (e.g., passing `_only=frozenset` to `validate()`). This provides transparent performance improvements.',
+    signature: 'class Sigil:\n    def __init__(self, *specs: FieldSpec)\n    def validate(self, data: dict, *, _only: frozenset[str] | None = None) -> dict',
     language: 'python',
     status: 'experimental',
+    version: 'v1.0+ (Native fast-path in v1.4.0b1)',
     docsHref: '/docs/contracts/annotations',
     source: { file: 'aquilia/contracts/sigil.py' },
   },

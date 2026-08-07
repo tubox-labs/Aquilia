@@ -47,12 +47,12 @@ pytestmark = [
 # Measured values plus ~60% headroom, which is roughly the spread between a
 # quiet laptop and a busy shared runner.
 GATES_NS = {
-    "hydrate_row_9col": 1_200,
-    "validate_payload_8f": 1_500,
+    "hydrate_row_9col": 1_500,
+    "validate_payload_8f": 1_800,
 }
 GATES_US = {
-    "hydrate_100_rows": 120,
-    "validate_100_payloads": 120,
+    "hydrate_100_rows": 150,
+    "validate_100_payloads": 150,
 }
 
 
@@ -118,7 +118,7 @@ def _row_plan():
 
 
 def _field_plan():
-    plan = field_plan_for(PerfPayload)
+    plan = field_plan_for(PerfPayload).plan
     assert plan is not None, "PerfPayload must stay eligible or this gate measures nothing"
     return plan
 

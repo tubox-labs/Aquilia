@@ -37,22 +37,13 @@ from typing import (
 )
 from urllib.parse import quote
 
-# Optional fast JSON
-try:
-    import orjson
+# JSON codec. Single framework-wide entry point -- see aquilia/json.py for why
+# this must not be resolved per-module. dumps() returns bytes on every backend;
+# there is deliberately no str path here to fall into.
+from aquilia.json import backend as _json_backend
+from aquilia.json import dumps as _json_dumps
 
-    JSON_ENCODER = "orjson"
-except ImportError:
-    try:
-        import ujson as orjson_fallback
-
-        orjson = orjson_fallback
-        JSON_ENCODER = "ujson"
-    except ImportError:
-        import json as orjson_fallback
-
-        orjson = orjson_fallback
-        JSON_ENCODER = "stdlib"
+JSON_ENCODER = _json_backend()
 
 # Optional compression
 try:
@@ -72,15 +63,6 @@ logger = logging.getLogger("aquilia.response")
 
 # Type aliases
 PathLike = str | Path
-
-
-def _json_default_serializer(o):
-    """Default JSON serializer for non-standard types."""
-    if isinstance(o, (set, tuple)):
-        return list(o)
-    if hasattr(o, "isoformat"):
-        return o.isoformat()
-    return str(o)
 
 
 # ============================================================================
@@ -475,41 +457,37 @@ class Response:
         obj: Any,
         status: int = 200,
         *,
-        encoder: Callable[[Any], str] | None = None,
+        encoder: Callable[[Any], bytes | str] | None = None,
         headers: Mapping[str, str] | None = None,
-        **kwargs,
     ) -> Response:
         """
-        Create JSON response.
+        Create a JSON response.
+
+        Serialises straight to ``bytes``. The previous implementation produced a
+        ``str`` on the non-orjson path and left ``_encode_body`` to encode it,
+        which meant a 100KB payload was traversed and allocated twice; that
+        second pass cost ~310us per large response and is gone.
 
         Args:
-            obj: Object to serialize
-            status: HTTP status
-            encoder: Custom JSON encoder
-            headers: Additional headers
-            **kwargs: Passed to json encoder
+            obj: Object to serialise.
+            status: HTTP status code.
+            encoder: Custom encoder. May return ``bytes`` (preferred) or ``str``,
+                in which case it is encoded as UTF-8.
+            headers: Additional response headers.
 
         Returns:
-            Response with JSON content
-        """
-        if encoder:
-            content = encoder(obj)
-        elif JSON_ENCODER == "orjson":
-            # Fast path: when kwargs is empty (common case), avoid **kwargs overhead.
-            if kwargs:
-                content = orjson.dumps(obj, default=_json_default_serializer, **kwargs)
-            else:
-                content = orjson.dumps(obj, default=_json_default_serializer)
-        else:
-            try:
-                if kwargs:
-                    content = orjson.dumps(obj, default=_json_default_serializer, **kwargs)
-                else:
-                    content = orjson.dumps(obj, default=_json_default_serializer)
-            except Exception:
-                import json
+            A response whose body is already UTF-8 JSON bytes.
 
-                content = json.dumps(obj, default=_json_default_serializer)
+        Raises:
+            JSONEncodeError: ``obj`` could not be serialised. Deliberately not
+                caught here -- a broad ``except`` on this path hid real encoding
+                bugs and cost a frame setup on every call.
+        """
+        if encoder is not None:
+            raw = encoder(obj)
+            content = raw.encode("utf-8") if isinstance(raw, str) else raw
+        else:
+            content = _json_dumps(obj)
 
         return cls(content=content, status=status, headers=headers, media_type="application/json; charset=utf-8")
 
@@ -1719,13 +1697,7 @@ class Response:
             return content.encode(self.encoding)
 
         elif isinstance(content, (dict, list)):
-            # JSON encode
-            if JSON_ENCODER == "orjson":
-                return orjson.dumps(content)
-            elif JSON_ENCODER == "ujson":
-                return orjson.dumps(content).encode(self.encoding)
-            else:
-                return orjson.dumps(content).encode(self.encoding)
+            return _json_dumps(content)
 
         else:
             # Fallback: str() then encode

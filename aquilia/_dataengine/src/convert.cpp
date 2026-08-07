@@ -52,6 +52,15 @@ bool init_constructors() {
     g_ctors.decimal_type = import_from("decimal", "Decimal");
     if (!g_ctors.decimal_type) return false;
 
+    // timedelta, for DurationFacet's numeric-seconds branch.
+    PyObject* td_cls = import_from("datetime", "timedelta");
+    if (!td_cls) return false;
+    if (!PyType_Check(td_cls)) {
+        Py_DECREF(td_cls);
+        PyErr_SetString(PyExc_TypeError, "datetime.timedelta is not a type");
+        return false;
+    }
+    g_ctors.timedelta_type = reinterpret_cast<PyTypeObject*>(td_cls);  // keeps the ref
     g_ctors.json_loads = import_from("json", "loads");
     if (!g_ctors.json_loads) return false;
 
@@ -74,6 +83,8 @@ bool init_constructors() {
     if (!g_ctors.str_int) return false;
     g_ctors.str_is_safe = PyUnicode_InternFromString("is_safe");
     if (!g_ctors.str_is_safe) return false;
+    g_ctors.str_search = PyUnicode_InternFromString("search");
+    if (!g_ctors.str_search) return false;
 
     // Accessing a __slots__ attribute on the *class* yields its
     // member_descriptor. Caching the two descriptors lets uuid_from_string call

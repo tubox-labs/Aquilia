@@ -14,6 +14,9 @@
 
 #include <Python.h>
 
+#include <cstddef>
+#include <type_traits>
+
 namespace aq {
 
 /// Owning PyObject* reference. Deliberately not nb::object: this header is
@@ -66,6 +69,10 @@ private:
     PyObject* p_ = nullptr;
 };
 
+static_assert(sizeof(PyRef) == sizeof(PyObject*),
+              "PyRef must stay pointer-sized: RequestContext::slots() reinterprets "
+              "the slot block as a PyObject* array for tp_traverse/tp_clear.");
+
 /// Fixed-slot request context.
 ///
 /// Slots mirror the seven real fields of RequestCtx. There is deliberately no
@@ -82,6 +89,28 @@ struct RequestContext {
     PyRef container;
     PyRef state;
     PyRef request_id;
+
+    static constexpr std::size_t kSlotCount = 7;
+
+    /// The slot block viewed as a plain ``PyObject*`` array.
+    ///
+    /// Exists for ``tp_traverse``/``tp_clear``. nanobind's own traverse visits
+    /// the ``dynamic_attr`` dict and the type, but it cannot see C++ fields --
+    /// so before this existed, a cycle running *through a slot*
+    /// (``ctx.state = {"ctx": ctx}``) was invisible to the collector and the
+    /// instance leaked forever. That was one leaked RequestCtx per request.
+    ///
+    /// Safe because the slots are consecutive, pointer-sized, and
+    /// standard-layout -- all three asserted, so a future edit that breaks the
+    /// assumption fails to compile rather than corrupting the heap.
+    [[nodiscard]] PyObject** slots() noexcept { return reinterpret_cast<PyObject**>(this); }
 };
+
+static_assert(std::is_standard_layout_v<RequestContext>,
+              "RequestContext::slots() requires standard layout for the "
+              "reinterpret_cast to the first member to be well-defined.");
+static_assert(sizeof(RequestContext) == RequestContext::kSlotCount * sizeof(PyObject*),
+              "RequestContext gained padding or a non-PyRef member -- slots() "
+              "would hand tp_traverse something that is not a PyObject*.");
 
 }  // namespace aq

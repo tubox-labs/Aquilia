@@ -120,3 +120,15 @@ migrations/
 # C++ ignores
 build-tests
 build-asan
+# Local CMake build trees for the native extensions. Each extension configures
+# standalone, so these appear under aquilia/_core, aquilia/_dataengine, and
+# aquilia/_json during development.
+aquilia/_core/build/
+aquilia/_dataengine/build/
+aquilia/_json/build/
+
+aquilia/_json/.cache
+aquilia/_json/build
+# SQLite WAL/SHM sidecars from benchmark runs
+benchmarks/techempower/*.db-shm
+benchmarks/techempower/*.db-wal

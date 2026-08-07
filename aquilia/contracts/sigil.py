@@ -16,6 +16,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
+from aquilia.contracts._native_plan import field_plan_for
 from aquilia.contracts.exceptions import MAX_NESTING_DEPTH, CastFault
 from aquilia.contracts.facets import (
     UNSET,
@@ -132,6 +133,7 @@ class Sigil:
         "discriminator",
         "content_hash",
         "_json_schema_cache",
+        "_owner",
     )
 
     def __init__(
@@ -152,6 +154,10 @@ class Sigil:
         self.migrate_step = migrate_step
         self.discriminator = discriminator
         self._json_schema_cache = None
+        # The Contract class this Sigil was built for. Set by build_sigil once
+        # the class exists; the native plan is cached per contract class, so
+        # validate() needs the class to look its plan up.
+        self._owner: type | None = None
         self.content_hash = self._compute_content_hash()
 
     def _compute_content_hash(self) -> str:
@@ -176,6 +182,7 @@ class Sigil:
         _depth: int = 0,
         _async_pending: list[Any] | None = None,
         _path: tuple[str, ...] = (),
+        _only: frozenset[str] | None = None,
     ) -> tuple[dict[str, list[str]], dict[str, Any]]:
         """
         Validate input data against this schema. Never raises.
@@ -204,6 +211,13 @@ class Sigil:
             _path: Internal. Dotted field path of this Sigil within the outer
                 Contract, used to report nested async ward errors at the right
                 location.
+            _only: Internal. When supplied, validate *only* these field names
+                and ignore the rest. Used by the native FieldPlan path: the
+                compiled plan handles the fields it can represent and hands the
+                remainder back here, so a contract with one exotic field keeps
+                native handling for the others. Escaped fields run this exact
+                loop, so their values and messages cannot diverge from the
+                all-Python path.
 
         Returns:
             ``(errors, validated)``. ``errors`` maps field name to a list of
@@ -217,6 +231,41 @@ class Sigil:
         validated: dict[str, Any] = {}
         context = context or {}
         is_strict = self.strict if strict is None else strict
+
+        # ── Native FieldPlan fast path ────────────────────────────────────
+        #
+        # The compiled plan handles every field it can represent; whatever it
+        # cannot is handed back to the loop below via `_only`. A plan that
+        # declines the payload (return 0) leaves this untouched and the whole
+        # payload runs in Python, so the two paths can never disagree.
+        #
+        # Skipped when `_only` is already set (this call *is* the escaped pass),
+        # when partial/strict change the field semantics the plan was compiled
+        # for, or when migrations would rewrite the payload first.
+        if _only is None and not partial and not is_strict and self._owner is not None and type(data) is dict:
+            compiled = field_plan_for(self._owner)
+            if compiled is not None:
+                native = compiled.plan.execute(data)
+                if native is not None:
+                    if not compiled.escaped:
+                        return {}, native
+                    # Plan covered part of the contract; run the rest here and
+                    # merge. Native results come first so an escaped field
+                    # cannot silently overwrite a natively-validated one.
+                    rest_errors, rest_validated = self.validate(
+                        data,
+                        strict=strict,
+                        partial=partial,
+                        context=context,
+                        _depth=_depth,
+                        _async_pending=_async_pending,
+                        _path=_path,
+                        _only=compiled.escaped,
+                    )
+                    if rest_errors:
+                        return rest_errors, {}
+                    native.update(rest_validated)
+                    return {}, native
 
         # Run migrations sequentially if revision context matches
         if self.revision is not None and self.migrate_from and is_mapping_like(data):
@@ -253,6 +302,11 @@ class Sigil:
                             }, {}
 
         for fname, spec in self.fields.items():
+            # Native FieldPlan already produced a value for every field outside
+            # `_only`; re-validating them here would duplicate the work and, for
+            # a facet with a side effect, duplicate that too.
+            if _only is not None and fname not in _only:
+                continue
             facet = spec.facet
             if isinstance(facet, (Computed, Constant)):
                 continue
@@ -1415,7 +1469,7 @@ def build_sigil(cls: type) -> Sigil:
 
     ward_methods = tuple(getattr(cls, "_ward_methods", ()))
 
-    return Sigil(
+    sigil = Sigil(
         fields=fields,
         ward_methods=ward_methods,
         strict=strict,
@@ -1424,3 +1478,5 @@ def build_sigil(cls: type) -> Sigil:
         migrate_step=migrate_step,
         discriminator=discriminator,
     )
+    sigil._owner = cls
+    return sigil

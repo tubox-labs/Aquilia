@@ -4,6 +4,158 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.4.0b1] — 2026-08-07 — "Foredeck Watch"
+
+Expands the native engine foundation introduced in v1.4.0b0 with three additional C++ extensions
+(`_json`, `_dataengine`, `_core`), a first-party native JSON engine backed by yyjson, a native
+Contract validation fast path, per-field eligibility for the FieldPlan engine, a RequestContext
+GC leak fix, sweeping hot-path correctness fixes across the controller/validation/DB/ASGI layers,
+SQLite inline-execution for bounded index seeks, and a multi-platform binary wheel distribution
+pipeline. See [releases/1.4.0b1/](releases/1.4.0b1/README.md) for full documentation.
+
+### Added
+
+#### Native Engine Extensions (`aquilia/_core`, `aquilia/_dataengine`, `aquilia/_json`)
+
+- **Build system** (`scikit-build-core` + `nanobind`): CMake-based build for three optional C++20
+  extensions. Extensions are individually optional — `AQUILIA_ENGINE_OPTIONAL=ON` means a missing
+  C++ toolchain or compiler produces a pure-Python install, not a build failure.
+- **`aquilia/_core`** — Radix-trie HTTP router and fixed-slot `RequestContext` object.
+  - Native `Router` with per-method eligibility; falls back per-method to the pure-Python router.
+  - Native `RequestContext` with 7 fixed C++ slots (no `__dict__` allocation on the fast path).
+  - String interner (`interner.cpp`) for header/method name deduplication.
+  - C++ unit-test harness (ASAN/UBSAN/TSAN-clean).
+- **`aquilia/_dataengine`** — ORM hydration and Contract validation engines.
+  - `FieldPlan`: native per-field validation for Contract `Sigil`. Supports `TextFacet`, `IntFacet`,
+    `FloatFacet`, `BoolFacet`, `UUIDFacet`, `DateFacet`, `DateTimeFacet`, `TimeFacet`,
+    `DecimalFacet`, `DurationFacet`, `BytesFacet`, `ChoiceFacet`, `LiteralFacet`, `EnumFacet`
+    (plain only), container kinds (`LIST`, `SET`, `TUPLE`, `DICT`), regex patterns, and nested
+    sub-plans.
+  - `RowPlan`: native ORM row hydration — field type conversion, UUID parsing, date/time
+    construction.
+  - Native UUID parser with exhaustive parity tests.
+- **`aquilia/_json`** — First-party native JSON engine (Phase 1) backed by vendored
+  [yyjson](https://github.com/ibireme/yyjson) 0.10.0 (MIT license).
+  - `decode.cpp`: yyjson arena parser, no per-node allocation.
+  - `encode.cpp`: direct emitter with heap work stack (not recursive — hostile deep nesting is a
+    clean `ValueError`, not a stack overflow / crash).
+  - `escape.hpp`: SWAR word-at-a-time scan for bytes needing escaping.
+  - `numeric.hpp`: `itoa` for integers, yyjson shortest-round-trip for floats.
+  - `buffer.hpp`: thread-local buffer pool — steady-state encoding stops allocating after first
+    response of a given size.
+  - Removable: every test passes with the extension absent (stdlib path).
+- **`aquilia/json`** — New framework-wide JSON entry point replacing three inconsistent per-module
+  fallback chains. `dumps()` always returns `bytes`; `loads()` accepts `bytes | bytearray |
+  memoryview | str`. `backend()` reports the active codec (`"aquilia._json"` or `"stdlib"`).
+  Third-party codecs (`orjson`, `ujson`) are deliberately not consulted.
+- **`aquilia/sqlite/_inline.py`** — Inline SQLite execution for statements the query planner
+  proves are bounded index seeks (`SEARCH` plan nodes). Thread-hop cost was 27 µs vs. 1.5 µs real
+  work. Demotes permanently any statement measured slower than `inline_max_duration_ms`. Disable
+  with `inline_fast_queries=False`.
+- **Fail-soft extension loaders** (`aquilia/_core_loader.py`, `aquilia/_dataengine_loader.py`):
+  single import gate for each extension; a missing or ABI-mismatched extension degrades to pure
+  Python. `AQUILIA_ENGINE=0` / `AQUILIA_DATAENGINE=0` force the pure-Python path.
+- **Per-field FieldPlan eligibility** (`aquilia/contracts/_native_plan.py`): fields the native
+  plan cannot represent are individually *escaped* to `Sigil.validate(..., _only=escaped)` rather
+  than sinking the whole contract. `CompiledPlan(plan, escaped)` named-tuple carries both sets.
+  Previously one un-representable field disabled native validation for all sibling fields.
+- **`aquilia/contracts/sigil.py`**: `Sigil.validate(..., _only=frozenset)` parameter — runs
+  validation only for the named subset of fields (used by the escape path).
+- **Multi-platform binary wheel pipeline** (`.github/workflows/wheels.yml`): `cibuildwheel`
+  across Linux (`x86_64`, `aarch64`), macOS (`x86_64`, `arm64`), Windows (`AMD64`) for Python
+  3.10–3.13.
+- **`aquilia/_core/src/interner.cpp`**: string interning for hot-path deduplication.
+- **`AQUILIA_ENGINE_OPTIONAL`** CMake variable — when `ON`, a missing compiler is a warning, not
+  an error.
+
+### Changed
+
+- **`DISettings.strict_scopes`** is now a plain `bool` field computed in `__post_init__`, replacing
+  the former `@property` that read `_strict_scopes`. The private `_strict_scopes` field is removed.
+  The new field is part of the public API (not prefixed with `_`).
+- **`DISettings.scope_check_enabled`** added as a second derived field (was not separately cached
+  before — each resolve tested `scope_enforcement != "off"` inline). Per-resolve DI cost:
+  66.8 ns → 22.9 ns.
+- **`Container.resolve_async()`**: `provider.meta` hoisted to a local variable; all 11 subsequent
+  reads become plain slot reads (~19 ns each avoided).
+- **`ControllerEngine._bind_params()`**: `handler` argument added; the engine respects
+  `__aquilia_owned_params__` to avoid double-binding parameters claimed by decorators.
+- **`aquilia/controller/validation.py`**: `validate_body` declares `__aquilia_owned_params__`
+  so the engine no longer also binds `body`.
+- **`aquilia/db/engine.py`**: `_notify_inspector()` now gated behind `_QUERY_INSPECTION` (set
+  only when an Inspector is installed). Was executing `traceback.extract_stack()` on every query.
+- **`aquilia/sqlite/_pool.py`**: uncontended `acquire()` no longer constructs an `asyncio.wait_for`
+  timer. Timeout semantics under real contention are unchanged.
+- **`aquilia/request.py`**: body decoded once; `validate_body` reads the cached parse.
+- **`aquilia/response.py`**: `Response.json()` always returns `bytes` (was `str` on stdlib path).
+- **`pyproject.toml`**: `cibuildwheel` table added; `metadata.version` key path corrected for
+  scikit-build-core 0.9+ (`tool.scikit-build.metadata.version` → `tool.scikit-build.metadata.version.*`).
+
+### Fixed
+
+- **`validate_body` + controller engine double-binding**: both bound the `body` parameter →
+  `TypeError: got multiple values for keyword argument 'body'` on every decorated handler. Fixed
+  with `__aquilia_owned_params__` ownership protocol. (1809 → 15075 rps on the `validation`
+  scenario; was returning 500 on every request for an entire release cycle.)
+- **`Response.json()` double-encoding**: the stdlib path serialised to `str`, then
+  `_encode_body()` encoded it again, traversing and allocating large payloads twice. Now `bytes`.
+- **`_check_json_depth` recursion**: the depth guard itself raised `RecursionError` on deeply
+  nested input, turning a `400 Bad Request` into a `500 Internal Server Error`. Now iterative.
+- **Benchmark `successRate` miscalculation**: `run.py` computed success from oha's `successRate`
+  (any completed exchange), so a scenario returning 500 on every request was published at
+  "100.0% success". Success is now derived from the 2xx/3xx status distribution, with a
+  single-request preflight per scenario.
+- **`aquilia/_json` SWAR mask bug**: the first SWAR `less-than` check lacked `& ~w`, causing
+  every byte ≥ 0x80 to be reported as a control character — corrupted the first non-ASCII string
+  encountered.
+- **`aquilia/_json` bignum decoding**: integers > 2**64 were silently decoded as `float`, turning
+  a 30-digit ID into an approximate value. Now read with `YYJSON_READ_BIGNUM_AS_RAW` and
+  reconstructed as an exact Python `int`.
+- **`aquilia/_json` nested container key overwrite**: while iterating a nested object's children,
+  the parent key was overwritten; `{"a": {"b": 1}, "c": 2}` lost `"a"`. Key now lives on the
+  stack frame.
+- **`RequestContext` GC leak**: nanobind's `inst_traverse` visited only `__dict__`, not C++
+  fields. A cycle through a slot (e.g. `ctx.state = {"ctx": ctx}`) was invisible to the garbage
+  collector — 1 leaked `RequestCtx` per request (unbounded growth). Fixed with custom
+  `tp_traverse`/`tp_clear` visiting all 7 `PyObject*` slots.
+- **`DotEnvLoader.reset()`**: did not clear configuration state, so test isolation was broken
+  between tests that called `reset()`. Now fully resets the loader.
+- **Windows CI test compatibility**: `WSAEACCES` error handling, signal sending, UDS guards
+  for cross-platform parity.
+- **Python 3.13 Windows thread starvation** in `test_concurrency_stress`: now uses a condition
+  variable instead of spinning.
+
+### Performance
+
+All figures measured with `oha`, 50 connections, 5 s, on macOS arm64 (Apple Silicon).
+
+| Scenario | Before | After | Δ |
+|---|---|---|---|
+| `db_single` | 5 797 rps | 19 034 rps | +228% |
+| `db_queries` | 1 496 rps | 8 759 rps | +485% |
+| `db_updates` | 744 rps | 1 965 rps | +164% |
+| `validation` | 1 809 rps (500s) | 15 075 rps (200s) | +733% |
+| `fortunes` | 4 412 rps | 5 276 rps | +20% |
+| `json_large` | 2 248 rps | 4 602 rps | +105% |
+| ORM `get()` | 120.7 µs | 9.3 µs | **13× faster** |
+| JSON encode small | — | 0.09 µs | 8.5× vs stdlib |
+| JSON encode 100 KB | — | 174.5 µs | 3.9× vs stdlib |
+| JSON decode small | — | 0.13 µs | 4.8× vs stdlib |
+| DI resolve (scope check) | 66.8 ns | 22.9 ns | 3× faster |
+
+### Security
+
+- **Iterative JSON depth check**: the recursive `_check_json_depth` could crash the server
+  (stack overflow, process kill) when given hostile deeply-nested input. The iterative
+  replacement raises `ValueError` cleanly.
+- **Native JSON stack-based traversal**: the `encode`/`decode` heap work stacks are resistant
+  to stack-overflow attacks from attacker-controlled nesting depth.
+
+### Documentation
+
+- Added `releases/1.4.0b1/` release notes package (this document and linked pages).
+- Updated `CHANGELOG.md` with full v1.4.0b1 entry.
+- `benchmarks/report.md` updated with corrected measurements and provenance notes.
 
 ## [1.4.0b0] — 2026-08-02 — "Foredeck Watch"
 

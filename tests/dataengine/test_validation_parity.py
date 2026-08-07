@@ -56,16 +56,26 @@ class Bounded(Contract):
 
 def _assert_parity(contract_cls, payload):
     """Native and Python must agree, whichever path each takes."""
-    plan = field_plan_for(contract_cls)
-    assert plan is not None, "contract should be eligible for this test to mean anything"
+    compiled = field_plan_for(contract_cls)
+    assert compiled is not None, "contract should be eligible for this test to mean anything"
 
     py_errors, py_validated = contract_cls._sigil.validate(payload)
-    native = plan.execute(payload)
+    native = compiled.plan.execute(payload)
 
     if native is None:
         # Deferred: Python owns the outcome. Nothing to compare, but the reason
         # must be a real one -- either an error, or a value the plan declined.
         return py_errors, py_validated
+
+    # The plan may have escaped some fields to Python. Merge both results.
+    if compiled.escaped:
+        escaped_errors, escaped_validated = contract_cls._sigil.validate(
+            payload, _only=compiled.escaped
+        )
+        if escaped_errors:
+            # Escaped field failed; no native dict to compare.
+            return py_errors, py_validated
+        native.update(escaped_validated)
 
     assert not py_errors, f"native accepted a payload Python rejected: {py_errors}"
     assert native == py_validated
@@ -96,7 +106,7 @@ def test_wide_payload_parity():
 
 def test_wide_payload_takes_native_path():
     """If this ever returns None the parity test above proves nothing."""
-    assert field_plan_for(Wide).execute(WIDE_PAYLOAD) is not None
+    assert field_plan_for(Wide).plan.execute(WIDE_PAYLOAD) is not None
 
 
 @pytest.mark.parametrize(
@@ -167,7 +177,7 @@ def test_nullable_without_default_still_yields_none():
         maybe: str = TextFacet(required=False, allow_null=True)
 
     _assert_parity(Nullable, {"req": "x"})
-    plan = field_plan_for(Nullable)
+    plan = field_plan_for(Nullable).plan
     assert plan.execute({"req": "x"}) == {"req": "x", "maybe": None}
 
 
@@ -224,7 +234,7 @@ def test_error_messages_are_byte_identical(payload):
 
 @pytest.mark.parametrize("payload", FAILING_PAYLOADS)
 def test_failing_payloads_defer_to_python(payload):
-    plan = field_plan_for(Wide)
+    plan = field_plan_for(Wide).plan
     py_errors, _ = Wide._sigil.validate(dict(payload))
     if py_errors:
         assert plan.execute(dict(payload)) is None
@@ -281,7 +291,7 @@ def test_extra_keys_ignored_by_default():
 def test_never_raises(payload):
     """Sigil.validate's documented contract is 'never raises'. The native path
     must uphold it: a conversion failure is a fallback, never an exception."""
-    plan = field_plan_for(Wide)
+    plan = field_plan_for(Wide).plan
     plan.execute(dict(payload))  # must not raise
     Wide(data=dict(payload)).is_sealed()  # must not raise
 
@@ -294,7 +304,7 @@ def test_never_raises(payload):
 def test_no_object_growth_over_repeated_validation():
     import gc
 
-    plan = field_plan_for(Wide)
+    plan = field_plan_for(Wide).plan
     for _ in range(100):
         plan.execute(dict(WIDE_PAYLOAD))
     gc.collect()
@@ -309,7 +319,7 @@ def test_payload_refcount_is_balanced():
     import gc
     import sys
 
-    plan = field_plan_for(Wide)
+    plan = field_plan_for(Wide).plan
     name = "alice"
     payload = {**WIDE_PAYLOAD, "name": name}
     plan.execute(payload)

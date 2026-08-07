@@ -936,19 +936,24 @@ class AquiliaServer:
             # Auto-discover static/ dirs inside loaded modules
             module_static_dirs = self._discover_module_static_dirs()
 
-            mw = StaticMiddleware(
-                directories=directories,
-                cache_max_age=static_config.get("cache_max_age", 86400),
-                immutable=static_config.get("immutable", False),
-                etag=static_config.get("etag", True),
-                gzip=static_config.get("gzip", True),
-                brotli=static_config.get("brotli", True),
-                memory_cache=static_config.get("memory_cache", True),
-                html5_history=static_config.get("html5_history", False),
-                extra_directories=module_static_dirs,
-            )
-            self.middleware_stack.add(mw, scope="global", priority=6, name="static_files")
-            self._static_middleware = mw
+            # Only register StaticMiddleware if there are actual directories to serve.
+            # This avoids the trie lookup overhead on every request when no static
+            # files exist.
+            all_dirs = {**directories, **module_static_dirs}
+            if all_dirs:
+                mw = StaticMiddleware(
+                    directories=directories,
+                    cache_max_age=static_config.get("cache_max_age", 86400),
+                    immutable=static_config.get("immutable", False),
+                    etag=static_config.get("etag", True),
+                    gzip=static_config.get("gzip", True),
+                    brotli=static_config.get("brotli", True),
+                    memory_cache=static_config.get("memory_cache", True),
+                    html5_history=static_config.get("html5_history", False),
+                    extra_directories=module_static_dirs,
+                )
+                self.middleware_stack.add(mw, scope="global", priority=6, name="static_files")
+                self._static_middleware = mw
 
         # ── Security Headers / Helmet (priority 7) ───────────────────────
         if security_config.get("helmet_enabled", False):
