@@ -78,6 +78,7 @@ test-command = "pytest {project}/tests/engine -o testpaths={project}/tests/engin
 [tool.cibuildwheel.environment]
 AQUILIA_ENGINE_OPTIONAL = "OFF"
 CI = "1"
+MACOSX_DEPLOYMENT_TARGET = "10.15"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
