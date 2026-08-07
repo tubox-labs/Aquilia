@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.4.0b1] — 2026-08-07 — "Foredeck Watch"
+
+Multi-platform binary wheel distribution pipeline, DI hot-path optimizations, and scikit-build-core / cibuildwheel production integration.
+
+### Added
+- **Multi-Platform Binary Wheels Pipeline**: `cibuildwheel` configuration supporting Linux (`x86_64`, `aarch64`), macOS (`x86_64`, `arm64`), and Windows (`AMD64`) for Python 3.10 through 3.13.
+- **Dedicated Wheel Workflow** (`.github/workflows/wheels.yml`): Continuous wheel build validation across all matrix targets.
+
+### Performance
+- **DI Container Hot Path**: Hoisted `provider.meta` accesses in `Container.resolve_async()` and cached derived scope settings in `DISettings.__post_init__()`.
 
 ## [1.4.0b0] — 2026-08-02 — "Foredeck Watch"
 
