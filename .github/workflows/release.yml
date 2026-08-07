@@ -195,10 +195,10 @@ jobs:
 
       - name: Set up QEMU (for Linux aarch64)
         if: matrix.arch == 'aarch64'
-        uses: docker/setup-qemu-action@49b01bfd5d647768f52e29f238d57ce807b26192 # v3.2.0
+        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@a60d032223df1f07f4333c1d92bf22d431c182d0 # v2.23.0
+        uses: pypa/cibuildwheel@6cccd09a31908ffd175b012fb8bf4e1dbda3bc6c # v2.23.0
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
 
