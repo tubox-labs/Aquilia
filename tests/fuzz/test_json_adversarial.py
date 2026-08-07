@@ -21,8 +21,11 @@ import pytest
 
 try:
     import aquilia._json as native_json
-    JSON_NATIVE = True
-except ImportError:
+
+    JSON_NATIVE = hasattr(native_json, "loads")
+    if not JSON_NATIVE:
+        native_json = None
+except (ImportError, AttributeError):
     JSON_NATIVE = False
     native_json = None
 

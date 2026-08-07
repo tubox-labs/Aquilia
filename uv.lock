@@ -282,6 +282,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
+    { name = "python-multipart" },
     { name = "ruff" },
 ]
 full = [
@@ -341,6 +342,7 @@ testing = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
+    { name = "python-multipart" },
 ]
 
 [package.metadata]
@@ -371,6 +373,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=0.23.0" },
     { name = "pytest-cov", marker = "extra == 'testing'", specifier = ">=4.1.0" },
     { name = "python-multipart", marker = "extra == 'multipart'", specifier = ">=0.0.9" },
+    { name = "python-multipart", marker = "extra == 'testing'", specifier = ">=0.0.9" },
     { name = "redis", extras = ["asyncio"], marker = "extra == 'redis'", specifier = ">=5.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.15" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.30.0" },

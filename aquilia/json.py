@@ -185,6 +185,7 @@ else:
                 default=default,
                 ensure_ascii=False,
                 separators=(",", ":"),
+                allow_nan=False,
             ).encode("utf-8")
         except (TypeError, ValueError, RecursionError) as exc:
             raise JSONEncodeError(str(exc)) from None
@@ -202,6 +203,8 @@ else:
             JSONDecodeError: Input was not well-formed JSON.
         """
         try:
+            if isinstance(data, memoryview):
+                data = bytes(data)
             return _s_loads(data)
-        except (ValueError, TypeError, UnicodeDecodeError) as exc:
+        except (ValueError, TypeError, UnicodeDecodeError, RecursionError) as exc:
             raise JSONDecodeError(str(exc)) from None
