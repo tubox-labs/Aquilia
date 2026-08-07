@@ -6,6 +6,7 @@ import {
   Database,
   FunctionSquare,
   Globe,
+  Layers,
   Radio,
   Terminal,
   Wand2,
@@ -101,6 +102,12 @@ const ENTITY_META: Record<DocEntityType, EntityMeta> = {
     icon: Braces,
     dark: { text: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20' },
     light: { text: 'text-fuchsia-700', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200' },
+  },
+  module: {
+    label: 'Module',
+    icon: Layers,
+    dark: { text: 'text-teal-300', bg: 'bg-teal-500/10', border: 'border-teal-500/20' },
+    light: { text: 'text-teal-700', bg: 'bg-teal-50', border: 'border-teal-200' },
   },
 }
 

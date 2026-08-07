@@ -2,22 +2,14 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Activity,
-  AlertTriangle,
   ArrowRight,
   Award,
   BarChart3,
-  CheckCircle2,
-  Clock3,
-  Cpu,
   Database,
-  Gauge,
   Layers,
   Network,
   Rocket,
-  Server,
   ShieldCheck,
-  TrendingUp,
   Trophy,
   Zap,
 } from 'lucide-react'

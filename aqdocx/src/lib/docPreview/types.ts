@@ -20,6 +20,7 @@ export type DocEntityType =
   | 'cli'
   | 'endpoint'
   | 'type'
+  | 'module'
 
 export type DocEntityStatus = 'stable' | 'beta' | 'experimental' | 'deprecated'
 
