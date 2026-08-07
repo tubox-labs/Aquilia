@@ -14,7 +14,14 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
-from enum import Enum, IntEnum, StrEnum
+from enum import Enum, IntEnum
+
+try:
+    from enum import StrEnum
+except ImportError:
+
+    class StrEnum(str, Enum):
+        pass
 from typing import Any
 
 import pytest
