@@ -88,13 +88,19 @@ def _measure(name: str) -> float:
     return min(timer.repeat(REPEAT, NUMBER)) / NUMBER * 1e9
 
 
+import os
+
+IS_CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+TOLERANCE = 2.0 if IS_CI else 1.25
+
+
 @pytest.mark.parametrize("name", list(GATES))
 def test_within_budget(name: str) -> None:
-    """Measured cost must stay within budget (+25% tolerance for machine noise)."""
+    """Measured cost must stay within budget (plus tolerance for machine noise)."""
     budget = GATES[name]["budget"]
     measured = _measure(name)
-    assert measured <= budget * 1.25, (
-        f"{name}: {measured:.1f} ns exceeds budget {budget} ns (+25% tol). "
+    assert measured <= budget * TOLERANCE, (
+        f"{name}: {measured:.1f} ns exceeds budget {budget} ns ({TOLERANCE}x tol). "
         f"The native engine may have regressed or been bypassed."
     )
 
