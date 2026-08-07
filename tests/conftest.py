@@ -11,7 +11,7 @@ AUTH_APP = os.path.join(REPO_ROOT, "authentication")
 
 for p in [REPO_ROOT, AUTH_APP]:
     if p not in sys.path:
-        sys.path.insert(0, p)
+        sys.path.append(p)
 
 
 def pytest_sessionfinish(session, exitstatus):
