@@ -36,8 +36,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # yyjson is vendored rather than found: it is a single .c/.h pair with no build
 # system of its own, and pinning the exact source we ship removes any chance of
 # a distro build picking up a version whose number formatting differs. See
-# vendor/yyjson/LICENSE (MIT).
-add_library(aquilia_yyjson STATIC vendor/yyjson/yyjson.c src/yyjson_dtoa.c)
+# vendor/yyjson/LICENSE (MIT). Note that src/yyjson_dtoa.c #includes yyjson.c
+# directly to access internal static_inline helpers, so vendor/yyjson/yyjson.c
+# must not be listed separately to avoid duplicate symbol errors.
+add_library(aquilia_yyjson STATIC src/yyjson_dtoa.c)
 target_include_directories(aquilia_yyjson PUBLIC vendor/yyjson src)
 set_target_properties(aquilia_yyjson PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(NOT MSVC)

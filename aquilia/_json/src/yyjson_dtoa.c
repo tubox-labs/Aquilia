@@ -25,9 +25,8 @@
  * The vendored source stays byte-identical to the upstream release, and the
  * only thing we own is the four-line shim below.
  *
- * The cost is that yyjson.c is compiled twice in this target; the linker keeps
- * one copy of the external symbols because the second inclusion is confined to
- * this file's translation unit and everything it defines is static.
+ * yyjson.c is compiled as part of this translation unit so that the static_inline
+ * functions are visible, and aquilia_yyjson target compiles this file only.
  */
 
 #include "yyjson_dtoa.h"
