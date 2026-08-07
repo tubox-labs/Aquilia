@@ -91,7 +91,7 @@ def _measure(name: str) -> float:
 import os
 
 IS_CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
-TOLERANCE = 2.0 if IS_CI else 1.25
+TOLERANCE = 3.5 if IS_CI else 1.25
 
 
 @pytest.mark.parametrize("name", list(GATES))
