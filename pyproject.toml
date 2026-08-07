@@ -73,7 +73,7 @@ build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*"]
 skip = ["*-musllinux_*", "pp*", "*-win32", "*-manylinux_i686", "*_free_threaded", "*_nogil"]
 build-verbosity = 1
 test-requires = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0", "python-multipart>=0.0.9"]
-test-command = "pytest {project}/tests/engine -v -m \"not slow\""
+test-command = "pytest {project}/tests/engine -o testpaths={project}/tests/engine -v -m \"not slow\""
 
 [tool.cibuildwheel.environment]
 AQUILIA_ENGINE_OPTIONAL = "OFF"
