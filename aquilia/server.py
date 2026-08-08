@@ -98,6 +98,12 @@ from aquilia.templates.middleware import TemplateMiddleware
 from aquilia.typing.manifest import ManifestCollection
 from aquilia.versioning.core import VERSION_NEUTRAL
 
+# Middleware priorities are ascending = outer = executed first. Auth resolves the
+# identity that identity-based rate-limit rules key on, so those rules must be
+# registered strictly after it. Keep these two in lockstep.
+_AUTH_PRIORITY = 15
+_RATE_LIMIT_IDENTITY_PRIORITY = _AUTH_PRIORITY + 1
+
 
 class ServerRequestScopeMiddleware(Middleware):
     """Request scope middleware -- stores container refs and cleans up."""
@@ -415,7 +421,7 @@ class AquiliaServer:
                             fault_engine=self.fault_engine,
                         ),
                         scope="global",
-                        priority=15,  # Replaces session middleware
+                        priority=_AUTH_PRIORITY,  # Replaces session middleware
                         name="auth",
                     )
 
@@ -485,7 +491,7 @@ class AquiliaServer:
                 self.middleware_stack.add(
                     SessionMiddleware(self._session_engine),
                     scope="global",
-                    priority=15,
+                    priority=_AUTH_PRIORITY,
                     name="session",
                 )
 
@@ -1048,7 +1054,7 @@ class AquiliaServer:
             # Wire CSRF token function into TemplateMiddleware if present
             self._csrf_token_func = _csrf_token_func
 
-        # ── Rate Limiting (priority 12) ──────────────────────────────────
+        # ── Rate Limiting (priority 12 for IP rules, 16 for identity rules) ──
         rl_config = security_config.get("rate_limit") or integrations.get("rate_limit", {})
         if security_config.get("rate_limiting") or (rl_config and rl_config.get("enabled")):
             rules = []
@@ -1067,11 +1073,26 @@ class AquiliaServer:
             else:
                 rules.append(RateLimitRule(limit=100, window=60))
                 exempt = None
-            mw = RateLimitMiddleware(
-                rules=rules,
-                exempt_paths=exempt,
-            )
-            self.middleware_stack.add(mw, scope="global", priority=12, name="rate_limit")
+
+            # Identity-based rules must run *after* the auth middleware (priority
+            # 15) or their key extractor sees no identity and the rule silently
+            # never applies. IP-based rules stay early, so anonymous abuse is
+            # rejected before paying for auth resolution.
+            identity_rules = [r for r in rules if r.requires_identity]
+            anon_rules = [r for r in rules if not r.requires_identity]
+
+            for group, priority, name in (
+                (anon_rules, 12, "rate_limit"),
+                (identity_rules, _RATE_LIMIT_IDENTITY_PRIORITY, "rate_limit_identity"),
+            ):
+                if not group:
+                    continue
+                self.middleware_stack.add(
+                    RateLimitMiddleware(rules=group, exempt_paths=exempt),
+                    scope="global",
+                    priority=priority,
+                    name=name,
+                )
 
     def _is_debug(self) -> bool:
         """Check if debug mode is enabled.
