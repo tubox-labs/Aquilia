@@ -42,6 +42,7 @@ class Socket:
         max_message_size: int = 65536,  # 64KB default
         compression: bool = True,
         subprotocols: list[str] | None = None,
+        middleware: list[Any] | None = None,
     ):
         """
         Initialize Socket decorator.
@@ -50,10 +51,17 @@ class Socket:
             path: URL path pattern (supports Aquilia patterns like /:id)
             allowed_origins: Whitelist of allowed origins
             max_connections: Max concurrent connections per namespace
-            message_rate_limit: Messages per second per connection
-            max_message_size: Max message size in bytes
+            message_rate_limit: Messages per second per connection. Registers a
+                ``SocketRateLimitMiddleware`` scoped to this namespace.
+            max_message_size: Max message size in bytes. Registers a
+                ``MessageValidationMiddleware`` scoped to this namespace.
             compression: Enable WebSocket compression
             subprotocols: Supported WebSocket subprotocols
+            middleware: ``SocketMiddleware`` instances applied to this namespace
+                only. Registered at ``scope="namespace:<path>"``, so they run
+                after all global socket middleware regardless of priority — the
+                same guarantee controller-scoped middleware gives on the HTTP
+                side.
         """
         self.path = path
         self.allowed_origins = allowed_origins
@@ -62,6 +70,7 @@ class Socket:
         self.max_message_size = max_message_size
         self.compression = compression
         self.subprotocols = subprotocols
+        self.middleware = middleware
 
     def __call__(self, cls: type) -> type:
         """Attach metadata to controller class."""
@@ -74,6 +83,7 @@ class Socket:
             "max_message_size": self.max_message_size,
             "compression": self.compression,
             "subprotocols": self.subprotocols,
+            "middleware": self.middleware,
         }
 
         return cls
