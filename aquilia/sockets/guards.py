@@ -59,6 +59,22 @@ class SocketGuard:
         """
         Check message authorization.
 
+        .. deprecated:: 1.5
+            **Never invoked.** No socket runtime code path has ever called this
+            hook, so any guard relying on it has silently not been running. Use
+            socket middleware instead — ``SocketMiddleware.on_message`` is
+            executed for every message and has the same rejection semantics
+            (raise a ``SocketFault``).
+
+            ``MessageAuthGuard`` maps to
+            :class:`~aquilia.sockets.middleware.SocketAuthMiddleware`, and
+            ``RateLimitGuard`` to
+            :class:`~aquilia.sockets.middleware.SocketRateLimitMiddleware`.
+
+            ``check_handshake`` is unaffected and remains the supported way to
+            gate a connection before it is established — it runs before a
+            ``Connection`` exists, which middleware cannot do.
+
         Args:
             conn: Active connection
             envelope: Incoming message
@@ -187,6 +203,14 @@ class MessageAuthGuard(SocketGuard):
     """
     Per-message authentication guard.
 
+    .. deprecated:: 1.5
+        Relies on :meth:`SocketGuard.check_message`, which is never invoked —
+        this guard has never run. Use
+        :class:`~aquilia.sockets.middleware.SocketAuthMiddleware`, which performs
+        the same periodic re-validation and keeps its timestamps on
+        ``ctx.state`` so they are freed when the connection closes (the dict
+        below is never cleaned up).
+
     Validates authentication for each message.
     Useful for long-lived connections.
     """
@@ -228,6 +252,14 @@ class MessageAuthGuard(SocketGuard):
 class RateLimitGuard(SocketGuard):
     """
     Rate limiting guard.
+
+    .. deprecated:: 1.5
+        Relies on :meth:`SocketGuard.check_message`, which is never invoked —
+        this guard has never rate limited anything. Use
+        :class:`~aquilia.sockets.middleware.SocketRateLimitMiddleware`, which
+        shares the token-bucket implementation with HTTP rate limiting and
+        evicts per-connection state instead of accumulating it in the two dicts
+        below.
 
     Limits messages per second per connection.
     """
