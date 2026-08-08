@@ -18,9 +18,11 @@ from typing import TYPE_CHECKING, cast
 from aquilia._middleware_base import Middleware
 from aquilia.debug.pages import render_debug_exception_page, render_http_error_page
 from aquilia.faults import Fault, FaultDomain
-from aquilia.faults.domains import HTTPFault
+from aquilia.faults.domains import ConfigInvalidFault, HTTPFault
 from aquilia.inspector.trace import current_trace
 from aquilia.typing.middleware import RequestHandler
+
+logger = logging.getLogger("aquilia.middleware")
 
 _FD_SECURITY = cast(FaultDomain, FaultDomain.SECURITY)
 _FD_IO = cast(FaultDomain, FaultDomain.IO)
@@ -79,12 +81,20 @@ class MiddlewareStack:
     """
     Manages middleware stack with deterministic ordering.
     Order: Global < App < Controller < Route, then by priority.
+
+    Priority is a flat integer namespace shared by framework internals, security
+    config, template engine, inspector tooling, and third-party app manifests.
+    Two middlewares at the same scope and priority resolve by registration order
+    — an implementation detail, not a contract — so collisions are reported at
+    ``add()`` time rather than silently accepted. Set ``strict_priorities`` to
+    turn the warning into a fatal ``ConfigInvalidFault``.
     """
 
-    def __init__(self):
+    def __init__(self, *, strict_priorities: bool = False):
         self.middlewares: list[MiddlewareDescriptor] = []
         self._sorted = True  # Track if sorting is needed
         self.traced = False
+        self.strict_priorities = strict_priorities
 
     def add(
         self,
@@ -142,8 +152,27 @@ class MiddlewareStack:
             name=name,
         )
 
+        collision = self._find_priority_collision(descriptor)
+        if collision is not None:
+            message = (
+                f"Middleware priority collision: '{name}' and '{collision.name}' both registered "
+                f"at scope={scope!r} priority={priority}. Their relative order falls back to "
+                f"registration order, which is not part of the public API and can change silently "
+                f"when registration code is reordered. Give one of them a distinct priority."
+            )
+            if self.strict_priorities:
+                raise ConfigInvalidFault("middleware.priority", message)
+            logger.warning(message)
+
         self.middlewares.append(descriptor)
         self._sorted = False  # Defer sorting until build_handler()
+
+    def _find_priority_collision(self, descriptor: MiddlewareDescriptor) -> MiddlewareDescriptor | None:
+        """Return an already-registered middleware that shares scope and priority, if any."""
+        for existing in self.middlewares:
+            if existing.priority == descriptor.priority and existing.scope == descriptor.scope:
+                return existing
+        return None
 
     def _sort_middlewares(self):
         """Sort middlewares by scope and priority."""

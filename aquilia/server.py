@@ -735,14 +735,14 @@ class AquiliaServer:
             self.middleware_stack.add(
                 InspectorMiddleware(inspector_config),
                 scope="global",
-                priority=11,
+                priority=13,
                 name="inspector",
             )
 
             self.middleware_stack.add(
                 ToolbarInjectionMiddleware(inspector_config),
                 scope="global",
-                priority=12,
+                priority=14,
                 name="inspector_toolbar",
             )
 
