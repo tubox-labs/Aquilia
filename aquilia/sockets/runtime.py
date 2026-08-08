@@ -55,6 +55,7 @@ class SocketRouter:
         """Initialize socket router."""
         self.routes: dict[str, RouteMetadata] = {}  # namespace -> metadata
         self._compiled_patterns: dict[str, Any] = {}  # namespace -> CompiledPattern
+        self._namespace_by_pattern: dict[str, str] = {}  # pattern.raw -> namespace
         try:
             from aquilia.patterns import PatternCompiler, PatternMatcher
 
@@ -91,10 +92,14 @@ class SocketRouter:
                 ast = parse_pattern(metadata.path_pattern)
                 compiled = self._pattern_compiler.compile(ast)
                 self._compiled_patterns[namespace] = compiled
+                # PatternMatcher matches against the patterns registered on it,
+                # so a compiled pattern that is never added can never match.
+                self._pattern_matcher.add_pattern(compiled)
+                self._namespace_by_pattern[compiled.raw] = namespace
             except Exception:
-                pass
+                logger.debug("Could not compile socket pattern %s", metadata.path_pattern, exc_info=True)
 
-    def match(self, path: str) -> tuple[str, RouteMetadata, dict[str, Any]] | None:
+    async def match(self, path: str) -> tuple[str, RouteMetadata, dict[str, Any]] | None:
         """
         Match path to namespace.
 
@@ -104,23 +109,21 @@ class SocketRouter:
         Returns:
             (namespace, metadata, path_params) or None
         """
-        # Use Aquilia's PatternMatcher if available for full pattern support
-        if self._has_patterns and self._pattern_matcher:
-            for namespace, metadata in self.routes.items():
-                compiled = self._compiled_patterns.get(namespace)
-                if compiled:
-                    try:
-                        result = self._pattern_matcher.match(compiled, path)
-                        if result and result.matched:
-                            return (namespace, metadata, result.params or {})
-                    except Exception:
-                        pass  # Fall through to basic matching
-                # Fallback: exact match
-                if metadata.path_pattern == path:
-                    return (namespace, metadata, {})
-            return None
+        # Full pattern support (typed params, constraints, splats).
+        if self._has_patterns and self._pattern_matcher and self._pattern_matcher.patterns:
+            try:
+                result = await self._pattern_matcher.match(path)
+            except Exception:
+                logger.debug("Socket pattern matching failed for %s", path, exc_info=True)
+                result = None
 
-        # Fallback: basic matching without Patterns subsystem
+            if result is not None:
+                namespace = self._namespace_by_pattern.get(result.pattern.raw)
+                if namespace is not None and namespace in self.routes:
+                    return (namespace, self.routes[namespace], result.params or {})
+
+        # Fallback: exact match, then basic ":param" matching. Reachable when the
+        # patterns subsystem is unavailable, or when a route failed to compile.
         for namespace, metadata in self.routes.items():
             pattern = metadata.path_pattern
 
@@ -217,7 +220,7 @@ class AquilaSockets:
         """
         # Match route
         path = scope.get("path", "/")
-        match_result = self.router.match(path)
+        match_result = await self.router.match(path)
 
         if not match_result:
             # No route found - reject handshake
