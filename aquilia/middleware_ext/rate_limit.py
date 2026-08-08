@@ -31,10 +31,14 @@ from typing import (
 from aquilia.faults.domains import RateLimitExceededFault
 from aquilia.middleware import Middleware
 
+# Runtime import, not TYPE_CHECKING: _rate_limited_response constructs a Response
+# when a limit trips. aquilia.response does not import middleware_ext, so this
+# introduces no cycle.
+from aquilia.response import Response
+
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
     from aquilia.request import Request
-    from aquilia.response import Response
 
 Handler = Callable[["Request", "RequestCtx"], Awaitable["Response"]]
 
