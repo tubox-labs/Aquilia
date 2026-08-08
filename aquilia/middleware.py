@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
+from aquilia._middleware_base import Middleware
 from aquilia.debug.pages import render_debug_exception_page, render_http_error_page
 from aquilia.faults import Fault, FaultDomain
 from aquilia.faults.domains import HTTPFault
@@ -43,18 +44,6 @@ if TYPE_CHECKING:
     from aquilia.response import Response
 
 Handler = RequestHandler
-
-
-class Middleware:
-    """Base class for all framework and extension middlewares."""
-
-    async def __call__(
-        self,
-        request: Request,
-        ctx: RequestCtx,
-        next_handler: Handler,
-    ) -> Response:
-        raise NotImplementedError("Middleware must implement __call__")
 
 
 # Names of middleware that are safe to skip on the fast path.
