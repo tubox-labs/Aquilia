@@ -10,7 +10,8 @@ Import nothing from the rest of the framework.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Protocol, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Protocol
 
 
 class _Descriptor(Protocol):

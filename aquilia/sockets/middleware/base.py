@@ -18,7 +18,6 @@ from aquilia.sockets.middleware.types import ConnectHandler, MessageHandler
 
 if TYPE_CHECKING:
     from aquilia.sockets.envelope import MessageEnvelope
-
     from aquilia.sockets.middleware.context import SocketCtx
 
 

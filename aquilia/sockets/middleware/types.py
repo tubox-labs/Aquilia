@@ -11,9 +11,7 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Protocol, TypeAlias
 
 if TYPE_CHECKING:
-    from aquilia.sockets.connection import Connection
     from aquilia.sockets.envelope import MessageEnvelope
-
     from aquilia.sockets.middleware.context import SocketCtx
 
 SocketMiddlewareName: TypeAlias = str

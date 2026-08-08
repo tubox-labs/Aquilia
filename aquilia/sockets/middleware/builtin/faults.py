@@ -16,7 +16,6 @@ from aquilia.sockets.middleware.types import MessageHandler
 
 if TYPE_CHECKING:
     from aquilia.sockets.envelope import MessageEnvelope
-
     from aquilia.sockets.middleware.context import SocketCtx
 
 logger = logging.getLogger("aquilia.sockets.middleware.faults")
