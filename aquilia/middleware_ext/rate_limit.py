@@ -20,6 +20,7 @@ All middleware follow the Aquilia async signature:
 
 from __future__ import annotations
 
+import logging
 import math
 import time
 from collections.abc import Awaitable, Callable
@@ -41,6 +42,8 @@ if TYPE_CHECKING:
     from aquilia.request import Request
 
 Handler = Callable[["Request", "RequestCtx"], Awaitable["Response"]]
+
+logger = logging.getLogger("aquilia.middleware.rate_limit")
 
 
 # ─── Key extractors ──────────────────────────────────────────────────────────
@@ -276,9 +279,14 @@ class RateLimitRule:
         burst: Extra burst capacity (token_bucket only). Defaults to limit.
         scope: Which paths this rule applies to ("*" = all).
         methods: HTTP methods this rule applies to (empty = all).
+        requires_identity: Whether ``key_func`` needs an authenticated identity
+                  on ``request.state``. Auto-detected for ``user_key_extractor``;
+                  set explicitly for custom identity-based extractors. Rules with
+                  this set must be registered *after* the auth middleware, or
+                  they can never produce a key.
     """
 
-    __slots__ = ("limit", "window", "algorithm", "key_func", "burst", "scope", "methods")
+    __slots__ = ("limit", "window", "algorithm", "key_func", "burst", "scope", "methods", "requires_identity")
 
     def __init__(
         self,
@@ -289,6 +297,7 @@ class RateLimitRule:
         burst: int | None = None,
         scope: str = "*",
         methods: list[str] | None = None,
+        requires_identity: bool | None = None,
     ):
         self.limit = limit
         self.window = window
@@ -297,6 +306,11 @@ class RateLimitRule:
         self.burst = burst
         self.scope = scope
         self.methods = methods or []
+        # Auto-detect for the built-in extractor so the common config path
+        # ("per_user": true) gets correct ordering without extra wiring.
+        if requires_identity is None:
+            requires_identity = self.key_func is user_key_extractor
+        self.requires_identity = requires_identity
 
     def matches(self, request: Request) -> bool:
         """Check if this rule applies to the given request."""
@@ -353,6 +367,7 @@ class RateLimitMiddleware(Middleware):
         self._include_headers = include_headers
         self._exempt_paths: set = set(exempt_paths or ["/health", "/healthz", "/ready"])
         self._store = _BucketStore()
+        self._warned_missing_identity = False
 
     async def __call__(
         self,
@@ -375,6 +390,16 @@ class RateLimitMiddleware(Middleware):
 
             key = rule.key_func(request)
             if key is None:
+                if rule.requires_identity and not self._warned_missing_identity:
+                    # Ordering bug, not a normal miss: an identity rule that never
+                    # sees an identity silently disables itself on every request.
+                    self._warned_missing_identity = True
+                    logger.warning(
+                        "Rate-limit rule requires an authenticated identity but none was found on "
+                        "request.state. The rate-limit middleware is most likely registered before "
+                        "the auth middleware, which disables this rule entirely. Register it at a "
+                        "priority greater than the auth middleware's (default 15)."
+                    )
                 continue  # Rule doesn't apply (e.g. no user ID)
 
             # Scope the key to the rule
