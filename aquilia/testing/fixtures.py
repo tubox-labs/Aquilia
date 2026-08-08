@@ -13,9 +13,24 @@ Usage in conftest.py::
 Or use the plugin entry point (automatic via pip install).
 """
 
-from __future__ import annotations
+try:
+    import pytest
 
-import pytest
+    HAS_PYTEST = True
+except ImportError:
+    HAS_PYTEST = False
+
+    class _DummyPytest:
+        @staticmethod
+        def fixture(*args, **kwargs):
+            def decorator(func):
+                return func
+
+            if len(args) == 1 and callable(args[0]):
+                return args[0]
+            return decorator
+
+    pytest = _DummyPytest()
 
 from aquilia.config import ConfigLoader
 from aquilia.testing.auth import TestIdentityFactory
@@ -45,6 +60,11 @@ def aquilia_fixtures():
     imported.  The function exists as a documentation anchor and to
     ensure the module's side-effects run.
     """
+    if not HAS_PYTEST:
+        raise ImportError(
+            "pytest is required to use aquilia pytest fixtures. "
+            "Install it with: pip install pytest (or pip install aquilia[test])"
+        )
     pass  # Side-effect of import registers the fixtures below
 
 
