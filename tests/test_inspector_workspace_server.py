@@ -29,10 +29,11 @@ async def test_server_wires_inspector_when_enabled():
 
     server = AquiliaServer(manifests=[manifest], config=config_loader)
 
-    # Check if InspectorMiddleware is in the middleware stack at priority 11
+    # InspectorMiddleware sits at priority 13 -- moved off 11 to stop colliding
+    # with CORS (see #65); still ahead of auth so it traces the handler pipeline.
     middlewares = [mw for mw in server.middleware_stack.middlewares if isinstance(mw.middleware, InspectorMiddleware)]
     assert len(middlewares) == 1
-    assert middlewares[0].priority == 11
+    assert middlewares[0].priority == 13
 
     # Check if DI diagnostic listeners were added to app containers
     for container in server.runtime.di_containers.values():
