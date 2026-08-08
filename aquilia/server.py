@@ -82,6 +82,13 @@ from aquilia.sessions import (
 from aquilia.sockets.adapters import InMemoryAdapter
 
 # WebSockets
+from aquilia.sockets.middleware import (
+    MessageValidationMiddleware,
+    SocketFaultMiddleware,
+    SocketMiddleware,
+    SocketMiddlewareStack,
+    SocketRateLimitMiddleware,
+)
 from aquilia.sockets.runtime import AquilaSockets, SocketRouter
 from aquilia.specula.config import SpeculaConfig
 from aquilia.specula.controller import SpeculaController
@@ -700,6 +707,7 @@ class AquiliaServer:
             container_factory=_socket_container_factory,
             auth_manager=self._auth_manager,
             session_engine=self._session_engine,
+            middleware_stack=self._setup_socket_middleware(),
         )
 
         # Register app-specific middlewares from Aquilary manifest
@@ -752,6 +760,91 @@ class AquiliaServer:
 
             fault_listener = get_fault_listener(inspector_config)
             self.fault_engine.on_fault(fault_listener)
+
+    def _setup_socket_middleware(self) -> SocketMiddlewareStack:
+        """Build the WebSocket middleware stack from workspace config.
+
+        Separate from ``_setup_middleware`` because HTTP middleware does not run
+        on the WebSocket path: the signatures differ (``(envelope, ctx, next)``
+        vs ``(request, ctx, next)``) and so do the lifecycles. Sharing one stack
+        would mean every middleware had to handle both, which is why the two are
+        kept apart. What *is* shared is the enforcement math — the socket rate
+        limiter uses the same token bucket as the HTTP one.
+
+        ``SocketFaultMiddleware`` is always registered, as framework plumbing:
+        without it a fault raised in an event handler is logged and the client is
+        told nothing. This mirrors ``FaultMiddleware`` always being registered on
+        the HTTP side.
+        """
+        stack = SocketMiddlewareStack(traced=self.middleware_stack.traced)
+
+        # ── Framework plumbing (always registered) ───────────────────────
+        stack.add(
+            SocketFaultMiddleware(debug=self._is_debug()),
+            scope="global",
+            priority=2,
+            name="socket_faults",
+        )
+
+        # ── User-configurable chain ──────────────────────────────────────
+        chain = None
+        if hasattr(self.config, "get_socket_middleware_config"):
+            chain = self.config.get_socket_middleware_config()
+
+        if chain:
+            for entry in chain:
+                # Already registered above; skip a duplicate from the preset
+                # rather than tripping the priority-collision warning.
+                if entry.get("path", "").rsplit(".", 1)[-1] == "SocketFaultMiddleware":
+                    continue
+                mw = self._instantiate_middleware(entry, base_class=SocketMiddleware)
+                if mw is not None:
+                    stack.add(
+                        mw,
+                        scope=entry.get("scope", "global"),
+                        priority=entry.get("priority", 50),
+                        name=entry.get("name", "socket_middleware"),
+                    )
+
+        # ── Per-app chains from manifests ────────────────────────────────
+        if hasattr(self, "aquilary"):
+            for ctx in self.aquilary.app_contexts:
+                for mw_config in getattr(ctx.manifest, "socket_middleware", None) or ():
+                    try:
+                        self._register_app_socket_middleware(stack, mw_config)
+                    except Exception as e:
+                        self.logger.error(
+                            "Failed to register socket middleware from app %s: %s",
+                            ctx.name,
+                            e,
+                        )
+
+        return stack
+
+    def _register_app_socket_middleware(self, stack: SocketMiddlewareStack, mw_config: Any) -> None:
+        """Register one manifest-declared socket middleware onto *stack*."""
+        if isinstance(mw_config, dict):
+            class_path = mw_config.get("class_path") or mw_config.get("path")
+            scope = mw_config.get("scope", "global")
+            priority = mw_config.get("priority", 50)
+            config = mw_config.get("config") or mw_config.get("kwargs") or {}
+            name = mw_config.get("name")
+        else:
+            class_path = getattr(mw_config, "class_path", None)
+            scope = getattr(mw_config, "scope", "global")
+            priority = getattr(mw_config, "priority", 50)
+            config = getattr(mw_config, "config", None) or {}
+            name = getattr(mw_config, "name", None)
+
+        if not class_path:
+            return
+
+        mw = self._instantiate_middleware(
+            {"path": class_path.replace(":", "."), "kwargs": config},
+            base_class=SocketMiddleware,
+        )
+        if mw is not None:
+            stack.add(mw, scope=scope, priority=priority, name=name or type(mw).__name__)
 
     def _register_app_middleware(self, mw_config: Any):
         """Register application middleware from config."""
@@ -893,16 +986,27 @@ class AquiliaServer:
         - self.config["integrations"]["csp"]
         - self.config["integrations"]["rate_limit"]
 
-        Middleware priority layout:
-            3  - ProxyFixMiddleware  (must run before IP-dependent middleware)
-            4  - HTTPSRedirectMiddleware
-            6  - StaticMiddleware  (serve files before heavy processing)
-            7  - SecurityHeadersMiddleware (helmet)
-            8  - HSTSMiddleware
-            9  - CSPMiddleware
-            10 - CSRFMiddleware  (after session, before route handlers)
-            11 - CORSMiddleware
-            12 - RateLimitMiddleware
+        Middleware priority layout (ascending priority = outer = runs first).
+        Priorities registered by *this* method are marked ``*``; the others are
+        listed because the security ordering only makes sense relative to them:
+
+            2   FaultMiddleware              (_setup_middleware, always)
+            3 * ProxyFixMiddleware           must precede IP-dependent middleware
+            4 * HTTPSRedirectMiddleware
+            5   ServerRequestScopeMiddleware (_setup_middleware, always)
+            6 * StaticMiddleware             serve files before heavy processing
+            7 * SecurityHeadersMiddleware    (helmet)
+            8 * HSTSMiddleware
+            9 * CSPMiddleware
+            11 * EnhancedCORSMiddleware
+            12 * RateLimitMiddleware         anonymous/IP rules only
+            15  AquilAuthMiddleware / SessionMiddleware  (_AUTH_PRIORITY)
+            16 * RateLimitMiddleware         identity rules; must follow auth
+                                             (_RATE_LIMIT_IDENTITY_PRIORITY)
+            20 * CSRFMiddleware              needs the session from auth (15)
+
+        Keep this list in step with the ``add()`` calls below; the ordering is
+        load-bearing for the security controls, not cosmetic.
         """
         security_config = self.config.get("security", {})
         integrations = self.config.get("integrations", {})
@@ -1111,7 +1215,7 @@ class AquiliaServer:
         return os.environ.get("AQUILIA_ENV", "").lower() == "dev"
 
     # ── middleware instantiation ─────────────────────────────────────
-    def _instantiate_middleware(self, entry: dict):
+    def _instantiate_middleware(self, entry: dict, *, base_class: type | None = None):
         """Resolve a middleware entry dict into a live middleware instance.
 
         *entry* is a dict produced by ``Integration.middleware.Entry.to_dict()``
@@ -1121,6 +1225,15 @@ class AquiliaServer:
         - ``ExceptionMiddleware``: if the caller did not supply an explicit
           ``debug`` kwarg the current server debug state is injected
           automatically so dev/prod behaviour is always correct.
+        - ``SocketFaultMiddleware``: same treatment, for the same reason.
+
+        Args:
+            entry: The serialised middleware entry.
+            base_class: When given, the instantiated object must be an instance
+                of it. Lets the HTTP and socket chains share this loader while
+                still rejecting a middleware pointed at the wrong subsystem —
+                otherwise an HTTP middleware in a socket chain fails later, at
+                first message, with a far less obvious error.
 
         Returns ``None`` (with a warning log) when the class cannot be
         imported or instantiated -- the server continues booting without
@@ -1142,8 +1255,8 @@ class AquiliaServer:
             )
             return None
 
-        # Auto-inject debug flag for ExceptionMiddleware when not explicit
-        if class_name == "ExceptionMiddleware" and "debug" not in kwargs:
+        # Auto-inject debug flag for exception-rendering middleware when not explicit
+        if class_name in ("ExceptionMiddleware", "SocketFaultMiddleware") and "debug" not in kwargs:
             kwargs["debug"] = self._is_debug()
 
         # Auto-inject effect_registry for EffectMiddleware / FlowContextMiddleware when not explicit
@@ -1159,7 +1272,7 @@ class AquiliaServer:
             kwargs["effect_registry"] = _DeferredEffectRegistry(_get_registry)
 
         try:
-            return cls(**kwargs)
+            instance = cls(**kwargs)
         except Exception as exc:
             self.logger.warning(
                 "Could not instantiate middleware '%s': %s -- skipping",
@@ -1167,6 +1280,17 @@ class AquiliaServer:
                 exc,
             )
             return None
+
+        if base_class is not None and not isinstance(instance, base_class):
+            self.logger.warning(
+                "Middleware '%s' is not a %s -- skipping. HTTP and WebSocket middleware "
+                "are separate hierarchies; check which chain this entry belongs in.",
+                class_path,
+                base_class.__name__,
+            )
+            return None
+
+        return instance
 
     def _setup_versioning(self):
         """
@@ -2422,6 +2546,10 @@ class AquiliaServer:
         await self.aquila_sockets.initialize()
         await self._load_socket_controllers()
 
+        # Chains are folded per namespace, so they have to be built after the
+        # namespaces exist and after @Socket-derived middleware is registered.
+        self.aquila_sockets.build_chains()
+
         # Initialize controller router
         self.controller_router.initialize()
 
@@ -3228,6 +3356,59 @@ class AquiliaServer:
         except ImportError:
             pass
 
+    def _register_socket_decorator_middleware(self, namespace: str, meta: dict) -> None:
+        """Turn ``@Socket`` limit kwargs into real namespace-scoped middleware.
+
+        ``message_rate_limit``, ``max_message_size``, and any ``middleware=[...]``
+        given to ``@Socket`` were previously stored on ``RouteMetadata`` and never
+        read, so the limits did not exist at runtime. Translating them into
+        middleware here keeps the decorator API working while leaving exactly one
+        enforcement mechanism.
+
+        ``max_connections`` is not translated: it is an admission decision made
+        before a ``Connection`` object exists, so it stays in the handshake.
+        """
+        stack = getattr(getattr(self, "aquila_sockets", None), "middleware_stack", None)
+        if stack is None:
+            return
+
+        scope = f"namespace:{namespace}"
+
+        rate_limit = meta.get("message_rate_limit")
+        if rate_limit:
+            stack.add(
+                SocketRateLimitMiddleware(messages_per_second=rate_limit),
+                scope=scope,
+                priority=12,
+                name=f"rate_limit[{namespace}]",
+            )
+
+        max_payload = meta.get("max_message_size")
+        if max_payload:
+            stack.add(
+                MessageValidationMiddleware(max_payload_size=max_payload, max_message_size=max_payload),
+                scope=scope,
+                priority=10,
+                name=f"validation[{namespace}]",
+            )
+
+        # Explicit instances passed as @Socket(middleware=[...])
+        for index, mw in enumerate(meta.get("middleware") or ()):
+            try:
+                stack.add(
+                    mw,
+                    scope=scope,
+                    priority=50 + index,
+                    name=f"{type(mw).__name__}[{namespace}]",
+                )
+            except Exception as e:
+                self.logger.error(
+                    "Could not register @Socket middleware %r for %s: %s",
+                    mw,
+                    namespace,
+                    e,
+                )
+
     async def _load_socket_controllers(self):
         """Load and register WebSocket controllers."""
         import inspect
@@ -3312,6 +3493,7 @@ class AquiliaServer:
                     )
 
                     self.socket_router.register(namespace, route_meta)
+                    self._register_socket_decorator_middleware(namespace, meta)
 
                     # Create singleton instance (controllers should be stateless generally,
                     # or manage state via Connection object)

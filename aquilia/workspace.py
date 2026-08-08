@@ -666,6 +666,7 @@ class Workspace:
         self._inspector_config: dict[str, Any] | None = None
         self._starter: str | None = None
         self._middleware_chain: list[dict[str, Any]] | None = None
+        self._socket_middleware_chain: list[dict[str, Any]] | None = None
         self._on_startup: str | None = None
         self._on_shutdown: str | None = None
         self._env_config: Any | None = None
@@ -708,6 +709,32 @@ class Workspace:
             )
         """
         self._middleware_chain = chain.to_list()
+        return self
+
+    def socket_middleware(self, chain: Any) -> Workspace:
+        """
+        Configure the WebSocket middleware chain for this workspace.
+
+        Accepts any chain object implementing ``to_list()``, e.g.
+        ``SocketMiddlewareChain`` from ``aquilia.sockets.middleware``.
+
+        This is a **separate** chain from :meth:`middleware`. HTTP middleware
+        does not run for WebSocket messages, so security configured through
+        ``Workspace.security(...)`` — CORS, rate limiting, CSRF, auth — leaves
+        the socket surface uncovered. A socket namespace is protected only by
+        what is registered here (plus its own guards and per-namespace
+        middleware).
+
+        Example::
+
+            from aquilia.sockets.middleware import SocketMiddlewareChain
+
+            workspace = (
+                Workspace("chatapp")
+                .socket_middleware(SocketMiddlewareChain.production())
+            )
+        """
+        self._socket_middleware_chain = chain.to_list()
         return self
 
     def runtime(
@@ -1030,6 +1057,7 @@ class Workspace:
             "modules": [m.to_dict() for m in self._modules],
             "integrations": self._integrations,
             "middleware_chain": self._middleware_chain,
+            "socket_middleware_chain": self._socket_middleware_chain,
             "starter": self._starter,
             "on_startup": self._on_startup,
             "on_shutdown": self._on_shutdown,

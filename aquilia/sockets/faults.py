@@ -38,7 +38,11 @@ def WS_AUTH_REQUIRED():
         message="Authentication required for WebSocket connection",
         severity=Severity.WARN,
         retryable=True,
-        metadata={"http_status": 401},
+        # 1008 "policy violation" -- the frame was well-formed, the caller was
+        # not permitted. Without an explicit code these closed as 1003
+        # ("unsupported data"), which tells a client to stop sending that kind
+        # of message rather than to authenticate.
+        metadata={"http_status": 401, "ws_close_code": 1008},
     )
 
 
@@ -48,7 +52,7 @@ def WS_FORBIDDEN(reason=""):
         message=f"WebSocket connection forbidden: {reason}",
         severity=Severity.WARN,
         retryable=False,
-        metadata={"http_status": 403},
+        metadata={"http_status": 403, "ws_close_code": 1008},
     )
 
 
@@ -58,7 +62,7 @@ def WS_ORIGIN_NOT_ALLOWED(origin=""):
         message=f"Origin not allowed: {origin}",
         severity=Severity.WARN,
         retryable=False,
-        metadata={"http_status": 403},
+        metadata={"http_status": 403, "ws_close_code": 1008},
     )
 
 

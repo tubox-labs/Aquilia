@@ -1032,6 +1032,8 @@ class AppManifest:
         pipes: List of request data validation pipe class paths or `ComponentRef` objects.
         interceptors: List of aspect-oriented interceptor class paths or `ComponentRef` objects.
         middleware: List of middleware configs, class paths, or `ComponentRef` objects.
+        socket_middleware: List of WebSocket middleware configs or class paths. Separate
+            from `middleware` -- HTTP middleware does not run on the WebSocket path.
         route_prefix: DEPRECATED: Module route prefix (use `Module.route_prefix()` in `workspace.py`).
         base_path: Optional base directory override for file imports.
         lifecycle: Module startup/shutdown lifecycle configs (`LifecycleConfig`).
@@ -1101,6 +1103,11 @@ class AppManifest:
 
     # Middleware configuration
     middleware: list[str | MiddlewareConfig | ComponentRef] = field(default_factory=list)
+
+    # WebSocket middleware. Kept separate from ``middleware`` because the two
+    # hierarchies have different signatures and lifecycles -- an HTTP middleware
+    # cannot run on the socket path, and vice versa.
+    socket_middleware: list[str | MiddlewareConfig | ComponentRef] = field(default_factory=list)
 
     # Routing (DEPRECATED: use Module.route_prefix() in workspace.py)
     route_prefix: str = "/"  # Route prefix for module (deprecated - use workspace)

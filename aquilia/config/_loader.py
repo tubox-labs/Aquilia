@@ -992,6 +992,18 @@ class ConfigLoader:
         chain = self.get("middleware_chain")
         return chain if chain is not None else None
 
+    def get_socket_middleware_config(self) -> list | None:
+        """
+        Get WebSocket middleware chain configuration.
+
+        Returns the user-defined socket middleware chain from workspace config,
+        or ``None`` if none was configured (the socket runtime falls back to
+        built-in defaults). Separate from :meth:`get_middleware_config` — HTTP
+        middleware does not run on the WebSocket path.
+        """
+        chain = self.get("socket_middleware_chain")
+        return chain if chain is not None else None
+
     def get_versioning_config(self) -> dict:
         return self.get_subsystem_config(
             "versioning",

@@ -1,9 +1,11 @@
 """
 Middleware system - Composable, async-first middleware with effect awareness.
 
-Performance (v3 — scalability):
-- ``build_fast_handler()`` builds a minimal chain skipping Logging / Timeout
-  middleware for latency-sensitive routes.
+Performance:
+- ``build_handler()`` folds the sorted stack into nested closures once at
+  startup; ``ASGIAdapter`` caches the result, so the per-request cost is chain
+  traversal rather than chain construction. There is one chain per process, not
+  one per route.
 - ``CompressionMiddleware`` offloads ``gzip.compress`` to a thread pool to
   avoid blocking the event loop.
 """
@@ -16,6 +18,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from aquilia._middleware_base import Middleware
+from aquilia._middleware_ordering import collision_message, find_collision, scope_rank
 from aquilia.debug.pages import render_debug_exception_page, render_http_error_page
 from aquilia.faults import Fault, FaultDomain
 from aquilia.faults.domains import ConfigInvalidFault, HTTPFault
@@ -47,10 +50,6 @@ if TYPE_CHECKING:
 
 Handler = RequestHandler
 
-
-# Names of middleware that are safe to skip on the fast path.
-# Only non-essential (observability / timeout) middleware.
-_FAST_SKIP_NAMES = frozenset({"LoggingMiddleware", "TimeoutMiddleware"})
 
 # Last-resort HTML when the debug/error page renderer itself crashes.
 # Must be a plain string with zero dependencies.
@@ -154,12 +153,7 @@ class MiddlewareStack:
 
         collision = self._find_priority_collision(descriptor)
         if collision is not None:
-            message = (
-                f"Middleware priority collision: '{name}' and '{collision.name}' both registered "
-                f"at scope={scope!r} priority={priority}. Their relative order falls back to "
-                f"registration order, which is not part of the public API and can change silently "
-                f"when registration code is reordered. Give one of them a distinct priority."
-            )
+            message = collision_message(name, collision.name, scope, priority)
             if self.strict_priorities:
                 raise ConfigInvalidFault("middleware.priority", message)
             logger.warning(message)
@@ -169,19 +163,14 @@ class MiddlewareStack:
 
     def _find_priority_collision(self, descriptor: MiddlewareDescriptor) -> MiddlewareDescriptor | None:
         """Return an already-registered middleware that shares scope and priority, if any."""
-        for existing in self.middlewares:
-            if existing.priority == descriptor.priority and existing.scope == descriptor.scope:
-                return existing
-        return None
+        return find_collision(self.middlewares, descriptor.scope, descriptor.priority)
 
     def _sort_middlewares(self):
         """Sort middlewares by scope and priority."""
         scope_order = {"global": 0, "app": 1, "controller": 2, "route": 3}
 
         def sort_key(desc: MiddlewareDescriptor):
-            scope_type = desc.scope.split(":")[0]
-            scope_rank = scope_order.get(scope_type, 99)
-            return (scope_rank, desc.priority)
+            return (scope_rank(desc.scope, scope_order), desc.priority)
 
         self.middlewares.sort(key=sort_key)
 
@@ -201,36 +190,6 @@ class MiddlewareStack:
                 handler = self._wrap_middleware_traced(desc, handler)
             else:
                 handler = self._wrap_middleware(desc.middleware, handler)
-
-        return handler
-
-    def build_fast_handler(self, final_handler: Handler) -> Handler:
-        """Build a *minimal* middleware chain for latency-sensitive routes.
-
-        Skips middleware whose class name is in ``_FAST_SKIP_NAMES``
-        (e.g. ``LoggingMiddleware``, ``TimeoutMiddleware``).
-        Essential middleware (RequestId, Exception, CORS, Compression) is
-        kept.
-
-        Returns: A callable identical in signature to ``build_handler()``.
-        """
-        if not self._sorted:
-            self._sort_middlewares()
-            self._sorted = True
-
-        handler = final_handler
-        wrap_traced = getattr(self, "traced", False)
-
-        for desc in reversed(self.middlewares):
-            # Derive class name from the middleware callable
-            mw = desc.middleware
-            cls_name = type(mw).__name__ if not isinstance(mw, type) else mw.__name__
-            if cls_name in _FAST_SKIP_NAMES:
-                continue  # skip this middleware
-            if wrap_traced:
-                handler = self._wrap_middleware_traced(desc, handler)
-            else:
-                handler = self._wrap_middleware(mw, handler)
 
         return handler
 

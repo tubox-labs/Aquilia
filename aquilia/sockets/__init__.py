@@ -36,7 +36,20 @@ from aquilia.sockets.faults import (
     SocketFault,
 )
 from aquilia.sockets.guards import HandshakeAuthGuard, MessageAuthGuard, OriginGuard, RateLimitGuard, SocketGuard
-from aquilia.sockets.middleware import MessageValidationMiddleware, RateLimitMiddleware, SocketMiddleware
+from aquilia.sockets.middleware import (
+    MessageValidationMiddleware,
+    RateLimitMiddleware,
+    SocketAuthMiddleware,
+    SocketCtx,
+    SocketFaultMiddleware,
+    SocketLoggingMiddleware,
+    SocketMetricsMiddleware,
+    SocketMiddleware,
+    SocketMiddlewareChain,
+    SocketMiddlewareStack,
+    SocketPermissionMiddleware,
+    SocketRateLimitMiddleware,
+)
 from aquilia.sockets.runtime import AquilaSockets, SocketRouter
 
 __all__ = [
@@ -86,6 +99,15 @@ __all__ = [
     "WS_PAYLOAD_TOO_LARGE",
     # Middleware
     "SocketMiddleware",
+    "SocketCtx",
+    "SocketMiddlewareStack",
+    "SocketMiddlewareChain",
+    "SocketFaultMiddleware",
+    "SocketLoggingMiddleware",
+    "SocketMetricsMiddleware",
     "MessageValidationMiddleware",
-    "RateLimitMiddleware",
+    "SocketRateLimitMiddleware",
+    "SocketAuthMiddleware",
+    "SocketPermissionMiddleware",
+    "RateLimitMiddleware",  # deprecated alias for SocketRateLimitMiddleware
 ]

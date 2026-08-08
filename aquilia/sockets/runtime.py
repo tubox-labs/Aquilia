@@ -21,10 +21,35 @@ from aquilia.sockets.adapters import Adapter, InMemoryAdapter
 from aquilia.sockets.connection import Connection, ConnectionScope
 from aquilia.sockets.controller import SocketController
 from aquilia.sockets.envelope import JSONCodec, MessageEnvelope, StreamChunk
-from aquilia.sockets.faults import WS_MESSAGE_INVALID, WS_UNSUPPORTED_EVENT
+from aquilia.sockets.faults import WS_MESSAGE_INVALID, WS_PAYLOAD_TOO_LARGE, WS_UNSUPPORTED_EVENT
 from aquilia.sockets.guards import SocketGuard
+from aquilia.sockets.middleware import SocketCtx, SocketMiddlewareStack
 
 logger = logging.getLogger("aquilia.sockets.runtime")
+
+# Internal ctx.state key carrying the accept callable through the connect chain.
+# The chain is folded once per namespace at startup, so per-connection callables
+# cannot be captured in the closure and have to travel on the context.
+_ACCEPT_KEY = "_ws_accept"
+
+# RFC 6455 close codes used when a fault does not name one.
+_CLOSE_UNSUPPORTED = 1003
+_CLOSE_INTERNAL_ERROR = 1011
+
+
+def _close_code(fault: Fault, default: int = _CLOSE_UNSUPPORTED) -> int:
+    """Extract ``ws_close_code`` from a fault's metadata.
+
+    Socket faults carry it in ``metadata`` (see ``aquilia/sockets/faults.py``),
+    not as an attribute — reading it with ``getattr`` silently returns the
+    default for every fault, which is how every close came back as 1003.
+    """
+    metadata = getattr(fault, "metadata", None)
+    if isinstance(metadata, dict):
+        code = metadata.get("ws_close_code")
+        if isinstance(code, int):
+            return code
+    return default
 
 
 @dataclass
@@ -55,6 +80,7 @@ class SocketRouter:
         """Initialize socket router."""
         self.routes: dict[str, RouteMetadata] = {}  # namespace -> metadata
         self._compiled_patterns: dict[str, Any] = {}  # namespace -> CompiledPattern
+        self._namespace_by_pattern: dict[str, str] = {}  # pattern.raw -> namespace
         try:
             from aquilia.patterns import PatternCompiler, PatternMatcher
 
@@ -91,10 +117,14 @@ class SocketRouter:
                 ast = parse_pattern(metadata.path_pattern)
                 compiled = self._pattern_compiler.compile(ast)
                 self._compiled_patterns[namespace] = compiled
+                # PatternMatcher matches against the patterns registered on it,
+                # so a compiled pattern that is never added can never match.
+                self._pattern_matcher.add_pattern(compiled)
+                self._namespace_by_pattern[compiled.raw] = namespace
             except Exception:
-                pass
+                logger.debug("Could not compile socket pattern %s", metadata.path_pattern, exc_info=True)
 
-    def match(self, path: str) -> tuple[str, RouteMetadata, dict[str, Any]] | None:
+    async def match(self, path: str) -> tuple[str, RouteMetadata, dict[str, Any]] | None:
         """
         Match path to namespace.
 
@@ -104,23 +134,21 @@ class SocketRouter:
         Returns:
             (namespace, metadata, path_params) or None
         """
-        # Use Aquilia's PatternMatcher if available for full pattern support
-        if self._has_patterns and self._pattern_matcher:
-            for namespace, metadata in self.routes.items():
-                compiled = self._compiled_patterns.get(namespace)
-                if compiled:
-                    try:
-                        result = self._pattern_matcher.match(compiled, path)
-                        if result and result.matched:
-                            return (namespace, metadata, result.params or {})
-                    except Exception:
-                        pass  # Fall through to basic matching
-                # Fallback: exact match
-                if metadata.path_pattern == path:
-                    return (namespace, metadata, {})
-            return None
+        # Full pattern support (typed params, constraints, splats).
+        if self._has_patterns and self._pattern_matcher and self._pattern_matcher.patterns:
+            try:
+                result = await self._pattern_matcher.match(path)
+            except Exception:
+                logger.debug("Socket pattern matching failed for %s", path, exc_info=True)
+                result = None
 
-        # Fallback: basic matching without Patterns subsystem
+            if result is not None:
+                namespace = self._namespace_by_pattern.get(result.pattern.raw)
+                if namespace is not None and namespace in self.routes:
+                    return (namespace, self.routes[namespace], result.params or {})
+
+        # Fallback: exact match, then basic ":param" matching. Reachable when the
+        # patterns subsystem is unavailable, or when a route failed to compile.
         for namespace, metadata in self.routes.items():
             pattern = metadata.path_pattern
 
@@ -169,6 +197,7 @@ class AquilaSockets:
         container_factory: Callable | None = None,
         auth_manager: Any | None = None,
         session_engine: Any | None = None,
+        middleware_stack: SocketMiddlewareStack | None = None,
     ):
         """
         Initialize WebSocket runtime.
@@ -179,12 +208,16 @@ class AquilaSockets:
             container_factory: Factory for creating DI containers
             auth_manager: Auth manager for handshake auth
             session_engine: Session engine for session support
+            middleware_stack: Socket middleware stack. Chains are folded once per
+                namespace at startup and cached, mirroring the HTTP adapter's
+                single cached chain.
         """
         self.router = router
         self.adapter = adapter or InMemoryAdapter()
         self.container_factory = container_factory
         self.auth_manager = auth_manager
         self.session_engine = session_engine
+        self.middleware_stack = middleware_stack if middleware_stack is not None else SocketMiddlewareStack()
 
         self.connections: dict[str, Connection] = {}
         self.controller_instances: dict[str, SocketController] = {}
@@ -192,9 +225,52 @@ class AquilaSockets:
         self.codec = JSONCodec()
         self._initialized = False
 
+        # namespace -> (connect_chain, message_chain, scoped_stack)
+        self._chains: dict[str, tuple[Callable, Callable, SocketMiddlewareStack]] = {}
+
+    # ── Middleware chains ────────────────────────────────────────────────
+
+    def build_chains(self) -> None:
+        """Fold the middleware chains for every registered namespace.
+
+        Called once at startup after controllers are loaded. Building per
+        namespace rather than per connection keeps the per-connection cost to a
+        dict lookup, and lets ``namespace:`` scoped middleware be filtered out of
+        chains it does not belong to instead of being tested per message.
+        """
+        self._chains.clear()
+
+        for namespace in self.router.routes:
+            scoped = self.middleware_stack.scoped(namespace)
+            self._chains[namespace] = (
+                scoped.build_connect_handler(self._final_connect),
+                scoped.build_message_handler(self._final_dispatch),
+                scoped,
+            )
+
+    def _chain_for(self, namespace: str) -> tuple[Callable, Callable, SocketMiddlewareStack]:
+        """Chains for *namespace*, folding them on demand if startup did not.
+
+        A namespace registered after ``build_chains()`` (a test constructing the
+        runtime directly, say) still gets a correct chain rather than silently
+        running with no middleware.
+        """
+        chain = self._chains.get(namespace)
+        if chain is None:
+            scoped = self.middleware_stack.scoped(namespace)
+            chain = (
+                scoped.build_connect_handler(self._final_connect),
+                scoped.build_message_handler(self._final_dispatch),
+                scoped,
+            )
+            self._chains[namespace] = chain
+        return chain
+
     async def initialize(self):
         """Initialize runtime."""
         await self.adapter.initialize()
+        if not self._chains:
+            self.build_chains()
         self._initialized = True
 
     async def shutdown(self):
@@ -217,7 +293,7 @@ class AquilaSockets:
         """
         # Match route
         path = scope.get("path", "/")
-        match_result = self.router.match(path)
+        match_result = await self.router.match(path)
 
         if not match_result:
             # No route found - reject handshake
@@ -231,6 +307,7 @@ class AquilaSockets:
             return
 
         namespace, route_metadata, path_params = match_result
+        connect_chain, message_chain, scoped_stack = self._chain_for(namespace)
 
         # Perform handshake
         try:
@@ -243,35 +320,97 @@ class AquilaSockets:
             )
         except Fault as e:
             logger.warning(f"Handshake failed: {e.message}")
-            await send(
-                {
-                    "type": "websocket.close",
-                    "code": getattr(e, "ws_close_code", 1003),
-                    "reason": e.message[:123],  # Max 123 bytes
-                }
-            )
+            await self._close(send, _close_code(e), e.message)
             return
 
-        # Accept connection
-        await send({"type": "websocket.accept"})
-        conn.mark_connected()
+        ctx = SocketCtx(conn, namespace)
 
-        # Call on_connect handler
+        # The connect chain runs *before* websocket.accept, so a middleware that
+        # rejects closes the handshake outright. Accepting and then immediately
+        # closing is indistinguishable from a crash on the client side.
+        async def _accept() -> None:
+            await send({"type": "websocket.accept"})
+
+        ctx.state[_ACCEPT_KEY] = _accept
+
+        try:
+            await connect_chain(ctx)
+        except Fault as e:
+            logger.warning(f"Socket connect rejected ({e.code}): {e.message}")
+            await self._reject_connection(conn, send, _close_code(e), e.message)
+            return
+        except Exception as e:
+            logger.error(f"Socket connect failed: {e}", exc_info=True)
+            await self._reject_connection(conn, send, 1011, "internal error")
+            return
+        finally:
+            ctx.state.pop(_ACCEPT_KEY, None)
+
         controller = self.controller_instances.get(namespace)
-        if controller:
-            try:
-                await self._call_on_connect(controller, conn)
-            except Fault as e:
-                logger.error(f"OnConnect handler failed: {e.message}")
-                await self._disconnect_connection(conn, e.message)
-                return
-            except Exception as e:
-                logger.error(f"OnConnect unexpected error: {e}", exc_info=True)
-                await self._disconnect_connection(conn, str(e))
-                return
 
         # Message loop
-        await self._message_loop(conn, controller, receive, send)
+        await self._message_loop(conn, ctx, route_metadata, message_chain, scoped_stack, receive, send)
+
+    async def _final_connect(self, ctx: SocketCtx) -> None:
+        """Innermost connect handler: accept the socket, then run ``@OnConnect``."""
+        accept = ctx.state.pop(_ACCEPT_KEY, None)
+        if accept is not None:
+            await accept()
+
+        ctx.connection.mark_connected()
+
+        controller = self.controller_instances.get(ctx.namespace)
+        if controller is not None:
+            await self._call_on_connect(controller, ctx.connection)
+
+    async def _reject_connection(
+        self,
+        conn: Connection,
+        send: callable,
+        code: int,
+        reason: str,
+    ) -> None:
+        """Tear down a connection refused during the connect chain.
+
+        Deliberately does not run the disconnect middleware fan-out: the
+        connection never reached the connected state, so there is no symmetric
+        teardown owed. Middleware that needs to compensate for a rejected
+        handshake does so in its own ``on_connect`` exception path.
+        """
+        was_accepted = conn.is_connected
+        conn.mark_closing()
+
+        try:
+            await conn.leave_all()
+        except Exception:  # noqa: BLE001 — best-effort cleanup
+            logger.debug("leave_all failed while rejecting connection", exc_info=True)
+
+        if hasattr(self.adapter, "unregister_send_callback"):
+            self.adapter.unregister_send_callback(conn.namespace, conn.connection_id)
+
+        try:
+            await self.adapter.unregister_connection(conn.namespace, conn.connection_id)
+        except Exception:  # noqa: BLE001 — best-effort cleanup
+            logger.debug("adapter unregister failed while rejecting connection", exc_info=True)
+
+        self.connections.pop(conn.connection_id, None)
+        conn.mark_closed()
+
+        # An accepted socket is closed; one never accepted is refused. Both use
+        # websocket.close, but only the accepted case has a live peer.
+        await self._close(send, code, reason)
+        if was_accepted:
+            logger.debug("Connection %s closed after accept during connect chain", conn.connection_id)
+
+    @staticmethod
+    async def _close(send: callable, code: int, reason: str) -> None:
+        await send(
+            {
+                "type": "websocket.close",
+                "code": code,
+                "reason": (reason or "")[:123],  # Max 123 bytes
+            }
+        )
 
     async def _perform_handshake(
         self,
@@ -447,11 +586,17 @@ class AquilaSockets:
     async def _message_loop(
         self,
         conn: Connection,
-        controller: SocketController | None,
+        ctx: SocketCtx,
+        route_metadata: RouteMetadata,
+        message_chain: Callable,
+        scoped_stack: SocketMiddlewareStack,
         receive: callable,
         send: callable,
     ):
         """Message receive loop."""
+        max_size = route_metadata.max_message_size
+        reason = "connection closed"
+
         try:
             while conn.is_connected:
                 message = await receive()
@@ -463,38 +608,146 @@ class AquilaSockets:
                         # Normalise to bytes for codec.decode()
                         data = raw.encode("utf-8") if isinstance(raw, str) else raw
                         conn.record_received(len(data))
-                        await self._handle_message(conn, controller, data)
+
+                        # Frame size is checked against the raw bytes, before
+                        # decode: you cannot safely decode a frame in order to
+                        # discover it was too large to decode.
+                        if max_size and len(data) > max_size:
+                            await self._report_message_error(
+                                conn,
+                                None,
+                                WS_PAYLOAD_TOO_LARGE(len(data), max_size),
+                            )
+                            continue
+
+                        await self._handle_message(conn, ctx, message_chain, data)
 
                 elif message["type"] == "websocket.disconnect":
                     # Client disconnected
                     code = message.get("code", 1000)
-                    await self._disconnect_connection(conn, f"client disconnect (code {code})")
-                    break
+                    reason = f"client disconnect (code {code})"
+                    await self._disconnect_connection(conn, reason, ctx=ctx, stack=scoped_stack)
+                    return
 
         except Exception as e:
             logger.error(f"Message loop error: {e}", exc_info=True)
-            await self._disconnect_connection(conn, f"error: {e}")
+            await self._disconnect_connection(conn, f"error: {e}", ctx=ctx, stack=scoped_stack)
+            return
+
+        # Loop exited because the connection stopped being connected (a handler
+        # called conn.disconnect()) rather than via a disconnect frame.
+        await self._disconnect_connection(conn, reason, ctx=ctx, stack=scoped_stack)
 
     async def _handle_message(
         self,
         conn: Connection,
-        controller: SocketController | None,
+        ctx: SocketCtx,
+        message_chain: Callable,
         data: bytes,
     ):
-        """Handle incoming message."""
+        """Decode one frame and run it through the message chain."""
         try:
-            # Decode envelope
             envelope = self.codec.decode(data)
-
-            # Route to controller handler
-            if controller:
-                await self._dispatch_event(conn, controller, envelope)
-
         except Exception as e:
-            logger.error(f"Message handling error: {e}", exc_info=True)
+            # Decode happens before the chain, so SocketFaultMiddleware never
+            # sees this and the reply has to be produced here. Previously this
+            # was logged and the client was told nothing at all.
+            logger.warning("Could not decode socket message: %s", e)
+            await self._report_message_error(conn, None, WS_MESSAGE_INVALID(str(e)))
+            return
 
-            # Send error ack if message had ID
-            # await conn.send_ack(envelope.id, status="error", error=str(e))
+        ctx.begin_message(envelope.event)
+        try:
+            result = await message_chain(envelope, ctx)
+
+            # _final_dispatch always returns None and sends its own acks, so a
+            # non-None result means a middleware short-circuited and this is its
+            # reply to deliver.
+            if result is not None:
+                await self._send_short_circuit_reply(conn, envelope, result)
+
+        except Fault as e:
+            # Only reachable when SocketFaultMiddleware is not registered; it
+            # normally converts faults into acks further in. Reported here so a
+            # chain without it still tells the client something.
+            logger.warning("Socket fault on '%s' (%s): %s", envelope.event, e.code, e.message)
+            await self._report_message_error(conn, envelope, e)
+        except Exception as e:
+            logger.error("Message handling error on '%s': %s", envelope.event, e, exc_info=True)
+            await self._report_message_error(conn, envelope, e)
+        finally:
+            ctx.end_message()
+
+    async def _final_dispatch(self, envelope: MessageEnvelope, ctx: SocketCtx) -> dict | None:
+        """Innermost message handler: route to the controller's event handler.
+
+        Always returns ``None`` — ``_dispatch_event`` sends its own acks and
+        stream chunks. That is what makes a non-``None`` chain result an
+        unambiguous signal that a middleware short-circuited.
+        """
+        controller = self.controller_instances.get(ctx.namespace)
+        if controller is None:
+            return None
+
+        await self._dispatch_event(ctx.connection, controller, envelope)
+        return None
+
+    async def _send_short_circuit_reply(
+        self,
+        conn: Connection,
+        envelope: MessageEnvelope,
+        payload: dict,
+    ) -> None:
+        """Deliver a payload returned by a middleware that skipped the handler.
+
+        Status is ``ok`` because the middleware chose to return rather than
+        raise; a middleware signalling failure raises a ``SocketFault``, which
+        becomes an error ack instead.
+        """
+        if not conn.is_connected:
+            return
+        try:
+            if envelope.id:
+                await conn.send_ack(envelope.id, status="ok", data=payload)
+            else:
+                await conn.send_json(payload)
+        except Exception:  # noqa: BLE001 — peer may already be gone
+            logger.debug("Could not deliver short-circuit reply", exc_info=True)
+
+    async def _report_message_error(
+        self,
+        conn: Connection,
+        envelope: MessageEnvelope | None,
+        error: Exception,
+    ) -> None:
+        """Tell the client a message failed.
+
+        Fault codes and messages are safe to expose — they are authored strings
+        with stable codes. An arbitrary exception's text is not, so it is
+        replaced with a generic message.
+        """
+        if not conn.is_connected:
+            return
+
+        if isinstance(error, Fault):
+            code, message = error.code, error.message
+        else:
+            code, message = "WS_INTERNAL_ERROR", "Internal server error"
+
+        try:
+            if envelope is not None and envelope.id:
+                await conn.send_ack(envelope.id, status="error", error=message)
+            else:
+                await conn.send_event(
+                    "error",
+                    {
+                        "code": code,
+                        "message": message,
+                        "event": envelope.event if envelope is not None else None,
+                    },
+                )
+        except Exception:  # noqa: BLE001 — peer may already be gone
+            logger.debug("Could not deliver socket error report", exc_info=True)
 
     async def _dispatch_event(
         self,
@@ -613,8 +866,20 @@ class AquilaSockets:
 
         raise WS_MESSAGE_INVALID(f"Unsupported stream chunk type: {type(chunk).__name__}")
 
-    async def _disconnect_connection(self, conn: Connection, reason: str):
-        """Disconnect connection."""
+    async def _disconnect_connection(
+        self,
+        conn: Connection,
+        reason: str,
+        *,
+        ctx: SocketCtx | None = None,
+        stack: SocketMiddlewareStack | None = None,
+    ):
+        """Disconnect connection and run the teardown fan-out.
+
+        Every close path routes through here — client disconnect, server
+        shutdown, and a handler calling ``conn.disconnect()`` — so the middleware
+        teardown hooks fire on all three from this one call site.
+        """
         if conn.connection_id not in self.connections:
             return
 
@@ -627,6 +892,14 @@ class AquilaSockets:
                 await self._call_on_disconnect(controller, conn, reason)
             except Exception as e:
                 logger.error(f"OnDisconnect handler error: {e}", exc_info=True)
+
+        # Middleware teardown, reverse registration order. run_disconnect
+        # isolates each hook's failures so one raising cannot strand the rest.
+        if stack is None:
+            cached = self._chains.get(conn.namespace)
+            stack = cached[2] if cached is not None else None
+        if stack is not None:
+            await stack.run_disconnect(ctx if ctx is not None else SocketCtx(conn), reason)
 
         # Cleanup
         await conn.leave_all()
