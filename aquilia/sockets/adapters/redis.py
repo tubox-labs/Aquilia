@@ -12,6 +12,7 @@ import contextlib
 import json
 import logging
 import os
+import platform
 
 from aquilia.sockets.adapters.base import Adapter, RoomInfo
 from aquilia.sockets.envelope import JSONCodec, MessageEnvelope
@@ -54,7 +55,7 @@ class RedisAdapter(Adapter):
         """
         self.redis_url = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379")
         self.prefix = prefix
-        self.worker_id = worker_id or f"{os.uname().nodename}:{os.getpid()}"
+        self.worker_id = worker_id or f"{platform.node()}:{os.getpid()}"
         self.connection_ttl = connection_ttl
 
         self._redis = None

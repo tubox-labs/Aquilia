@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
+import platform
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
@@ -504,9 +506,7 @@ class AquilaSockets:
         self.connections[connection_id] = conn
 
         # Register with adapter
-        import os
-
-        worker_id = f"{os.uname().nodename}:{os.getpid()}"
+        worker_id = f"{platform.node()}:{os.getpid()}"
         await self.adapter.register_connection(
             namespace=namespace,
             connection_id=connection_id,
