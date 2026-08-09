@@ -80,102 +80,53 @@ def _load_manifest_instance(workspace_root: Path, module_name: str) -> Any | Non
 
 
 def inspect_routes(verbose: bool = False) -> None:
-    """Show all routes discovered from module manifests and controllers."""
-    workspace_root = _ensure_workspace_root()
-    modules = _get_workspace_modules(workspace_root)
+    """Show all routes, using the framework's own metadata extractor.
 
-    if not modules:
+    Previously this probed ``__controller_routes__`` / ``__route__`` /
+    ``_route_meta`` -- none of which exist. Every controller therefore fell
+    into a "could not be extracted statically" branch that counted the
+    controller as a single route, so a 5-route controller displayed as 1.
+    """
+    from aquilia.cli.core.workspace import load_workspace
+    from aquilia.cli.introspect.routes import collect_routes
+
+    workspace_root = _ensure_workspace_root()
+    ws = load_workspace(workspace_root)
+
+    if not ws.module_names:
         print("No modules registered in workspace.")
         return
 
     print("\n  Route Inspection")
     print("=" * 70)
 
+    collected = collect_routes(ws)
     total_routes = 0
+    failures = 0
 
-    for module_name in sorted(modules):
-        manifest = _load_manifest_instance(workspace_root, module_name)
-        if not manifest:
-            print(f"\n  !  Module '{module_name}': manifest not loadable")
-            continue
+    by_module: dict[str, list] = {}
+    for entry in collected:
+        by_module.setdefault(entry.module, []).append(entry)
 
-        route_prefix = getattr(manifest, "route_prefix", f"/{module_name}")
-        controllers = getattr(manifest, "controllers", []) or []
-        name = getattr(manifest, "name", module_name)
-
-        print(f"\n  {name}  (prefix: {route_prefix})")
-
-        if not controllers:
-            print("     No controllers registered.")
-            continue
-
-        for ctrl_ref in controllers:
-            if isinstance(ctrl_ref, str) and ":" in ctrl_ref:
-                cls_name = ctrl_ref.rsplit(":", 1)[1]
-            elif isinstance(ctrl_ref, str):
-                cls_name = ctrl_ref.split(".")[-1]
-            else:
-                cls_name = str(ctrl_ref)
-
-            routes_found = _extract_routes_from_controller(workspace_root, ctrl_ref)
-            if routes_found:
-                for method, path, handler in routes_found:
-                    full_path = (route_prefix.rstrip("/") + "/" + path.lstrip("/")) if path != "/" else route_prefix
-                    print(f"     {method:<8} {full_path:<40} → {cls_name}.{handler}")
-                    total_routes += 1
-            else:
-                print(f"     • {cls_name}  (routes could not be extracted statically)")
+    for module_name in sorted(by_module):
+        print(f"\n  {module_name}")
+        for entry in by_module[module_name]:
+            if entry.error:
+                failures += 1
+                print(f"     !  {entry.controller or module_name}: {entry.error}")
+                continue
+            print(f"     {entry.controller}  (prefix: {entry.prefix or '/'})")
+            for route in sorted(entry.routes, key=lambda r: (r.full_path, r.http_method)):
+                flag = "  [deprecated]" if route.deprecated else ""
+                print(f"       {route.http_method:<8} {route.full_path:<38} -> {route.handler}{flag}")
                 total_routes += 1
 
     print(f"\n{'─' * 70}")
     print(f"  Total routes: {total_routes}")
-    print(f"  Modules:      {len(modules)}")
+    print(f"  Modules:      {len(ws.module_names)}")
+    if failures:
+        print(f"  Failed:       {failures} controller(s) could not be read")
     print()
-
-
-def _extract_routes_from_controller(workspace_root: Path, ctrl_ref: str) -> list[tuple]:
-    """Try to extract route metadata from a controller class."""
-    routes: list[tuple] = []
-
-    ws_abs = str(workspace_root.resolve())
-    if ws_abs not in sys.path:
-        sys.path.insert(0, ws_abs)
-
-    if ":" not in ctrl_ref:
-        return routes
-
-    mod_path, cls_name = ctrl_ref.rsplit(":", 1)
-
-    try:
-        mod = importlib.import_module(mod_path)
-        cls = getattr(mod, cls_name, None)
-        if cls is None:
-            return routes
-
-        # Check for __controller_routes__ (Aquilia controller metadata)
-        controller_routes = getattr(cls, "__controller_routes__", None)
-        if controller_routes:
-            for r in controller_routes:
-                routes.append((r.get("method", "GET"), r.get("path", "/"), r.get("handler", "?")))
-            return routes
-
-        # Scan methods for route decorators
-        for attr_name in dir(cls):
-            if attr_name.startswith("_"):
-                continue
-            method_obj = getattr(cls, attr_name, None)
-            if method_obj is None or not callable(method_obj):
-                continue
-            route_meta = getattr(method_obj, "__route__", None) or getattr(method_obj, "_route_meta", None)
-            if route_meta:
-                http_method = getattr(route_meta, "method", "GET")
-                path = getattr(route_meta, "path", "/")
-                routes.append((http_method, path, attr_name))
-
-    except Exception:
-        pass
-
-    return routes
 
 
 # ---------------------------------------------------------------------------

@@ -70,7 +70,6 @@ from aquilia.cli.commands.analytics import DiscoveryAnalytics, print_analysis_re
 from aquilia.cli.commands.aquilary_cmds import run_app_registry, run_freeze, run_graph, run_inspect, run_validate
 from aquilia.cli.commands.cache import cmd_cache_check, cmd_cache_clear, cmd_cache_inspect, cmd_cache_stats
 from aquilia.cli.commands.discover import DiscoveryInspector
-from aquilia.cli.commands.doctor import diagnose_workspace
 from aquilia.cli.commands.i18n import (
     cmd_i18n_check,
     cmd_i18n_compile,
@@ -108,7 +107,6 @@ from aquilia.cli.commands.model_cmds import (
 from aquilia.cli.commands.run import run_dev_server
 from aquilia.cli.commands.serve import serve_production
 from aquilia.cli.commands.test import run_tests
-from aquilia.cli.commands.validate import validate_workspace
 from aquilia.cli.commands.ws import cmd_ws_broadcast, cmd_ws_gen_client, cmd_ws_inspect, cmd_ws_kick, cmd_ws_purge_room
 from aquilia.cli.generators.controller import generate_controller as _generate_controller
 from aquilia.cli.utils.colors import (
@@ -327,20 +325,25 @@ class AquiliaCommand(click.Command):
         super().format_help(ctx, formatter)
 
 
+def _build_help_categories() -> dict[str, list[str]]:
+    """Group command names by category, derived from the registry.
+
+    The previous hand-kept literal listed ``deploy-gen`` while the command
+    registers as ``deploy``, so seven commands silently fell into "Other".
+    Deriving from one mapping keeps the two from disagreeing.
+    """
+    from aquilia.cli.core.registry import CATEGORY_ORDER, registered_categories
+
+    grouped: dict[str, list[str]] = {cat: [] for cat in CATEGORY_ORDER}
+    for name, category in sorted(registered_categories().items()):
+        grouped.setdefault(category, []).append(name)
+    return {cat: names for cat, names in grouped.items() if names and cat != "Other"}
+
+
 class AquiliaGroup(click.Group):
     """Click group subclass with branded help output."""
 
-    _CATEGORIES = {
-        "Scaffold": ["init", "add", "generate"],
-        "Develop": ["run", "validate", "test", "discover", "doctor"],
-        "Production": ["serve"],
-        "Database": ["db"],
-        "Admin": ["admin"],
-        "Inspect": ["inspect", "manifest", "analytics"],
-        "Subsystems": ["ws", "cache", "mail", "i18n", "mcp", "di"],
-        "Deploy": ["deploy-gen"],
-        "Migration": ["migrate"],
-    }
+    _CATEGORIES = _build_help_categories()
 
     def __init__(self, *args, **kwargs):
         context_settings = kwargs.setdefault("context_settings", {})
@@ -1041,80 +1044,71 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool, deprecated: b
       aq validate --deprecated
     """
 
+    from aquilia.cli.checks.base import checks_for, run_checks
+    from aquilia.cli.checks.report import render_human, render_json, result_exit_code
+    from aquilia.cli.core.context import AqContext
+    from aquilia.cli.core.exits import ExitCode
+    from aquilia.cli.introspect.routes import count_routes
+
     try:
-        result = validate_workspace(
+        aq_ctx = AqContext(
+            cwd=Path.cwd(),
+            verbose=ctx.obj["verbose"],
+            quiet=ctx.obj["quiet"],
             strict=strict,
             module_filter=module,
-            verbose=ctx.obj["verbose"],
-            check_deprecated=deprecated,
+            json_output=as_json,
         )
+        # Without a workspace there is nothing to validate. Every workspace
+        # check would skip, and zero findings would read as success -- the
+        # same false-green this refactor exists to remove.
+        if not aq_ctx.workspace.exists:
+            if as_json:
+                import json as _json
+
+                click.echo(
+                    _json.dumps(
+                        {
+                            "summary": {"passed": False, "total_findings": 0},
+                            "checks": [],
+                            "error": "no workspace.py in the current directory",
+                            "exit_code": int(ExitCode.CONFIG),
+                        },
+                        indent=2,
+                    )
+                )
+            else:
+                error(f"  {_CROSS} No workspace.py found in the current directory")
+                info("  Run 'aq init workspace <name>' to create one")
+            sys.exit(int(ExitCode.CONFIG))
+
+        # validate is the pre-commit gate, so it runs the full deep tier.
+        results = run_checks(aq_ctx, checks_for(tags=["quick", "deep"]))
+        code = int(result_exit_code(results))
 
         if as_json:
-            import json as _json
-
-            click.echo(
-                _json.dumps(
-                    {
-                        "valid": result.is_valid,
-                        "modules": result.module_count,
-                        "routes": result.route_count,
-                        "providers": result.provider_count,
-                        "fingerprint": str(result.fingerprint)[:24] if result.fingerprint else None,
-                        "faults": result.faults if hasattr(result, "faults") else [],
-                        "warnings": result.warnings if hasattr(result, "warnings") else [],
-                        "deprecated": result.deprecated_usages if hasattr(result, "deprecated_usages") else [],
-                    },
-                    indent=2,
-                )
-            )
-            if not result.is_valid:
-                sys.exit(1)
-            return
+            click.echo(render_json(results))
+            sys.exit(code)
 
         if not ctx.obj["quiet"]:
             click.echo()
-            if result.is_valid:
-                success(f"  {_CHECK} Validation passed")
-                click.echo()
-                section("Summary")
-                kv("Modules", str(result.module_count))
-                kv("Routes", str(result.route_count))
-                kv("DI Providers", str(result.provider_count))
-                if result.fingerprint:
-                    kv("Fingerprint", str(result.fingerprint)[:24])
-                # Show warnings even when valid
-                if hasattr(result, "warnings") and result.warnings:
-                    click.echo()
-                    section("Warnings")
-                    for w in result.warnings:
-                        bullet(w, fg="yellow")
-                # Show deprecated field usages
-                if deprecated and hasattr(result, "deprecated_usages") and result.deprecated_usages:
-                    click.echo()
-                    section("Deprecated Fields")
-                    for d in result.deprecated_usages:
-                        bullet(d, fg="yellow")
-                    click.echo()
-                    bullet(
-                        "Run 'aq manifest migrate' or update these fields to remove deprecation warnings.",
-                        fg="yellow",
-                    )
-            else:
-                error(f"  {_CROSS} Validation failed")
-                click.echo()
-                section("Errors")
-                for fault in result.faults:
-                    bullet(fault, fg="red")
-                if hasattr(result, "warnings") and result.warnings:
-                    click.echo()
-                    section("Warnings")
-                    for w in result.warnings:
-                        bullet(w, fg="yellow")
-                sys.exit(1)
+            click.echo(render_human(results, verbose=ctx.obj["verbose"]))
+            click.echo()
+            section("Summary")
+            kv("Modules", str(len(aq_ctx.workspace.module_names)))
+            kv("Routes", str(count_routes(aq_ctx.workspace)))
+            click.echo()
+        sys.exit(code)
 
+    except SystemExit:
+        raise
     except Exception as e:
         error(f"  {_CROSS} Validation error: {e}")
-        sys.exit(1)
+        if ctx.obj.get("verbose"):
+            import traceback
+
+            traceback.print_exc()
+        sys.exit(int(ExitCode.INTERNAL))
 
 
 @cli.command("run")
@@ -1480,49 +1474,59 @@ def doctor(ctx, as_json: bool):
       aq doctor --json
     """
 
+    from aquilia.cli.checks.base import all_checks, run_checks
+    from aquilia.cli.checks.report import render_human, render_json, result_exit_code, summarise
+    from aquilia.cli.core.context import AqContext
+    from aquilia.cli.core.exits import ExitCode
+
     try:
-        issues = diagnose_workspace(verbose=ctx.obj["verbose"])
+        aq_ctx = AqContext(
+            cwd=Path.cwd(),
+            verbose=ctx.obj["verbose"],
+            quiet=ctx.obj["quiet"],
+            json_output=as_json,
+        )
+        # doctor runs everything, including environment-level probes.
+        results = run_checks(aq_ctx, all_checks())
+        code = int(result_exit_code(results))
+
+        # Every workspace check skips without a workspace, and an all-skipped
+        # run must not render as "healthy".
+        if not aq_ctx.workspace.exists:
+            code = max(code, int(ExitCode.CONFIG))
 
         if as_json:
-            import json as _json
+            click.echo(render_json(results))
+            sys.exit(code)
 
-            click.echo(
-                _json.dumps(
-                    {
-                        "healthy": len(issues) == 0,
-                        "issue_count": len(issues),
-                        "issues": issues,
-                    },
-                    indent=2,
-                )
-            )
-            return
-
+        summary = summarise(results)
         click.echo()
-        if not issues:
+        if not aq_ctx.workspace.exists:
+            error(f"  {_CROSS} No workspace.py found in the current directory")
+            info("  Run 'aq init workspace <name>' to create one")
+        elif summary["total_findings"] == 0 and not summary["checks_errored"]:
             banner("Aquilia Doctor", subtitle=f"Workspace is healthy  {_CHECK}")
         else:
-            warning(f"  Found {len(issues)} issue(s):")
-            click.echo()
-            section("Issues")
-            for issue in issues:
-                bullet(issue, fg="yellow")
+            click.echo(render_human(results, verbose=ctx.obj["verbose"]))
             click.echo()
             next_steps(
                 [
-                    "Fix the issues above",
-                    "aq doctor -v  (verbose details)",
-                    "aq validate --strict  (full pipeline check)",
+                    "Fix the findings above (each shows its own fix)",
+                    "aq doctor -v       (per-check detail)",
+                    "aq doctor --json   (machine-readable for CI)",
                 ]
             )
+        sys.exit(code)
 
+    except SystemExit:
+        raise
     except Exception as e:
         error(f"  {_CROSS} Diagnosis failed: {e}")
-        if ctx.obj.get("debug"):
+        if ctx.obj.get("debug") or ctx.obj.get("verbose"):
             import traceback
 
             traceback.print_exc()
-        sys.exit(1)
+        sys.exit(int(ExitCode.INTERNAL))
 
 
 # ============================================================================
