@@ -787,10 +787,17 @@ class ASGIAdapter:
 
             elif message["type"] == "lifespan.shutdown":
                 try:
-                    if self.server:
-                        await self.server.shutdown()
+                    await self.shutdown()
                     await send({"type": "lifespan.shutdown.complete"})
                 except Exception as e:
                     self.logger.error(f"Shutdown error: {e}", exc_info=True)
                     await send({"type": "lifespan.shutdown.complete"})
                 break
+
+    async def shutdown(self) -> None:
+        """Shutdown underlying server and release cached references."""
+        if self.server:
+            await self.server.shutdown()
+        self._cached_middleware_chain = None
+        self._default_container = None
+        self._server_runtime = None

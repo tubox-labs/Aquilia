@@ -4365,6 +4365,13 @@ class AquiliaServer:
             except Exception as e:
                 self.logger.warning(f"Error disconnecting database: {e}")
 
+        # Clear controller router and release native engine resources
+        if hasattr(self, "controller_router") and self.controller_router is not None:
+            try:
+                self.controller_router.clear()
+            except Exception as e:
+                self.logger.warning(f"Error clearing controller router: {e}")
+
         # Reset startup state
         self._startup_complete = False
 

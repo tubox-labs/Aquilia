@@ -163,6 +163,9 @@ class ControllerRouter:
         self._static_routes.clear()
         self._dynamic_routes.clear()
         self._tries.clear()
+        self._native_methods.clear()
+        self._native_routes.clear()
+        self._native = None
 
         for method, routes in self.routes_by_method.items():
             # Sort by specificity (descending) so most specific routes win
@@ -799,6 +802,20 @@ class ControllerRouter:
         for controller in self.compiled_controllers:
             routes.extend(controller.routes)
         return routes
+
+    def clear(self) -> None:
+        """Clear all route indices and release native engine resources."""
+        self.compiled_controllers.clear()
+        self.routes_by_method.clear()
+        self.matcher = PatternMatcher()
+        self._static_routes.clear()
+        self._dynamic_routes.clear()
+        self._tries.clear()
+        self._name_index.clear()
+        self._native_methods.clear()
+        self._native_routes.clear()
+        self._native = None
+        self._initialized = False
 
     def get_controller(self, name: str) -> CompiledController | None:
         """Get compiled controller by name."""

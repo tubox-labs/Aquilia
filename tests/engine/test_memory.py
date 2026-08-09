@@ -127,3 +127,35 @@ def test_context_slots_release_their_referents() -> None:
     gc.collect()
 
     assert ref() is None, "context did not release its referents"
+
+
+def test_controller_router_clear_releases_native_instance() -> None:
+    """Calling ControllerRouter.clear() must release the native Router instance."""
+    from aquilia.controller.router import ControllerRouter
+
+    router = ControllerRouter()
+    router.initialize()
+    assert router._native is not None
+
+    router.clear()
+    assert router._native is None
+    assert not router._initialized
+
+
+@pytest.mark.asyncio
+async def test_server_shutdown_clears_controller_router_native_instance() -> None:
+    """AquiliaServer.shutdown() must clear controller_router and release _native."""
+    from aquilia.config import ConfigLoader
+    from aquilia.manifest import AppManifest
+    from aquilia.server import AquiliaServer
+
+    loader = ConfigLoader({"server": {"secret_key": "test_secret_key_32_bytes_long_1234"}})
+    manifest = AppManifest(name="app", version="0.0.1")
+    server = AquiliaServer(manifests=[manifest], config=loader)
+    server.controller_router.initialize()
+    server._startup_complete = True
+
+    assert server.controller_router._native is not None
+
+    await server.shutdown()
+    assert server.controller_router._native is None
