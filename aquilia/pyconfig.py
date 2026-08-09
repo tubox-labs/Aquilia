@@ -1465,6 +1465,83 @@ class AquilaConfig:
         #: Internal service port (the port your ASGI server listens on).
         port: int = 8000
 
+    class Accelerator:
+        """
+        Native C++ engine configuration.
+
+        Controls whether Aquilia's optional C++ acceleration layers are
+        active at runtime.  Both engines are *fail-soft*: if a native
+        extension is absent or was built for a different Python version,
+        the framework transparently falls back to pure Python without any
+        code change.  These flags let you *explicitly* prefer the
+        pure-Python path (CI parity gates, debugging, restricted
+        environments).
+
+        **Engines**
+
+        ``engine`` (``AQUILIA_ENGINE``)
+            The *request* engine — C++ router and ``RequestContext``.
+            Active on **every** HTTP request; disabling it trades throughput
+            for pure-Python reproducibility.  Default: enabled.
+
+        ``dataengine`` (``AQUILIA_DATAENGINE``)
+            The *data* engine — C++ ``FieldPlan`` / ``TypeCode`` used by the
+            ORM query compiler and the Contract hydration path.  Only active
+            when an app touches the ORM or contracts.  Default: enabled.
+
+        The two engines are **independent**: you can disable one while
+        keeping the other.
+
+        **Env-var override**
+
+        Both values can be overridden at deploy time without touching
+        ``workspace.py``:
+
+        .. code-block:: shell
+
+            AQUILIA_ENGINE=0        # force pure-Python router
+            AQUILIA_DATAENGINE=0    # force pure-Python ORM compiler
+
+        Use ``Env(\"AQUILIA_ENGINE\", default=True, cast=bool)`` in a
+        production config class to read the value from the environment
+        while keeping the workspace default explicit.
+
+        **Important**: these settings are applied to ``os.environ`` by
+        :meth:`AquilaConfig.to_loader` *before* the server starts.
+        Because the loaders check the env var at import time, you must
+        ensure ``workspace.py`` is loaded before ``aquilia._core`` or
+        ``aquilia._dataengine`` are imported.  The standard ``aq run`` /
+        ``aq serve`` flow satisfies this requirement automatically.
+
+        Example (workspace.py)::
+
+            class BaseEnv(AquilaConfig):
+                class accelerator(AquilaConfig.Accelerator):
+                    engine      = True   # default; set False to use pure Python
+                    dataengine  = True   # default; set False to use pure Python
+
+            # CI / integration-test env that forces pure Python:
+            class CIEnv(BaseEnv):
+                env = \"ci\"
+                class accelerator(BaseEnv.accelerator):
+                    engine     = Env(\"AQUILIA_ENGINE\",     default=False, cast=bool)
+                    dataengine = Env(\"AQUILIA_DATAENGINE\", default=False, cast=bool)
+        """
+
+        _is_aquila_section: bool = True
+
+        #: Enable the C++ request engine (router + RequestContext).
+        #: Maps to the ``AQUILIA_ENGINE`` environment variable.
+        #: Set to ``False`` or ``Env("AQUILIA_ENGINE", default=True, cast=bool)``
+        #: to use the pure-Python fallback.
+        engine: bool = True
+
+        #: Enable the C++ data engine (ORM FieldPlan + Contract hydration).
+        #: Maps to the ``AQUILIA_DATAENGINE`` environment variable.
+        #: Set to ``False`` or ``Env("AQUILIA_DATAENGINE", default=True, cast=bool)``
+        #: to use the pure-Python fallback.
+        dataengine: bool = True
+
     # ── Class-level helpers ───────────────────────────────────────────────
 
     @classmethod
@@ -1617,6 +1694,36 @@ class AquilaConfig:
         loader._merge_dict(loader.config_data, data)
         loader._load_from_env()
         loader._build_apps_namespace()
+
+        # ── Accelerator → os.environ bridge ──────────────────────────────
+        # The C++ engine loaders (_core_loader, _dataengine_loader) read
+        # AQUILIA_ENGINE / AQUILIA_DATAENGINE at import time.  By the time
+        # to_loader() is called the loaders have already run, so setting
+        # the env vars here only affects *subprocesses* (e.g. hot-reload
+        # workers) and any future dynamic-import paths.  However this is
+        # still the right place to persist the resolved intent so that:
+        #   1. Subprocesses (uvicorn reload workers) inherit the setting.
+        #   2. `aq inspect config` can surface the value in its env-var dump.
+        #   3. CLI flags that override the value (--no-engine) can call
+        #      os.environ before importing the loaders.
+        #
+        # Rule: only write when the process environment does NOT already
+        # have an explicit value — that way AQUILIA_ENGINE=0 set by CI
+        # is never silently overridden by workspace.py.
+        accel_data = data.get("accelerator", {})
+        if isinstance(accel_data, dict):
+            _accel_pairs = (
+                ("engine",     "AQUILIA_ENGINE"),
+                ("dataengine", "AQUILIA_DATAENGINE"),
+            )
+            for field, env_key in _accel_pairs:
+                # If the env var was explicitly set by the user / CI, honour it.
+                if env_key in os.environ:
+                    continue
+                val = accel_data.get(field)
+                if val is not None:
+                    os.environ[env_key] = "1" if val else "0"
+
         return loader
 
     @classmethod

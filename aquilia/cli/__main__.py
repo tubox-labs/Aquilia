@@ -1140,19 +1140,44 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool, deprecated: b
     default=None,
     help="WebSocket support (default: auto — native RFC 6455 transport; none disables upgrades)",
 )
+@click.option(
+    "--engine/--no-engine",
+    default=None,
+    help=(
+        "Enable/disable the C++ request engine (AQUILIA_ENGINE). "
+        "Default: from workspace.py AquilaConfig.Accelerator, or enabled. "
+        "--no-engine forces the pure-Python router path."
+    ),
+)
+@click.option(
+    "--dataengine/--no-dataengine",
+    default=None,
+    help=(
+        "Enable/disable the C++ data engine (AQUILIA_DATAENGINE). "
+        "Default: from workspace.py AquilaConfig.Accelerator, or enabled. "
+        "--no-dataengine forces the pure-Python ORM/contract path."
+    ),
+)
 @click.option("--skip-checks", is_flag=True, help="Skip pre-flight dependency checks")
 @click.pass_context
-def run(ctx, mode: str, port, host, reload, uds, fd, http, ws, skip_checks: bool):
+def run(ctx, mode: str, port, host, reload, uds, fd, http, ws, engine, dataengine, skip_checks: bool):
     """
     Start development server.
 
     Runs admin pre-flight checks automatically when admin integration
     is detected in workspace.py. Use --skip-checks to bypass.
 
+    The C++ accelerator engines are enabled by default when the native
+    extensions are present (set in AquilaConfig.Accelerator or via
+    AQUILIA_ENGINE / AQUILIA_DATAENGINE env vars). Use --no-engine or
+    --no-dataengine to force pure-Python fallbacks for debugging.
+
     Examples:
       aq run
       aq run --port=3000
       aq run --mode=test --no-reload
+      aq run --no-engine          # disable C++ router
+      aq run --no-dataengine      # disable C++ ORM compiler
       aq run --skip-checks
     """
 
@@ -1191,6 +1216,8 @@ def run(ctx, mode: str, port, host, reload, uds, fd, http, ws, skip_checks: bool
             http=http,
             ws=ws,
             verbose=ctx.obj["verbose"],
+            engine=engine,
+            dataengine=dataengine,
         )
 
     except KeyboardInterrupt:
@@ -1205,6 +1232,7 @@ def run(ctx, mode: str, port, host, reload, uds, fd, http, ws, skip_checks: bool
 # `aq dev` — Vite/Next-style alias for `aq run`. Same command, friendlier name
 # for the native ADP dev-server workflow.
 cli.add_command(run, name="dev")
+
 
 
 @cli.command("inspector")

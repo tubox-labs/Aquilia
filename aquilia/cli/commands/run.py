@@ -580,6 +580,9 @@ def run_dev_server(
     http: str | None = None,
     ws: str | None = None,
     verbose: bool = False,
+    *,
+    engine: bool | None = None,
+    dataengine: bool | None = None,
 ) -> None:
     """
     Start the Aquilia Native Development Platform (ADP) server.
@@ -615,6 +618,14 @@ def run_dev_server(
         http: HTTP transport engine — "h11" (native, default) or "auto" (uvicorn)
         ws: WebSocket support — "auto" (native RFC 6455, default) or "none"
         verbose: Enable verbose output
+        engine: Override the C++ request-engine state (True = enable,
+            False = disable, None = read from workspace AquilaConfig.Accelerator
+            or the AQUILIA_ENGINE env var). Equivalent to setting
+            ``AQUILIA_ENGINE=0`` before launch.
+        dataengine: Override the C++ data-engine state (True = enable,
+            False = disable, None = read from workspace AquilaConfig.Accelerator
+            or the AQUILIA_DATAENGINE env var). Equivalent to setting
+            ``AQUILIA_DATAENGINE=0`` before launch.
     """
 
     workspace_root = Path.cwd()
@@ -623,6 +634,18 @@ def run_dev_server(
     if str(workspace_root) not in sys.path:
         sys.path.insert(0, str(workspace_root))
 
+    # ── Apply CLI engine overrides BEFORE workspace loading ──────────────
+    # The engine loaders (_core_loader, _dataengine_loader) read their env
+    # vars at module-import time.  In the main process the loaders have
+    # already fired, but writing here ensures:
+    #   a) any re-import / dynamic path sees the right value, and
+    #   b) hot-reload worker subprocesses inherit the correct env.
+    # CLI flags (engine=False) always win over the process environment.
+    if engine is not None:
+        os.environ["AQUILIA_ENGINE"] = "1" if engine else "0"
+    if dataengine is not None:
+        os.environ["AQUILIA_DATAENGINE"] = "1" if dataengine else "0"
+
     # ── Resolve runtime settings from AquilaConfig ───────────────────
     rt = _load_workspace_runtime_config(workspace_root)
     host = host if host is not None else rt.get("host", "127.0.0.1")
@@ -630,9 +653,42 @@ def run_dev_server(
     port = _resolve_port(host, port)
     reload = reload if reload is not None else rt.get("reload", True)
 
+    # ── Apply workspace accelerator config (CLI flags already applied above) ──
+    # _load_workspace_runtime_config returns the "runtime" section only.
+    # Reload the full dict here to also read the "accelerator" section.
+    # We only write the env var when the CLI did NOT already set it (i.e. the
+    # engine/dataengine keyword args were None), and when the env var isn't
+    # already present from the process environment (CI override).
+    if engine is None or dataengine is None:
+        try:
+            import importlib.util as _ilu
+
+            ws_file = workspace_root / "workspace.py"
+            if ws_file.exists():
+                spec = _ilu.spec_from_file_location("_aq_ws_accel", ws_file)
+                if spec and spec.loader:
+                    _ws_mod = _ilu.module_from_spec(spec)
+                    spec.loader.exec_module(_ws_mod)  # type: ignore[union-attr]
+                    _ws_obj = getattr(_ws_mod, "workspace", None)
+                    if _ws_obj is not None:
+                        _full_cfg = _ws_obj.to_dict()
+                        _accel = _full_cfg.get("accelerator", {})
+                        if isinstance(_accel, dict):
+                            if engine is None and "AQUILIA_ENGINE" not in os.environ:
+                                _eng_val = _accel.get("engine")
+                                if _eng_val is not None:
+                                    os.environ["AQUILIA_ENGINE"] = "1" if _eng_val else "0"
+                            if dataengine is None and "AQUILIA_DATAENGINE" not in os.environ:
+                                _de_val = _accel.get("dataengine")
+                                if _de_val is not None:
+                                    os.environ["AQUILIA_DATAENGINE"] = "1" if _de_val else "0"
+        except Exception:
+            pass  # Silently fall back; the engine env vars stay at their defaults
+
     # Set environment variables
     os.environ["AQUILIA_ENV"] = mode
     os.environ["AQUILIA_WORKSPACE"] = str(workspace_root)
+
 
     # ===== AUTO-DISCOVER & UPDATE MANIFESTS FIRST =====
     _discover_and_update_manifests(workspace_root, verbose)

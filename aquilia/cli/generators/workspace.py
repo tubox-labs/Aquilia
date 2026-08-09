@@ -658,6 +658,15 @@ class WorkspaceGenerator:
                     # disposal_strategy   = "lifo"   # "lifo" | "fifo" | "parallel"
                     # pool_max_waiters    = None     # cap waiters on exhausted pools
 
+                class accelerator(AquilaConfig.Accelerator):
+                    # Native C++ engine configuration.
+                    # Both engines are fail-soft: if the extension is absent the
+                    # framework automatically falls back to pure Python.
+                    # Set either to False (or AQUILIA_ENGINE=0 / AQUILIA_DATAENGINE=0)
+                    # to force the pure-Python path — useful for debugging or CI parity.
+                    engine     = True   # C++ router + RequestContext  (AQUILIA_ENGINE)
+                    dataengine = True   # C++ ORM FieldPlan / contracts (AQUILIA_DATAENGINE)
+
 
             class DevEnv(BaseEnv):
                 """Development — hot-reload, debug pages, single worker."""
@@ -873,6 +882,13 @@ class WorkspaceGenerator:
                     # timeout_keep_alive, backlog, limit_concurrency,
                     # limit_max_requests, proxy_headers, root_path,
                     # ws_max_size, ssl_certfile, ssl_keyfile, loop, http, ...
+
+                # Native C++ engine configuration (both default to enabled).
+                # Set engine=False or AQUILIA_ENGINE=0 to force pure-Python router.
+                # Set dataengine=False or AQUILIA_DATAENGINE=0 for pure-Python ORM.
+                class accelerator(AquilaConfig.Accelerator):
+                    engine     = True   # AQUILIA_ENGINE
+                    dataengine = True   # AQUILIA_DATAENGINE
 
                 # Dependency-injection tuning (optional). See AquilaConfig.DI.
                 # class di(AquilaConfig.DI):
@@ -1106,6 +1122,15 @@ class WorkspaceGenerator:
             AQ_WORKERS=1                             # Set to CPU count in prod
             AQ_DEBUG=true                             # false in prod
 
+            # ── Native C++ Accelerator Engines ────────────────────────────────
+            # Both engines are fail-soft: if the native extension is absent
+            # the framework falls back to pure Python automatically.
+            # Set to 0 to force pure-Python mode (debugging / CI parity).
+            # Can also be controlled via AquilaConfig.Accelerator in workspace.py
+            # or via the --no-engine / --no-dataengine flags on `aq run`.
+            AQUILIA_ENGINE=1                         # 1=C++ router (default), 0=pure Python
+            AQUILIA_DATAENGINE=1                     # 1=C++ ORM compiler (default), 0=pure Python
+
             # ── Database ──────────────────────────────────────────────────────
             DATABASE_URL=sqlite:///db.sqlite3
             # DATABASE_URL=postgresql://user:password@localhost:5432/{self.name}
@@ -1133,6 +1158,7 @@ class WorkspaceGenerator:
         """)
 
         (self.path / ".env.example").write_text(content, encoding="utf-8")
+
 
     def _create_editorconfig(self) -> None:
         """Create .editorconfig for consistent coding style across editors."""
