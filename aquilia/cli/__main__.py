@@ -1234,7 +1234,6 @@ def run(ctx, mode: str, port, host, reload, uds, fd, http, ws, engine, dataengin
 cli.add_command(run, name="dev")
 
 
-
 @cli.command("inspector")
 @click.option("--host", type=str, default=None, help="Dev server host (default: from workspace.py, or 127.0.0.1)")
 @click.option("--port", type=int, default=None, help="Dev server port (default: from workspace.py, or 8000)")

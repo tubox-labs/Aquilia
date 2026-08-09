@@ -1159,7 +1159,6 @@ class WorkspaceGenerator:
 
         (self.path / ".env.example").write_text(content, encoding="utf-8")
 
-
     def _create_editorconfig(self) -> None:
         """Create .editorconfig for consistent coding style across editors."""
         content = textwrap.dedent("""\

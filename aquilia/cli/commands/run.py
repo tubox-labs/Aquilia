@@ -689,7 +689,6 @@ def run_dev_server(
     os.environ["AQUILIA_ENV"] = mode
     os.environ["AQUILIA_WORKSPACE"] = str(workspace_root)
 
-
     # ===== AUTO-DISCOVER & UPDATE MANIFESTS FIRST =====
     _discover_and_update_manifests(workspace_root, verbose)
 

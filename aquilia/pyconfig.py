@@ -1713,7 +1713,7 @@ class AquilaConfig:
         accel_data = data.get("accelerator", {})
         if isinstance(accel_data, dict):
             _accel_pairs = (
-                ("engine",     "AQUILIA_ENGINE"),
+                ("engine", "AQUILIA_ENGINE"),
                 ("dataengine", "AQUILIA_DATAENGINE"),
             )
             for field, env_key in _accel_pairs:
