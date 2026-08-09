@@ -680,16 +680,20 @@ class EncryptedMixin:
         """
         Configure symmetric encryption using *key*.
 
-        Tries Fernet (``cryptography`` package) first.  Falls back to a
-        stdlib AES-256-GCM implementation if ``cryptography`` is not
-        installed — no extra packages needed in either case.
+        Tries Fernet (``cryptography`` package) first. Falls back to the
+        stdlib AES-256-GCM implementation when ``cryptography`` is missing —
+        or when *key* is not in the format Fernet demands. Either way, any
+        string or bytes value is accepted, so callers never have to know which
+        backend is in play.
 
-        For Fernet, the key must be a URL-safe base64-encoded 32-byte value.
-        For the stdlib fallback, any string or bytes value is accepted and
-        internally stretched to 32 bytes with SHA-256.
+        Fernet requires a URL-safe base64-encoded 32-byte key and rejects
+        anything else with ``ValueError``. Catching only ``ImportError`` here
+        meant an ordinary key like ``"my-secret"`` crashed on machines that had
+        ``cryptography`` installed and worked on machines that did not — the
+        same call, two outcomes, decided by an unrelated dependency.
 
         Args:
-            key: Encryption key (str or bytes).
+            key: Encryption key (str or bytes), any length or format.
         """
         if isinstance(key, str):
             key = key.encode("utf-8")
@@ -698,8 +702,9 @@ class EncryptedMixin:
             from cryptography.fernet import Fernet
 
             cls._fernet_instance = Fernet(key)
-        except ImportError:
-            # stdlib AES-256-GCM fallback — uses hashlib + secrets + struct
+        except (ImportError, ValueError, TypeError):
+            # No cryptography, or key is not a valid Fernet token — either way
+            # the stdlib backend stretches arbitrary material to 32 bytes.
             cls._fernet_instance = _StdlibAESGCM(key)
 
         cls._encryption_backend = None
