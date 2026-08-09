@@ -322,6 +322,7 @@ export const sections: SidebarSection[] = [
           { label: 'HTTPS Redirect', path: '/docs/middleware/https-redirect' },
           { label: 'Proxy Fix', path: '/docs/middleware/proxy-fix' },
           { label: 'Effects Acquisition', path: '/docs/middleware/effect' },
+          { label: 'Socket Middleware', path: '/docs/middleware/socket-middleware' },
         ]
       },
     ]
@@ -361,6 +362,7 @@ export const sections: SidebarSection[] = [
           { label: 'Socket Controllers', path: '/docs/websockets/controllers' },
           { label: 'Runtime', path: '/docs/websockets/runtime' },
           { label: 'Adapters', path: '/docs/websockets/adapters' },
+          { label: 'Socket Middleware', path: '/docs/websockets/middleware' },
         ]
       },
       {

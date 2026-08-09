@@ -187,6 +187,7 @@ import { MiddlewareHSTS } from './pages/docs/middleware/HSTS'
 import { MiddlewareHTTPSRedirect } from './pages/docs/middleware/HTTPSRedirect'
 import { MiddlewareProxyFix } from './pages/docs/middleware/ProxyFix'
 import { MiddlewareEffect } from './pages/docs/middleware/EffectMiddleware'
+import { SocketMiddlewareOverview } from './pages/docs/middleware/SocketMiddleware'
 
 
 // Faults
@@ -238,6 +239,7 @@ import { WebSocketsOverview } from './pages/docs/websockets/Overview'
 import { WebSocketControllers } from './pages/docs/websockets/Controllers'
 import { WebSocketRuntime } from './pages/docs/websockets/Runtime'
 import { WebSocketAdapters } from './pages/docs/websockets/Adapters'
+import { WebSocketMiddleware } from './pages/docs/websockets/Middleware'
 
 // Templates
 import { TemplatesOverview } from './pages/docs/templates/Overview'
@@ -561,6 +563,7 @@ export default function App() {
           <Route path="middleware/https-redirect" element={<MiddlewareHTTPSRedirect />} />
           <Route path="middleware/proxy-fix" element={<MiddlewareProxyFix />} />
           <Route path="middleware/effect" element={<MiddlewareEffect />} />
+          <Route path="middleware/socket-middleware" element={<SocketMiddlewareOverview />} />
 
 
           {/* Aquilary */}
@@ -663,6 +666,7 @@ export default function App() {
           <Route path="websockets/controllers" element={<WebSocketControllers />} />
           <Route path="websockets/runtime" element={<WebSocketRuntime />} />
           <Route path="websockets/adapters" element={<WebSocketAdapters />} />
+          <Route path="websockets/middleware" element={<WebSocketMiddleware />} />
 
           {/* Templates */}
           <Route path="templates" element={<TemplatesOverview />} />

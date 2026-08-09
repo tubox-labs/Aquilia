@@ -8889,5 +8889,415 @@ Our Continuous Integration has been expanded with a dedicated Wheel Workflow (\`
 
 This workflow ensures that every commit to the main branch is validated across all matrix targets. It leverages \`cibuildwheel\` to automatically provision the correct build environments (using manylinux Docker images for Linux), compile the C++ extensions, and run the test suite against the generated wheels before they are uploaded as release artifacts.
 `
+  },
+  "1.4.0b2": {
+    "README.md": `# Aquilia v1.4.0b2 Release Notes — "Foredeck Watch"
+
+Aquilia v1.4.0b2 continues the "Foredeck Watch" beta cycle, building on the native engine foundation of v1.4.0b1 with three major subsystem improvements: a complete middleware package restructure, a full WebSocket middleware subsystem, and a new \`AquilaConfig.Accelerator\` configuration layer for native C++ engine control. This release also resolves five critical middleware bugs that caused rate limiting to be non-functional and import-order-dependent crashes.
+
+## Table of Contents
+
+1. [Middleware Package Restructure](middleware_restructure.md)
+2. [WebSocket Middleware Subsystem](websocket_middleware.md)
+3. [Accelerator Configuration](accelerator.md)
+4. [Bug Fixes](bug_fixes.md)
+5. [Migration Guide](migration.md)
+
+---
+
+## Key Goals
+
+1. **Fix Critical Middleware Bugs.** Rate limiting was non-functional — every rate-limited request returned 500 instead of 429 due to a \`TYPE_CHECKING\`-only \`Response\` import. Per-user rate limiting was a silent no-op because \`RateLimitMiddleware\` ran before \`AquilAuthMiddleware\`. Both are fixed.
+
+2. **Restructure Middleware into a Coherent Package.** The \`aquilia/middleware.py\` monolith is replaced by a structured package that enforces the dependency boundaries that prevented isolated imports from working at all.
+
+3. **Full WebSocket Middleware Parity.** A complete three-hook middleware pipeline (connect/message/disconnect) with seven built-in classes and workspace-level configuration.
+
+4. **Declarative Native Engine Control.** \`AquilaConfig.Accelerator\` and \`aq run --no-engine\`/\`--no-dataengine\` give teams fine-grained, layered control over C++ acceleration.
+
+---
+
+## Breaking Changes Summary
+
+| Change | Scope | Migration |
+|--------|-------|-----------|
+| \`middleware_ext/\` removed | Breaking | Update import paths; \`aquilia.middleware\` lazy re-exports all names |
+| \`build_fast_handler()\` removed | Breaking | Use \`build_handler()\` |
+| Security middleware import paths changed | Breaking if importing from \`aquilia.middleware_ext.security\` | Use \`aquilia.middleware.builtin.security.*\` |
+| \`SocketGuard.check_message\` deprecated | Non-breaking (warning) | Use \`SocketMiddleware\` instead |
+| Rate limit identity priority 12 → 16 | Behavioral | Intentional fix; per-user limits now enforced |
+`,
+    "middleware_restructure.md": `# Middleware Package Restructure — v1.4.0b2
+
+## Overview
+
+Aquilia v1.4.0b2 replaces the monolithic \`aquilia/middleware.py\` (647 lines) with a structured package at \`aquilia/middleware/\`. The restructure resolves a long-standing circular import, enables isolated middleware imports, and establishes clear dependency boundaries.
+
+## Package Layout
+
+\`\`\`
+aquilia/middleware/
+├── __init__.py               public API (lazy re-exports)
+├── core/                     fault-free leaf zone
+│   ├── base.py               Middleware base class + hook sentinels
+│   ├── descriptor.py         MiddlewareDescriptor
+│   ├── priority.py           Priority constants + sort_key
+│   └── types.py              Handler, Scope, MiddlewareCallable
+├── stack/                    registration and compilation
+│   ├── builder.py            ChainBuilder (closure fold)
+│   ├── errors.py             MiddlewareRegistrationFault, MiddlewarePriorityCollisionFault
+│   ├── registry.py           MiddlewareStack
+│   └── validation.py         startup contract checks
+├── instrumentation/          tracing and metrics wrappers
+│   ├── base.py               Instrument protocol
+│   ├── metrics.py            MetricsInstrument
+│   └── tracing.py            TracingInstrument
+├── builtin/                  framework-owned middleware
+│   ├── compression.py
+│   ├── exceptions.py
+│   ├── logging.py
+│   ├── rate_limit.py
+│   ├── request_id.py
+│   ├── request_scope.py
+│   ├── session.py
+│   ├── static.py
+│   ├── timeout.py
+│   └── security/
+│       ├── cors.py
+│       ├── csp.py
+│       ├── csrf.py
+│       ├── headers.py
+│       ├── hsts.py
+│       ├── https_redirect.py
+│       └── proxy_fix.py
+└── utils/                    transport-agnostic helpers
+    ├── ordering.py
+    ├── throttling.py
+    ├── negotiation.py
+    └── status.py
+\`\`\`
+
+## The Circular Import Problem (Fixed)
+
+\`\`\`python
+# This crashed in v1.4.0b1 and earlier:
+from aquilia import Middleware
+\`\`\`
+
+The cycle was: \`aquilia/middleware.py\` → \`aquilia.faults\` → \`aquilia.faults.engine\` → \`aquilia.middleware\`.
+
+The \`Middleware\` base class now lives in \`aquilia/middleware/core/base.py\`, a fault-free leaf module. \`aquilia.middleware\` resolves exports lazily.
+
+## New Middleware Base Class Hooks
+
+\`\`\`python
+from aquilia.middleware import Middleware
+
+class TenantMiddleware(Middleware):
+    name = "tenant"
+    priority = 50
+    scope = "global"
+    tags = ("multi-tenant",)
+
+    async def before(self, request, ctx) -> Response | None:
+        tenant = request.header("x-tenant-id")
+        if not tenant:
+            return Response.json({"error": "missing tenant"}, status=400)
+        ctx.state["tenant"] = tenant
+        return None
+
+    async def after(self, request, ctx, response) -> Response:
+        response.headers["X-Tenant"] = ctx.state["tenant"]
+        return response
+
+    async def should_run(self, request, ctx) -> bool:
+        return request.path.startswith("/api/")
+
+    async def setup(self, app) -> None:
+        self._db = await connect_tenant_db()
+
+    async def teardown(self, app) -> None:
+        await self._db.close()
+\`\`\`
+
+## Priority Constants
+
+\`\`\`python
+from aquilia.middleware.core.priority import Priority
+
+# Priority.EXCEPTION = 1, FAULTS = 2, PROXY_FIX = 3, HTTPS_REDIRECT = 4
+# Priority.REQUEST_SCOPE = 5, STATIC = 6, SECURITY_HEADERS = 7, HSTS = 8
+# Priority.CSP = 9, REQUEST_ID = 10, CORS = 11, RATE_LIMIT_ANON = 12
+# Priority.INSPECTOR = 13, INSPECTOR_TOOLBAR = 14 (moved from 11/12)
+# Priority.AUTH = 15, RATE_LIMIT_IDENTITY = 16, CSRF = 20
+# Priority.I18N = 24, TEMPLATES = 25, CACHE = 26
+# Priority.APPLICATION_DEFAULT = 50
+\`\`\`
+
+## Priority Collision Detection
+
+\`\`\`python
+stack = MiddlewareStack(strict_priorities=True)
+stack.add(MyMiddlewareA(), priority=50)
+stack.add(MyMiddlewareB(), priority=50)  # → MiddlewarePriorityCollisionFault
+\`\`\`
+
+## Import Path Migration
+
+| Old | New |
+|---|---|
+| \`aquilia.middleware_ext.CORSMiddleware\` | \`aquilia.middleware.builtin.security.cors.CORSMiddleware\` |
+| \`aquilia.middleware_ext.CSRFMiddleware\` | \`aquilia.middleware.builtin.security.csrf.CSRFMiddleware\` |
+| \`aquilia.middleware_ext.RateLimitMiddleware\` | \`aquilia.middleware.builtin.rate_limit.RateLimitMiddleware\` |
+
+Top-level \`from aquilia.middleware import CORSMiddleware\` still works via lazy re-exports.
+`,
+    "websocket_middleware.md": `# WebSocket Middleware Subsystem — v1.4.0b2
+
+## Overview
+
+A full WebSocket middleware pipeline at \`aquilia/sockets/middleware/\`. Three lifecycle hooks (connect/message/disconnect) with seven built-in classes and workspace-level configuration.
+
+## SocketMiddleware Base Class
+
+\`\`\`python
+from aquilia.sockets.middleware import SocketMiddleware
+
+class PresenceMiddleware(SocketMiddleware):
+    async def on_connect(self, ctx, next_handler):
+        await presence_store.mark_online(ctx.state.get("identity", {}).get("id"))
+        await next_handler(ctx)
+
+    async def on_message(self, envelope, ctx, next_handler):
+        await last_seen_store.update(ctx.connection_id)
+        return await next_handler(envelope, ctx)
+
+    async def on_disconnect(self, ctx, reason):
+        await presence_store.mark_offline(ctx.state.get("identity", {}).get("id"))
+\`\`\`
+
+## Workspace Configuration
+
+\`\`\`python
+from aquilia.sockets.middleware import SocketMiddlewareChain
+
+workspace = (
+    Workspace("myapp")
+    .socket_middleware(
+        SocketMiddlewareChain.production()
+    )
+)
+\`\`\`
+
+## Presets
+
+| Preset | Includes |
+|---|---|
+| \`minimal()\` | SocketFaultMiddleware (2) |
+| \`defaults()\` | + MessageValidationMiddleware (10) |
+| \`production()\` | + SocketMetricsMiddleware (6) + SocketRateLimitMiddleware (12) |
+
+## Priority Bands
+
+| Band | Range | Built-ins |
+|---|---|---|
+| Framework plumbing | 0–9 | SocketFaultMiddleware (2), SocketMetricsMiddleware (6) |
+| Framework security | 10–19 | MessageValidationMiddleware (10), SocketRateLimitMiddleware (12), SocketAuthMiddleware, SocketPermissionMiddleware |
+| Application | 50–99 | SocketLoggingMiddleware, user middleware |
+
+## Scope System
+
+\`global\` < \`namespace:/chat\` < \`event:message.send\`
+
+## Security Parity Warning
+
+HTTP middleware does **NOT** apply to WebSocket messages. A socket surface is protected only by middleware registered on its own chain.
+
+## Deprecated: SocketGuard.check_message
+
+\`SocketGuard.check_message\` was never called by the runtime. Use \`SocketMiddleware.on_message\` instead. \`check_handshake\` remains supported.
+`,
+    "accelerator.md": `# Accelerator Configuration — v1.4.0b2
+
+## AquilaConfig.Accelerator
+
+\`\`\`python
+class AquilaConfig:
+    class Accelerator:
+        engine: bool = True       # AQUILIA_ENGINE — C++ router + RequestContext
+        dataengine: bool = True   # AQUILIA_DATAENGINE — C++ ORM FieldPlan
+\`\`\`
+
+Both engines are fail-soft. These fields add explicit control over the fallback.
+
+## Workspace Configuration
+
+\`\`\`python
+class BaseEnv(AquilaConfig):
+    class accelerator(AquilaConfig.Accelerator):
+        engine = True
+        dataengine = True
+
+class CIEnv(BaseEnv):
+    env = "ci"
+    class accelerator(BaseEnv.accelerator):
+        engine = Env("AQUILIA_ENGINE", default=False, cast=bool)
+        dataengine = Env("AQUILIA_DATAENGINE", default=False, cast=bool)
+\`\`\`
+
+## CLI Flags
+
+\`\`\`bash
+aq run --no-engine          # disable C++ router
+aq run --no-dataengine      # disable C++ ORM compiler
+aq run --no-engine --no-dataengine  # full pure-Python mode
+\`\`\`
+
+## Priority Chain (Highest Wins)
+
+1. CLI flag (\`aq run --no-engine\`)
+2. Process environment (\`AQUILIA_ENGINE=0\`)
+3. \`workspace.py\` \`AquilaConfig.Accelerator\`
+4. Framework default (enabled)
+
+A pre-existing environment variable is **never** overwritten by workspace.py.
+
+## run_dev_server() API
+
+\`\`\`python
+def run_dev_server(
+    ...,
+    *,
+    engine: bool | None = None,
+    dataengine: bool | None = None,
+) -> None:
+\`\`\`
+`,
+    "bug_fixes.md": `# Bug Fixes — v1.4.0b2
+
+## 1. Rate Limiting Returned 500 Instead of 429
+
+\`Response\` was imported under \`TYPE_CHECKING\` only. \`_rate_limited_response()\` raised \`NameError\` on every rate-limited request. All keying modes broken. Fixed by runtime import.
+
+## 2. Per-User Rate Limiting Was a Silent No-Op
+
+\`RateLimitMiddleware\` at priority 12 ran before \`AquilAuthMiddleware\` at 15. \`user_key_extractor\` always returned \`None\` — rules silently skipped. Fixed: identity rules now at priority 16 (after AUTH at 15). \`RateLimitRule.requires_identity\` auto-detected for \`user_key_extractor\`.
+
+## 3. Middleware Circular Import Crash
+
+\`from aquilia.middleware import Middleware\` crashed if \`aquilia.faults\` wasn't imported first. Root cause: cycle between \`aquilia/middleware.py\` and \`aquilia/faults/engine.py\`. Fixed: \`Middleware\` base moved to \`aquilia/middleware/core/base.py\`.
+
+## 4. Duplicate Middleware Priorities Silently Reordered
+
+\`MiddlewareStack.add()\` now warns on same-scope/same-priority collisions. \`strict_priorities=True\` raises \`MiddlewarePriorityCollisionFault\`. Inspector moved 11→13, 12→14 to clear collisions with CORS and RATE_LIMIT_ANON.
+
+## 5. WebSocket Parameterized Routes Never Matched
+
+\`@Socket("/chat/:room")\` only matched the literal path. Root cause: \`PatternMatcher.match()\` called without \`await\`, returning a coroutine. Swallowed by bare \`except:\`. Path params now correctly extracted.
+
+## 6. WebSocket Policy Close Code 1003 → 1008
+
+\`WS_AUTH_REQUIRED\`, \`WS_FORBIDDEN\`, \`WS_ORIGIN_NOT_ALLOWED\` now close with code 1008 (policy violation) instead of 1003 (unsupported data).
+
+## 7. EncryptedMixin Crashed With cryptography Installed
+
+\`Fernet(key)\` raises \`ValueError\` for non-base64-encoded keys. Only \`ImportError\` was caught. \`ValueError\`/\`TypeError\` now caught and fall through to \`_StdlibAESGCM\`.
+
+## 8. asyncio.TimeoutError Not Caught on Python 3.10
+
+\`asyncio.TimeoutError\` is separate from \`TimeoutError\` on Python 3.10. Requests exceeding timeout returned 500. Both exception classes now caught.
+
+## 9. TokenBucket ZeroDivisionError for limit=0
+
+\`TokenBucket.consume()\` now guards against zero refill rate, reporting a finite retry-after.
+
+## 10. WebSocket Worker ID Used Unix-Only os.uname()
+
+Replaced with cross-platform \`platform.node()\`.
+`,
+    "migration.md": `# Migration Guide — 1.4.0b1 → 1.4.0b2
+
+## 1. middleware_ext Import Paths
+
+\`\`\`python
+# BEFORE
+from aquilia.middleware_ext import RateLimitMiddleware
+from aquilia.middleware_ext.security import CORSMiddleware
+
+# AFTER — top-level (recommended)
+from aquilia.middleware import RateLimitMiddleware, CORSMiddleware
+
+# AFTER — canonical paths
+from aquilia.middleware.builtin.rate_limit import RateLimitMiddleware
+from aquilia.middleware.builtin.security.cors import CORSMiddleware
+\`\`\`
+
+Update dotted-path strings in workspace.py:
+\`\`\`python
+# BEFORE
+.use("aquilia.middleware_ext.security.CORSMiddleware", priority=11)
+# AFTER
+.use("aquilia.middleware.builtin.security.cors.CORSMiddleware", priority=11)
+\`\`\`
+
+## 2. build_fast_handler() Removed
+
+\`\`\`python
+# BEFORE
+handler = stack.build_fast_handler(final_handler)
+# AFTER
+handler = stack.build_handler(final_handler)
+\`\`\`
+
+## 3. Rate Limit Ordering Change
+
+Identity-based rules now run at priority 16 (after auth at 15). Per-user limits were not enforced before. Verify your limits before deploying.
+
+## 4. SocketGuard.check_message Deprecated
+
+\`\`\`python
+# BEFORE (never executed)
+class MyGuard(SocketGuard):
+    async def check_message(self, message, ctx):
+        return authorized(ctx)
+
+# AFTER
+class AuthCheckMiddleware(SocketMiddleware):
+    async def on_message(self, envelope, ctx, next_handler):
+        if not ctx.state.get("identity"):
+            raise PermissionError("Authentication required")
+        return await next_handler(envelope, ctx)
+\`\`\`
+
+## 5. Add Socket Middleware to Workspace
+
+\`\`\`python
+from aquilia.sockets.middleware import SocketMiddlewareChain
+
+workspace = (
+    Workspace("myapp")
+    .socket_middleware(SocketMiddlewareChain.production())
+)
+\`\`\`
+
+## Upgrade Checklist
+
+- [ ] Update \`aquilia\` to \`1.4.0b2\`
+- [ ] Search for \`aquilia.middleware_ext\` imports and update
+- [ ] Search for \`build_fast_handler\` calls, replace with \`build_handler\`
+- [ ] Check rate limit configurations — per-user limits now actually enforced
+- [ ] Migrate \`SocketGuard.check_message\` to \`SocketMiddleware.on_message\`
+- [ ] Add \`SocketMiddlewareChain\` to workspace.py for WebSocket endpoints
+- [ ] Run test suite, watch for priority collision warnings at boot
+
+## Compatibility Matrix
+
+| Component | Minimum | Recommended |
+|---|---|---|
+| Python | 3.10 | 3.12+ |
+| OS | Linux, macOS 11+, Windows 10+ | Ubuntu 22.04 / macOS 14 |
+| SQLite | 3.35.0 | 3.42.0+ |
+`
   }
 };
+

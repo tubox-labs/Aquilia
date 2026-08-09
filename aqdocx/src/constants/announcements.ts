@@ -8,6 +8,22 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Record<string, Announcement> = {
+  '1.4.0b2': {
+    version: '1.4.0b2',
+    badgeText: 'V1.4.0b2 Release',
+    title: 'Middleware package restructure, WebSocket middleware pipeline, AquilaConfig.Accelerator & five critical bug fixes:',
+    highlightText: 'Foredeck Watch',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.4.0b2',
+  },
+  '1.4.0b1': {
+    version: '1.4.0b1',
+    badgeText: 'V1.4.0b1 Release',
+    title: 'Native C++ extensions — yyjson JSON engine, FieldPlan ORM compiler, RequestContext GC fix & binary wheel distribution:',
+    highlightText: 'Foredeck Watch',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.4.0b1',
+  },
   '1.4.0b0': {
     version: '1.4.0b0',
     badgeText: 'V1.4.0b0 Release',
@@ -110,5 +126,5 @@ export function getLatestAnnouncement(version?: string): Announcement {
   if (version && ANNOUNCEMENTS[version]) {
     return ANNOUNCEMENTS[version]
   }
-  return ANNOUNCEMENTS['1.4.0b0']
+  return ANNOUNCEMENTS['1.4.0b2']
 }
