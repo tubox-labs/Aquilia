@@ -28,14 +28,14 @@ from typing import (
     Any,
 )
 
-from aquilia._ratelimit import (
+from aquilia.faults.domains import RateLimitExceededFault
+from aquilia.middleware.core.base import Middleware
+from aquilia.middleware.utils.throttling import (
     NEVER_REFILLS_RETRY_AFTER,
     BucketStore,
     SlidingWindowCounter,
     TokenBucket,
 )
-from aquilia.faults.domains import RateLimitExceededFault
-from aquilia.middleware import Middleware
 
 # Runtime import, not TYPE_CHECKING: _rate_limited_response constructs a Response
 # when a limit trips. aquilia.response does not import middleware_ext, so this
@@ -92,7 +92,7 @@ def user_key_extractor(request: Request) -> str | None:
 
 # ─── Algorithms (shared with the WebSocket limiter) ──────────────────────────
 
-# The algorithms live in aquilia._ratelimit so the HTTP and WebSocket limiters
+# The algorithms live in aquilia.middleware.utils.throttling so HTTP and WebSocket limiters
 # enforce identically. These private aliases keep the historical names importable.
 _NEVER_REFILLS_RETRY_AFTER = NEVER_REFILLS_RETRY_AFTER
 _TokenBucket = TokenBucket

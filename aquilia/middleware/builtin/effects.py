@@ -85,12 +85,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
     from aquilia.effects import EffectRegistry
-    from aquilia.middleware import Handler
+    from aquilia.middleware.core.types import Handler
     from aquilia.request import Request
     from aquilia.response import Response
 
