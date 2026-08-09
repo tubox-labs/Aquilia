@@ -422,7 +422,7 @@ class EffectNotAcquiredFault(EffectFault):
 
     3. **EffectMiddleware not active** — the middleware is absent from the
        middleware stack.  Add it via
-       ``.use("aquilia.middleware_ext.EffectMiddleware")`` in your workspace
+       ``.use("aquilia.middleware.builtin.effects.EffectMiddleware")`` in your workspace
        ``MiddlewareChain`` (or rely on the framework's auto-registration
        which adds it during the ASGI lifespan startup).
 
@@ -478,7 +478,7 @@ class EffectNotAcquiredFault(EffectFault):
         if not middleware_active:
             hint = (
                 "EffectMiddleware is not active. "
-                "Add .use('aquilia.middleware_ext.EffectMiddleware') to your "
+                "Add .use('aquilia.middleware.builtin.effects.EffectMiddleware') to your "
                 "workspace MiddlewareChain, or enable the effects subsystem."
             )
         elif registered_effects is not None and effect_name not in registered_effects:

@@ -38,7 +38,7 @@ from aquilia.middleware.utils.throttling import (
 )
 
 # Runtime import, not TYPE_CHECKING: _rate_limited_response constructs a Response
-# when a limit trips. aquilia.response does not import middleware_ext, so this
+# when a limit trips. aquilia.response does not import middleware, so this
 # introduces no cycle.
 from aquilia.response import Response
 

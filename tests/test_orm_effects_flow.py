@@ -2144,8 +2144,8 @@ class TestIntegrationImports:
 
         assert EffectSubsystem is not None
 
-    def test_middleware_ext_init_exports(self):
-        from aquilia.middleware_ext import EffectMiddleware
+    def test_middleware_builtin_init_exports(self):
+        from aquilia.middleware.builtin import EffectMiddleware
 
         assert EffectMiddleware is not None
 

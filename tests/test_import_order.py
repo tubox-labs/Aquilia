@@ -50,13 +50,15 @@ LEAF_BOUNDARIES = [
     ("aquilia.middleware", ("aquilia.debug", "aquilia.inspector")),
 ]
 
-# The deprecated ``aquilia.middleware_ext`` shim must keep resolving to the same
-# objects as the canonical modules: user workspace.py files name these as dotted
-# strings, so a broken alias is a boot failure in someone else's project.
+# Names that were importable from ``aquilia.middleware`` before the package
+# split, and from the top-level ``aquilia`` barrel. Both must keep resolving to
+# the same objects the canonical modules define.
 LEGACY_ALIASES = [
-    ("aquilia.middleware_ext", "SecurityHeadersMiddleware", "aquilia.middleware.builtin.security", "SecurityHeadersMiddleware"),
-    ("aquilia.middleware_ext", "EffectMiddleware", "aquilia.middleware.builtin.effects", "EffectMiddleware"),
-    ("aquilia.middleware_ext", "RateLimitMiddleware", "aquilia.middleware.builtin.rate_limit", "RateLimitMiddleware"),
+    ("aquilia.middleware", "CORSMiddleware", "aquilia.middleware.builtin.security.cors", "CORSMiddleware"),
+    ("aquilia.middleware", "LoggingMiddleware", "aquilia.middleware.builtin.logging", "LoggingMiddleware"),
+    ("aquilia", "SecurityHeadersMiddleware", "aquilia.middleware.builtin.security", "SecurityHeadersMiddleware"),
+    ("aquilia", "RateLimitMiddleware", "aquilia.middleware.builtin.rate_limit", "RateLimitMiddleware"),
+    ("aquilia", "StaticMiddleware", "aquilia.middleware.builtin.static", "StaticMiddleware"),
 ]
 
 
@@ -92,10 +94,8 @@ def test_leaf_zone_boundaries(module, forbidden):
 
 @pytest.mark.parametrize("old_mod,old_attr,new_mod,new_attr", LEGACY_ALIASES)
 def test_legacy_aliases_share_identity(old_mod, old_attr, new_mod, new_attr):
-    """Deprecated paths must yield the same objects, so isinstance checks hold."""
+    """Barrel re-exports must yield the same objects, so isinstance checks hold."""
     statement = (
-        "import warnings\n"
-        "warnings.simplefilter('ignore', DeprecationWarning)\n"
         f"from {old_mod} import {old_attr} as A\n"
         f"from {new_mod} import {new_attr} as B\n"
         f"assert A is B, '{old_attr} diverged between {old_mod} and {new_mod}'\n"
