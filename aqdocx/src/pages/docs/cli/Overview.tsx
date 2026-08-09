@@ -63,6 +63,40 @@ export function CLIOverview() {
         </div>
       </section>
 
+      {/* v1.4.0b3 Modernization Architecture */}
+      <section className={sectionClass}>
+        <h2 className={h2Class}>v1.4.0b3 Core Architecture & Health Engine</h2>
+        <p className={pClass}>
+          Aquilia v1.4.0b3 introduces a complete modernization of the CLI runtime architecture located under <code className="text-aquilia-500 font-mono font-bold">aquilia.cli.core</code> and <code className="text-aquilia-500 font-mono font-bold">aquilia.cli.checks</code>:
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className="font-bold font-mono text-sm text-aquilia-500 mb-2">AqContext</h3>
+            <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Thread-safe ambient CLI state (<code className="text-aquilia-400">cwd</code>, <code className="text-aquilia-400">verbose</code>, <code className="text-aquilia-400">json_output</code>, <code className="text-aquilia-400">workspace</code>). Resolves workspaces lazily so non-workspace commands (<code className="text-aquilia-400">init</code>, <code className="text-aquilia-400">version</code>, <code className="text-aquilia-400">--help</code>) run in &lt;15ms.
+            </p>
+          </div>
+          <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className="font-bold font-mono text-sm text-aquilia-500 mb-2">ExitCode Contract</h3>
+            <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Single source of truth for process return codes (<code className="text-aquilia-400">OK=0</code>, <code className="text-aquilia-400">FAILED=1</code>, <code className="text-aquilia-400">USAGE=2</code>, <code className="text-aquilia-400">CONFIG=3</code>, <code className="text-aquilia-400">INTERNAL=4</code>). ERROR and FATAL findings reliably fail CI builds.
+            </p>
+          </div>
+          <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className="font-bold font-mono text-sm text-aquilia-500 mb-2">CliFault Hierarchy</h3>
+            <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Typed exception domain extending <code className="text-aquilia-400">aquilia.faults.Fault</code>. Replaces scattered <code className="text-aquilia-400">sys.exit(1)</code> calls with unit-testable fault exceptions.
+            </p>
+          </div>
+          <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className="font-bold font-mono text-sm text-aquilia-500 mb-2">Health Checks Engine</h3>
+            <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Decorator-based <code className="text-aquilia-400">@register_check</code> protocol yielding structured <code className="text-aquilia-400">Finding</code> objects. Covers core workspace integrity and 13 framework subsystems.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Root Options */}
       <section className={sectionClass}>
         <h2 className={h2Class}>Global CLI Options</h2>

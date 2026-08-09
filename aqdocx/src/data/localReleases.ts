@@ -8888,6 +8888,108 @@ Several significant changes were made to \`pyproject.toml\` to support the new b
 Our Continuous Integration has been expanded with a dedicated Wheel Workflow (\`.github/workflows/wheels.yml\`).
 
 This workflow ensures that every commit to the main branch is validated across all matrix targets. It leverages \`cibuildwheel\` to automatically provision the correct build environments (using manylinux Docker images for Linux), compile the C++ extensions, and run the test suite against the generated wheels before they are uploaded as release artifacts.
+`,
+  },
+  "1.4.0b3": {
+    "README.md": `# Aquilia v1.4.0b3 Release Notes — "Helmsman's Compass"
+
+Aquilia v1.4.0b3 continues the beta cycle for the 1.4 series with a comprehensive overhaul of the **CLI architecture**, introduction of the **Unified Health Checks Engine**, single-source **Exit Code contract**, lazy **\`AqContext\` state thread**, and native C++ **router memory leak resolution**.
+
+## Table of Contents
+
+1. [CLI Architecture Modernization](cli_modernization.md)
+2. [Unified Health Checks Engine](checks_engine.md)
+3. [Native Router Memory Leak Fix](router_memory_leak_fix.md)
+4. [Bug Fixes & Refactorings](bug_fixes.md)
+5. [Migration Guide](migration.md)
+
+---
+
+## Highlights
+
+### 1. Unified Health Checks Engine & Single-Source Exit Codes
+The fragmented \`doctor.py\` and \`validate.py\` implementations are merged into a single health check registry (\`aquilia.cli.checks\`). Every check yields structured \`Finding\` objects with stable error codes (e.g. \`AQ_DB_MISSING\`, \`AQ_ROUTE_CONFLICT\`), severities (\`INFO\`, \`WARN\`, \`ERROR\`, \`FATAL\`), locations, and actionable remedies.
+
+### 2. \`AqContext\` & Python-First Workspace Loading
+Ad-hoc \`ctx.obj\` dictionary manipulation is replaced by \`AqContext\`. Non-workspace commands like \`aq init\` and \`aq --help\` execute instantaneously without workspace import overhead. \`workspace.py\` is executed as Python code, correctly parsing starter routes and module prefixes.
+
+### 3. Subsystem Coverage Expansion
+Introduces config-driven probes across 13 core framework modules (\`tasks\`, \`templates\`, \`storage\`, \`cache\`, \`mail\`, \`i18n\`, \`otel\`, \`sse\`, \`versioning\`, \`http\`, \`auth\`, \`sockets\`, \`contracts\`, \`mlops\`, and \`admin\`).
+
+### 4. Native Router Memory Leak Resolution
+Implemented \`ControllerRouter.clear()\`, \`AquiliaServer.shutdown()\`, and \`ASGIAdapter.shutdown()\` deallocation hooks, eliminating nanobind leak warnings on process termination.
+`,
+    "cli_modernization.md": `# CLI Architecture Modernization — v1.4.0b3
+
+## Overview
+
+Aquilia v1.4.0b3 replaces legacy monolithic CLI scripts with a modular architecture under \`aquilia.cli.core\`.
+
+## Package Layout
+
+\`\`\`
+aquilia/cli/core/
+├── __init__.py        # Re-exports core primitives
+├── exits.py           # ExitCode enum, SEVERITY_ORDER, exit_code_for()
+├── faults.py          # CLI_DOMAIN and CliFault hierarchy
+├── context.py         # AqContext ambient state thread
+├── workspace.py       # LoadedWorkspace, load_workspace(), Python-first loader
+└── registry.py        # CommandSpec, CATEGORY_ORDER, category-driven help grouping
+\`\`\`
+
+## ExitCode Contract
+
+\`\`\`python
+class ExitCode(IntEnum):
+    OK = 0          # All checks passed / findings <= WARN
+    FAILED = 1      # At least one ERROR or FATAL finding
+    USAGE = 2       # Command line argument/invocation error
+    CONFIG = 3      # Workspace or configuration file missing / load failure
+    INTERNAL = 4    # Unhandled CLI exception
+\`\`\`
+`,
+    "checks_engine.md": `# Unified Health Checks Engine — v1.4.0b3
+
+## Overview
+
+Every check yields structured \`Finding\` objects with stable error codes:
+
+\`\`\`python
+@register_check(
+    name="db.reachable",
+    summary="Database configuration is valid and reachable",
+    tags=["db", "deep"],
+    subsystem="db",
+)
+def check_db_reachable(ctx: AqContext):
+    ws = ctx.workspace
+    if ws.workspace_obj.database is None:
+        yield Finding(
+            code="AQ_DB_NOT_CONFIGURED",
+            message="No database integration configured in workspace",
+            severity=Severity.WARN,
+            remedy="Add DatabaseIntegration to workspace.py if persistence is required",
+        )
+\`\`\`
+`,
+    "router_memory_leak_fix.md": `# Native Router Memory Leak Fix — v1.4.0b3
+
+## Solution
+
+\`ControllerRouter.clear()\` releases native nanobind C++ extension handles and resets route tables during server shutdown and test suite teardown.
+`,
+    "bug_fixes.md": `# Bug Fixes & Refactorings — v1.4.0b3
+
+1. **Exit Code 0 Bug Fixed**: \`aq doctor\` and \`aq validate\` now return non-zero exit codes (code 1 or 3) on errors.
+2. **Route Count Mismatch Fixed**: Route inspection counts individual HTTP endpoint methods via \`ControllerCompiler\` instead of controller classes.
+3. **Attribute Probing Fix**: Replaced invalid \`__controller_routes__\` checks with proper compiler invocation.
+4. **Nanobind Memory Leak Fixed**: Implemented cleanup hooks in \`ControllerRouter\`, \`AquiliaServer\`, and \`ASGIAdapter\`.
+`,
+    "migration.md": `# Migration Guide — 1.4.0b1 → 1.4.0b3
+
+1. Update CI scripts to expect exit code \`1\` or \`3\` on validation errors.
+2. Migrate code using removed \`aquilia.cli.parsers\` to \`aquilia.cli.core.workspace\`.
+3. Update test suite fixtures to call \`server.shutdown()\` or \`router.clear()\`.
 `
   },
   "1.4.0b2": {

@@ -309,9 +309,23 @@ if message["type"] == "lifespan.startup":
         self.logger.error("Startup error", exc_info=True)
         # Sanitize exception message to prevent internal details leakage
         await send({"type": "lifespan.startup.failed", "message": "Server startup failed"})
-        raise`}
+        raise
+elif message["type"] == "lifespan.shutdown":
+    try:
+        await self.shutdown()  # v1.4.0b3 clean teardown
+        await send({"type": "lifespan.shutdown.complete"})
+    except Exception as e:
+        self.logger.error(f"Shutdown error: {e}", exc_info=True)
+        await send({"type": "lifespan.shutdown.complete"})`}
           language="python"
         />
+
+        <div className="mt-4 p-4 rounded-xl border bg-aquilia-500/5 border-aquilia-500/20">
+          <h4 className="font-bold text-aquilia-400 text-sm mb-1">v1.4.0b3 ASGIAdapter.shutdown() Protocol</h4>
+          <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            Invoking <code className="text-aquilia-400">await adapter.shutdown()</code> during <code className="text-aquilia-400">lifespan.shutdown</code> calls <code className="text-aquilia-400">await self.server.shutdown()</code> and clears <code className="text-aquilia-400">_cached_middleware_chain</code>, <code className="text-aquilia-400">_default_container</code>, and <code className="text-aquilia-400">_server_runtime</code>, ensuring C++ nanobind Router handles are freed and preventing memory leaks on process exit.
+          </p>
+        </div>
       </section>
 
       {/* Deployment */}

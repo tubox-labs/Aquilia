@@ -36,10 +36,27 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.4.0b3',
+    codename: "Helmsman's Compass",
+    date: 'Aug 09, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: "CLI architecture overhaul (aquilia.cli.core), Unified Health Checks Engine (@register_check), single-source ExitCode contract, AqContext ambient state thread, and native C++ router memory leak resolution on server shutdown.",
+    highlights: ['CLI Core Modernization', 'Unified Health Checks Engine', 'Single-Source Exit Code Contract', 'Native Router Memory Leak Fix'],
+    assets: [
+      { name: 'aquilia-1.4.0b3.tar.gz', size: '2.9 MB', type: 'Source' },
+      { name: 'aquilia-1.4.0b3-py3-none-any.whl', size: '2.4 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.0b3',
+    commitCount: '24',
+    contributors: 2
+  },
+  {
     version: '1.3.8',
     codename: 'Migration Architect',
     date: 'Jul 30, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Complete architectural overhaul of the ORM Migration DSL Generator, post-order topological model dependency graph ordering (_topologically_sort_models), character-split index column normalization (columns=["token"]), strict FK target table name resolution (_resolve_target_table), scalar Enum default serialization (default="active"), and migration revision dependencies tracking metadata.',

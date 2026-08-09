@@ -74,9 +74,35 @@ export function ControllersRouter() {
 
         # Fast-path indexes
         self._static_routes: Dict[str, Dict[str, Tuple]] = {}
-        self._dynamic_routes: Dict[str, List[Tuple]] = {}`}
+        self._dynamic_routes: Dict[str, List[Tuple]] = {}
+        self._native = None  # aquilia._core.Router nanobind handle
+
+    def clear(self) -> None:
+        """Clear all route indices and release native engine resources (v1.4.0b3)."""
+        self.compiled_controllers.clear()
+        self.routes_by_method.clear()
+        self.matcher = PatternMatcher()
+        self._static_routes.clear()
+        self._dynamic_routes.clear()
+        self._tries.clear()
+        self._name_index.clear()
+        self._native_methods.clear()
+        self._native_routes.clear()
+        self._native = None  # Explicitly releases C++ extension reference
+        self._initialized = False`}
           language="python"
         />
+      </section>
+
+      {/* v1.4.0b3 Memory Management */}
+      <section className="space-y-4">
+        <h2 className={`text-2xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-400" />
+          Native Engine Resource Teardown (v1.4.0b3)
+        </h2>
+        <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          When running with native C++ acceleration enabled (<code className="text-aquilia-400">aquilia._core.Router</code>), <code className="text-aquilia-500 font-mono font-bold">router.clear()</code> releases native handles. <code className="text-aquilia-500 font-mono font-bold">AquiliaServer.shutdown()</code> and <code className="text-aquilia-500 font-mono font-bold">ASGIAdapter.shutdown()</code> invoke <code className="text-aquilia-400">clear()</code> automatically during server teardown, ensuring nanobind extension objects are deallocated cleanly without warnings on process exit.
+        </p>
       </section>
 
       {/* ControllerRouteMatch */}
