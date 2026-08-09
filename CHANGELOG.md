@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.4.0b3] — 2026-08-09 — "Helmsman's Compass"
+
+Delivers a complete architecture overhaul of the CLI system (`aquilia.cli.core`), introduces the Unified Health Checks Engine (`aquilia.cli.checks`), enforces a single source of truth for process exit codes (`ExitCode`), and resolves native C++ router nanobind memory leak warnings on server and router shutdown. See [releases/1.4.0b3/](releases/1.4.0b3/README.md) for full documentation.
+
+### Added
+
+#### CLI Core Architecture (`aquilia/cli/core/`)
+
+- **`aquilia.cli.core.exits`** — `ExitCode` (`IntEnum`: `OK = 0`, `FAILED = 1`, `USAGE = 2`, `CONFIG = 3`, `INTERNAL = 4`), `SEVERITY_ORDER`, `severity_rank`, `max_severity`, and `exit_code_for()` single source of truth mapping check severities to process return codes.
+- **`aquilia.cli.core.faults`** — `CliFault` domain hierarchy (`WorkspaceNotFoundFault`, `WorkspaceLoadFault`, `ModuleNotFoundFault`, `CheckFailedFault`) extending `aquilia.faults.Fault`. Replaces ~150 scattered `sys.exit(1)` calls with structured, unit-testable CLI exceptions.
+- **`aquilia.cli.core.context`** — `AqContext` dataclass (`cwd`, `verbose`, `quiet`, `json_output`, `no_color`, `strict`, `module_filter`, `mode`, `workspace`, `require_workspace()`). Provides thread-safe, lazily resolved ambient CLI state replacing `ctx.obj` dictionary access and competing workspace guards.
+- **`aquilia.cli.core.workspace`** — `LoadedWorkspace`, `load_workspace()`, `load_manifest()`, `load_module_file()`, `ensure_importable()`. Imports `workspace.py` as a Python module, inspects starter controllers (`.starter("name")`), and reads module `route_prefix` definitions with automatic regex fallback for broken user code.
+- **`aquilia.cli.core.registry`** — `CommandSpec`, `CATEGORY_ORDER`, `register()`, `category_of()`, `registered_categories()`, `uncategorised()`. Single source of truth for command category assignment in `aq --help`, eliminating help category drift.
+
+#### Unified Health Checks Engine (`aquilia/cli/checks/`)
+
+- **`aquilia.cli.checks.base`** — `Finding`, `Check`, `CheckResult`, `@register_check(name, summary, tags, subsystem, requires_workspace)` decorator, `all_checks()`, `checks_for()`, and `run_checks()`.
+- **`aquilia.cli.checks.report`** — Standardized output renderers: `render_human()` with actionable remedies, `render_json()` for CI pipelines, `summarise()`, and `result_exit_code()`.
+- **`aquilia.cli.checks.subsystems`** — Config-driven health probes across 13 core framework subsystems: `tasks`, `templates`, `storage`, `cache`, `mail`, `i18n`, `otel`, `sse`, `versioning`, `http`, `auth`, `sockets`, `contracts`, `mlops`, and `admin`. Probes stay silent when a subsystem is unused.
+- **`aquilia.cli.checks.workspace`** — Core workspace health checks for Python interpreter version (`MIN_PYTHON = (3, 10)`), workspace presence, module dir alignment, manifest loadability, component reference resolution (`module.path:ClassName`), route extraction, route path/method conflict detection, DI provider resolution, and database reachability.
+
+#### Route Introspection Engine (`aquilia/cli/introspect/`)
+
+- **`aquilia.cli.introspect.routes`** — `RouteInfo`, `ControllerRoutes`, `extract_routes()`, `collect_routes()`, and `count_routes()`. Uses `ControllerCompiler` matching runtime server compilation, resolving starter controllers and module route prefixes.
+
+#### Memory Management (`ControllerRouter.clear()`)
+
+- **`ControllerRouter.clear()`** — Explicitly resets `_native_methods`, `_native_routes`, sets `_native = None`, and resets `_initialized = False`, clearing C++ nanobind Router extension references.
+- **`ASGIAdapter.shutdown()`** — Adds dedicated shutdown method on `ASGIAdapter` to invoke `server.shutdown()` and clear cached middleware chain, container, and runtime references during lifespan shutdown.
+
+### Changed
+
+- **`aq doctor` and `aq validate`** — Refactored to execute via the unified health checks engine (`run_checks()`) and exit with `exit_code_for()` severity calculation.
+- **`aq inspect routes`** — Refactored to compile routes via `ControllerCompiler` (`collect_routes()`), accurately reporting total HTTP endpoints instead of controller class counts.
+- **`AquiliaServer.shutdown()`** — Now invokes `self.controller_router.clear()` to release native C++ nanobind Router instances on server shutdown.
+
+### Fixed
+
+- **Silent Exit Code 0 Bug** — Fixed an issue where `aq doctor` and `aq validate` printed warning/error banners but returned exit code `0` on broken workspaces or missing databases. Now returns exit code `1` (`FAILED`) or `3` (`CONFIG`).
+- **Attribute Inspection Bug** — Fixed `aq inspect routes` probing non-existent attributes (`__controller_routes__`) by compiling controllers through `ControllerCompiler`.
+- **Nanobind Router Leak Warnings** — Fixed nanobind leak warnings on process exit by releasing C++ `_native` router handles during server and ASGI lifespan shutdown.
+- **Docsite TS2657 JSX Build Error** — Fixed JSX single-parent return parse error in `aqdocx/src/pages/docs/middleware/Overview.tsx`.
+
+### Removed
+
+- **`aquilia/cli/discovery_cli.py`** — Removed legacy discovery CLI helper module.
+- **`aquilia/cli/parsers/`** — Removed legacy manifest regex parser modules (`module.py`, `workspace.py`, `__init__.py`).
+
 ## [1.4.0b2] — 2026-08-09 — "Foredeck Watch"
 
 Delivers three major subsystem advances on top of v1.4.0b1: a complete middleware package restructure, a full WebSocket middleware pipeline, and a new `AquilaConfig.Accelerator` configuration layer for native C++ engine control. Resolves five critical middleware correctness bugs, including rate limiting returning 500 instead of 429 and per-user rate limits being silently non-functional. See [releases/1.4.0b2/](releases/1.4.0b2/README.md) for full documentation.
