@@ -33,7 +33,7 @@ protected only by the middleware registered on its own chain. Configure it with
 ``Workspace.socket_middleware(SocketMiddlewareChain...)``.
 
 Algorithms with real drift risk are shared rather than reimplemented: the socket
-rate limiter uses the same token bucket as the HTTP one (:mod:`aquilia._ratelimit`).
+rate limiter uses the same token bucket as the HTTP one (:mod:`aquilia.middleware.utils.throttling`).
 The *pipeline* stays separate, because the signatures and lifecycles genuinely
 differ and a shared generic would fit neither.
 """

@@ -50,11 +50,18 @@ from aquilia.lifecycle import LifecycleCoordinator
 from aquilia.mail.config import MailConfig
 from aquilia.mail.di_providers import register_mail_providers
 from aquilia.mail.service import MailService, set_mail_service
-from aquilia.middleware import ExceptionMiddleware, Middleware, MiddlewareStack, RequestIdMiddleware
-from aquilia.middleware_ext.effect_middleware import _DeferredEffectRegistry
-from aquilia.middleware_ext.rate_limit import RateLimitMiddleware, RateLimitRule, ip_key_extractor, user_key_extractor
-from aquilia.middleware_ext.security import CORSMiddleware as EnhancedCORSMiddleware
-from aquilia.middleware_ext.security import (
+from aquilia.middleware.builtin.compression import CompressionMiddleware  # noqa: F401
+from aquilia.middleware.builtin.effects import _DeferredEffectRegistry
+from aquilia.middleware.builtin.exceptions import ExceptionMiddleware
+from aquilia.middleware.builtin.rate_limit import (
+    RateLimitMiddleware,
+    RateLimitRule,
+    ip_key_extractor,
+    user_key_extractor,
+)
+from aquilia.middleware.builtin.request_id import RequestIdMiddleware
+from aquilia.middleware.builtin.security import CORSMiddleware as EnhancedCORSMiddleware
+from aquilia.middleware.builtin.security import (
     CSPMiddleware,
     CSPPolicy,
     CSRFMiddleware,
@@ -63,9 +70,12 @@ from aquilia.middleware_ext.security import (
     ProxyFixMiddleware,
     SecurityHeadersMiddleware,
 )
-from aquilia.middleware_ext.security import csrf_token_func as _csrf_token_func
-from aquilia.middleware_ext.session_middleware import SessionMiddleware
-from aquilia.middleware_ext.static import StaticMiddleware
+from aquilia.middleware.builtin.security import csrf_token_func as _csrf_token_func
+from aquilia.middleware.builtin.session import SessionMiddleware
+from aquilia.middleware.builtin.static import StaticMiddleware
+from aquilia.middleware.core.base import Middleware
+from aquilia.middleware.core.priority import Priority
+from aquilia.middleware.stack import MiddlewareStack
 from aquilia.models.base import Model, ModelRegistry
 from aquilia.patterns import PatternCompiler, parse_pattern
 from aquilia.sessions import (
@@ -108,8 +118,8 @@ from aquilia.versioning.core import VERSION_NEUTRAL
 # Middleware priorities are ascending = outer = executed first. Auth resolves the
 # identity that identity-based rate-limit rules key on, so those rules must be
 # registered strictly after it. Keep these two in lockstep.
-_AUTH_PRIORITY = 15
-_RATE_LIMIT_IDENTITY_PRIORITY = _AUTH_PRIORITY + 1
+_AUTH_PRIORITY = Priority.AUTH
+_RATE_LIMIT_IDENTITY_PRIORITY = Priority.RATE_LIMIT_IDENTITY
 
 
 class ServerRequestScopeMiddleware(Middleware):
@@ -325,14 +335,14 @@ class AquiliaServer:
         self.middleware_stack.add(
             FaultMiddleware(self.fault_engine),
             scope="global",
-            priority=2,
+            priority=Priority.FAULTS,
             name="faults",
         )
 
         self.middleware_stack.add(
             ServerRequestScopeMiddleware(self.runtime),
             scope="global",
-            priority=5,
+            priority=Priority.REQUEST_SCOPE,
             name="request_scope",
         )
 
@@ -356,13 +366,13 @@ class AquiliaServer:
             self.middleware_stack.add(
                 ExceptionMiddleware(debug=self._is_debug()),
                 scope="global",
-                priority=1,
+                priority=Priority.EXCEPTION,
                 name="exception",
             )
             self.middleware_stack.add(
                 RequestIdMiddleware(),
                 scope="global",
-                priority=10,
+                priority=Priority.REQUEST_ID,
                 name="request_id",
             )
 
@@ -642,7 +652,7 @@ class AquiliaServer:
                     engine=self.template_engine,
                 ),
                 scope="global",
-                priority=25,  # Processed after Auth/Session
+                priority=Priority.TEMPLATES,  # Processed after Auth/Session
                 name="templates",
             )
 
@@ -701,6 +711,17 @@ class AquiliaServer:
 
             return Container(scope="request")
 
+        # Resolve the inspector before the socket stack is built: the socket
+        # stack copies ``middleware_stack.traced`` at construction time, so
+        # deciding this afterwards would leave WebSocket middleware untraced
+        # even with the inspector on.
+        inspector_config, inspector_enabled = self._resolve_inspector()
+        if inspector_enabled:
+            # Attach the tracing instrument so each middleware records a span in
+            # the inspector's swimlane. Off by default: when no trace is active
+            # the instrument costs one lookup per middleware and no timing.
+            self.middleware_stack.traced = True
+
         self.aquila_sockets = AquilaSockets(
             router=self.socket_router,
             adapter=InMemoryAdapter(),
@@ -721,36 +742,18 @@ class AquiliaServer:
 
         # Setup Request Inspector Middleware and listeners if enabled
 
-        if hasattr(self.config, "get_inspector_config"):
-            inspector_dict = self.config.get_inspector_config()
-        else:
-            inspector_dict = self.config.get("inspector", {}) if hasattr(self.config, "get") else {}
-        inspector_config = InspectorConfig.from_dict(inspector_dict)
-        inspector_has_config = False
-        if hasattr(self.config, "has_subsystem"):
-            inspector_has_config = self.config.has_subsystem("inspector")
-
-        if not inspector_has_config:
-            inspector_enabled = False
-        else:
-            inspector_enabled = inspector_config.enabled
-            if inspector_enabled is None:
-                inspector_enabled = self._is_debug()
-            if inspector_config.force_enable_in_prod:
-                inspector_enabled = True
-
         if inspector_enabled:
             self.middleware_stack.add(
                 InspectorMiddleware(inspector_config),
                 scope="global",
-                priority=13,
+                priority=Priority.INSPECTOR,
                 name="inspector",
             )
 
             self.middleware_stack.add(
                 ToolbarInjectionMiddleware(inspector_config),
                 scope="global",
-                priority=14,
+                priority=Priority.INSPECTOR_TOOLBAR,
                 name="inspector_toolbar",
             )
 
@@ -760,6 +763,29 @@ class AquiliaServer:
 
             fault_listener = get_fault_listener(inspector_config)
             self.fault_engine.on_fault(fault_listener)
+
+    def _resolve_inspector(self) -> tuple[InspectorConfig, bool]:
+        """Read the inspector config and decide whether it is enabled.
+
+        Split out of ``_setup_middleware`` so the answer is available before the
+        socket stack is constructed — it snapshots ``traced`` at build time.
+        """
+        if hasattr(self.config, "get_inspector_config"):
+            inspector_dict = self.config.get_inspector_config()
+        else:
+            inspector_dict = self.config.get("inspector", {}) if hasattr(self.config, "get") else {}
+        config = InspectorConfig.from_dict(inspector_dict)
+
+        has_config = self.config.has_subsystem("inspector") if hasattr(self.config, "has_subsystem") else False
+        if not has_config:
+            return config, False
+
+        enabled = config.enabled
+        if enabled is None:
+            enabled = self._is_debug()
+        if config.force_enable_in_prod:
+            enabled = True
+        return config, bool(enabled)
 
     def _setup_socket_middleware(self) -> SocketMiddlewareStack:
         """Build the WebSocket middleware stack from workspace config.
@@ -986,27 +1012,12 @@ class AquiliaServer:
         - self.config["integrations"]["csp"]
         - self.config["integrations"]["rate_limit"]
 
-        Middleware priority layout (ascending priority = outer = runs first).
-        Priorities registered by *this* method are marked ``*``; the others are
-        listed because the security ordering only makes sense relative to them:
-
-            2   FaultMiddleware              (_setup_middleware, always)
-            3 * ProxyFixMiddleware           must precede IP-dependent middleware
-            4 * HTTPSRedirectMiddleware
-            5   ServerRequestScopeMiddleware (_setup_middleware, always)
-            6 * StaticMiddleware             serve files before heavy processing
-            7 * SecurityHeadersMiddleware    (helmet)
-            8 * HSTSMiddleware
-            9 * CSPMiddleware
-            11 * EnhancedCORSMiddleware
-            12 * RateLimitMiddleware         anonymous/IP rules only
-            15  AquilAuthMiddleware / SessionMiddleware  (_AUTH_PRIORITY)
-            16 * RateLimitMiddleware         identity rules; must follow auth
-                                             (_RATE_LIMIT_IDENTITY_PRIORITY)
-            20 * CSRFMiddleware              needs the session from auth (15)
-
-        Keep this list in step with the ``add()`` calls below; the ordering is
-        load-bearing for the security controls, not cosmetic.
+        Ordering is load-bearing for the security controls, not cosmetic:
+        ``ProxyFixMiddleware`` must precede anything IP-dependent, and
+        ``CSRFMiddleware`` must follow the auth middleware whose session it
+        reads. Those constraints live with the values in
+        :class:`aquilia.middleware.core.priority.Priority` — the table that
+        used to be duplicated here went stale every time a call site moved.
         """
         security_config = self.config.get("security", {})
         integrations = self.config.get("integrations", {})
@@ -1023,7 +1034,7 @@ class AquiliaServer:
                 x_host=proxy_cfg.get("x_host", 1),
                 x_port=proxy_cfg.get("x_port", 0),
             )
-            self.middleware_stack.add(mw, scope="global", priority=3, name="proxy_fix")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.PROXY_FIX, name="proxy_fix")
 
         # ── HTTPS Redirect (priority 4) ──────────────────────────────────
         if security_config.get("https_redirect"):
@@ -1035,7 +1046,7 @@ class AquiliaServer:
                 exclude_paths=https_cfg.get("exclude_paths"),
                 exclude_hosts=https_cfg.get("exclude_hosts"),
             )
-            self.middleware_stack.add(mw, scope="global", priority=4, name="https_redirect")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.HTTPS_REDIRECT, name="https_redirect")
 
         # ── Static Files (priority 6) ────────────────────────────────────
         static_config = integrations.get("static_files", {})
@@ -1062,7 +1073,7 @@ class AquiliaServer:
                     html5_history=static_config.get("html5_history", False),
                     extra_directories=module_static_dirs,
                 )
-                self.middleware_stack.add(mw, scope="global", priority=6, name="static_files")
+                self.middleware_stack.add(mw, scope="global", priority=Priority.STATIC, name="static_files")
                 self._static_middleware = mw
 
         # ── Security Headers / Helmet (priority 7) ───────────────────────
@@ -1079,7 +1090,7 @@ class AquiliaServer:
                 content_type_nosniff=helmet_cfg.get("content_type_nosniff", True),
                 remove_server_header=helmet_cfg.get("remove_server_header", True),
             )
-            self.middleware_stack.add(mw, scope="global", priority=7, name="security_headers")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.SECURITY_HEADERS, name="security_headers")
 
         # ── HSTS (priority 8) ────────────────────────────────────────────
         if security_config.get("hsts", False):
@@ -1091,7 +1102,7 @@ class AquiliaServer:
                 include_subdomains=hsts_cfg.get("include_subdomains", True),
                 preload=hsts_cfg.get("preload", False),
             )
-            self.middleware_stack.add(mw, scope="global", priority=8, name="hsts")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.HSTS, name="hsts")
 
         # ── CSP (priority 9) ─────────────────────────────────────────────
         csp_config = security_config.get("csp") or integrations.get("csp", {})
@@ -1107,7 +1118,7 @@ class AquiliaServer:
                 report_only=csp_config.get("report_only", False),
                 nonce=csp_config.get("nonce", True),
             )
-            self.middleware_stack.add(mw, scope="global", priority=9, name="csp")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.CSP, name="csp")
 
         # ── CORS (priority 11) ───────────────────────────────────────────
         cors_config = security_config.get("cors") or integrations.get("cors", {})
@@ -1125,7 +1136,7 @@ class AquiliaServer:
             else:
                 # Simple flag -- use permissive defaults
                 mw = EnhancedCORSMiddleware(allow_origins=["*"])
-            self.middleware_stack.add(mw, scope="global", priority=11, name="cors")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.CORS, name="cors")
 
         # ── CSRF Protection (priority 20) ────────────────────────────────
         # Must run AFTER session/auth middleware (priority 15) so session
@@ -1153,7 +1164,7 @@ class AquiliaServer:
                 rotate_token=csrf_cfg.get("rotate_token", False),
                 failure_status=csrf_cfg.get("failure_status", 403),
             )
-            self.middleware_stack.add(mw, scope="global", priority=20, name="csrf")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.CSRF, name="csrf")
 
             # Wire CSRF token function into TemplateMiddleware if present
             self._csrf_token_func = _csrf_token_func
@@ -1186,7 +1197,7 @@ class AquiliaServer:
             anon_rules = [r for r in rules if not r.requires_identity]
 
             for group, priority, name in (
-                (anon_rules, 12, "rate_limit"),
+                (anon_rules, Priority.RATE_LIMIT_ANON, "rate_limit"),
                 (identity_rules, _RATE_LIMIT_IDENTITY_PRIORITY, "rate_limit_identity"),
             ):
                 if not group:
@@ -1457,7 +1468,7 @@ class AquiliaServer:
             self.middleware_stack.add(
                 mw,
                 scope="global",
-                priority=5,
+                priority=Priority.VERSIONING,
                 name="versioning",
             )
 
@@ -1566,7 +1577,7 @@ class AquiliaServer:
                         cache_authenticated=mw_cfg.get("cache_authenticated", False),
                     ),
                     scope="global",
-                    priority=26,
+                    priority=Priority.CACHE,
                     name="cache",
                 )
 
@@ -1766,7 +1777,7 @@ class AquiliaServer:
             self.middleware_stack.add(
                 I18nMiddleware(svc, resolver),
                 scope="global",
-                priority=24,  # After auth/session (15), before templates (25)
+                priority=Priority.I18N,  # After auth/session (15), before templates (25)
                 name="i18n",
             )
 
@@ -3341,7 +3352,7 @@ class AquiliaServer:
 
         # No static middleware exists -- install a minimal one
         try:
-            from aquilia.middleware_ext.static import StaticMiddleware
+            from aquilia.middleware.builtin.static import StaticMiddleware
 
             mw = StaticMiddleware(
                 directories={"/static": str(assets_dir)},
@@ -3351,7 +3362,7 @@ class AquiliaServer:
                 brotli=False,
                 memory_cache=False,
             )
-            self.middleware_stack.add(mw, scope="global", priority=6, name="static_files")
+            self.middleware_stack.add(mw, scope="global", priority=Priority.STATIC, name="static_files")
             self._static_middleware = mw
         except ImportError:
             pass

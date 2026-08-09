@@ -20,10 +20,10 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any
 
-from aquilia._middleware_base import Middleware
 from aquilia.faults.core import Escalate, Fault, FaultContext, FaultResult, Resolved, Severity
 from aquilia.faults.domains import FlowCancelledFault, SystemFault
 from aquilia.faults.handlers import FaultHandler, ScopedHandlerRegistry
+from aquilia.middleware.core.base import Middleware
 
 # Context variable for current request/app scope
 _current_app: ContextVar[str | None] = ContextVar("current_app", default=None)

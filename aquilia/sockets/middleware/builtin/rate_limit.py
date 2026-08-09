@@ -1,6 +1,6 @@
 """SocketRateLimitMiddleware — inbound message rate limiting.
 
-Uses the same token bucket as HTTP rate limiting (:mod:`aquilia._ratelimit`), so
+Uses the same token bucket as HTTP rate limiting (:mod:`aquilia.middleware.utils.throttling`), so
 the two transports cannot drift in enforcement behaviour. Buckets live in a
 shared expiry-aware store and are released explicitly on disconnect.
 
@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from aquilia._ratelimit import BucketStore, TokenBucket
+from aquilia.middleware.utils.throttling import BucketStore, TokenBucket
 from aquilia.sockets.middleware.base import SocketMiddleware
 from aquilia.sockets.middleware.types import MessageHandler
 

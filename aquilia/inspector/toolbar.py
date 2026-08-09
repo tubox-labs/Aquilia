@@ -7,7 +7,7 @@ from aquilia.controller.base import RequestCtx
 from aquilia.inspector.config import InspectorConfig
 from aquilia.inspector.middleware import _is_stream_content
 from aquilia.inspector.trace import current_trace
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 from aquilia.request import Request
 from aquilia.response import Response
 from aquilia.typing.middleware import RequestHandler

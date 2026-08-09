@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from aquilia.faults.domains import ConfigInvalidFault
-from aquilia.middleware_ext.effect_middleware import EffectMiddleware, FlowContextMiddleware
+from aquilia.middleware.builtin.effects import EffectMiddleware, FlowContextMiddleware
 from aquilia.subsystems.base import BaseSubsystem, BootContext
 
 if TYPE_CHECKING:

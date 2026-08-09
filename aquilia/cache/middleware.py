@@ -22,7 +22,7 @@ import os
 import time
 from typing import TYPE_CHECKING, Any
 
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 from aquilia.response import Response
 
 if TYPE_CHECKING:

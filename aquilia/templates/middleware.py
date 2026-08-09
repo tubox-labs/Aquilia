@@ -15,11 +15,11 @@ Injects common variables into template context:
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 
 if TYPE_CHECKING:
     from aquilia.di import RequestCtx
-    from aquilia.middleware import Handler
+    from aquilia.middleware.core.types import Handler
     from aquilia.request import Request
     from aquilia.response import Response
 
