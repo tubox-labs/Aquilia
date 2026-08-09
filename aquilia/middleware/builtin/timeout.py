@@ -106,15 +106,16 @@ class TimeoutMiddleware(Middleware):
 
         try:
             return await asyncio.wait_for(next_handler(request, ctx), timeout=budget)
-        except TimeoutError:
+        # Both names are caught because they are the same object on 3.11+ but
+        # distinct classes on 3.10, where ``asyncio.wait_for`` raises the
+        # asyncio one. ``asyncio.CancelledError`` needs no handler: it derives
+        # from BaseException, so it bypasses this clause and propagates
+        # untouched — a client disconnect or a server shutdown cancels this
+        # task too, and reporting either as a 408 would be a lie. Catching
+        # ``Exception`` instead of these two names would be the bug.
+        except (TimeoutError, asyncio.TimeoutError):
             from aquilia.faults.domains import RequestTimeoutFault
 
             raise RequestTimeoutFault(
                 detail=f"Request exceeded {budget}s timeout",
             ) from None
-        # ``asyncio.CancelledError`` deliberately has no handler here. It
-        # derives from BaseException, so it bypasses this clause and
-        # propagates untouched — which is what we want: a client disconnect
-        # or a server shutdown cancels this task too, and reporting either as
-        # a 408 would be a lie. Catching Exception instead of TimeoutError
-        # would be the bug.
