@@ -192,6 +192,7 @@ workspace = (
                 ['AquilaConfig.I18n', 'default_locale, available_locales, fallback_locale, catalog_dirs, catalog_format', 'Internationalisation settings'],
                 ['AquilaConfig.Signing', 'secret, fallback_secrets, algorithm, salt, session_salt, csrf_salt, activation_salt, cache_salt', 'Cryptographic signing — sessions, CSRF tokens, activation links, cache integrity'],
                 ['AquilaConfig.Render', 'service_name, region, plan, num_instances, image, health_path, auto_deploy, port', 'Render PaaS deployment config — used by aq deploy render'],
+                ['AquilaConfig.Accelerator', 'engine, dataengine', 'Native C++ engine configuration (request router and data/ORM engine)'],
                 ['AquilaConfig.Apps', '(nested per-module classes)', 'Module-specific config namespaces — accessed as config.apps.users.max_items'],
                 ['AquilaConfig.Dotenv', 'file, files, auto_load, override, interpolate, strict', 'Dotenv file loading policy — which files to load and in what order'],
               ].map(([section, fields, purpose], i) => (
@@ -277,6 +278,60 @@ workspace = (
 
     # ── HTTP/1.1 ─────────────────────────────────────────
     h11_max_incomplete_event_size = None  # bytes; None = h11 default (16 KiB)`} />
+      </section>
+
+      {/* Accelerator section */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Cpu className="w-5 h-5 text-aquilia-400" />
+          AquilaConfig.Accelerator — Native C++ engines
+        </h2>
+        <p className={`mb-4 leading-relaxed ${txt}`}>
+          Controls the native C++ engine components. The framework uses a <strong>fail-soft</strong> approach: if the native extension is absent or disabled, it falls back to pure Python automatically.
+          Values are propagated to <code>os.environ</code> so hot-reload worker subprocesses inherit the setting. Pre-existing environment variables (e.g. from CI) are <strong>never</strong> overwritten by <code>workspace.py</code>.
+        </p>
+        
+        <div className={`mb-6 rounded-xl border overflow-hidden ${border}`}>
+          <table className="w-full text-sm">
+            <thead><tr className={thead}>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Field</th>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Env Var</th>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Description</th>
+            </tr></thead>
+            <tbody className={`divide-y ${divider}`}>
+              <tr className={hov}>
+                <td className="px-4 py-2 font-mono text-xs text-aquilia-400">engine</td>
+                <td className="px-4 py-2 font-mono text-xs text-gray-500">AQUILIA_ENGINE</td>
+                <td className={`px-4 py-2 text-xs ${txt}`}>The <em>request</em> engine — C++ router and RequestContext. Active on every HTTP request. Default: <code>True</code>.</td>
+              </tr>
+              <tr className={hov}>
+                <td className="px-4 py-2 font-mono text-xs text-aquilia-400">dataengine</td>
+                <td className="px-4 py-2 font-mono text-xs text-gray-500">AQUILIA_DATAENGINE</td>
+                <td className={`px-4 py-2 text-xs ${txt}`}>The <em>data</em> engine — C++ FieldPlan/TypeCode used by ORM query compiler and Contract hydration. Default: <code>True</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <p className={`mb-3 text-sm font-semibold ${head}`}>Configuration Priority (highest wins)</p>
+        <ol className={`list-decimal list-inside mb-4 text-sm space-y-1 ${txt}`}>
+          <li>CLI flag (<code>aq run --no-engine</code>)</li>
+          <li>Process environment (<code>AQUILIA_ENGINE=0</code> set before launch)</li>
+          <li>workspace.py <DocTerm id="config.aquilaconfig">AquilaConfig.Accelerator</DocTerm> settings</li>
+          <li>Framework default (enabled)</li>
+        </ol>
+
+        <CodeBlock language="python" code={`class BaseEnv(AquilaConfig):
+    class accelerator(AquilaConfig.Accelerator):
+        engine = True      # default
+        dataengine = True  # default
+
+# CI environment forcing pure Python:
+class CIEnv(BaseEnv):
+    env = "ci"
+    class accelerator(BaseEnv.accelerator):
+        engine = Env("AQUILIA_ENGINE", default=False, cast=bool)
+        dataengine = Env("AQUILIA_DATAENGINE", default=False, cast=bool)`} />
       </section>
 
       {/* Env descriptor */}

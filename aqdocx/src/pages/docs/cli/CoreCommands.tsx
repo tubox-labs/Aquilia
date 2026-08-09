@@ -141,11 +141,25 @@ aq compile --watch --output=dist/`}</CodeBlock>
         <p className={pClass}>
           Starts the development server. By default, it auto-detects ports from <code className="text-aquilia-500 font-mono">workspace.py</code>, enabling hot reloading.
         </p>
-        <CodeBlock language="bash" filename="Terminal" highlightLines={[2, 5]}>{`# Start server on local defaults
+        <CodeBlock language="bash" filename="Terminal" highlightLines={[2, 5, 8, 9, 10, 11]}>{`# Start server on local defaults
 aq run
 
 # Bind custom host/port and disable pre-flight checks
-aq run --port=8080 --host=0.0.0.0 --skip-checks`}</CodeBlock>
+aq run --port=8080 --host=0.0.0.0 --skip-checks
+
+# Native C++ engine toggles (fail-soft fallback to pure-Python)
+aq run                      # uses workspace.py accelerator config
+aq run --no-engine          # disable C++ router, use pure-Python
+aq run --no-dataengine      # disable C++ ORM compiler, use pure-Python
+aq run --no-engine --no-dataengine  # full pure-Python mode`}</CodeBlock>
+
+        <p className={`mb-2 mt-4 text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Configuration Priority for Engine Flags (highest wins):</p>
+        <ol className={`list-decimal list-inside mb-4 text-sm space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <li>CLI flag (e.g., <code>aq run --no-engine</code>)</li>
+          <li>Process environment (e.g., <code>AQUILIA_ENGINE=0</code>)</li>
+          <li><code>workspace.py</code> <code>AquilaConfig.Accelerator</code> settings</li>
+          <li>Framework default (enabled)</li>
+        </ol>
 
         <h3 className={h3Class}>Options</h3>
         <div className="overflow-x-auto py-2 mb-6">
@@ -162,7 +176,9 @@ aq run --port=8080 --host=0.0.0.0 --skip-checks`}</CodeBlock>
                 ['--port', 'Custom port to run on.'],
                 ['--host', 'Custom network host to bind to.'],
                 ['--reload / --no-reload', 'Enable or disable watchfiles hot-reloading.'],
-                ['--skip-checks', 'Skips validation pre-checks to accelerate start times.']
+                ['--skip-checks', 'Skips validation pre-checks to accelerate start times.'],
+                ['--engine / --no-engine', 'Enable or disable C++ request engine (AQUILIA_ENGINE).'],
+                ['--dataengine / --no-dataengine', 'Enable or disable C++ data engine (AQUILIA_DATAENGINE).']
               ].map(([opt, desc], i) => (
                 <tr key={i} className="hover:bg-aquilia-500/5 transition-colors">
                   <td className="px-4 py-2 font-mono text-xs text-aquilia-500 font-semibold">{opt}</td>

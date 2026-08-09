@@ -452,6 +452,47 @@ workspace = (
 )`} />
       </section>
 
+      {/* .socket_middleware() */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Zap className="w-5 h-5 text-aquilia-400" />
+          .socket_middleware()
+        </h2>
+        <p className={`mb-4 ${txt}`}>
+          Configures raw socket-level middlewares before HTTP/WebSocket parsing even occurs. Used for extreme low-level connection tuning, typically for production edge nodes.
+        </p>
+        <CodeBlock language="python" code={`from aquilia import Workspace
+from aquilia.middleware import SocketMiddlewareChain
+
+workspace = (
+    Workspace("myapp")
+    .socket_middleware(
+        SocketMiddlewareChain.production()
+    )
+)`} />
+      </section>
+
+      {/* Accelerator note */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Zap className="w-5 h-5 text-aquilia-400" />
+          Native C++ Accelerator
+        </h2>
+        <p className={`mb-4 ${txt}`}>
+          The workspace supports configuring the native C++ engine extensions through a special <DocTerm id="config.aquilaconfig">AquilaConfig.Accelerator</DocTerm> class.
+          This controls the request routing engine (<code>engine</code>) and the ORM data engine (<code>dataengine</code>).
+        </p>
+        <CodeBlock language="python" code={`class BaseEnv(AquilaConfig):
+    class accelerator(AquilaConfig.Accelerator):
+        engine = True      # Enabled by default
+        dataengine = True  # Enabled by default
+
+workspace = (
+    Workspace("myapp")
+    .env_config(BaseEnv)
+)`} />
+      </section>
+
       {/* Full production workspace */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
