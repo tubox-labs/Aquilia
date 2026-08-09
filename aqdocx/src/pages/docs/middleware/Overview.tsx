@@ -22,7 +22,7 @@ const MIDDLEWARE_DATA: MiddlewareItem[] = [
   {
     id: 'exception',
     name: 'Exception Guard',
-    fullName: 'aquilia.middleware.ExceptionMiddleware',
+    fullName: 'aquilia.middleware.builtin.exceptions.ExceptionMiddleware',
     priority: 1,
     type: 'infra',
     description: 'Intercepts uncaught exceptions. Generates styled Atlas debug pages for HTML requests in development, returns sanitised JSON errors in production, and maps standard Python exceptions to corresponding status codes (e.g. PermissionError to 403).',
@@ -92,22 +92,22 @@ const MIDDLEWARE_DATA: MiddlewareItem[] = [
   {
     id: 'cors',
     name: 'CORS Evaluator',
-    fullName: 'aquilia.middleware_ext.security.CORSMiddleware',
+    fullName: 'aquilia.middleware.builtin.security.CORSMiddleware',
     priority: 11,
     type: 'security',
     description: 'Implements Cross-Origin Resource Sharing (CORS). Intercepts OPTIONS preflight requests, validates access origins/methods/credentials, and returns 204 responses immediately to short-circuit the request.',
     isAlwaysOn: false,
-    codeSnippet: '# Add to middleware stack in workspace.py\nMiddlewareChain()\n.use(\n    "aquilia.middleware_ext.CORSMiddleware",\n    priority=11,\n    allow_origins=["*"]\n)'
+    codeSnippet: '# Add to middleware stack in workspace.py\nMiddlewareChain()\n.use(\n    "aquilia.middleware.builtin.security.CORSMiddleware",\n    priority=11,\n    allow_origins=["*"]\n)'
   },
   {
     id: 'ratelimit',
     name: 'Rate Limiter',
-    fullName: 'aquilia.middleware_ext.RateLimitMiddleware',
+    fullName: 'aquilia.middleware.builtin.rate_limit.RateLimitMiddleware',
     priority: 12,
     type: 'security',
     description: 'Enforces request frequency limits per IP or client identity using a sliding window algorithm backed by memory or Redis. Short-circuits with a 429 Too Many Requests response on limit breaches.',
     isAlwaysOn: false,
-    codeSnippet: '# Add rate limiting with configs\nMiddlewareChain()\n.use(\n    "aquilia.middleware_ext.RateLimitMiddleware",\n    priority=12,\n    default_limit=100,\n    default_window=60.0\n)'
+    codeSnippet: '# Add rate limiting with configs\nMiddlewareChain()\n.use(\n    "aquilia.middleware.builtin.rate_limit.RateLimitMiddleware",\n    priority=12,\n    default_limit=100,\n    default_window=60.0\n)'
   },
   {
     id: 'session',
@@ -129,10 +129,41 @@ const MIDDLEWARE_DATA: MiddlewareItem[] = [
     isAlwaysOn: false,
     codeSnippet: '# Enable auth integration (requires sessions)\nworkspace.integrate(\n    Integration.auth(guard="jwt")\n)'
   },
+
+  {
+    id: 'inspector',
+    name: 'Inspector',
+    fullName: 'aquilia.inspector.middleware.InspectorMiddleware',
+    priority: 13,
+    type: 'core',
+    description: 'Collects metrics and traces for the Aquilia Inspector.',
+    isAlwaysOn: false,
+    codeSnippet: '# Auto-registered when inspector is enabled'
+  },
+  {
+    id: 'inspector_toolbar',
+    name: 'Inspector Toolbar',
+    fullName: 'aquilia.inspector.middleware.ToolbarInjectionMiddleware',
+    priority: 14,
+    type: 'core',
+    description: 'Injects the visual debug toolbar into HTML responses.',
+    isAlwaysOn: false,
+    codeSnippet: '# Auto-registered when inspector is enabled'
+  },
+  {
+    id: 'ratelimit_identity',
+    name: 'Rate Limiter (Identity)',
+    fullName: 'aquilia.middleware.builtin.rate_limit.RateLimitMiddleware',
+    priority: 16,
+    type: 'security',
+    description: 'Enforces identity-based rate limits after the user has been authenticated.',
+    isAlwaysOn: false,
+    codeSnippet: '# Add identity rate limiting rules'
+  },
   {
     id: 'csrf',
     name: 'CSRF Shield',
-    fullName: 'aquilia.middleware_ext.CSRFMiddleware',
+    fullName: 'aquilia.middleware.builtin.security.csrf.CSRFMiddleware',
     priority: 20,
     type: 'security',
     description: 'Protects state-modifying requests (POST, PUT, DELETE, PATCH) by validating double-submit CSRF cookie tokens, blocking unauthorized requests with a 403 Forbidden response.',
@@ -142,7 +173,7 @@ const MIDDLEWARE_DATA: MiddlewareItem[] = [
   {
     id: 'template',
     name: 'Template Contextualizer',
-    fullName: 'aquilia.middleware_ext.TemplateMiddleware',
+    fullName: 'aquilia.middleware.builtin.TemplateMiddleware',
     priority: 25,
     type: 'core',
     description: 'Injects template rendering functions and contextual variables (like active session, CSRF token, and user identity) into the RequestCtx for seamless frontend rendering.',
@@ -150,14 +181,34 @@ const MIDDLEWARE_DATA: MiddlewareItem[] = [
     codeSnippet: '# Configure templates integration\nworkspace.integrate(\n    Integration.templates(directory="templates/")\n)'
   },
   {
+    id: 'compression',
+    name: 'Compression Middleware',
+    fullName: 'aquilia.middleware.builtin.compression.CompressionMiddleware',
+    priority: 15,
+    type: 'protocol',
+    description: 'Compresses outgoing responses using gzip or brotli based on client Accept-Encoding headers.',
+    isAlwaysOn: false,
+    codeSnippet: '# Included in .production() preset\nMiddlewareChain.production()'
+  },
+  {
+    id: 'timeout',
+    name: 'Timeout Guard',
+    fullName: 'aquilia.middleware.builtin.timeout.TimeoutMiddleware',
+    priority: 18,
+    type: 'infra',
+    description: 'Enforces a strict execution time limit on requests. Cancels internal asyncio tasks and returns a 504 Gateway Timeout if the limit is exceeded.',
+    isAlwaysOn: false,
+    codeSnippet: '# Included in .production() preset\nMiddlewareChain.production()'
+  },
+  {
     id: 'cache',
     name: 'Response Cache',
-    fullName: 'aquilia.middleware_ext.CacheMiddleware',
+    fullName: 'aquilia.middleware.builtin.CacheMiddleware',
     priority: 26,
     type: 'core',
     description: 'Inspects outgoing response headers for cacheability directives. Caches GET responses in memory or Redis and serves subsequent identical requests immediately, short-circuiting downstream routes.',
     isAlwaysOn: false,
-    codeSnippet: '# Configure caching middleware\nMiddlewareChain()\n.use(\n    "aquilia.middleware_ext.CacheMiddleware",\n    priority=26,\n    default_ttl=300\n)'
+    codeSnippet: '# Configure caching middleware\nMiddlewareChain()\n.use(\n    "aquilia.middleware.builtin.CacheMiddleware",\n    priority=26,\n    default_ttl=300\n)'
   }
 ];
 
@@ -180,12 +231,12 @@ const ARCHITECTURE_DETAILS: Record<string, { title: string; subtitle: string; bo
   sorting: {
     title: "Stack Sorting Engine",
     subtitle: "MiddlewareStack Deterministic Ordering",
-    body: "All registered middleware descriptors are sorted by `(scope_rank, priority)` ascending. Scope ranks are: Global (0), App (1), Controller (2), and Route (3). This ensures critical infrastructure outer-wraps module-level and route-specific handlers."
+    body: "All registered middleware descriptors are sorted by `(scope_rank, priority)` ascending. Scope ranks are: Global (0), App (1), Controller (2), and Route (3). This ensures critical infrastructure outer-wraps module-level and route-specific handlers. It also performs strict priority collision detection via MiddlewareStack.add(), warning or raising MiddlewarePriorityCollisionFault if strict_priorities is True when two middlewares share the same priority in the same scope."
   },
   compilation: {
     title: "Closure Nesting Chain",
     subtitle: "build_handler() / Traced Nesting Closures",
-    body: "The compiler wraps the sorted middlewares in reverse order as nested closures, accepting `next_handler` as a parameter. If OpenTelemetry tracing is enabled (`traced=True`), the stack wraps callables in `_wrap_middleware_traced` to record execution duration using `time.monotonic()`. It strictly validates that every returned value is a Response object."
+    body: "The compiler wraps the sorted middlewares in reverse order as nested closures, accepting `next_handler` as a parameter. It strictly validates that every returned value is a Response object. the sorted middlewares in reverse order as nested closures, accepting `next_handler` as a parameter. If OpenTelemetry tracing is enabled (`traced=True`), the stack wraps callables in `_wrap_middleware_traced` to record execution duration using `time.monotonic()`. It strictly validates that every returned value is a Response object."
   },
   asgi: {
     title: "ASGI Connection Ingress",
@@ -277,7 +328,12 @@ function MiddlewareArchitectureDiagram({ isDark }: { isDark: boolean }) {
   ];
 
   return (
-    <div className="w-full my-12 pb-6 border-b border-zinc-850 font-sans">
+    
+      <div className="mb-12 p-4 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-200 text-sm">
+        <strong className="font-bold text-amber-500">v1.4.0b2 Package Restructure:</strong> The middleware system was modularized from a single file into <code>aquilia/middleware/</code>. <code>aquilia.middleware_ext</code> has been removed. Built-in middlewares are now located in <code>aquilia.middleware.builtin</code>, but can still be imported directly from the top-level <code>aquilia.middleware</code> thanks to lazy exports.
+      </div>
+
+      <div className="w-full my-12 pb-6 border-b border-zinc-850 font-sans">
       {/* Tab Switcher & Title */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
@@ -1199,7 +1255,7 @@ export function MiddlewareOverview() {
           When <code className="text-aquilia-500">AppManifest.auto_discover</code> is <code>True</code> (the default), <code className="text-aquilia-400">RuntimeRegistry.perform_autodiscovery()</code> scans your module's package for any class named <code>*Middleware</code> or subclassing <DocTerm id="middleware.Middleware">Middleware</DocTerm>. For every discovered class whose import path lives <strong>inside your own module package</strong>, it rebuilds a fresh <code>MiddlewareConfig(class_path=...)</code> with default <code>scope="global"</code>, <code>priority=50</code>, no <code>config</code> — discarding any custom <code>scope</code>, <code>priority</code>, or constructor <code>config</code> you had explicitly set for that same class in <code>middleware=[MiddlewareConfig(...)]</code>.
         </p>
         <p className={`mb-4 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          Middleware pointing at classes <strong>outside</strong> your module's package (e.g. built-ins from <code>aquilia.middleware_ext</code>) are left untouched — only local, in-package middleware classes are re-discovered and reset.
+          Middleware pointing at classes <strong>outside</strong> your module's package (e.g. built-ins from <code>aquilia.middleware.builtin</code>) are left untouched — only local, in-package middleware classes are re-discovered and reset.
         </p>
         <CodeBlock language="python" filename="modules/billing/manifest.py" highlightLines={[8]}>{`from aquilia.manifest import AppManifest, MiddlewareConfig
 
@@ -1296,7 +1352,7 @@ workspace = (
         .production()  # ExceptionMiddleware(1) + RequestIdMiddleware(10)
                         # + CompressionMiddleware(15) + TimeoutMiddleware(18)
         .use("modules.auth.middleware:JwtAuthMiddleware", priority=25)
-        .use("aquilia.middleware_ext.RateLimitMiddleware", priority=30,
+        .use("aquilia.middleware.builtin.rate_limit.RateLimitMiddleware", priority=30,
              default_limit=200, default_window=60.0)
     )
 )`}</CodeBlock>

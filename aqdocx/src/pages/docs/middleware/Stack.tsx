@@ -60,31 +60,49 @@ export function MiddlewareStack() {
         </div>
       </section>
 
-      {/* Fast Path Execution */}
+            {/* New Hook-Based API */}
       <section className="mb-16">
-        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Performance Optimizations: Fast Path</h2>
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Middleware Hooks</h2>
         <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          For latency-critical routes, building the full middleware chain adds microsecond overhead. Aquilia resolves this via two methods:
+          The <code>Middleware</code> base class (now located in <code>aquilia.middleware.core.base</code>) provides a rich hook-based API for intercepting requests and managing lifespan:
         </p>
 
-        <div className="border-l border-white/10 pl-6 py-4 my-6 text-sm text-gray-400 space-y-4">
-          <div>
-            <h3 className="font-mono font-bold text-white text-xs uppercase tracking-wider mb-1">build_handler(final_handler)</h3>
-            <p>Compiles the complete chain. Outermost middleware runs first, tracing frames if enabled.</p>
+        <div className="space-y-4 mb-8 text-sm">
+          <div className="border-l-2 border-aquilia-500/30 pl-4">
+            <code className="text-aquilia-400 font-bold">async def handle(self, request, ctx, next_handler)</code>
+            <p className="text-gray-400 mt-1">The primary hook for wrapping the request. Call <code>await next_handler(request, ctx)</code> to continue the chain.</p>
           </div>
-          <div>
-            <h3 className="font-mono font-bold text-white text-xs uppercase tracking-wider mb-1">build_fast_handler(final_handler)</h3>
-            <p>
-              Compiles a minimal chain. Dynamically strips non-essential, purely informational middlewares (specifically <code className="text-aquilia-400">LoggingMiddleware</code> and <code className="text-aquilia-400">TimeoutMiddleware</code>) while preserving security boundaries like <DocTerm id="middleware.CORSMiddleware">CORSMiddleware</DocTerm> and <DocTerm id="middleware.ExceptionMiddleware">ExceptionMiddleware</DocTerm>.
-            </p>
+          <div className="border-l-2 border-aquilia-500/30 pl-4">
+            <code className="text-aquilia-400 font-bold">async def before(self, request, ctx) -&gt; Response | None</code>
+            <p className="text-gray-400 mt-1">Runs before the request is passed to the next handler. Return a Response to short-circuit.</p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/30 pl-4">
+            <code className="text-aquilia-400 font-bold">async def after(self, request, ctx, response) -&gt; Response</code>
+            <p className="text-gray-400 mt-1">Runs after the request returns from the downstream chain. Allows modifying the outgoing response.</p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/30 pl-4">
+            <code className="text-aquilia-400 font-bold">async def should_run(self, request, ctx) -&gt; bool</code>
+            <p className="text-gray-400 mt-1">Opt-in conditional execution. If returns False, the middleware is skipped for this request.</p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/30 pl-4">
+            <code className="text-aquilia-400 font-bold">async def setup(self, app)</code> / <code className="text-aquilia-400 font-bold">async def teardown(self, app)</code>
+            <p className="text-gray-400 mt-1">Lifespan hooks for initializing or cleaning up resources (e.g. database pools) on application startup and shutdown.</p>
           </div>
         </div>
+      </section>
+
+      {/* Priority Collision Detection */}
+      <section className="mb-16">
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Priority Collision Detection</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          When adding middleware via <code>stack.add()</code>, Aquilia will check for priority collisions. If two middlewares share the exact same scope and priority, a warning is emitted. If the app is configured with <code>strict_priorities=True</code>, this will instead raise a <code className="text-aquilia-400">MiddlewarePriorityCollisionFault</code> (from <code>aquilia.middleware.stack.errors</code>).
+        </p>
       </section>
 
       {/* Code Example */}
       <section className="mb-16">
         <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Manipulating the Stack</h2>
-        <CodeBlock language="python" filename="custom_stack.py" highlightLines={[6, 9, 13]}>{`from aquilia.middleware import MiddlewareStack
+        <CodeBlock language="python" filename="custom_stack.py" highlightLines={[6, 9, 13]}>{`from aquilia.middleware.stack.registry import MiddlewareStack
 from my_middlewares import SecurityMiddleware, LoggingMiddleware, Handler
 
 stack = MiddlewareStack()
@@ -97,99 +115,55 @@ stack.add(LoggingMiddleware(), scope="global", priority=90, name="logging")
 handler = stack.build_handler(final_handler=Handler)
 
 # 3. Build fast handler (executes: Security -> Handler; skips Logging)
-fast_handler = stack.build_fast_handler(final_handler=Handler)`}</CodeBlock>
+# build_fast_handler has been removed in v1.4.0b2`}</CodeBlock>
       </section>
 
-      {/* Table of Built-in Middlewares */}
+      {/* Priority Reference Constants */}
       <section className="mb-16">
-        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Priority Reference (from AquiliaServer._setup_middleware)</h2>
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Priority Reference (aquilia.middleware.core.priority.Priority)</h2>
         <p className={`mb-4 leading-relaxed text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           These are the exact priority numbers <code className="text-aquilia-500">AquiliaServer</code> assigns when it wires each built-in middleware — not the fictional numbers you'll find in older docs. Lower number = wraps closer to the outside = runs first on the way in.
         </p>
+        
         <div className="w-full overflow-x-auto">
           <table className="w-full text-sm text-left border-collapse">
             <thead>
               <tr className="border-b border-white/10 text-aquilia-400 font-mono text-xs uppercase tracking-wider">
-                <th className="py-3 px-4">Class</th>
-                <th className="py-3 px-4">Priority</th>
-                <th className="py-3 px-4">Always On?</th>
-                <th className="py-3 px-4">Fast-Path Skippable</th>
+                <th className="py-3 px-4">Priority Constant</th>
+                <th className="py-3 px-4">Value</th>
+                <th className="py-3 px-4">Middleware</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-sans text-gray-400">
-              {[
-                ['FaultMiddleware', '2', 'yes — internal plumbing', 'NO'],
-                ['ProxyFixMiddleware', '3', 'only if configured', 'NO'],
-                ['HTTPSRedirectMiddleware', '4', 'only if configured', 'NO'],
-                ['ServerRequestScopeMiddleware', '5', 'yes — internal plumbing', 'NO'],
-                ['VersionMiddleware', '5', 'only if versioning enabled', 'NO'],
-                ['StaticMiddleware', '6', 'only if configured', 'NO'],
-                ['SecurityHeadersMiddleware', '7', 'only if configured', 'NO'],
-                ['HSTSMiddleware', '8', 'only if configured', 'NO'],
-                ['CSPMiddleware', '9', 'only if configured', 'NO'],
-                ['CORSMiddleware', '11', 'only if configured', 'NO'],
-                ['InspectorMiddleware', '11', 'only if inspector enabled', 'NO'],
-                ['ToolbarInjectionMiddleware', '12', 'only if inspector enabled', 'NO'],
-                ['RateLimitMiddleware', '12', 'only if configured', 'NO'],
-                ['AquilAuthMiddleware / SessionMiddleware', '15', 'only if sessions/auth enabled', 'NO'],
-                ['CSRFMiddleware', '20', 'only if configured', 'NO'],
-                ['I18nMiddleware', '24', 'only if i18n enabled', 'NO'],
-                ['TemplateMiddleware', '25', 'only if templates enabled', 'NO'],
-                ['CacheMiddleware', '26', 'only if cache middleware enabled', 'NO'],
-              ].map(([name, prio, always, skip]) => (
-                <tr key={name} className="hover:bg-white/2 transition-colors">
-                  <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">{name}</td>
-                  <td className="py-3.5 px-4 font-mono text-xs">{prio}</td>
-                  <td className="py-3.5 px-4 text-xs">{always}</td>
-                  <td className={`py-3.5 px-4 text-xs font-mono ${skip === 'YES' ? 'text-green-500' : 'text-red-500'}`}>{skip}</td>
-                </tr>
-              ))}
-              <tr className="hover:bg-white/2 transition-colors">
-                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
-                  <DocTerm id="middleware.ExceptionMiddleware">ExceptionMiddleware</DocTerm>
-                </td>
-                <td className="py-3.5 px-4 font-mono text-xs">1 <span className="text-gray-600">(hardcoded fallback, or your own chain)</span></td>
-                <td className="py-3.5 px-4 text-xs">only if no <code>.middleware()</code> chain configured</td>
-                <td className="py-3.5 px-4 text-xs font-mono text-red-500">NO</td>
-              </tr>
-              <tr className="hover:bg-white/2 transition-colors">
-                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
-                  <DocTerm id="middleware.RequestIdMiddleware">RequestIdMiddleware</DocTerm>
-                </td>
-                <td className="py-3.5 px-4 font-mono text-xs">10 <span className="text-gray-600">(hardcoded fallback, or your own chain)</span></td>
-                <td className="py-3.5 px-4 text-xs">only if no <code>.middleware()</code> chain configured</td>
-                <td className="py-3.5 px-4 text-xs font-mono text-red-500">NO</td>
-              </tr>
-              <tr className="hover:bg-white/2 transition-colors">
-                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
-                  <DocTerm id="middleware.TimeoutMiddleware">TimeoutMiddleware</DocTerm>
-                </td>
-                <td className="py-3.5 px-4 font-mono text-xs">18 <span className="text-gray-600">(MiddlewareChain.production() preset)</span></td>
-                <td className="py-3.5 px-4 text-xs">only if in your chain</td>
-                <td className="py-3.5 px-4 text-xs font-mono text-green-500">YES</td>
-              </tr>
-              <tr className="hover:bg-white/2 transition-colors">
-                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
-                  <DocTerm id="middleware.CompressionMiddleware">CompressionMiddleware</DocTerm>
-                </td>
-                <td className="py-3.5 px-4 font-mono text-xs">15 <span className="text-gray-600">(MiddlewareChain.production() preset)</span></td>
-                <td className="py-3.5 px-4 text-xs">only if in your chain</td>
-                <td className="py-3.5 px-4 text-xs font-mono text-red-500">NO</td>
-              </tr>
-              <tr className="hover:bg-white/2 transition-colors">
-                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
-                  <DocTerm id="middleware.LoggingMiddleware">LoggingMiddleware</DocTerm>
-                </td>
-                <td className="py-3.5 px-4 font-mono text-xs">your choice — not auto-registered</td>
-                <td className="py-3.5 px-4 text-xs">no — must add explicitly</td>
-                <td className="py-3.5 px-4 text-xs font-mono text-green-500">YES</td>
-              </tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">EXCEPTION</td><td className="py-3.5 px-4 font-mono text-xs">1</td><td className="py-3.5 px-4 text-xs">ExceptionMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">FAULTS</td><td className="py-3.5 px-4 font-mono text-xs">2</td><td className="py-3.5 px-4 text-xs">FaultMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">PROXY_FIX</td><td className="py-3.5 px-4 font-mono text-xs">3</td><td className="py-3.5 px-4 text-xs">ProxyFixMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">HTTPS_REDIRECT</td><td className="py-3.5 px-4 font-mono text-xs">4</td><td className="py-3.5 px-4 text-xs">HTTPSRedirectMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">REQUEST_SCOPE</td><td className="py-3.5 px-4 font-mono text-xs">5</td><td className="py-3.5 px-4 text-xs">ServerRequestScopeMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">VERSIONING</td><td className="py-3.5 px-4 font-mono text-xs">5</td><td className="py-3.5 px-4 text-xs">VersionMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">STATIC</td><td className="py-3.5 px-4 font-mono text-xs">6</td><td className="py-3.5 px-4 text-xs">StaticMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">SECURITY_HEADERS</td><td className="py-3.5 px-4 font-mono text-xs">7</td><td className="py-3.5 px-4 text-xs">SecurityHeadersMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">HSTS</td><td className="py-3.5 px-4 font-mono text-xs">8</td><td className="py-3.5 px-4 text-xs">HSTSMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">CSP</td><td className="py-3.5 px-4 font-mono text-xs">9</td><td className="py-3.5 px-4 text-xs">CSPMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">REQUEST_ID</td><td className="py-3.5 px-4 font-mono text-xs">10</td><td className="py-3.5 px-4 text-xs">RequestIdMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">CORS</td><td className="py-3.5 px-4 font-mono text-xs">11</td><td className="py-3.5 px-4 text-xs">CORSMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">RATE_LIMIT_ANON</td><td className="py-3.5 px-4 font-mono text-xs">12</td><td className="py-3.5 px-4 text-xs">RateLimitMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">INSPECTOR</td><td className="py-3.5 px-4 font-mono text-xs">13</td><td className="py-3.5 px-4 text-xs">InspectorMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">INSPECTOR_TOOLBAR</td><td className="py-3.5 px-4 font-mono text-xs">14</td><td className="py-3.5 px-4 text-xs">ToolbarInjectionMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">AUTH</td><td className="py-3.5 px-4 font-mono text-xs">15</td><td className="py-3.5 px-4 text-xs">AquilAuthMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">RATE_LIMIT_IDENTITY</td><td className="py-3.5 px-4 font-mono text-xs">16</td><td className="py-3.5 px-4 text-xs">RateLimitMiddleware (Identity)</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">CSRF</td><td className="py-3.5 px-4 font-mono text-xs">20</td><td className="py-3.5 px-4 text-xs">CSRFMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">I18N</td><td className="py-3.5 px-4 font-mono text-xs">24</td><td className="py-3.5 px-4 text-xs">I18nMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">TEMPLATES</td><td className="py-3.5 px-4 font-mono text-xs">25</td><td className="py-3.5 px-4 text-xs">TemplateMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">CACHE</td><td className="py-3.5 px-4 font-mono text-xs">26</td><td className="py-3.5 px-4 text-xs">CacheMiddleware</td></tr>
+              <tr className="hover:bg-white/2 transition-colors"><td className="py-3.5 px-4 font-mono text-xs">APPLICATION_DEFAULT</td><td className="py-3.5 px-4 font-mono text-xs">50</td><td className="py-3.5 px-4 text-xs">Application User Middlewares</td></tr>
             </tbody>
           </table>
         </div>
         <p className={`mt-4 text-xs leading-relaxed ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-          Source: <code className="text-aquilia-500">aquilia/server.py</code> <code>AquiliaServer._setup_middleware()</code>, plus the individual <code>self.middleware_stack.add(...)</code> calls scattered through session/auth, templates, i18n, cache, and versioning setup. Only <code>build_fast_handler()</code>'s <code>_FAST_SKIP_NAMES</code> frozenset (<code>{'{'}"LoggingMiddleware", "TimeoutMiddleware"{'}'}</code>) is skippable on the fast path — every other middleware always runs, whether the request needs it or not.
+          Source: <code className="text-aquilia-500">aquilia.middleware.core.priority.Priority</code>
         </p>
+
       </section>
 
       {/* Navigation */}

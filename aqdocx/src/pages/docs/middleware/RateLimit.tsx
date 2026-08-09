@@ -44,10 +44,38 @@ export function MiddlewareRateLimit() {
         </div>
       </section>
 
+      
+      {/* v1.4.0b2 Updates */}
+      <section className="mb-16">
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>v1.4.0b2 Updates</h2>
+        <div className="space-y-4 text-sm text-gray-400">
+          <div className="border-l-2 border-green-500/30 pl-4">
+            <span className="font-mono text-xs text-green-400 uppercase font-bold">500 to 429 Bug Fix</span>
+            <p className="mt-1">Fixed a bug where rate limiting would crash with a NameError (returning 500) because the Response class was imported under TYPE_CHECKING only. It now correctly returns a 429 Too Many Requests response.</p>
+          </div>
+          <div className="border-l-2 border-green-500/30 pl-4">
+            <span className="font-mono text-xs text-green-400 uppercase font-bold">Identity-Based Rate Limiting</span>
+            <p className="mt-1">Identity-based rate limiting rules now run at priority 16 (after AUTH at 15), while anonymous IP-based rules still run at priority 12. This ensures user keys are extracted correctly.</p>
+          </div>
+          <div className="border-l-2 border-green-500/30 pl-4">
+            <span className="font-mono text-xs text-green-400 uppercase font-bold">requires_identity field</span>
+            <p className="mt-1"><code>RateLimitRule</code> gained a new <code>requires_identity</code> boolean field. This is automatically detected and set to true when using <code>user_key_extractor</code>.</p>
+          </div>
+          <div className="border-l-2 border-green-500/30 pl-4">
+            <span className="font-mono text-xs text-green-400 uppercase font-bold">Socket Disconnect Cleanup</span>
+            <p className="mt-1"><code>BucketStore</code> gained a <code>discard()</code> method to allow proper cleanup of sliding window and token bucket states on socket disconnects.</p>
+          </div>
+          <div className="border-l-2 border-green-500/30 pl-4">
+            <span className="font-mono text-xs text-green-400 uppercase font-bold">Zero Refill Rate Guard</span>
+            <p className="mt-1"><code>TokenBucket.consume</code> is now guarded against a zero refill rate (limit=0 no longer raises ZeroDivisionError).</p>
+          </div>
+        </div>
+      </section>
+
       {/* Configuration */}
       <section className="mb-16">
         <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Configuration</h2>
-        <CodeBlock language="python" filename="rate_limit.py" highlightLines={[12, 13, 19, 20]}>{`from aquilia.middleware_ext import (
+        <CodeBlock language="python" filename="rate_limit.py" highlightLines={[12, 13, 19, 20]}>{`from aquilia.middleware.builtin import (
     RateLimitMiddleware,
     RateLimitRule,
     ip_key_extractor,
