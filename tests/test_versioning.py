@@ -1659,7 +1659,7 @@ class _DummyMatch:
 class TestASGIPreRoutingVersioning:
     def _build_adapter(self, strategy):
         from aquilia.asgi import ASGIAdapter
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
 
         router = MagicMock()
         engine = MagicMock()
@@ -1887,7 +1887,7 @@ class TestBugA_UnversionedPathRejection:
         from types import SimpleNamespace
 
         from aquilia.asgi import ASGIAdapter
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
 
         router = MagicMock()
         engine = MagicMock()
@@ -1919,7 +1919,7 @@ class TestBugA_UnversionedPathRejection:
         from types import SimpleNamespace
 
         from aquilia.asgi import ASGIAdapter
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
 
         router = MagicMock()
         engine = MagicMock()
@@ -1972,7 +1972,7 @@ class TestBugB_ScopeImmutability:
         from types import SimpleNamespace
 
         from aquilia.asgi import ASGIAdapter
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
 
         router = MagicMock()
         engine = MagicMock()
@@ -2421,7 +2421,7 @@ class TestASGIVersionErrorEarlyReturn:
         from aquilia.asgi import ASGIAdapter
         from aquilia.faults import ResponseMapper
         from aquilia.faults.engine import FaultEngine, FaultMiddleware
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
 
         router = MagicMock()
         engine = MagicMock()
@@ -2516,7 +2516,7 @@ class TestModuleLevelSunsetPolicy:
         from types import SimpleNamespace
 
         from aquilia.asgi import ASGIAdapter
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
         from aquilia.response import Response
         from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
@@ -2833,7 +2833,7 @@ class TestVersioningPerformanceStress:
         from aquilia.controller.compiler import ControllerCompiler
         from aquilia.controller.router import ControllerRouter
         from aquilia.manifest import AppManifest, AppVersioningConfig
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
         # Global config is url-path strategy
@@ -2982,7 +2982,7 @@ class TestVersioningUrlMissingFix:
         from aquilia.asgi import ASGIAdapter
         from aquilia.faults import ResponseMapper
         from aquilia.faults.engine import FaultEngine, FaultMiddleware
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
         strategy = VersionStrategy(

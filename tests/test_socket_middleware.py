@@ -640,7 +640,7 @@ class TestRateLimit:
             SocketRateLimitMiddleware(key_by="nonsense")
 
     def test_shares_the_http_token_bucket(self):
-        from aquilia.middleware_ext.rate_limit import _BucketStore, _TokenBucket
+        from aquilia.middleware.builtin.rate_limit import _BucketStore, _TokenBucket
 
         mw = SocketRateLimitMiddleware()
         assert isinstance(mw._buckets, _BucketStore)

@@ -16,8 +16,9 @@ from __future__ import annotations
 import inspect
 import re
 
-from aquilia.middleware import MiddlewareStack
-from aquilia.middleware_ext.rate_limit import _BucketStore, _TokenBucket
+from aquilia.middleware.builtin.rate_limit import _BucketStore, _TokenBucket
+from aquilia.middleware.core.priority import Priority
+from aquilia.middleware.stack import MiddlewareStack
 from aquilia.server import AquiliaServer
 from aquilia.sockets.middleware import RateLimitMiddleware
 
@@ -43,48 +44,47 @@ def test_module_docstring_no_longer_advertises_fast_handler():
 # ── FIND-07: documented priorities match registered priorities ───────────────
 
 
-def _documented_priorities() -> set[int]:
-    """Priorities listed in the docstring's layout table, whatever its indent."""
-    doc = AquiliaServer._setup_security_middleware.__doc__ or ""
-    found = set()
-    for line in doc.splitlines():
-        match = re.match(r"(\d+)\s", line.strip())
-        if match:
-            found.add(int(match.group(1)))
-    return found
+def _registered_priorities() -> dict[str, str]:
+    """Map ``name=`` to the *expression* registered as its priority.
 
-
-def _registered_priorities() -> dict[str, int]:
+    FIND-07 was a docstring table drifting out of step with the ``add()`` calls
+    below it. That table is gone: priorities now live in
+    ``aquilia.middleware.core.priority.Priority`` and the registrations
+    reference it by name, so there is only one place left to be wrong. These
+    tests police the replacement invariant -- no bare integers here.
+    """
     src = inspect.getsource(AquiliaServer._setup_security_middleware)
-    return {name: int(prio) for prio, name in re.findall(r'priority=(\d+),\s*name="([^"]+)"', src)}
+    return {name: expr for expr, name in re.findall(r'priority=([\w.]+),\s*name="([^"]+)"', src)}
 
 
-def test_registered_priorities_are_all_documented():
-    """Every literal priority the method registers must appear in its docstring."""
+def test_registered_priorities_use_named_constants():
+    """No magic integers: every registration cites a Priority constant."""
     registered = _registered_priorities()
     assert registered, "regex failed to find any middleware registrations"
 
-    documented = _documented_priorities()
-    undocumented = {name: prio for name, prio in registered.items() if prio not in documented}
-    assert not undocumented, f"priorities registered but not documented: {undocumented}"
+    literals = {name: expr for name, expr in registered.items() if expr.isdigit()}
+    assert not literals, f"registered with bare integer priorities: {literals}"
+
+    unknown = {
+        name: expr
+        for name, expr in registered.items()
+        if not hasattr(Priority, expr.removeprefix("Priority."))
+    }
+    assert not unknown, f"registered with unknown Priority constants: {unknown}"
 
 
-def test_csrf_documented_at_its_real_priority():
-    """FIND-07: docstring claimed CSRF ran at 10; it registers at 20."""
-    registered = _registered_priorities()
-    assert registered["csrf"] == 20
-
-    doc = AquiliaServer._setup_security_middleware.__doc__ or ""
-    csrf_lines = [line for line in doc.splitlines() if "CSRF" in line]
-    assert csrf_lines, "CSRF is not mentioned in the priority layout at all"
-    assert all("20" in line for line in csrf_lines), csrf_lines
+def test_csrf_registers_at_its_named_priority():
+    """FIND-07: the docstring claimed CSRF ran at 10; it has always run at 20."""
+    assert _registered_priorities()["csrf"] == "Priority.CSRF"
+    assert Priority.CSRF == 20
 
 
 def test_csrf_runs_after_auth():
     """The ordering CSRF depends on: it needs the session auth establishes."""
     from aquilia.server import _AUTH_PRIORITY
 
-    assert _registered_priorities()["csrf"] > _AUTH_PRIORITY
+    assert Priority.CSRF > Priority.AUTH
+    assert _AUTH_PRIORITY == Priority.AUTH
 
 
 # ── Shared token bucket: zero refill rate must not divide by zero ────────────

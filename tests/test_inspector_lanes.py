@@ -231,7 +231,7 @@ async def test_signals_lane_recorded():
 
 @pytest.mark.asyncio
 async def test_static_lane_recorded():
-    from aquilia.middleware_ext.static import StaticMiddleware
+    from aquilia.middleware.builtin.static import StaticMiddleware
 
     trace = RequestTrace(
         trace_id="req-static",

@@ -11,7 +11,8 @@ import logging
 import pytest
 
 from aquilia.faults.domains import ConfigInvalidFault
-from aquilia.middleware import Middleware, MiddlewareStack
+from aquilia.middleware import Middleware
+from aquilia.middleware.stack import MiddlewareStack
 
 
 class _Noop(Middleware):

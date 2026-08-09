@@ -17,43 +17,49 @@ from unittest.mock import MagicMock
 class TestCSRFMiddlewarePriority:
     """Verify CSRF middleware runs after session/auth middleware."""
 
-    def test_csrf_priority_is_20(self):
-        """CSRF middleware must have priority 20 (after session at 15)."""
-        # Read the server source and verify the priority constant
+    def test_csrf_registers_at_the_named_priority(self):
+        """CSRF must register via ``Priority.CSRF``, which must still be 20.
+
+        Previously this grepped ``server.py`` for the literal ``priority=20``.
+        The registrations now cite named constants, so asserting on the
+        spelling tests the wrong thing — the value is what the ordering
+        depends on.
+        """
         from pathlib import Path
 
-        server_path = Path(__file__).parent.parent / "aquilia" / "server.py"
-        source = server_path.read_text(encoding="utf-8")
+        from aquilia.middleware.core.priority import Priority
 
-        # Find the CSRF middleware registration line
-        lines = source.split("\n")
+        assert Priority.CSRF == 20
+
+        source = (Path(__file__).parent.parent / "aquilia" / "server.py").read_text(encoding="utf-8")
         csrf_lines = [
-            (i, line) for i, line in enumerate(lines) if 'name="csrf"' in line and "middleware_stack.add" in line
+            (i, line)
+            for i, line in enumerate(source.split("\n"))
+            if 'name="csrf"' in line and "middleware_stack.add" in line
         ]
+        assert csrf_lines, "CSRF middleware registration not found"
 
-        assert len(csrf_lines) >= 1, "CSRF middleware registration not found"
-
-        # Verify priority=20 appears in the registration
         for line_num, line in csrf_lines:
-            assert "priority=20" in line, (
-                f"CSRF middleware at line {line_num + 1} should have priority=20, got: {line.strip()}"
+            assert "priority=Priority.CSRF" in line, (
+                f"CSRF middleware at line {line_num + 1} should register with "
+                f"priority=Priority.CSRF, got: {line.strip()}"
             )
 
     def test_csrf_priority_after_session(self):
-        """CSRF priority (20) must be higher than session/auth (15)."""
-        csrf_priority = 20
-        session_auth_priority = 15
-        assert csrf_priority > session_auth_priority, (
-            f"CSRF priority ({csrf_priority}) must be > session/auth priority "
-            f"({session_auth_priority}) so CSRF runs AFTER session is loaded"
+        """CSRF must run after session/auth so the session it reads exists."""
+        from aquilia.middleware.core.priority import Priority
+
+        assert Priority.CSRF > Priority.AUTH, (
+            f"CSRF priority ({Priority.CSRF}) must be > session/auth priority "
+            f"({Priority.AUTH}) so CSRF runs AFTER session is loaded"
         )
 
     def test_csrf_priority_before_i18n(self):
-        """CSRF priority (20) must be lower than i18n (24)."""
-        csrf_priority = 20
-        i18n_priority = 24
-        assert csrf_priority < i18n_priority, (
-            f"CSRF priority ({csrf_priority}) must be < i18n priority ({i18n_priority})"
+        """CSRF must run before i18n."""
+        from aquilia.middleware.core.priority import Priority
+
+        assert Priority.CSRF < Priority.I18N, (
+            f"CSRF priority ({Priority.CSRF}) must be < i18n priority ({Priority.I18N})"
         )
 
 
@@ -160,7 +166,7 @@ class TestMiddlewareStackBuild:
 
     async def test_build_handler_respects_priority_order(self):
         """Middleware chain should execute in ascending priority order."""
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
         from aquilia.request import Request
         from aquilia.response import Response
 
@@ -194,7 +200,7 @@ class TestMiddlewareStackBuild:
 
     async def test_build_handler_groups_by_scope_then_priority(self):
         """Global scope runs before app scope, then by priority within scope."""
-        from aquilia.middleware import MiddlewareStack
+        from aquilia.middleware.stack import MiddlewareStack
         from aquilia.request import Request
         from aquilia.response import Response
 
