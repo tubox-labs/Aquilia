@@ -328,12 +328,7 @@ function MiddlewareArchitectureDiagram({ isDark }: { isDark: boolean }) {
   ];
 
   return (
-    <>
-      <div className="mb-12 p-4 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-200 text-sm">
-        <strong className="font-bold text-amber-500">v1.4.0b2 Package Restructure:</strong> The middleware system was modularized from a single file into <code>aquilia/middleware/</code>. <code>aquilia.middleware_ext</code> has been removed. Built-in middlewares are now located in <code>aquilia.middleware.builtin</code>, but can still be imported directly from the top-level <code>aquilia.middleware</code> thanks to lazy exports.
-      </div>
-
-      <div className="w-full my-12 pb-6 border-b border-zinc-850 font-sans">
+    <div className="w-full my-12 pb-6 border-b border-zinc-850 font-sans">
 
       {/* Tab Switcher & Title */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -1217,6 +1212,11 @@ export function MiddlewareOverview() {
         </p>
       </div>
 
+      {/* v1.4.0b2 package restructure notice */}
+      <div className="mb-8 p-4 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-200 text-sm">
+        <strong className="font-bold text-amber-500">v1.4.0b2 Package Restructure:</strong> The middleware system was modularized from a single file into <code>aquilia/middleware/</code>. <code>aquilia.middleware_ext</code> has been removed. Built-in middlewares are now in <code>aquilia.middleware.builtin</code>, but can still be imported from the top-level <code>aquilia.middleware</code> via lazy re-exports.
+      </div>
+
       {/* Pipeline Diagram */}
       <section className="mb-16">
         <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Middleware Pipeline Flow</h2>
@@ -1479,6 +1479,5 @@ manifest = AppManifest(
 
       <NextSteps />
     </div>
-    </>
   )
 }
