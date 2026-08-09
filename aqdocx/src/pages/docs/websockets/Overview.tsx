@@ -227,6 +227,40 @@ class RoomChatController(SocketController):
         </div>
       </section>
 
+      {/* Middleware Subsystem */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Middleware Subsystem
+        </h2>
+        <div className={`mb-6 p-4 rounded-lg border ${isDark ? 'bg-amber-950/20 border-amber-900/50' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className={`font-bold text-sm ${isDark ? 'text-amber-500' : 'text-amber-700'}`}>Security Parity Warning</h3>
+          </div>
+          <p className={`text-xs leading-relaxed ${isDark ? 'text-amber-200/70' : 'text-amber-900/80'}`}>
+            The WebSocket middleware system is completely separate from HTTP middleware. HTTP middleware configured through <code className="font-mono bg-black/10 px-1 py-0.5 rounded">Workspace.security(...)</code> (such as CORS, rate limiting, CSRF, and HTTP auth) does <strong>NOT</strong> apply to WebSocket messages. A socket surface is protected only by middleware registered on its own <code className="font-mono bg-black/10 px-1 py-0.5 rounded">SocketMiddlewareChain</code>.
+          </p>
+        </div>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          AquilaSockets includes a dedicated middleware subsystem for connection lifecycles and incoming messages. You can configure it fluently in your <code className="text-aquilia-400">workspace.py</code>:
+        </p>
+        <CodeBlock
+          language="python"
+          filename="workspace.py"
+          highlightLines={[2, 6, 7]}
+        >{`from aquilia.workspace import Workspace
+from aquilia.sockets.middleware import SocketMiddlewareChain
+
+workspace = (
+    Workspace("myapp")
+    .socket_middleware(
+        SocketMiddlewareChain.production()
+    )
+)`}</CodeBlock>
+        <p className={`text-sm mt-4 ${textMuted}`}>
+          Learn more about custom hooks, built-in middleware, and priority bands in the <Link to="/docs/websockets/middleware" className="text-aquilia-500 hover:underline">Socket Middleware documentation</Link>.
+        </p>
+      </section>
+
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${borderMuted}`}>
         <Link to="/docs/cache" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
