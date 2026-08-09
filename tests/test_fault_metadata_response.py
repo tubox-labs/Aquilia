@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 
 from aquilia.faults import Fault, FaultDomain, Severity
-from aquilia.middleware import ExceptionMiddleware
+from aquilia.middleware.builtin.exceptions import ExceptionMiddleware
 
 
 class _ValidationFault(Fault):

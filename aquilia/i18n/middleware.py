@@ -57,7 +57,7 @@ from typing import TYPE_CHECKING, Any
 
 from aquilia.i18n.lazy import clear_lazy_context, set_lazy_context
 from aquilia.i18n.locale import negotiate_locale, normalize_locale, parse_locale
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 
 if TYPE_CHECKING:
     from aquilia.i18n.service import I18nService

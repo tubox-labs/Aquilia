@@ -57,7 +57,7 @@ Usage:
         .middleware(
             MiddlewareChain.chain()
             .defaults()
-            .use("aquilia.middleware_ext.EffectMiddleware")
+            .use("aquilia.middleware.builtin.effects.EffectMiddleware")
         )
 
     When added via the string import path the server automatically injects
@@ -85,12 +85,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
     from aquilia.effects import EffectRegistry
-    from aquilia.middleware import Handler
+    from aquilia.middleware.core.types import Handler
     from aquilia.request import Request
     from aquilia.response import Response
 
@@ -535,8 +535,8 @@ class FlowContextMiddleware(Middleware):
             .middleware(
                 MiddlewareChain.chain()
                 .defaults()
-                .use("aquilia.middleware_ext.FlowContextMiddleware")
-                .use("aquilia.middleware_ext.EffectMiddleware")
+                .use("aquilia.middleware.builtin.effects.FlowContextMiddleware")
+                .use("aquilia.middleware.builtin.effects.EffectMiddleware")
             )
 
         ``FlowContextMiddleware`` must come **before** ``EffectMiddleware``
@@ -555,8 +555,8 @@ class FlowContextMiddleware(Middleware):
 
             MiddlewareChain.chain()
             .defaults()                                          # priority 1, 10
-            .use("aquilia.middleware_ext.FlowContextMiddleware", priority=14)
-            .use("aquilia.middleware_ext.EffectMiddleware",      priority=15)
+            .use("aquilia.middleware.builtin.effects.FlowContextMiddleware", priority=14)
+            .use("aquilia.middleware.builtin.effects.EffectMiddleware",      priority=15)
 
         Accessing the FlowContext from a pipeline node::
 

@@ -28,7 +28,8 @@ from aquilia.debug.pages import render_http_error_page, render_welcome_page
 from aquilia.di import Container
 from aquilia.engine import get_engine_metrics
 from aquilia.faults.domains import NotFoundFault, SystemFault
-from aquilia.middleware import Handler, MiddlewareStack
+from aquilia.middleware.core.types import Handler
+from aquilia.middleware.stack import MiddlewareStack
 from aquilia.request import Request
 from aquilia.request import Request as RequestClass
 from aquilia.response import Response

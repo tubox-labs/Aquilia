@@ -32,7 +32,8 @@ from aquilia.auth.manager import AuthManager
 from aquilia.di import Container
 from aquilia.di.providers import ValueProvider
 from aquilia.faults import Fault, FaultDomain, FaultEngine
-from aquilia.middleware import Handler, Middleware
+from aquilia.middleware.core.base import Middleware
+from aquilia.middleware.core.types import Handler
 from aquilia.request import Request
 from aquilia.response import Response
 from aquilia.sessions import Session, SessionEngine

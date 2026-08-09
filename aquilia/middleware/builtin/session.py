@@ -14,8 +14,8 @@ import logging
 from typing import TYPE_CHECKING
 
 from aquilia.di import RequestCtx
-from aquilia.faults.domains import ConfigInvalidFault
-from aquilia.middleware import Handler, Middleware
+from aquilia.middleware.core.base import Middleware
+from aquilia.middleware.core.types import Handler
 
 if TYPE_CHECKING:
     from aquilia.request import Request
@@ -50,15 +50,21 @@ class SessionMiddleware(Middleware):
         >>> app.middleware_stack.add(middleware, priority=15)
     """
 
-    def __init__(self, session_engine: SessionEngine):
+    def __init__(self, session_engine: SessionEngine | None = None):
         """
         Initialize session middleware.
 
         Args:
-            session_engine: SessionEngine instance (app-scoped)
+            session_engine: SessionEngine instance (app-scoped). ``None`` makes
+                sessions opt-in: the middleware becomes a pass-through, which is
+                what the removed ``OptionalSessionMiddleware`` existed to do.
         """
         self.engine = session_engine
         self.logger = logging.getLogger("aquilia.middleware.session")
+
+    async def should_run(self, request: Request, ctx: RequestCtx) -> bool:
+        """Skip session handling entirely when no engine is configured."""
+        return self.engine is not None
 
     async def __call__(
         self,
@@ -143,74 +149,4 @@ class SessionMiddleware(Middleware):
         return response
 
 
-class OptionalSessionMiddleware(Middleware):
-    """
-    Session middleware that gracefully handles missing SessionEngine.
-
-    This variant allows sessions to be optional - if SessionEngine is not
-    configured, requests proceed without session management.
-
-    Use this when sessions are opt-in per app/route.
-    """
-
-    def __init__(self, session_engine: SessionEngine | None = None):
-        """
-        Initialize optional session middleware.
-
-        Args:
-            session_engine: SessionEngine instance or None
-        """
-        self.engine = session_engine
-        self.logger = logging.getLogger("aquilia.middleware.session")
-
-    async def __call__(
-        self,
-        request: Request,
-        ctx: RequestCtx,
-        next_handler: Handler,
-    ) -> Response:
-        """Process request with optional session management."""
-        # If no engine configured, skip session management
-        if self.engine is None:
-            return await next_handler(request, ctx)
-
-        # Delegate to SessionMiddleware logic
-        middleware = SessionMiddleware(self.engine)
-        return await middleware(request, ctx, next_handler)
-
-
-def create_session_middleware(
-    session_engine: SessionEngine | None = None,
-    optional: bool = False,
-) -> SessionMiddleware | OptionalSessionMiddleware:
-    """
-    Factory function to create session middleware.
-
-    Args:
-        session_engine: SessionEngine instance
-        optional: If True, create OptionalSessionMiddleware
-
-    Returns:
-        SessionMiddleware or OptionalSessionMiddleware
-
-    Example:
-        >>> middleware = create_session_middleware(engine)
-        >>> app.middleware_stack.add(middleware, priority=15)
-    """
-    if optional:
-        return OptionalSessionMiddleware(session_engine)
-
-    if session_engine is None:
-        raise ConfigInvalidFault(
-            key="session_middleware.session_engine",
-            reason="session_engine required when optional=False",
-        )
-
-    return SessionMiddleware(session_engine)
-
-
-__all__ = [
-    "SessionMiddleware",
-    "OptionalSessionMiddleware",
-    "create_session_middleware",
-]
+__all__ = ["SessionMiddleware"]

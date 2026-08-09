@@ -50,7 +50,7 @@ def test_contract_validation_error_details_multiple():
 def test_contract_validation_error_json_shape():
     from types import SimpleNamespace
 
-    from aquilia.middleware import ExceptionMiddleware
+    from aquilia.middleware.builtin.exceptions import ExceptionMiddleware
 
     mw = ExceptionMiddleware(debug=True)
 

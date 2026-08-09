@@ -1,9 +1,9 @@
 """Middleware ordering helpers — transport-agnostic leaf module.
 
-Both middleware stacks (HTTP ``MiddlewareStack`` and WebSocket
-``SocketMiddlewareStack``) sort by ``(scope_rank, priority)`` ascending and
-report same-scope priority collisions. The rules are identical and small, so
-they live here rather than being copied into each stack.
+Both middleware stacks (HTTP ``aquilia.middleware.stack.MiddlewareStack`` and
+WebSocket ``SocketMiddlewareStack``) sort by ``(scope_rank, priority)``
+ascending and report same-scope priority collisions. The rules are identical
+and small, so they live here rather than being copied into each stack.
 
 Import nothing from the rest of the framework.
 """
@@ -11,14 +11,20 @@ Import nothing from the rest of the framework.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class _Descriptor(Protocol):
-    """Minimal surface of a middleware descriptor used for collision checks."""
+    """Minimal surface of a middleware descriptor used for collision checks.
+
+    ``scope`` is typed loosely because the two stacks disagree on its runtime
+    type: the socket stack keeps a plain string, the HTTP stack a parsed
+    ``Scope`` value object. Both stringify to the same canonical form, which is
+    what the comparison below relies on.
+    """
 
     name: str
-    scope: str
+    scope: Any
     priority: int
 
 
@@ -43,9 +49,14 @@ def find_collision(
     scope: str,
     priority: int,
 ) -> _Descriptor | None:
-    """Return an already-registered descriptor sharing scope and priority, if any."""
+    """Return an already-registered descriptor sharing scope and priority, if any.
+
+    Scopes are compared in string form so this works for both a raw scope
+    string and a parsed ``Scope``.
+    """
+    target = str(scope)
     for desc in existing:
-        if desc.priority == priority and desc.scope == scope:
+        if desc.priority == priority and str(desc.scope) == target:
             return desc
     return None
 

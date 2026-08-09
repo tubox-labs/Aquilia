@@ -3,7 +3,7 @@
 The token bucket and sliding-window counter here are pure accounting: they know
 about time and counts, nothing about HTTP requests, WebSocket messages, or
 Aquilia's fault system. Both the HTTP rate-limit middleware
-(``aquilia.middleware_ext.rate_limit``) and the WebSocket one
+(:mod:`aquilia.middleware.builtin.rate_limit`) and the WebSocket one
 (``aquilia.sockets.middleware.builtin.rate_limit``) call into these, so the two
 transports cannot drift in enforcement behaviour.
 

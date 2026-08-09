@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from aquilia.di import RequestCtx
-from aquilia.middleware import Middleware, MiddlewareStack
+from aquilia.middleware import Middleware
+from aquilia.middleware.stack import MiddlewareStack
 from aquilia.request import Request
 from aquilia.response import Response
 

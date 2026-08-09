@@ -14,7 +14,7 @@ from aquilia.inspector.trace import (
     _reset_current_trace,
     _set_current_trace,
 )
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 from aquilia.request import Request
 from aquilia.response import Response
 from aquilia.typing.middleware import RequestHandler

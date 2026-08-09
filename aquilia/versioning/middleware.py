@@ -13,7 +13,7 @@ import logging
 from typing import TYPE_CHECKING, cast
 
 from aquilia.debug import render_version_error_page
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 from aquilia.response import Response as Resp
 from aquilia.versioning.errors import (
     InvalidVersionError,

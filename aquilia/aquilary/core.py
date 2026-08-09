@@ -790,7 +790,7 @@ class RuntimeRegistry:
             # 6. Discover Middleware (Recursive)
             try:
                 from aquilia.manifest import MiddlewareConfig
-                from aquilia.middleware import Middleware
+                from aquilia.middleware.core.base import Middleware
 
                 middlewares = scanner.scan_package(
                     base_package,

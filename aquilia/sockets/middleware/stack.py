@@ -14,8 +14,8 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from aquilia._middleware_ordering import collision_message, find_collision, scope_rank
 from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.middleware.utils.ordering import collision_message, find_collision, scope_rank
 from aquilia.sockets.middleware.base import (
     SocketMiddleware,
     implements_connect,

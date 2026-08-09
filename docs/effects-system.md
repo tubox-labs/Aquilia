@@ -73,8 +73,8 @@ app = (
         MiddlewareChain.chain()
         .defaults()
         # FlowContextMiddleware (priority 14) executes before EffectMiddleware (priority 15)
-        .use("aquilia.middleware_ext.FlowContextMiddleware", priority=14)
-        .use("aquilia.middleware_ext.EffectMiddleware", priority=15)
+        .use("aquilia.middleware.builtin.effects.FlowContextMiddleware", priority=14)
+        .use("aquilia.middleware.builtin.effects.EffectMiddleware", priority=15)
     )
 )
 ```

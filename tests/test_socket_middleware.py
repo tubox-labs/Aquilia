@@ -640,7 +640,7 @@ class TestRateLimit:
             SocketRateLimitMiddleware(key_by="nonsense")
 
     def test_shares_the_http_token_bucket(self):
-        from aquilia.middleware_ext.rate_limit import _BucketStore, _TokenBucket
+        from aquilia.middleware.builtin.rate_limit import _BucketStore, _TokenBucket
 
         mw = SocketRateLimitMiddleware()
         assert isinstance(mw._buckets, _BucketStore)
@@ -1126,3 +1126,19 @@ class TestRuntimeIntegration:
 
         assert match is not None
         assert match[2] == {"room": "general"}
+
+    async def test_worker_id_generation_without_os_uname(self, monkeypatch):
+        """Worker ID generation must succeed even on platforms without os.uname (e.g. Windows)."""
+        import os
+        monkeypatch.delattr(os, "uname", raising=False)
+
+        from aquilia.sockets.adapters.redis import RedisAdapter
+        adapter = RedisAdapter()
+        assert adapter.worker_id.endswith(str(os.getpid()))
+
+        runtime = build_runtime(SocketMiddlewareStack())
+        await runtime.initialize()
+        res = await drive(runtime, [frame("ping")])
+        assert len(res) > 0
+
+

@@ -28,7 +28,7 @@ from typing import (
     Any,
 )
 
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx

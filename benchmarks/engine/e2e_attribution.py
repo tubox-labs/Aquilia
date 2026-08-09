@@ -37,7 +37,7 @@ def build_app(n_routes: int = 50):
     from aquilia.controller.factory import ControllerFactory
     from aquilia.controller.router import ControllerRouter
     from aquilia.di import Container
-    from aquilia.middleware import MiddlewareStack
+    from aquilia.middleware.stack import MiddlewareStack
 
     ns = {"prefix": "/api", "tags": ["bench"]}
 

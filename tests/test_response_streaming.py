@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from aquilia.asgi import ASGIAdapter
-from aquilia.middleware import CompressionMiddleware
+from aquilia.middleware.builtin.compression import CompressionMiddleware
 from aquilia.response import Response
 
 

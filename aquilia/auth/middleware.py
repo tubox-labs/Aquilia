@@ -10,7 +10,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from aquilia.middleware import Handler, Middleware
+from aquilia.middleware.core.base import Middleware
+from aquilia.middleware.core.types import Handler
 from aquilia.request import Request
 from aquilia.response import Response
 

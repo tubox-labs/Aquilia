@@ -9,7 +9,7 @@ enabling request-scoped services and proper lifecycle management.
 from collections.abc import Callable
 from typing import Any
 
-from aquilia.middleware import Middleware
+from aquilia.middleware.core.base import Middleware
 
 
 class RequestScopeMiddleware:

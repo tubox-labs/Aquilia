@@ -5,7 +5,7 @@ raised NameError at runtime and no request was ever actually rejected. These
 tests exercise the rejection path directly, for both response formats.
 """
 
-from aquilia.middleware_ext.rate_limit import RateLimitMiddleware, RateLimitRule
+from aquilia.middleware.builtin.rate_limit import RateLimitMiddleware, RateLimitRule
 from aquilia.response import Response
 
 

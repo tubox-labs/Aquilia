@@ -2134,7 +2134,7 @@ class TestIntegrationImports:
     """Test that all new modules are importable."""
 
     def test_effect_middleware_import(self):
-        from aquilia.middleware_ext.effect_middleware import EffectMiddleware, FlowContextMiddleware
+        from aquilia.middleware.builtin.effects import EffectMiddleware, FlowContextMiddleware
 
         assert EffectMiddleware is not None
         assert FlowContextMiddleware is not None
@@ -2144,8 +2144,8 @@ class TestIntegrationImports:
 
         assert EffectSubsystem is not None
 
-    def test_middleware_ext_init_exports(self):
-        from aquilia.middleware_ext import EffectMiddleware
+    def test_middleware_builtin_init_exports(self):
+        from aquilia.middleware.builtin import EffectMiddleware
 
         assert EffectMiddleware is not None
 
