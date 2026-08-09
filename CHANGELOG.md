@@ -4,7 +4,85 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.4.0b2] — 2026-08-09 — "Foredeck Watch"
+
+Delivers three major subsystem advances on top of v1.4.0b1: a complete middleware package restructure, a full WebSocket middleware pipeline, and a new `AquilaConfig.Accelerator` configuration layer for native C++ engine control. Resolves five critical middleware correctness bugs, including rate limiting returning 500 instead of 429 and per-user rate limits being silently non-functional. See [releases/1.4.0b2/](releases/1.4.0b2/README.md) for full documentation.
+
+### Added
+
+#### WebSocket Middleware Subsystem (`aquilia/sockets/middleware/`)
+
+- **`SocketMiddleware`** — Three-hook base class (`on_connect`, `on_message`, `on_disconnect`). A middleware appears only in chains for the hooks it overrides; an `on_message`-only middleware costs nothing at connect time.
+- **`SocketMiddlewareStack`** — Registration, ordering, and chain compilation for WebSocket middleware. Mirrors HTTP `MiddlewareStack` ergonomics: same `(scope_rank, priority)` ascending sort, same collision detection.
+- **`SocketMiddlewareChain`** — Fluent configuration builder with three presets: `minimal()` (fault handling only), `defaults()` (+ message validation), `production()` (+ metrics + rate limiting).
+- **`SocketCtx`** — Per-connection context object with mutable `state` dict.
+- **Seven built-in socket middleware classes**: `SocketFaultMiddleware` (priority 2), `SocketMetricsMiddleware` (priority 6), `MessageValidationMiddleware` (priority 10), `SocketRateLimitMiddleware` (priority 12), `SocketAuthMiddleware`, `SocketPermissionMiddleware`, `SocketLoggingMiddleware`.
+- **Workspace-level socket middleware configuration** via `Workspace.socket_middleware(SocketMiddlewareChain...)`.
+- **`aquilia/sockets/middleware/` package** — `base.py`, `chain.py`, `context.py`, `stack.py`, `types.py`, `builtin/` (7 classes).
+
+#### `AquilaConfig.Accelerator` — Native C++ Engine Configuration
+
+- **`AquilaConfig.Accelerator`** inner class with two fields: `engine: bool = True` (C++ router + RequestContext, `AQUILIA_ENGINE`) and `dataengine: bool = True` (C++ ORM FieldPlan + contracts, `AQUILIA_DATAENGINE`). Both engines are fail-soft; these flags let you prefer the pure-Python path explicitly.
+- **`aq run --engine/--no-engine`** and **`aq run --dataengine/--no-dataengine`** flag pairs. Both `aq run` and `aq dev` gain the flags.
+- **Priority chain (highest wins)**: CLI flag > process environment > `workspace.py` > framework default.
+- **`run_dev_server(engine=, dataengine=)`** — new keyword-only parameters on the programmatic API.
+- **Workspace template** (`aq init workspace`) now includes `accelerator(AquilaConfig.Accelerator)` section with inline comments.
+- **`.env.example`** generator now documents `AQUILIA_ENGINE=1` and `AQUILIA_DATAENGINE=1` with explanatory comments.
+
+#### Middleware Package Restructure (`aquilia/middleware/`)
+
+- **`aquilia/middleware/core/`** — Fault-free leaf zone: `base.py` (`Middleware` base class + hook sentinels), `descriptor.py`, `priority.py` (Priority constants), `types.py`.
+- **`aquilia/middleware/stack/`** — `MiddlewareStack` (`registry.py`), `ChainBuilder` (`builder.py`), fault types (`errors.py`), startup validation (`validation.py`).
+- **`aquilia/middleware/builtin/`** — All framework-owned middleware including `security/` subpackage (`cors.py`, `csp.py`, `csrf.py`, `headers.py`, `hsts.py`, `https_redirect.py`, `proxy_fix.py`) and `compression.py`, `effects.py`, `exceptions.py`, `logging.py`, `rate_limit.py`, `request_id.py`, `request_scope.py`, `session.py`, `static.py`, `timeout.py`.
+- **`aquilia/middleware/instrumentation/`** — `Instrument` protocol, `TracingInstrument`, `MetricsInstrument`.
+- **`aquilia/middleware/utils/`** — `ordering.py` (scope/priority sort shared with socket stack), `throttling.py`, `negotiation.py`, `status.py`.
+- **New `Middleware` base class hooks**: `before(request, ctx)`, `after(request, ctx, response)`, `handle(request, ctx, next_handler)`, `should_run(request, ctx)`, `setup(app)`, `teardown(app)`. Hook resolution is compile-time, not per-request.
+- **Declarative middleware metadata**: `name`, `priority`, `scope`, `tags` class-level attributes used as defaults by `stack.add()`.
+- **`MiddlewarePriorityCollisionFault`** — new fault type raised by `MiddlewareStack(strict_priorities=True)`.
+- **`aquilia/_ratelimit.py`** — Transport-agnostic `TokenBucket`, `SlidingWindowCounter`, `BucketStore` extracted for use by both HTTP and socket rate limiters. `BucketStore.discard(key)` releases buckets immediately (socket disconnect).
+- **`RateLimitRule.requires_identity`** — auto-detected for `user_key_extractor`, overridable for custom extractors.
+
+### Changed
+
+- **`aquilia.middleware` lazy exports** — `aquilia.middleware` resolves all exports via `aquilia.lazy.install_lazy_exports`, eliminating the eager import that caused the circular import.
+- **Inspector priorities changed**: 11 → 13 (`INSPECTOR`) and 12 → 14 (`INSPECTOR_TOOLBAR`) to resolve collisions with CORS (11) and `RATE_LIMIT_ANON` (12).
+- **Rate limit identity rules** now register at priority 16 (after AUTH at 15) instead of 12. IP-only rules remain at 12.
+- **`SocketGuard.check_message` deprecated** — was never called by the runtime. `MessageAuthGuard` and `RateLimitGuard` per-message guards have never executed; use `SocketMiddleware.on_message` instead.
+- **WebSocket close codes for policy rejections** — `WS_AUTH_REQUIRED`, `WS_FORBIDDEN`, `WS_ORIGIN_NOT_ALLOWED` now close with WebSocket code 1008 (policy violation) instead of 1003 (unsupported data).
+- **`aq init workspace`** workspace template includes `accelerator(AquilaConfig.Accelerator)` section in both full and minimal templates.
+
+### Fixed
+
+- **Rate limiting returned 500 instead of 429** — `Response` was imported under `TYPE_CHECKING` only in `middleware_ext/rate_limit.py`; `_rate_limited_response()` raised `NameError` at runtime on every rate-limited request. All keying modes (IP, user, API key) were broken. Fixed by runtime import. Fixes #67.
+- **Per-user rate limiting was a silent no-op** — `RateLimitMiddleware` ran at priority 12 before `AquilAuthMiddleware` at 15; `user_key_extractor` always returned `None` because identity had not been set. Fixed by registering identity-dependent rules at priority 16. Fixes #64.
+- **Middleware circular import crash** — `from aquilia import Middleware` and `from aquilia.middleware import Middleware` raised `ImportError` in any context where `aquilia.middleware` was imported before `aquilia.faults`. Fixed by moving `Middleware` base to a fault-free leaf module. Fixes #63.
+- **Duplicate middleware priorities silently reordered** — `MiddlewareStack.add()` now warns (or raises) on same-scope/same-priority collisions instead of accepting them silently. Closes #65.
+- **WebSocket parameterized routes never matched** — `@Socket("/chat/:room")` only ever matched the literal path `/chat/:room`. Root cause: `PatternMatcher.match()` called without `await`, returning a coroutine instead of a result, which was then swallowed by a bare `except:`. Path params now correctly extracted.
+- **asyncio.TimeoutError not caught on Python 3.10** — `except TimeoutError` does not catch `asyncio.TimeoutError` on Python 3.10 (unified in 3.11). Requests exceeding the timeout returned 500. Both exception classes now caught.
+- **`EncryptedMixin.configure_encryption_key()` crashed when `cryptography` was installed** — `Fernet(key)` raises `ValueError` for non-base64-encoded keys; only `ImportError` was caught. `ValueError`/`TypeError` now caught and fall through to `_StdlibAESGCM`.
+- **WebSocket worker ID generation used Unix-only `os.uname()`** — replaced with cross-platform `platform.node()`.
+- **`TokenBucket.consume()` raised `ZeroDivisionError` for `limit=0` rules** — a zero refill rate is now guarded, reporting a finite retry-after.
+
+### Removed
+
+- **`aquilia/middleware_ext/`** — removed after `builtin/` absorbed all implementations. Top-level `aquilia.middleware` still re-exports all names lazily. Import path migration required (see [releases/1.4.0b2/migration.md](releases/1.4.0b2/migration.md)).
+- **`aquilia/_middleware_base.py`** — superseded by `aquilia/middleware/core/base.py`.
+- **`aquilia/_middleware_ordering.py`** — superseded by `aquilia/middleware/utils/ordering.py`.
+- **`MiddlewareStack.build_fast_handler()`** — removed; no call sites existed in the framework. Use `build_handler()`.
+- **`aquilia/sockets/middleware.py`** (flat module) — replaced by `aquilia/sockets/middleware/` package.
+
+### Documentation
+
+- **New release notes**: [releases/1.4.0b2/](releases/1.4.0b2/README.md) with detailed pages for middleware restructure, WebSocket middleware subsystem, accelerator configuration, bug fixes, and migration guide.
+- **Middleware documentation updated**: Overview, Stack, RateLimit pages updated for new package layout, priority changes, hook-based API, and collision detection.
+- **New SocketMiddleware documentation page** at `/docs/middleware/socket-middleware`.
+- **New WebSocket Middleware page** at `/docs/websockets/middleware`.
+- **`PyConfig.tsx`** updated with `AquilaConfig.Accelerator` section.
+- **`CoreCommands.tsx`** updated with `--engine/--no-engine` and `--dataengine/--no-dataengine` flags.
+- **`Workspace.tsx`** updated with `socket_middleware()` configuration.
+
 ## [1.4.0b1] — 2026-08-07 — "Foredeck Watch"
+
 
 Expands the native engine foundation introduced in v1.4.0b0 with three additional C++ extensions
 (`_json`, `_dataengine`, `_core`), a first-party native JSON engine backed by yyjson, a native
