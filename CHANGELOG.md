@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.4.0b4] — 2026-08-10 — "Resolved Fields"
+
+Fixes a metaclass-level precedence bug in `aquilia.contracts` where `@computed` methods in a parent contract were silently demoted to required `TextFacet` input fields in three scenarios: (1) a subclass redeclaring the same field as a type annotation, (2) a subclass binding an ORM model with a matching column, and (3) a same-class `field: type` annotation co-declared with `@computed`. See [releases/1.4.0b4/](releases/1.4.0b4/README.md) for full documentation.
+
+### Fixed
+
+- **`@computed` facet inheritance corrupted by subclass type annotations** (`aquilia/contracts/annotations.py`): `introspect_annotations()` contained dead code — `isinstance(ns_value, _ComputedMarker)` evaluated to `False` because `ContractMeta.__new__` had already converted every `_ComputedMarker` to a `Computed` facet instance before calling `introspect_annotations`. With `include_explicit_facets=True`, the existing `Facet` guard was also bypassed. Result: a bare annotation (`full_name: str`) on a contract that also had a `@computed def full_name(...)` generated a redundant `TextFacet` in `_annotated_facets`, corrupting contract class state and propagating to all subclasses.
+- **`ann_namespace` building excluded declared `Computed` facets** (`aquilia/contracts/core.py`): The loop building `ann_namespace` for `introspect_annotations()` excluded names already in `declared_facets` — meaning `Computed` facets (converted from `@computed` markers) were never injected into `ann_namespace`. When `introspect_annotations()` then encountered `full_name: str` in annotations, it found `ns_value = UNSET` and generated a redundant `TextFacet`. The fix injects `Computed`-typed declared facets into `ann_namespace` so the `isinstance(ns_value, Facet)` check can catch and skip them. Only `Computed` instances are injected; `NestedContractFacet` entries remain absent to preserve annotation/facet type mismatch detection.
+- **`@computed` facets inherited from parent contracts overwritten by subclass annotations or model bindings** (`aquilia/contracts/core.py`): The facet merge in `ContractMeta.__new__` unconditionally applied `all_facets.update(model_facets)` and `all_facets.update(annotated_facets)` after loading `parent_facets`. Any type annotation (`full_name: str`) or model column (`full_name` in `_fields`) on the child contract overwrote the inherited `Computed` facet, turning it into a required `TextFacet`. The merge now skips `model_facets` and `annotated_facets` entries that would overwrite a parent-inherited `Computed` facet unless the subclass explicitly re-declares the field in its own body.
+- **`_derive_model_facets` docstring** (`aquilia/contracts/core.py`): Added clarifying note that the caller (`ContractMeta.__new__`) is responsible for protecting inherited `Computed` facets during the merge phase.
+
+### Added
+
+- **`tests/test_computed_inheritance_regression.py`** — Four-scenario regression suite: (1) isolated `@computed` on a single contract (working baseline), (2) subclass re-declaring the computed field as a type annotation (previously broken), (3) subclass binding an ORM model with a matching column name (previously broken), (4) same-class type annotation co-declared with `@computed` and propagation to further subclasses (latent bug).
+
+### Improved
+
+- **Computed contract inheritance**: `@computed` methods defined on a base contract now survive all standard subclassing patterns — type annotation re-declarations (for IDE autocompletion), ORM model bindings, and mixin-style base contracts all preserve `Computed` facets correctly.
+- **Contract mixin patterns**: Base contracts and `Mixin` contracts with `@computed` fields can now be used safely as bases for model-bound subclasses.
+
 ## [1.4.0b3] — 2026-08-09 — "Helmsman's Compass"
 
 Introduces `aquilia.vectordb`, a typed vector-database subsystem backed by the embedded elips engine and shipped as an optional extra. Delivers a complete architecture overhaul of the CLI system (`aquilia.cli.core`), introduces the Unified Health Checks Engine (`aquilia.cli.checks`), enforces a single source of truth for process exit codes (`ExitCode`), documents and enforces the subsystem boot contract (`BootContext`, `_timeout`, live `/health` checks), wires the previously dormant admin lifecycle, and resolves native C++ router nanobind memory leak warnings on server and router shutdown. See [releases/1.4.0b3/](releases/1.4.0b3/README.md) for full documentation.
