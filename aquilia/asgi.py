@@ -712,6 +712,10 @@ class ASGIAdapter:
             # Access registry from server reference if available
             registry = getattr(self.server, "health_registry", None) if self.server else None
             if registry is not None:
+                # Refresh any subsystem that registered a live check, so a
+                # dependency that died after boot is not masked by the
+                # boot-time snapshot. No-op when nothing registered a check.
+                await registry.run_checks()
                 health_report = registry.to_dict()
                 body["subsystems"] = health_report.get("subsystems", {})
                 # Degrade overall status if any subsystem is unhealthy

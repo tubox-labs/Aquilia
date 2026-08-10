@@ -20,6 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.health import HealthStatus, SubsystemStatus
 from aquilia.middleware.builtin.effects import EffectMiddleware, FlowContextMiddleware
 from aquilia.subsystems.base import BaseSubsystem, BootContext
 
@@ -245,13 +246,16 @@ class EffectSubsystem(BaseSubsystem):
                 self._logger.warning("Failed to register EffectMiddleware: %s", exc)
 
     def _register_with_di(self, ctx: BootContext) -> None:
-        """Register EffectRegistry with the DI container."""
+        """Register EffectRegistry with every DI container the context exposes."""
         if not self._registry:
             return
 
-        # Try from shared state
-        container = ctx.shared_state.get("container")
-        if container:
+        containers = ctx.di_containers()
+        if not containers:
+            self._logger.debug("No DI container in boot context -- skipping EffectRegistry registration")
+            return
+
+        for container in containers:
             try:
                 self._registry.register_with_container(container)
             except Exception as exc:
@@ -273,10 +277,8 @@ class EffectSubsystem(BaseSubsystem):
         module = importlib.import_module(module_path)
         return getattr(module, func_name)
 
-    async def health_check(self):
+    async def health_check(self) -> HealthStatus:
         """Report effect system health."""
-        from aquilia.subsystems.base import HealthStatus, SubsystemStatus
-
         if not self._initialized or not self._registry:
             return HealthStatus(
                 name=self._name,
@@ -292,7 +294,7 @@ class EffectSubsystem(BaseSubsystem):
                 status=status,
                 latency_ms=self._init_time_ms,
                 message=f"{health.get('provider_count', 0)} providers registered",
-                metadata=health,
+                details=health,
             )
         except Exception as exc:
             return HealthStatus(

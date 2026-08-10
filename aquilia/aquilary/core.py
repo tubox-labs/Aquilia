@@ -78,6 +78,7 @@ class AppContext:
     controllers: list[str] = field(default_factory=list)
     services: list[str] = field(default_factory=list)
     models: list[str] = field(default_factory=list)  # model file paths
+    vector_models: list[str] = field(default_factory=list)  # vectordb model file paths / refs
     middlewares: list[tuple[str, dict]] = field(default_factory=list)
 
     # Dependencies
@@ -245,6 +246,7 @@ class AquilaryRegistry:
                         for s in ctx.services
                     ],
                     "models": ctx.models,
+                    "vector_models": ctx.vector_models,
                     "middlewares": [
                         {
                             "path": (
@@ -444,6 +446,7 @@ class Aquilary:
                 controllers=getattr(manifest, "controllers", []),
                 services=getattr(manifest, "services", []),
                 models=getattr(manifest, "models", []),
+                vector_models=getattr(manifest, "vector_models", []),
                 # Prefer 'middleware' (new format) over 'middlewares' (legacy)
                 middlewares=getattr(manifest, "middleware", None) or getattr(manifest, "middlewares", []),
                 # BUG FIX (audit \u00a73.4): Use same imports-first resolution as Phase 3
@@ -549,6 +552,7 @@ class Aquilary:
                 controllers=app_data["controllers"],
                 services=app_data["services"],
                 models=app_data.get("models", []),
+                vector_models=app_data.get("vector_models", []),
                 middlewares=[(m["path"], m["kwargs"]) for m in app_data["middlewares"]],
                 depends_on=app_data["depends_on"],
             )
@@ -787,6 +791,17 @@ class RuntimeRegistry:
                     exc_info=True,
                 )
 
+            # 5b. Discover Vector Model Files (Filesystem scan)
+            try:
+                self._discover_vector_models(ctx)
+            except Exception as _exc:
+                logger.warning(
+                    "Auto-discovery: vector model scan failed for module '%s': %s",
+                    ctx.name,
+                    _exc,
+                    exc_info=True,
+                )
+
             # 6. Discover Middleware (Recursive)
             try:
                 from aquilia.manifest import MiddlewareConfig
@@ -849,6 +864,7 @@ class RuntimeRegistry:
 
         # Register models in DI containers
         self._register_models()
+        self._register_vector_models()
 
         # Compile routes from manifests
         compiler = RouteCompiler()
@@ -938,6 +954,37 @@ class RuntimeRegistry:
                 py_path = str(py_file)
                 if py_path not in ctx.models:
                     ctx.models.append(py_path)
+
+    def _discover_vector_models(self, ctx) -> None:
+        """
+        Discover vector model files for one module.
+
+        Scanned locations, mirroring :meth:`_discover_models`:
+
+        - ``modules/<app_name>/vector_models.py``
+        - ``modules/<app_name>/vector_models/*.py``
+
+        A separate directory rather than a marker inside ``models/``: importing a
+        vector model imports ``aquilia.vectordb``, and scanning ``models/`` for
+        them would drag the optional ``elips`` dependency into every app that has
+        SQL models. Keeping the paths disjoint keeps that cost opt-in.
+        """
+        workspace_root = self._workspace_root()
+
+        module_dir = workspace_root / "modules" / ctx.name / "vector_models"
+        if module_dir.is_dir():
+            for py_file in module_dir.rglob("*.py"):
+                if py_file.name.startswith("_"):
+                    continue
+                py_path = str(py_file)
+                if py_path not in ctx.vector_models:
+                    ctx.vector_models.append(py_path)
+
+        single = workspace_root / "modules" / ctx.name / "vector_models.py"
+        if single.is_file():
+            py_path = str(single)
+            if py_path not in ctx.vector_models:
+                ctx.vector_models.append(py_path)
 
     def _discover_python_models(self, path: str) -> list:
         """
@@ -1108,6 +1155,137 @@ class RuntimeRegistry:
                     )
 
         self._models_registered = True
+
+    def _register_vector_models(self) -> None:
+        """
+        Import discovered vector models so they self-register.
+
+        Mirrors :meth:`_register_models`, with two differences that follow from
+        ``elips`` being optional:
+
+        * Nothing is imported at all when no module declares a vector model, so
+          an app without them never touches ``aquilia.vectordb``.
+        * A manifest-declared ref that fails to import or resolve is a hard
+          fault. Discovery-scanned files are best-effort — a stray file under
+          ``vector_models/`` should not stop the boot — but an explicit manifest
+          declaration is a promise, and a silently-missing model would surface
+          later as an empty search rather than an error.
+
+        Registration itself happens in ``VectorModelMeta``; importing is enough.
+        """
+        if getattr(self, "_vector_models_registered", False):
+            return
+
+        all_refs: list[str] = []
+        for ctx in self.meta.app_contexts:
+            for ref in getattr(ctx, "vector_models", []) or []:
+                if isinstance(ref, str):
+                    all_refs.append(ref)
+                elif hasattr(ref, "class_path"):
+                    all_refs.append(str(ref.class_path))
+                else:
+                    all_refs.append(str(ref))
+
+        if not all_refs:
+            self._vector_models_registered = True
+            return
+
+        py_paths = [p for p in all_refs if p.endswith(".py")]
+        class_refs = [p for p in all_refs if ":" in p and not p.endswith(".py")]
+
+        from aquilia.faults.domains import ModelRegistrationFault
+
+        for py_path in py_paths:
+            try:
+                self._import_module_file(py_path)
+            except Exception as exc:
+                logger.warning(
+                    "Vector model scan: failed importing '%s': %s",
+                    py_path,
+                    exc,
+                    exc_info=True,
+                )
+
+        if class_refs:
+            import importlib
+
+            from aquilia.vectordb.base import VectorModel
+            from aquilia.vectordb.registry import VectorRegistry
+
+            for class_ref in class_refs:
+                module_path, class_name = class_ref.split(":", 1)
+
+                try:
+                    module = importlib.import_module(module_path)
+                except Exception as exc:
+                    raise ModelRegistrationFault(
+                        model_name=class_name,
+                        reason=(f"Unable to import manifest-declared vector model module '{module_path}': {exc}"),
+                        metadata={"model_ref": class_ref},
+                    ) from exc
+
+                model_cls = getattr(module, class_name, None)
+                if not isinstance(model_cls, type) or not issubclass(model_cls, VectorModel):
+                    raise ModelRegistrationFault(
+                        model_name=class_name,
+                        reason=(f"Manifest vector model ref '{class_ref}' did not resolve to a VectorModel subclass"),
+                        metadata={"model_ref": class_ref},
+                    )
+
+                if VectorRegistry.get(class_name) is None:
+                    raise ModelRegistrationFault(
+                        model_name=class_name,
+                        reason=(
+                            f"Vector model '{class_name}' imported but is not registered. "
+                            f"An abstract model (Meta.abstract = True) cannot be declared in a "
+                            f"manifest. Registered={sorted(VectorRegistry.all_models())}"
+                        ),
+                        metadata={"model_ref": class_ref},
+                    )
+
+        self._vector_models_registered = True
+
+    def _import_module_file(self, path: str) -> Any:
+        """
+        Import a Python file by path, preferring a package-aware dotted import.
+
+        A dotted import is tried first so relative imports inside the module
+        resolve; the file-path fallback covers modules outside the workspace
+        package tree.
+        """
+        import importlib
+        import importlib.util
+        import sys
+        from pathlib import Path
+
+        py_path = Path(path)
+        workspace_root = self._workspace_root()
+
+        try:
+            rel = py_path.relative_to(workspace_root)
+        except ValueError:
+            rel = None
+
+        if rel is not None:
+            parts = list(rel.with_suffix("").parts)
+            if parts and parts[-1] == "__init__":
+                parts = parts[:-1]
+            dotted = ".".join(parts)
+            ws = str(workspace_root)
+            if ws not in sys.path:
+                sys.path.insert(0, ws)
+            try:
+                return importlib.import_module(dotted)
+            except ImportError:
+                pass
+
+        spec = importlib.util.spec_from_file_location(py_path.stem, py_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load module spec from {path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
 
     def _register_services(self):
         """Register services from manifests with DI containers."""

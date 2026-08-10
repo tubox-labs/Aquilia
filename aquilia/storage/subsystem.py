@@ -113,24 +113,36 @@ class StorageSubsystem(BaseSubsystem):
         ctx.shared_state["storage_registry"] = self._registry
 
     def _register_di(self, ctx: BootContext) -> None:
-        """Register StorageRegistry in the DI container."""
+        """Register StorageRegistry in every DI container the context exposes."""
         try:
             from aquilia.di import ValueProvider
             from aquilia.storage.registry import StorageRegistry
 
-            registry_obj = ctx.shared_state.get("_di_registry")
-            if registry_obj and hasattr(registry_obj, "register"):
-                provider = ValueProvider(
-                    value=self._registry,
-                    token=StorageRegistry,
-                    scope="app",
+            containers = ctx.di_containers()
+            if not containers:
+                self._logger.debug("No DI container in boot context -- skipping StorageRegistry registration")
+                return
+
+            for container in containers:
+                container.register(
+                    ValueProvider(
+                        value=self._registry,
+                        token=StorageRegistry,
+                        scope="app",
+                    )
                 )
-                registry_obj.register(provider)
         except Exception as e:
             self._logger.warning("Could not register StorageRegistry with DI: %s", e)
 
     async def _register_health(self, ctx: BootContext) -> None:
-        """Register health checks for all storage backends."""
+        """
+        Publish per-backend health and register a live aggregate check.
+
+        The per-alias entries are a boot-time snapshot. The ``storage`` entry is
+        registered as a *check* rather than a static status, so callers that run
+        ``HealthRegistry.run_checks()`` (the ``/health`` endpoint does) observe a
+        backend that went offline after boot instead of a stale HEALTHY.
+        """
         if not self._registry:
             return
 
@@ -147,6 +159,8 @@ class StorageSubsystem(BaseSubsystem):
                     message=f"Backend '{alias}' {'healthy' if healthy else 'unhealthy'}",
                 ),
             )
+
+        health.register_check(self._name, self.health_check)
 
     async def _do_shutdown(self) -> None:
         """Shutdown all storage backends."""

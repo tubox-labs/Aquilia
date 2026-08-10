@@ -957,6 +957,27 @@ class ConfigLoader:
             },
         )
 
+    def get_vectordb_config(self) -> dict:
+        """
+        Get vector database configuration with defaults.
+
+        Disabled unless the workspace declares it: elips is an optional
+        dependency, so an absent ``vectordb`` block must not make the
+        subsystem try to load the extension.
+        """
+        return self.get_subsystem_config(
+            "vectordb",
+            {
+                "enabled": False,
+                "path": "./.aquilia/vectors",
+                "default": "default",
+                "stores": [],
+                "auto_create": True,
+                "read_only": False,
+                "pool_threads": 4,
+            },
+        )
+
     def get_filesystem_config(self) -> dict:
         """Get filesystem configuration with defaults.
 

@@ -662,6 +662,7 @@ class Workspace:
         self._i18n_config: dict[str, Any] | None = None
         self._tasks_config: dict[str, Any] | None = None
         self._storage_config: dict[str, Any] | None = None
+        self._vectordb_config: dict[str, Any] | None = None
         self._render_config: dict[str, Any] | None = None
         self._inspector_config: dict[str, Any] | None = None
         self._starter: str | None = None
@@ -821,6 +822,9 @@ class Workspace:
             elif integration_type == "storage":
                 self._integrations["storage"] = integration
                 self._storage_config = integration
+            elif integration_type == "vectordb":
+                self._integrations["vectordb"] = integration
+                self._vectordb_config = integration
             elif integration_type == "render":
                 self._integrations["render"] = integration
                 self._render_config = integration
@@ -962,6 +966,55 @@ class Workspace:
         cfg = StorageIntegration(default=default, backends=backends, **kwargs).to_dict()
         self._storage_config = cfg
         self._integrations["storage"] = cfg
+        return self
+
+    def vectordb(
+        self,
+        path: str = "./.aquilia/vectors",
+        stores: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Workspace:
+        """
+        Configure the elips-backed vector database for the workspace.
+
+        Shorthand for ``integrate(VectorDatabaseIntegration(...))``.
+
+        Args:
+            path: Directory prefix. Each store gets a subdirectory under it
+                unless the store declares its own absolute ``path``.
+            stores: ``{alias: config}``. An alias is what
+                ``VectorModel.Meta.store`` names.
+            **kwargs: Forwarded to
+                :class:`~aquilia.integrations.vectordb.VectorDatabaseIntegration`
+                — ``gpu``, ``embedder``, ``pool_threads``, ``read_only``, ...
+
+        Example::
+
+            from aquilia.vectordb import GpuOptions
+
+            workspace = (
+                Workspace("myapp")
+                .vectordb(
+                    path="./.aquilia/vectors",
+                    stores={
+                        "default": {"dimension": 384, "metric": "cosine"},
+                        "images": {"dimension": 512, "index": "hnsw"},
+                    },
+                    gpu=GpuOptions(policy="prefer_gpu"),
+                )
+            )
+
+        Notes:
+            elips is single-writer per directory. Running more than one worker
+            against the same store path makes every worker after the first fail
+            to acquire the lock, which is a startup fault rather than a
+            degradation — see the vectordb deployment docs.
+        """
+        from aquilia.integrations.vectordb import VectorDatabaseIntegration
+
+        cfg = VectorDatabaseIntegration(path=path, stores=stores, **kwargs).to_dict()
+        self._vectordb_config = cfg
+        self._integrations["vectordb"] = cfg
         return self
 
     def security(
@@ -1120,6 +1173,9 @@ class Workspace:
         if self._storage_config:
             config["storage"] = self._storage_config
             config["integrations"]["storage"] = self._storage_config
+        if self._vectordb_config:
+            config["vectordb"] = self._vectordb_config
+            config["integrations"]["vectordb"] = self._vectordb_config
         if self._inspector_config:
             config["inspector"] = self._inspector_config
             if "integrations" not in config:

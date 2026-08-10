@@ -51,7 +51,13 @@ Usage::
 """
 
 from aquilia.tasks.decorators import task
-from aquilia.tasks.engine import MemoryBackend, TaskBackend, TaskManager
+from aquilia.tasks.engine import (
+    MemoryBackend,
+    TaskBackend,
+    TaskManager,
+    get_task_manager,
+    set_task_manager,
+)
 from aquilia.tasks.faults import (
     TASKS_DOMAIN,
     TaskBackendFault,
@@ -71,6 +77,8 @@ from aquilia.tasks.workflow import Signature, Workflow, WorkflowResult, chain, c
 
 __all__ = [
     "TaskManager",
+    "get_task_manager",
+    "set_task_manager",
     "TaskBackend",
     "MemoryBackend",
     "Job",

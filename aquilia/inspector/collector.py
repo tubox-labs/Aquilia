@@ -69,6 +69,12 @@ def get_collector(config: InspectorConfig) -> InspectorCollector:
             enable_query_inspection(True)
         except ImportError:  # pragma: no cover - db layer optional
             pass
+        try:
+            from aquilia.vectordb.engine import enable_vector_inspection
+
+            enable_vector_inspection(True)
+        except ImportError:  # pragma: no cover - elips optional
+            pass
     return _COLLECTOR
 
 
@@ -80,4 +86,10 @@ def reset_global_collector() -> None:
 
         enable_query_inspection(False)
     except ImportError:  # pragma: no cover - db layer optional
+        pass
+    try:
+        from aquilia.vectordb.engine import enable_vector_inspection
+
+        enable_vector_inspection(False)
+    except ImportError:  # pragma: no cover - elips optional
         pass

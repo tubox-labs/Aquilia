@@ -296,6 +296,8 @@ class AquiliaServer:
         # Track startup state
         self._startup_complete = False
         self._startup_lock = None  # Will be created in async context
+        self._admin_subsystems: Any | None = None  # Set at startup when admin is configured
+        self._vectordb: Any | None = None  # VectorDBSubsystem, set at startup when configured
         self._database: Any | None = None
 
         # Create ASGI app with server reference for lifecycle management
@@ -1695,6 +1697,67 @@ class AquiliaServer:
             "storage",
             HealthStatus(name="storage", status=status, message=message),
         )
+
+    async def _setup_vectordb(self) -> None:
+        """
+        Open the configured vector stores by driving :class:`VectorDBSubsystem`.
+
+        Unlike storage, this runs entirely during :meth:`startup`: opening a
+        store rebuilds its index off-thread, so there is no useful synchronous
+        half to split out. The subsystem itself configures ``VectorRegistry``,
+        opens each store, registers ``VectorRegistry`` in DI, and publishes
+        per-store health into ``ctx.health`` -- which is this server's own
+        :attr:`health_registry`, so ``vectordb`` and ``vectordb.<alias>`` land
+        beside the other subsystem entries.
+
+        Failure is fatal when stores are declared. A workspace that names a
+        vector store and boots without it would serve empty search results,
+        which is worse than not starting. ``BaseSubsystem.initialize`` reports
+        failure as an UNHEALTHY status rather than raising, so the status is
+        inspected here and re-raised -- the subsystem raises ``_required`` to
+        ``True`` once it finds stores to open, and that flag is only final
+        *after* ``initialize`` returns.
+
+        No-ops when ``vectordb`` is absent or disabled, so ``elips`` -- an
+        optional extra -- is never imported by a workspace that does not use it.
+
+        Raises:
+            VectorStoreFault: When a declared store could not be opened.
+        """
+        vector_config = self.config.get_vectordb_config()
+        if not vector_config.get("enabled", False):
+            self._vectordb = None
+            return
+
+        from aquilia.subsystems.base import BootContext
+        from aquilia.vectordb.faults import VectorStoreFault
+        from aquilia.vectordb.subsystem import VectorDBSubsystem
+
+        ctx = BootContext(
+            config={"vectordb": vector_config},
+            manifests=[app_ctx.manifest for app_ctx in self.runtime.meta.app_contexts],
+            registry=self.runtime,
+            middleware_stack=getattr(self, "middleware_stack", None),
+            health=self.health_registry,
+            shared_state={"effect_registry": getattr(self, "_effect_registry", None)},
+        )
+
+        subsystem = VectorDBSubsystem()
+        status = await subsystem.initialize(ctx)
+        self._vectordb = subsystem
+        self.runtime._vector_registry = ctx.shared_state.get("vector_registry")
+
+        if status.status is SubsystemStatus.UNHEALTHY and subsystem.required:
+            raise VectorStoreFault(
+                store=", ".join(s.get("alias", "?") for s in vector_config.get("stores") or []) or "vectordb",
+                operation="startup",
+                reason=(
+                    f"vector store startup failed: {status.message}. Stores are declared, so "
+                    f"booting without them would answer every search with an empty result."
+                ),
+            )
+
+        self.health_registry.register(self._vectordb.name, status)
 
     def _setup_filesystem(self):
         """
@@ -4086,6 +4149,22 @@ class AquiliaServer:
                     self.logger.error(f"Mail startup failed: {e}")
                     # Non-fatal -- app can run without mail
 
+            # Step 3.25: Start admin lifecycle (audit log, cache, cleanup tasks).
+            # _wire_admin_integration registers routes; the lifecycle hooks were
+            # never invoked, so admin's audit log and rate-limit cleanup task
+            # never started. Gated on the same config key the wiring reads.
+            admin_config = self.config.get("integrations", {}).get("admin") if hasattr(self.config, "get") else None
+            if admin_config is not None:
+                try:
+                    from aquilia.admin import get_admin_subsystems
+
+                    self._admin_subsystems = get_admin_subsystems()
+                    await self._admin_subsystems.lifecycle.on_startup(self.config, self._get_base_container())
+                except Exception as e:
+                    self._admin_subsystems = None
+                    self.logger.warning(f"Admin lifecycle startup failed: {e}")
+                    # Non-fatal -- admin routes still serve; background upkeep is off
+
             # Step 3.3: Start background task manager
             if hasattr(self, "_task_manager") and self._task_manager is not None:
                 if getattr(self, "_task_auto_start", True):
@@ -4189,6 +4268,12 @@ class AquiliaServer:
                 except Exception as e:
                     self.logger.error(f"Storage startup failed: {e}")
                     # Non-fatal -- app can run without storage
+
+            # Step 3.75: Open vector stores (priority 28 -- after storage, which
+            # may own the path a store lives under; before the database, which
+            # nothing here depends on). Fatal when stores are declared: see
+            # _setup_vectordb.
+            await self._setup_vectordb()
 
             # Step 3.8: Start the filesystem thread pool
             if getattr(self, "_filesystem", None) is not None:
@@ -4307,6 +4392,13 @@ class AquiliaServer:
             except Exception as e:
                 self.logger.warning(f"Error shutting down mail subsystem: {e}")
 
+        # Shutdown admin lifecycle (flush audit log, sweep rate limiter)
+        if getattr(self, "_admin_subsystems", None) is not None:
+            try:
+                await self._admin_subsystems.lifecycle.on_shutdown(self.config, self._get_base_container())
+            except Exception as e:
+                self.logger.warning(f"Error shutting down admin lifecycle: {e}")
+
         # Shutdown background task manager
         if hasattr(self, "_task_manager") and self._task_manager is not None:
             try:
@@ -4320,6 +4412,15 @@ class AquiliaServer:
                 await self._cache_service.shutdown()
             except Exception as e:
                 self.logger.warning(f"Error shutting down cache subsystem: {e}")
+
+        # Shutdown vector stores before storage: a store may live under a
+        # storage-managed path, and closing releases the elips writer lock and
+        # checkpoints pending writes.
+        if getattr(self, "_vectordb", None) is not None:
+            try:
+                await self._vectordb.shutdown()
+            except Exception as e:
+                self.logger.warning(f"Error shutting down vector database: {e}")
 
         # Shutdown storage subsystem
         if hasattr(self, "_storage_registry") and self._storage_registry is not None:

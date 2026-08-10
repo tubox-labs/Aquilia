@@ -331,15 +331,37 @@ class AdminRateLimiter:
         now = time.monotonic()
         if now - self._last_cleanup < self.cleanup_interval:
             return
-        self._last_cleanup = now
+        self._sweep(now)
 
+    def _sweep(self, now: float) -> tuple[int, int]:
+        """Drop stale records unconditionally. Returns (login, sensitive) counts."""
+        self._last_cleanup = now
         cutoff = now - max(self.login_window, self.sensitive_op_window) * 2
+
+        removed = []
         for store in (self._login_records, self._sensitive_records):
             stale_keys = [
                 k for k, v in store.items() if v.lockout_until < now and (not v.attempts or v.attempts[-1] < cutoff)
             ]
             for k in stale_keys:
                 store.pop(k, None)
+            removed.append(len(stale_keys))
+        return removed[0], removed[1]
+
+    def force_cleanup(self) -> tuple[int, int]:
+        """
+        Sweep stale records now, ignoring ``cleanup_interval``.
+
+        Returns:
+            ``(cleaned_login, cleaned_sensitive)`` -- number of records dropped
+            from each store.
+
+        Note:
+            Only records that are past their lockout *and* have no recent
+            attempts are removed, so an active lockout is never cleared.
+            Callers wanting that must use :meth:`clear_login_attempts`.
+        """
+        return self._sweep(time.monotonic())
 
     def _get_login_record(self, key: str) -> _AttemptRecord:
         """Get or create a login attempt record."""

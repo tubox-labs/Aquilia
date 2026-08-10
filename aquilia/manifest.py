@@ -116,6 +116,7 @@ class ComponentKind(str, Enum):
         INTERCEPTOR: Aspect-oriented hook wrapping controller execution.
         EFFECT: Contextual side-effect provider.
         MODEL: Database schema model class.
+        VECTOR_MODEL: Vector collection model class (``aquilia.vectordb``).
         FAULT_HANDLER: Exception translator for specific fault domains.
         SOCKET_CONTROLLER: Realtime WebSocket message controller.
         SERIALIZER: Data serialization/deserialization schema.
@@ -134,6 +135,7 @@ class ComponentKind(str, Enum):
     INTERCEPTOR = "interceptor"
     EFFECT = "effect"
     MODEL = "model"
+    VECTOR_MODEL = "vector_model"
     FAULT_HANDLER = "fault_handler"
     SOCKET_CONTROLLER = "socket_controller"
     SERIALIZER = "serializer"
@@ -1027,6 +1029,10 @@ class AppManifest:
         controllers: List of HTTP controller classes or `ComponentRef` objects.
         socket_controllers: List of WebSocket controller classes or `ComponentRef` objects.
         models: List of model classes or `ComponentRef` objects.
+        vector_models: List of `aquilia.vectordb` model classes or `ComponentRef`
+            objects. Kept separate from `models` because the two are bound to
+            different backends -- a `VectorModel` has no table and never appears
+            in a SQL migration.
         serializers: List of serializer classes or `ComponentRef` objects.
         guards: List of authorization guard class paths or `ComponentRef` objects.
         pipes: List of request data validation pipe class paths or `ComponentRef` objects.
@@ -1094,6 +1100,7 @@ class AppManifest:
     controllers: list[str | ComponentRef] = field(default_factory=list)
     socket_controllers: list[str | ComponentRef] = field(default_factory=list)
     models: list[str | ComponentRef] = field(default_factory=list)
+    vector_models: list[str | ComponentRef] = field(default_factory=list)
     serializers: list[str | ComponentRef] = field(default_factory=list)
 
     # v2: First-class request pipeline components
@@ -1149,7 +1156,15 @@ class AppManifest:
     # v2: Auto-discovery control
     auto_discover: bool = True  # Enable convention-based component scanning
     discover_patterns: list[str] = field(
-        default_factory=lambda: ["controllers", "services", "middleware", "guards", "models", "tasks"]
+        default_factory=lambda: [
+            "controllers",
+            "services",
+            "middleware",
+            "guards",
+            "models",
+            "vector_models",
+            "tasks",
+        ]
     )
 
     # Legacy support (for backward compatibility -- will emit warnings)
@@ -1293,6 +1308,7 @@ class AppManifest:
             "controllers": [_ref_to_str(c) for c in self.controllers],
             "socket_controllers": [_ref_to_str(c) for c in self.socket_controllers],
             "models": [_ref_to_str(m) for m in self.models],
+            "vector_models": [_ref_to_str(m) for m in self.vector_models],
             "serializers": [_ref_to_str(s) for s in self.serializers],
             "services": [s.to_dict() if hasattr(s, "to_dict") else str(s) for s in self.services],
             "middleware": [m.to_dict() if hasattr(m, "to_dict") else str(m) for m in self.middleware],

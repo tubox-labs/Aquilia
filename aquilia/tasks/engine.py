@@ -632,6 +632,41 @@ class MemoryBackend(TaskBackend):
 # ============================================================================
 
 
+_CURRENT_MANAGER: TaskManager | None = None
+
+
+def set_task_manager(manager: TaskManager | None) -> None:
+    """
+    Publish (or clear) the process-wide task manager.
+
+    Called by :meth:`TaskManager.start` and cleared by :meth:`TaskManager.stop`,
+    so the accessor tracks a *running* manager rather than a merely constructed
+    one.  A host that builds its own manager may call this directly.
+
+    Args:
+        manager: Manager to publish, or ``None`` to clear.
+    """
+    global _CURRENT_MANAGER
+    _CURRENT_MANAGER = manager
+
+
+def get_task_manager() -> TaskManager | None:
+    """
+    Return the running process-wide task manager, if any.
+
+    For subsystems that need to enqueue work but hold no reference to the
+    server or a DI container — e.g. vector mirroring in
+    :mod:`aquilia.vectordb.interop`.  Prefer an injected manager where one is
+    reachable; this is the fallback, not the primary path.
+
+    Returns:
+        The manager published by the last :meth:`TaskManager.start`, or
+        ``None`` when no manager is running — callers must handle ``None``
+        rather than assume a queue exists.
+    """
+    return _CURRENT_MANAGER
+
+
 class TaskManager:
     """
     Central task coordinator.
@@ -774,6 +809,10 @@ class TaskManager:
         self._running = True
         self._started_at = datetime.now(timezone.utc)
 
+        # Publish as the process-wide manager so subsystems that cannot reach the
+        # server (or a DI container) can still enqueue. See get_task_manager.
+        set_task_manager(self)
+
         # Bind task manager to all registered task descriptors
         self._bind_task_descriptors()
 
@@ -861,6 +900,9 @@ class TaskManager:
         self._scheduler_task = None
         self._reclaim_task = None
         await self.backend.shutdown()
+
+        if _CURRENT_MANAGER is self:
+            set_task_manager(None)
 
     @property
     def is_running(self) -> bool:

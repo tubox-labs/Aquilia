@@ -24,17 +24,33 @@ __all__ = [
     "check_subsystem_available",
     "check_tasks",
     "check_templates",
+    "check_vectordb_driver",
 ]
 
 
 def _integration(ws, name: str):
-    """Return a declared integration object by attribute name, or None."""
+    """Return a declared integration object by name, or None.
+
+    The workspace's ``_integrations`` dict is authoritative -- it holds exactly
+    what ``Workspace.integrate()`` / the builder methods recorded. Attribute
+    lookup is only a fallback for non-``Workspace`` objects, and it skips
+    callables: ``Workspace`` exposes builder *methods* named ``storage``,
+    ``vectordb``, ``i18n`` and ``tasks``, and returning those would make every
+    workspace look like it declared them.
+    """
     obj = getattr(ws, "workspace_obj", None)
     if obj is None:
         return None
+
+    declared = getattr(obj, "_integrations", None)
+    if isinstance(declared, dict):
+        found = declared.get(name)
+        if found is not None:
+            return found
+
     for attr in (name, f"{name}_integration", f"_{name}"):
         found = getattr(obj, attr, None)
-        if found is not None:
+        if found is not None and not callable(found):
             return found
     return None
 
@@ -148,6 +164,7 @@ _SIMPLE_SUBSYSTEMS = (
     ("sockets", "aquilia.sockets"),
     ("contracts", "aquilia.contracts"),
     ("mlops", "aquilia.mlops"),
+    ("vectordb", "aquilia.vectordb"),
     ("admin", "aquilia.admin"),
 )
 
@@ -182,3 +199,41 @@ def check_subsystem_available(ctx: AqContext) -> Iterator[Finding]:
                 remedy=f"Install the extra providing {package}, or drop the {name} integration",
                 location="workspace.py",
             )
+
+
+@register_check(
+    "vectordb.driver",
+    "Vector database driver is installed",
+    tags=["subsystems", "vectordb"],
+    subsystem="vectordb",
+)
+def check_vectordb_driver(ctx: AqContext) -> Iterator[Finding]:
+    """Confirm ``elips`` is importable when the workspace enables vectordb.
+
+    ``aquilia.vectordb`` always ships in-tree, so the generic package check in
+    :func:`check_subsystem_available` can never fail for it. The dependency
+    that is actually optional is the ``elips`` driver, and a boot with stores
+    declared but no driver raises ``VectorNotInstalledFault``.
+    """
+    ws = ctx.workspace
+    if ws is None:
+        return
+
+    cfg = _integration(ws, "vectordb")
+    if cfg is None:
+        return
+
+    enabled = cfg.get("enabled", False) if isinstance(cfg, dict) else getattr(cfg, "enabled", False)
+    if not enabled:
+        return
+
+    if importlib.util.find_spec("elips") is not None:
+        return
+
+    yield Finding(
+        "AQ_VECTORDB_DRIVER_MISSING",
+        "vectordb is enabled but the 'elips' driver is not installed",
+        Severity.ERROR,
+        remedy="Install the driver with: pip install 'aquilia[vectordb]'",
+        location="workspace.py",
+    )

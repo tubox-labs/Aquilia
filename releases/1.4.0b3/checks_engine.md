@@ -75,11 +75,55 @@ class Finding:
 
 ## 3. Config-Driven Subsystem Checks (`subsystems.py`)
 
-Subsystem checks inspect the integrations declared on `workspace.py` and stay silent when a subsystem is unused. This closes the monitoring gap for 13 subsystems:
+Subsystem checks inspect the integrations declared on `workspace.py` and stay silent when a subsystem is unused:
 
 - **`tasks.registry`**: Validates background task references (`module:task_name`) and confirms functions carry the `@task` decorator.
 - **`templates.dirs`**: Verifies that configured Jinja template search directories exist on disk.
-- **`subsystems.available`**: Confirms that packages for configured integrations (`storage`, `cache`, `mail`, `i18n`, `otel`, `sse`, `versioning`, `http`, `auth`, `sockets`, `contracts`, `mlops`, `admin`) are installed.
+- **`vectordb.driver`**: Confirms `elips` is importable when the workspace declares vector stores.
+- **`subsystems.available`**: Confirms that packages for configured integrations (`storage`, `cache`, `mail`, `i18n`, `otel`, `sse`, `versioning`, `http`, `auth`, `sockets`, `contracts`, `mlops`, `vectordb`, `admin`) are installed.
+
+### The `vectordb.driver` check
+
+`elips` is an optional extra, so a workspace can declare vector stores on an install that cannot open them. Without a check, the first symptom is a `VectorNotInstalledFault` at request time — long after deploy.
+
+```python
+@register_check(
+    name="vectordb.driver",
+    summary="elips driver is installed when vector stores are declared",
+    tags=["vectordb", "quick"],
+    subsystem="vectordb",
+)
+def check_vectordb_driver(ctx: AqContext):
+    ...
+    yield Finding(
+        code="AQ_VECTORDB_DRIVER_MISSING",
+        message="Vector stores are declared but the elips driver is not installed",
+        severity=Severity.ERROR,
+        remedy="pip install 'aquilia[vectordb]' (requires Python 3.11+)",
+    )
+```
+
+The check is `quick`-tagged: it imports nothing beyond an availability probe and never opens a store, so it does not contend with a running server for the writer lock. It stays silent when no vector stores are declared.
+
+### Integration detection fix
+
+`_integration()` previously resolved integrations by attribute lookup (`getattr(workspace_obj, name)`). `Workspace` exposes builder **methods** named `storage`, `vectordb`, `i18n`, `tasks` and `templates`, so `getattr` returned a truthy bound method and every workspace appeared to declare every one of those subsystems — producing findings for integrations that were never configured.
+
+`Workspace._integrations` is now authoritative, since it holds exactly what `integrate()` and the builder methods recorded. Attribute lookup remains as a fallback for non-`Workspace` objects and skips callables:
+
+```python
+declared = getattr(obj, "_integrations", None)
+if isinstance(declared, dict):
+    found = declared.get(name)
+    if found is not None:
+        return found
+
+for attr in (name, f"{name}_integration", f"_{name}"):
+    found = getattr(obj, attr, None)
+    if found is not None and not callable(found):
+        return found
+return None
+```
 
 ---
 
@@ -159,3 +203,12 @@ for controller in routes:
   ]
 }
 ```
+
+---
+
+## Related documentation
+
+- [cli_modernization.md](cli_modernization.md) — `AqContext`, `ExitCode`, `CliFault`
+- [vectordb.md](vectordb.md) — the subsystem behind `vectordb.driver`
+- [vectordb_cli.md](vectordb_cli.md) — `aq vectordb status` for deeper vector diagnostics
+- [bug_fixes.md](bug_fixes.md#11-workspace-integration-detection-reported-phantom-integrations) — the integration detection defect

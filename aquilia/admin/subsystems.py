@@ -430,19 +430,11 @@ class AdminTasks:
             site = AdminSite.default()
             limiter = site.security.rate_limiter
 
-            before_login = len(limiter._login_records)
-            before_sensitive = len(limiter._sensitive_records)
-
-            # Force cleanup by resetting the last_cleanup time
-            limiter._last_cleanup = 0
-            limiter._maybe_cleanup()
-
-            cleaned_login = before_login - len(limiter._login_records)
-            cleaned_sensitive = before_sensitive - len(limiter._sensitive_records)
+            cleaned_login, cleaned_sensitive = limiter.force_cleanup()
 
             return {
-                "cleaned_login": max(0, cleaned_login),
-                "cleaned_sensitive": max(0, cleaned_sensitive),
+                "cleaned_login": cleaned_login,
+                "cleaned_sensitive": cleaned_sensitive,
             }
         except Exception as exc:
             logger.error("Rate limit cleanup failed: %s", exc)

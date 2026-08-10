@@ -14,6 +14,7 @@ class Lane(str, Enum):
     DEPENDENCY = "dependency"
     VALIDATION = "validation"
     DATABASE = "database"
+    VECTOR = "vector"
     EXTERNAL_HTTP = "external_http"
     EFFECT = "effect"
     HANDLER = "handler"
