@@ -348,6 +348,19 @@ class ContractMeta(type):
             ann_namespace["__annotations__"] = cls_annotations
             # Re-inject field descriptors for introspection
             ann_namespace.update(field_descriptors)
+            # Inject Computed facets (from @computed) into ann_namespace so that
+            # introspect_annotations can see them via isinstance(ns_value, Facet) and
+            # skip building a redundant TextFacet for same-class co-declarations like:
+            #   full_name: str          ← annotation
+            #   @computed               ← @computed method on the same field
+            #   def full_name(self, instance) -> str: ...
+            # IMPORTANT: only Computed facets are injected here. NestedContractFacet
+            # and other declared facets must remain absent from ann_namespace so that
+            # _merge_nested_annotation_facets can detect annotation/facet type mismatches
+            # (e.g., 'name: NameContract' + 'name = NestedContractFacet(AltContract)').
+            for fname, facet in declared_facets.items():
+                if fname not in ann_namespace and isinstance(facet, Computed):
+                    ann_namespace[fname] = facet
             # Inject any other class attributes that are defaults (not Facets)
             for fname in cls_annotations:
                 if fname not in ann_namespace and fname not in declared_facets:
@@ -388,11 +401,23 @@ class ContractMeta(type):
         if spec.model is not None:
             model_facets = mcs._derive_model_facets(spec)
 
-        # Merge: parent < model < annotated < declared (annotated & declared win over auto-derived model fields)
+        # Merge: parent < model < annotated < declared
+        # Computed facets inherited from parents are protected — a bare type
+        # annotation (full_name: str) or a model column with the same name
+        # must NOT silently overwrite an explicitly @computed output field.
+        # The subclass can override a parent Computed field only by declaring
+        # a new @computed method or an explicit Facet in its own body
+        # (i.e. it appears in declared_facets).
         all_facets = {}
         all_facets.update(parent_facets)
-        all_facets.update(model_facets)
-        all_facets.update(annotated_facets)
+        for fname, facet in model_facets.items():
+            if fname not in declared_facets and isinstance(parent_facets.get(fname), Computed):
+                continue  # Protect inherited Computed — model column must not clobber it
+            all_facets[fname] = facet
+        for fname, facet in annotated_facets.items():
+            if fname not in declared_facets and isinstance(parent_facets.get(fname), Computed):
+                continue  # Protect inherited Computed — bare annotation must not clobber it
+            all_facets[fname] = facet
         all_facets.update(declared_facets)
 
         # Add extra facets from Spec
@@ -598,7 +623,13 @@ class ContractMeta(type):
 
     @staticmethod
     def _derive_model_facets(spec: _SpecData) -> dict[str, Facet]:
-        """Derive Facets from Model._fields."""
+        """Derive Facets from Model._fields.
+
+        Returns raw model-derived facets without checking for Computed
+        inheritance. Callers are responsible for ensuring that Computed
+        facets inherited from parent contracts are not overwritten during
+        the final facet merge (see ContractMeta.__new__).
+        """
         model = spec.model
         facets: dict[str, Facet] = {}
 

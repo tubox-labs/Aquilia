@@ -1551,8 +1551,8 @@ def introspect_annotations(
         ns_value = namespace.get(field_name, UNSET)
         if isinstance(ns_value, (classmethod, staticmethod, property)):
             continue
-        if isinstance(ns_value, _ComputedMarker):
-            continue  # Already handled above
+        if isinstance(ns_value, (_ComputedMarker, Facet)):
+            continue  # Already handled above (Facet covers Computed instances too)
 
         # Determine Field spec and default
         field_spec: Field | None = None
