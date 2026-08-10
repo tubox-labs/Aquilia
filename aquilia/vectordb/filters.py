@@ -519,7 +519,6 @@ class FilterCompiler:
             hi = Filter.compare(key, "le", codec.encode(high))
             return lo.and_(hi), []
 
-
         raise VectorLookupFault(
             lookup=expr,
             reason=f"unknown lookup suffix {suffix!r}. Supported: {', '.join(sorted(_KNOWN))}",
