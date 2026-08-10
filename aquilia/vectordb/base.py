@@ -31,8 +31,14 @@ schema does the work, so there is no per-attribute descriptor overhead on reads.
 
 from __future__ import annotations
 
+import sys
 import uuid
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from aquilia.vectordb.annotations import Score
 from aquilia.vectordb.faults import VectorSchemaFault, VectorValidationFault

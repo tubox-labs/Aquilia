@@ -135,14 +135,10 @@ dependencies = [
     "h11>=0.14.0",
     "jinja2>=3.1.0",
     "markupsafe>=2.1.0",
-    # Surp is intentionally absent from core deps: every import is already
-    # lazy (try/except ImportError), it's a Rust extension with no Windows or
-    # Linux wheels on PyPI, and building it from source requires Rust. Install
-    # via the "surp" extra below.
-    #
     # Elips is absent for the same reason: it is a C++ extension, only
     # aquilia.vectordb touches it, and every import of it is lazy. Install via
     # the "vectordb" extra below.
+    "typing_extensions>=4.0.0; python_version < '3.11'",
     "watchfiles>=1.2.0",
 ]
 

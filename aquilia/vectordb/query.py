@@ -24,8 +24,14 @@ guard ``Q`` already installs, for the same reason.
 from __future__ import annotations
 
 import logging
+import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from aquilia.vectordb.expressions import FieldExpression, to_vf
 from aquilia.vectordb.faults import (

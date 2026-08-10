@@ -13,8 +13,14 @@ produces a query over the wrong scope.
 
 from __future__ import annotations
 
+import sys
 import uuid
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from aquilia.vectordb.faults import (
     VectorEmbedderFault,
