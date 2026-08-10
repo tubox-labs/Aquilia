@@ -292,6 +292,7 @@ full = [
     { name = "asyncpg" },
     { name = "cryptography" },
     { name = "dkimpy" },
+    { name = "elips", marker = "python_full_version >= '3.11'" },
     { name = "gunicorn" },
     { name = "jinja2" },
     { name = "markupsafe" },
@@ -344,19 +345,23 @@ testing = [
     { name = "pytest-cov" },
     { name = "python-multipart" },
 ]
+vectordb = [
+    { name = "elips", marker = "python_full_version >= '3.11'" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "aiobotocore", marker = "extra == 'mail-ses'", specifier = ">=2.9.0" },
     { name = "aiosmtplib", marker = "extra == 'mail'", specifier = ">=3.0.0" },
     { name = "aiosqlite", marker = "extra == 'sqlite-compat'", specifier = ">=0.20.0" },
-    { name = "aquilia", extras = ["auth", "mail", "mail-dkim", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server", "template"], marker = "extra == 'full'" },
+    { name = "aquilia", extras = ["auth", "mail", "mail-dkim", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server", "template", "vectordb"], marker = "extra == 'full'" },
     { name = "aquilia", extras = ["testing"], marker = "extra == 'dev'" },
     { name = "argon2-cffi", marker = "extra == 'auth'", specifier = ">=23.1.0" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.31.0" },
     { name = "click", specifier = ">=8.1.0" },
     { name = "cryptography", marker = "extra == 'auth'", specifier = ">=42.0.0" },
     { name = "dkimpy", marker = "extra == 'mail-dkim'", specifier = ">=1.1.0" },
+    { name = "elips", marker = "python_full_version >= '3.11' and extra == 'vectordb'", specifier = ">=1.1.0" },
     { name = "gunicorn", marker = "extra == 'server'", specifier = ">=22.0.0" },
     { name = "h11", specifier = ">=0.14.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
@@ -379,7 +384,7 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.30.0" },
     { name = "watchfiles", specifier = ">=1.2.0" },
 ]
-provides-extras = ["template", "sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "mail-dkim", "server", "postgres", "otel", "full", "testing", "dev"]
+provides-extras = ["template", "sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "mail-dkim", "server", "postgres", "otel", "vectordb", "full", "testing", "dev"]
 
 [[package]]
 name = "argon2-cffi"
@@ -896,6 +901,35 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8c/8b/57666417c0f90f08bcafa776861060426765fdb422eb10212086fb811d26/dnspython-2.8.0.tar.gz", hash = "sha256:181d3c6996452cb1189c4046c61599b84a5a86e099562ffde77d26984ff26d0f", size = 368251, upload-time = "2025-09-07T18:58:00.022Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ba/5a/18ad964b0086c6e62e2e7500f7edc89e3faa45033c71c1893d34eed2b2de/dnspython-2.8.0-py3-none-any.whl", hash = "sha256:01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af", size = 331094, upload-time = "2025-09-07T18:57:58.071Z" },
+]
+
+[[package]]
+name = "elips"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/b5/b81905eace4e2dea488b28554716942fbda8f408c54c0b18977b0f36e6bc/elips-1.1.0.tar.gz", hash = "sha256:cf245ec9eedb71e32aefe4a66b2aaca06e0e5cdc5e423f073dd49beb2e3b5f1a", size = 185791, upload-time = "2026-08-09T09:32:29.125Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7a/cf/1cf43c27c7a626cc34d16de23306540abaa129ccd85c0390a68d786d1fc5/elips-1.1.0-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:a85c350a0964ffa039d2fff83b292a353a01d9f8d629519970bae1dfe37db0ce", size = 640133, upload-time = "2026-08-09T09:31:54.618Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/17/a32a7dbf12058afa88a474f08001e076334a0664b657908754adc67b63f3/elips-1.1.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:446b889f2b06be5fc57e73ed8ae2e19ceac91919bddaab22c293a97cd33c9c89", size = 606237, upload-time = "2026-08-09T09:31:56.323Z" },
+    { url = "https://files.pythonhosted.org/packages/99/88/ebe5d9d036cf9f1afbf15444f08eab93e02c294263c1d47be01ed30aad6f/elips-1.1.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7a00e128183855c7d427e03c8ccf8a92f8e790672af9b462b2874064f04687e2", size = 614398, upload-time = "2026-08-09T09:31:57.979Z" },
+    { url = "https://files.pythonhosted.org/packages/43/be/6eaad8a723a9d2db3a4b2ad8009e282255319a9095d37b7b6a870637ff9a/elips-1.1.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f6191111b135db57384ea6ce497d7f82ddfc30b1ab1052b495dba022eb556486", size = 703976, upload-time = "2026-08-09T09:31:59.991Z" },
+    { url = "https://files.pythonhosted.org/packages/94/ea/c2c575e35ab5061b2ed281403413d72c8672d9fc815314e8cbdf972a0033/elips-1.1.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:b990925470f0f2aabe0102bade7196a7665a479167570d373b9dec6ef6364ce8", size = 1521240, upload-time = "2026-08-09T09:32:02.029Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/96/75ddc1ef6f2cc6d2f574a3a620b37bd70585f5de316b8b8b486e88913f48/elips-1.1.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:9d15c2b9ca9d241629ec366870ba3f3e47211e1acd15bdba372c26bf832299b5", size = 1645249, upload-time = "2026-08-09T09:32:03.712Z" },
+    { url = "https://files.pythonhosted.org/packages/53/c1/86edbf7d0a8476bea76374f7ee4ee52d35a3b20c2c89fb0cdc03c4f39662/elips-1.1.0-cp311-cp311-win_amd64.whl", hash = "sha256:06f73f047bd2133726804e37dbaf562a6d42484ab936125f2a69c8970fb8c057", size = 503023, upload-time = "2026-08-09T09:32:05.595Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/e5/e2060fe79e246e07f640ebd15e7e4dc9b8b91f11b9a257f49dfb107a8ebd/elips-1.1.0-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:5446a161a8f37f42ec5f82c5ab9610e8e02ac0976ee0af3420da030963827168", size = 649282, upload-time = "2026-08-09T09:32:07.124Z" },
+    { url = "https://files.pythonhosted.org/packages/35/38/fd9b283d090c4de20ae2be0eb045a39555b7b0043d4bb5474fe70e412f43/elips-1.1.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:88aabdb49f00770d7f377c58f8253c42354ac85799a0af8147eab8fa10f5acaa", size = 608520, upload-time = "2026-08-09T09:32:08.558Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/4b/2eef844b85da0a6ea0adf182df0552ae4f2740248ccb1680f68f0666f007/elips-1.1.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4403c2871ba911f6ab883af743e09ea3fe1613cc5d3a4235e514e66bd223c483", size = 611777, upload-time = "2026-08-09T09:32:10.084Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/e6/fc5372f3b89f99746717670628522d3e49de444700695050ae8f619a738a/elips-1.1.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bbf9982bae6be8924fc200f3571f2f08ea4aa5965fa512c2386564bd7b4d20a7", size = 703174, upload-time = "2026-08-09T09:32:11.521Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/67/5b38bd850ad095b41ed8e97e32b0cc451b273bc475d16c5b750ffcc56ee1/elips-1.1.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:9a1a4fcaab67c77cec60ebf4fbd83f0e916eceff6202f21115982560a1699e2e", size = 1517244, upload-time = "2026-08-09T09:32:13.443Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/b1/54222dd43cafcbb2a6f9365da0d89278487c0c4e65eee1b1ae273fae66a6/elips-1.1.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:7757650a62c2aa4a4486102e4fee3b7f93c51146069c1ef0767c8f82f9dbb273", size = 1643258, upload-time = "2026-08-09T09:32:15.11Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/e8/73f831806403945ddc9942cce76086d7dbbb5f41be79a88b4e43c147698a/elips-1.1.0-cp312-cp312-win_amd64.whl", hash = "sha256:fcf497a3650b8e959622b96ad562df20075518baf7481a854004d532f4b79f53", size = 507843, upload-time = "2026-08-09T09:32:16.482Z" },
+    { url = "https://files.pythonhosted.org/packages/41/7b/a3a0b3ad71bc72b6e1c7ed8e1e2bc864777bfa62b7faa6451e0a61b38aaa/elips-1.1.0-cp313-cp313-macosx_10_15_x86_64.whl", hash = "sha256:4047a9f9416a095d4afef2ebda2ba452d1f15bd0e3d7207f10637341bf75bf9d", size = 649349, upload-time = "2026-08-09T09:32:18.211Z" },
+    { url = "https://files.pythonhosted.org/packages/41/b9/955a3e41ef311510dff98f5b8c292f045113d66341b76e57394f5d03930f/elips-1.1.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:bc68339bcd9d0ad978a293493e497a0d9e9a4cb823198b0deddf6668ceaa86d0", size = 608542, upload-time = "2026-08-09T09:32:19.898Z" },
+    { url = "https://files.pythonhosted.org/packages/68/7a/69fe3638efacdf7fdcd8c67eba08dd35bce49943afbf3d5ef7ad14ceda86/elips-1.1.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2599ca65ab3a0fc242a11d0113af527439470aada938a98bac468f0a2ba2d904", size = 612283, upload-time = "2026-08-09T09:32:21.389Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/b1/6604e6125a2e402139bf97e0822ddcd8d693b6ea95be2eaea802cffe52bd/elips-1.1.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9e9facdb7375ed458aeae217b594d87be4501c0e276a36ebebc203f10ddf4c3e", size = 703178, upload-time = "2026-08-09T09:32:22.865Z" },
+    { url = "https://files.pythonhosted.org/packages/53/98/8f405b0ab4aa3d677386f2b281da05c132448328a09c90df4058fed0dea4/elips-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:fa5ec5253d57332d8ca5b86e1df218be9b0c9f367e9f43e93a1a21f8dfa27c9b", size = 1517906, upload-time = "2026-08-09T09:32:24.376Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/96/717f8691816d1df6a5f35775a7d721eeb7ed153911422131d9b17c409b2d/elips-1.1.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:d6c9cb49cb74c8b0373fa7635b94ded1f98cf28eaea2c377a7a9ae1b10e725ba", size = 1643468, upload-time = "2026-08-09T09:32:25.902Z" },
+    { url = "https://files.pythonhosted.org/packages/56/42/561826fe099126f447ef2ead8688b0467099add39a782a27efaf8a4b8743/elips-1.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:1b48e8c0ce1d3f2a5a9054a5d26869395006347ac426be7a8754c2b06391b909", size = 507788, upload-time = "2026-08-09T09:32:27.566Z" },
 ]
 
 [[package]]

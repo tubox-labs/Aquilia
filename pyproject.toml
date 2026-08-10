@@ -28,6 +28,9 @@ build-backend = "scikit_build_core.build"
 cmake.source-dir = "."
 cmake.build-type = "Release"
 cmake.version = ">=3.21"
+# When nanobind or a C++20 compiler is unavailable, skip the extensions instead
+# of failing the whole install. Honoured by each extension's CMakeLists.txt.
+cmake.define.AQUILIA_ENGINE_OPTIONAL = "ON"
 wheel.packages = ["aquilia"]
 sdist.include = [
     "CMakeLists.txt",
@@ -53,9 +56,6 @@ sdist.exclude = [
     "**/.DS_Store",
     "**/__pycache__/**",
 ]
-# When nanobind or a C++20 compiler is unavailable, skip the extensions instead
-# of failing the whole install. Honoured by each extension's CMakeLists.txt.
-cmake.define.AQUILIA_ENGINE_OPTIONAL = "ON"
 
 # Version stays sourced from aquilia/_version.py
 metadata.version.provider = "scikit_build_core.metadata.regex"
@@ -139,6 +139,10 @@ dependencies = [
     # lazy (try/except ImportError), it's a Rust extension with no Windows or
     # Linux wheels on PyPI, and building it from source requires Rust. Install
     # via the "surp" extra below.
+    #
+    # Elips is absent for the same reason: it is a C++ extension, only
+    # aquilia.vectordb touches it, and every import of it is lazy. Install via
+    # the "vectordb" extra below.
     "watchfiles>=1.2.0",
 ]
 
@@ -210,11 +214,25 @@ otel = [
     "opentelemetry-instrumentation-asgi>=0.45b0",
 ]
 
+# Embedded vector database — powers aquilia.vectordb.
+# Kept out of core dependencies: elips is a C++ extension, only the vectordb
+# subsystem touches it, and every import of it is lazy, so an install without
+# this extra behaves exactly as before.
+#
+# The 3.11 marker is load-bearing: elips 1.1.0 publishes no cp310 wheels, and
+# Aquilia supports 3.10. Without it, `aquilia[full]` becomes unresolvable on
+# 3.10 rather than simply omitting vector support. On 3.10 the extra installs
+# nothing and aquilia.vectordb degrades exactly as it does on any install
+# without elips — VectorNotInstalledFault at first use.
+vectordb = [
+    "elips>=1.1.0; python_version >= '3.11'",
+]
+
 
 # ---- Convenience bundles ----------------------------------------------------
 
 full = [
-    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,mail-dkim,server,postgres,otel,template]",
+    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,mail-dkim,server,postgres,otel,template,vectordb]",
 ]
 
 # Testing & development

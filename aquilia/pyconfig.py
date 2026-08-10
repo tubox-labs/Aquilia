@@ -1465,6 +1465,90 @@ class AquilaConfig:
         #: Internal service port (the port your ASGI server listens on).
         port: int = 8000
 
+    class VectorDB:
+        """
+        Vector database configuration (``aquilia.vectordb``).
+
+        Declares the elips-backed vector stores a workspace opens at boot. Each
+        alias maps to one on-disk directory and is what a model's
+        ``Meta.store`` names.
+
+        **Disabled by default.** ``elips`` is an optional extra, so a workspace
+        that does not declare this block never loads the extension.
+
+        Example (workspace.py)::
+
+            class BaseEnv(AquilaConfig):
+                class vectordb(AquilaConfig.VectorDB):
+                    enabled   = True
+                    path      = "./.aquilia/vectors"
+                    dimension = 384
+                    embedder  = "sentence-transformers/all-MiniLM-L6-v2"
+
+            class ProdEnv(BaseEnv):
+                env = "prod"
+                class vectordb(BaseEnv.vectordb):
+                    embedder     = "openai/text-embedding-3-small"
+                    dimension    = 1536
+                    auto_create  = False        # a missing store is a boot failure
+                    quantization = "sq8"        # 4x smaller, approximate distances
+
+        Notes:
+            ``dimension`` and ``metric`` are database-global in elips: every
+            model bound to a store must agree with them, and changing either
+            against an existing directory invalidates the built index.
+
+            elips is single-writer per directory. Running more than one worker
+            against one store path makes every worker after the first fail to
+            take the lock — a startup fault, not a degradation.
+        """
+
+        #: Open the configured stores at boot.
+        enabled: bool = False
+
+        #: Directory prefix. Each store gets a subdirectory under it unless it
+        #: declares its own absolute path.
+        path: str = "./.aquilia/vectors"
+
+        #: Alias used by models that do not name a store.
+        default: str = "default"
+
+        #: Vector length for the default store.
+        dimension: int = 768
+
+        #: Similarity metric — ``cosine``, ``l2``, or ``dot``.
+        metric: str = "cosine"
+
+        #: Index kind — ``flat`` (exact) or ``hnsw``/``ivf`` (approximate).
+        index: str = "flat"
+
+        #: Embedder URI, e.g. ``"sentence-transformers/all-MiniLM-L6-v2"``,
+        #: ``"openai/text-embedding-3-small"``, or ``"local:default"``.
+        embedder: str | None = None
+
+        #: Compression codec — ``none``, ``sq8``, ``pq``, or ``opq``. Must be
+        #: set before ``aq vectordb compress`` can train a codebook.
+        quantization: str = "none"
+
+        #: GPU policy — ``cpu_only``, ``prefer_gpu``, or ``require_gpu``.
+        gpu: str = "cpu_only"
+
+        #: Create store directories when absent. Set ``False`` in production so
+        #: a missing store fails the boot instead of serving an empty index.
+        auto_create: bool = True
+
+        #: Open without the writer lock. Lets several processes share a store
+        #: for search; writes raise.
+        read_only: bool = False
+
+        #: Worker threads for blocking elips calls. Reads parallelize; writes
+        #: serialize inside C++ however many threads submit them.
+        pool_threads: int = 4
+
+        #: Explicit ``{alias: config}`` stores. Overrides the single-store
+        #: shorthand above when given.
+        stores: dict | None = None
+
     class Accelerator:
         """
         Native C++ engine configuration.

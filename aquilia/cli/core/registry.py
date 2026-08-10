@@ -51,6 +51,7 @@ _CATEGORIES: dict[str, str] = {
     "serve": "Production",
     # Database
     "db": "Database",
+    "vectordb": "Database",
     # Admin
     "admin": "Admin",
     # Inspect

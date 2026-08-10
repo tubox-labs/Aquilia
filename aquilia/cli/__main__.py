@@ -2547,6 +2547,15 @@ cli.add_command(artifacts_group)
 
 
 # ============================================================================
+# Vector store management (aq vectordb status/gpu/models/inspect/compact)
+# ============================================================================
+
+from aquilia.cli.commands.vectordb import vectordb_group
+
+cli.add_command(vectordb_group)
+
+
+# ============================================================================
 # Test command
 # ============================================================================
 

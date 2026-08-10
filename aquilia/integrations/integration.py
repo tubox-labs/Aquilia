@@ -258,6 +258,22 @@ class Integration:
         return _build_integration(FileSystemIntegration, **kwargs)
 
     @staticmethod
+    def vectordb(**kwargs: Any) -> dict[str, Any]:
+        """
+        Configure the elips-backed vector database.
+
+        Example::
+
+            Integration.vectordb(
+                path="./.aquilia/vectors",
+                stores={"default": {"dimension": 384, "metric": "cosine"}},
+            )
+        """
+        from aquilia.integrations.vectordb import VectorDatabaseIntegration
+
+        return _build_integration(VectorDatabaseIntegration, **kwargs)
+
+    @staticmethod
     def templates(**kwargs: Any) -> dict[str, Any]:
         """Configure templates."""
         from aquilia.integrations.templates import TemplatesIntegration

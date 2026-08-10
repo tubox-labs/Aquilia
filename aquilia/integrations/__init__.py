@@ -127,6 +127,9 @@ from aquilia.integrations.tasks import TasksIntegration
 # ── Templates ─────────────────────────────────────────────────────────
 from aquilia.integrations.templates import TemplatesIntegration
 
+# ── Vector database ───────────────────────────────────────────────────
+from aquilia.integrations.vectordb import VectorDatabaseIntegration
+
 # ── Versioning ────────────────────────────────────────────────────────
 from aquilia.integrations.versioning_cfg import VersioningIntegration
 
@@ -163,6 +166,7 @@ __all__ = [
     "FileSystemIntegration",
     "StorageIntegration",
     "TemplatesIntegration",
+    "VectorDatabaseIntegration",
     # Security
     "CorsIntegration",
     "CspIntegration",
