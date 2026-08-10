@@ -29,6 +29,7 @@ from aquilia.vectordb import (
     TextField,
     VectorField,
     VectorModel,
+    is_available,
 )
 from aquilia.vectordb.chunking import (
     Chunk,
@@ -327,6 +328,7 @@ def _compile(*nodes, **lookups):
     return FilterCompiler(Document._vfields).compile(tuple(nodes), lookups)
 
 
+@pytest.mark.skipif(not is_available(), reason="elips is not installed")
 def test_all_three_syntaxes_compile_to_the_same_filter():
     """§4.2.3: keyword, expression, and EQL forms are interchangeable."""
     from aquilia.vectordb.expressions import to_vf

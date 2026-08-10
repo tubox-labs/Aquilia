@@ -86,7 +86,7 @@ def test_integration_flattens_stores_to_a_list():
 
 def test_integration_derives_per_store_paths():
     payload = VectorDatabaseIntegration(path="./vecs", stores={"default": {"dimension": 8}}).to_dict()
-    assert payload["stores"][0]["path"].endswith("vecs/default")
+    assert payload["stores"][0]["path"].replace("\\", "/").endswith("vecs/default")
 
 
 def test_explicit_store_path_is_not_overridden():

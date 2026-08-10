@@ -203,12 +203,15 @@ async def test_effect_health_check_reports_stopped_before_init():
 
 
 def test_force_cleanup_is_public_and_reports_counts():
+    import time
+
     from aquilia.admin.security import AdminRateLimiter
 
     limiter = AdminRateLimiter()
     limiter.record_login_failure("10.0.0.1")
-    limiter._login_records["login:10.0.0.1"].attempts = [0.0]  # ancient attempt
-    limiter._login_records["login:10.0.0.1"].lockout_until = 0.0
+    now = time.monotonic()
+    limiter._login_records["login:10.0.0.1"].attempts = [now - 10000.0]  # ancient attempt
+    limiter._login_records["login:10.0.0.1"].lockout_until = now - 1000.0
 
     cleaned_login, cleaned_sensitive = limiter.force_cleanup()
 

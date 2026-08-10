@@ -346,8 +346,6 @@ class FilterCompiler:
         Raises:
             VectorLookupFault: On an unsupported or unknown lookup.
         """
-        from elips import Filter
-
         native: Any | None = None
         residuals: list[Residual] = []
 
@@ -365,7 +363,7 @@ class FilterCompiler:
 
         # An all-residual filter still needs a native placeholder-free result;
         # `None` means "no push-down", which the query layer reads as scan-all.
-        if native is not None and Filter is not None and native.matches_all():
+        if native is not None and getattr(native, "matches_all", lambda: False)():
             native = None
 
         return CompiledFilter(native=native, residuals=residuals)
@@ -379,8 +377,6 @@ class FilterCompiler:
         ``NOT (pushdown AND residual)`` is not ``NOT pushdown AND NOT residual``
         — so that combination is rejected rather than silently mis-evaluated.
         """
-        from elips import Filter
-
         native: Any | None = None
         residuals: list[Residual] = []
 
@@ -413,14 +409,14 @@ class FilterCompiler:
                     ),
                 )
             if native is not None:
-                native = Filter.not_(native)
+                from aquilia.vectordb._compat import require_elips
+
+                native = require_elips().Filter.not_(native)
 
         return native, residuals
 
     def _compile_lookup(self, expr: str, value: Any) -> tuple[Any | None, list[Residual]]:
         """Compile a single ``field__lookup=value`` pair."""
-        from elips import Filter
-
         attr, suffix = _split_lookup(expr)
 
         # Provenance lives outside the payload namespace — elips stores it on the
@@ -468,6 +464,10 @@ class FilterCompiler:
                     f"Range lookups would return wrong records; use exact or __in instead."
                 ),
             )
+
+        from aquilia.vectordb._compat import require_elips
+
+        Filter = require_elips().Filter
 
         # ── Exact / comparison ───────────────────────────────────────────
         if suffix in _COMPARATORS:
@@ -518,6 +518,7 @@ class FilterCompiler:
             lo = Filter.compare(key, "ge", codec.encode(low))
             hi = Filter.compare(key, "le", codec.encode(high))
             return lo.and_(hi), []
+
 
         raise VectorLookupFault(
             lookup=expr,

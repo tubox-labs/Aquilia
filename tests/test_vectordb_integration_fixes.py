@@ -13,6 +13,7 @@ import time
 
 import pytest
 
+from aquilia.vectordb import is_available
 from aquilia.vectordb.configs import (
     GpuOptions,
     QuantizationConfig,
@@ -21,6 +22,8 @@ from aquilia.vectordb.configs import (
 )
 from aquilia.vectordb.engine import VectorEngine, enable_vector_inspection
 from aquilia.vectordb.faults import VectorConfigFault, VectorFault, VectorStoreFault
+
+elips_only = pytest.mark.skipif(not is_available(), reason="elips is not installed")
 
 
 def _store(**kwargs) -> VectorStoreConfig:
@@ -57,7 +60,7 @@ def test_pyconfig_shorthand_produces_a_store():
     assert len(stores) == 1
     assert stores[0]["alias"] == "main"
     assert stores[0]["dimension"] == 384
-    assert stores[0]["path"].endswith("/main")
+    assert stores[0]["path"].replace("\\", "/").endswith("/main")
 
 
 def test_normalize_stores_handles_every_producer_shape():
@@ -94,6 +97,7 @@ def test_store_inherits_block_level_settings():
 # ---------------------------------------------------------------------------
 
 
+@elips_only
 async def test_ef_search_and_gpu_do_not_break_search():
     """``.ef_search()``/``.gpu()`` forwarded kwargs elips rejects — 100% TypeError.
 
@@ -133,6 +137,7 @@ async def test_ef_search_and_gpu_do_not_break_search():
 # ---------------------------------------------------------------------------
 
 
+@elips_only
 async def test_index_options_reach_the_graph_index():
     """``index_options`` was accepted, stored, and never forwarded to elips."""
     engine = VectorEngine(_store(index="hnsw", index_options={"m": 24, "ef_construction": 200, "ef_search": 128}))
@@ -146,6 +151,7 @@ async def test_index_options_reach_the_graph_index():
         await engine.close()
 
 
+@elips_only
 async def test_quantization_still_applies_through_the_config_builder():
     """Guards the connect() → connect_with_config() rewrite."""
     engine = VectorEngine(_store(quantization=QuantizationConfig(codec="sq8")))
@@ -156,6 +162,7 @@ async def test_quantization_still_applies_through_the_config_builder():
         await engine.close()
 
 
+@elips_only
 async def test_ivf_index_warns_that_it_maps_to_graph(caplog):
     engine = VectorEngine(_store(index="ivf"))
     with caplog.at_level("WARNING"):
@@ -164,6 +171,7 @@ async def test_ivf_index_warns_that_it_maps_to_graph(caplog):
     assert "ivf" in caplog.text and "HNSW" in caplog.text
 
 
+@elips_only
 async def test_unknown_index_option_warns_rather_than_silently_dropping(caplog):
     engine = VectorEngine(_store(index="hnsw", index_options={"nlist": 100}))
     with caplog.at_level("WARNING"):
@@ -177,6 +185,7 @@ async def test_unknown_index_option_warns_rather_than_silently_dropping(caplog):
 # ---------------------------------------------------------------------------
 
 
+@elips_only
 async def test_transaction_commits_as_a_unit():
     engine = VectorEngine(_store())
     await engine.connect()
@@ -190,6 +199,7 @@ async def test_transaction_commits_as_a_unit():
         await engine.close()
 
 
+@elips_only
 async def test_transaction_rolls_back_on_exception():
     engine = VectorEngine(_store())
     await engine.connect()
@@ -208,6 +218,7 @@ async def test_transaction_rolls_back_on_exception():
         await engine.close()
 
 
+@elips_only
 async def test_transaction_keys_are_manager_addressable():
     """A natural key staged in a transaction folds the same way a save() does."""
     from aquilia.vectordb.manager import _normalize_key
@@ -225,6 +236,7 @@ async def test_transaction_keys_are_manager_addressable():
         await engine.close()
 
 
+@elips_only
 async def test_engine_write_inside_transaction_raises_instead_of_deadlocking():
     """The writer lock is not reentrant; this used to hang forever."""
     engine = VectorEngine(_store())
@@ -239,6 +251,7 @@ async def test_engine_write_inside_transaction_raises_instead_of_deadlocking():
         await engine.close()
 
 
+@elips_only
 async def test_transaction_handle_is_spent_after_the_block():
     engine = VectorEngine(_store())
     await engine.connect()
@@ -251,6 +264,7 @@ async def test_transaction_handle_is_spent_after_the_block():
         await engine.close()
 
 
+@elips_only
 async def test_read_only_store_refuses_transactions():
     path = tempfile.mkdtemp()
     writer = VectorEngine(_store(path=path))
@@ -272,6 +286,7 @@ async def test_read_only_store_refuses_transactions():
 # ---------------------------------------------------------------------------
 
 
+@elips_only
 async def test_inspector_spans_are_free_when_disabled_and_emitted_when_on():
     from aquilia.inspector.trace import _CURRENT_TRACE, Lane, RequestTrace
 
@@ -312,6 +327,7 @@ async def test_inspector_spans_are_free_when_disabled_and_emitted_when_on():
         await engine.close()
 
 
+@elips_only
 async def test_inspector_span_records_the_fault_code_on_failure():
     from aquilia.inspector.trace import _CURRENT_TRACE, RequestTrace, SpanStatus
 
