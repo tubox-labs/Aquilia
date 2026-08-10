@@ -149,8 +149,11 @@ class OrderContract(Contract):
         model = Order`,
       language: 'python',
     },
-    notes: [{ kind: 'tip', text: 'You can also use the @computed decorator instead of Computed() directly.' }],
-    status: 'stable',
+    notes: [
+      { kind: 'tip', text: 'You can also use the @computed decorator instead of Computed() directly.' },
+      { kind: 'note', text: 'Fixed in v1.4.0b4: computed facets are correctly preserved across inheritance hierarchies and model bindings.' }
+    ],
+    status: 'stable (fixed in v1.4.0b4)',
     docsHref: '/docs/contracts/facets',
     source: { file: 'aquilia/contracts/facets.py' },
   },
@@ -160,23 +163,34 @@ class OrderContract(Contract):
     id: 'bp.computed_decorator',
     type: 'decorator',
     title: '@computed',
-    description: 'Marks a Contract method as a computed read-only facet. The method receives the Contract instance and should return the serialized value.',
+    description: 'Marks a Contract method as a computed read-only facet. The method receives the Contract instance and should return the serialized value. Works correctly across inheritance hierarchies, including subclass type annotation re-declarations and ORM model bindings.',
     signature: '@computed\ndef field_name(self) -> Any: ...',
     language: 'python',
     example: {
       code: `from aquilia.contracts import Contract
 from aquilia.contracts.annotations import computed
 
-class OrderContract(Contract):
-    @computed
-    def item_count(self) -> int:
-        return len(self.instance.items)
+class BaseUserContract(Contract):
+    first_name: str
+    last_name: str
 
-    class Spec:
-        model = Order`,
+    @computed
+    def full_name(self, instance) -> str:
+        return f"{instance.first_name} {instance.last_name}"
+
+# Subclasses can safely re-declare the annotation for IDE autocompletion
+# without overwriting the @computed facet (fixed in v1.4.0b4):
+class ChildUserContract(BaseUserContract):
+    full_name: str  # IDE hint — does NOT replace the @computed facet
+
+bp = ChildUserContract(data={"first_name": "Ada", "last_name": "Lovelace"})
+assert bp.is_sealed()  # True — full_name is NOT a required input field`,
       language: 'python',
     },
-    status: 'stable',
+    notes: [
+      { kind: 'warning', text: 'Pre-v1.4.0b4 bug pattern to avoid: do not annotate and compute on the same field in a base class if you want to re-annotate in a child class. This is now fixed, but users on older versions should be aware.' }
+    ],
+    status: 'stable (fixed in v1.4.0b4)',
     docsHref: '/docs/contracts/facets',
     source: { file: 'aquilia/contracts/annotations.py' },
   },
