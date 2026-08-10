@@ -107,6 +107,7 @@ workspace = (
                 ['RateLimitIntegration', 'security.py', 'Rate limiting — limit, window, per-user, burst, algorithm'],
                 ['TemplatesIntegration', 'templates.py', 'Jinja2 templates — dirs, globals, bytecode cache'],
                 ['StorageIntegration', 'storage.py', 'File storage — local / S3 / GCS / Azure / SFTP'],
+                ['VectorDatabaseIntegration', 'vectordb.py', 'Vector stores — elips-backed similarity search (optional extra)'],
                 ['StaticFilesIntegration', 'static.py', 'Static file serving — dirs, cache, compression'],
                 ['I18nIntegration', 'i18n.py', 'Internationalisation — locale, catalog, extraction'],
                 ['LoggingIntegration', 'logging_cfg.py', 'Structured request/response logging'],
@@ -580,7 +581,67 @@ workspace.integrate(StorageIntegration(
     region="eu-west-1",
     access_key_env="AWS_ACCESS_KEY_ID",
     secret_key_env="AWS_SECRET_ACCESS_KEY",
+))
+
+# ── Vector stores (optional extra: pip install 'aquilia[vectordb]') ────────
+workspace.integrate(VectorDatabaseIntegration(
+    path="./.aquilia/vectors",     # directory prefix, not a URL — elips is embedded
+    stores={
+        "default": {"dimension": 384, "metric": "cosine", "index": "hnsw"},
+        "images":  {"dimension": 512, "metric": "l2"},
+    },
 ))`} />
+      </section>
+
+      {/* VectorDatabaseIntegration */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Database className="w-5 h-5 text-aquilia-400" />
+          VectorDatabaseIntegration
+        </h2>
+        <p className={`mb-4 ${txt}`}>
+          <span className="text-aquilia-400 font-semibold">New in 1.4.0b3.</span> Declares the
+          elips-backed vector stores a workspace opens at boot. <code>stores</code> maps an alias to
+          that store&apos;s settings, and an alias is what a{' '}
+          <DocTerm id="vectordb.VectorModel">VectorModel</DocTerm>&apos;s <code>Meta.store</code>{' '}
+          names. <code>Workspace.vectordb(...)</code> is builder shorthand for the same thing.
+        </p>
+        <CodeBlock language="python" code={`from aquilia.integrations import VectorDatabaseIntegration
+from aquilia.vectordb import GpuOptions
+
+workspace.integrate(VectorDatabaseIntegration(
+    path="./.aquilia/vectors",   # each alias gets a subdirectory under this
+    default="default",           # alias used by models that name no store
+    stores={
+        "default": {"dimension": 384, "metric": "cosine", "index": "hnsw"},
+        "images":  {"dimension": 512, "metric": "l2"},
+    },
+    gpu=GpuOptions(policy="prefer_gpu", fallback="warn"),
+    auto_create=True,            # False in prod: a missing store fails the boot
+    read_only=False,             # True lets several processes share one store for search
+    pool_threads=4,              # reads parallelise; writes serialise inside elips
+))
+
+# Equivalent builder form
+workspace.vectordb(
+    path="./.aquilia/vectors",
+    stores={"default": {"dimension": 384, "metric": "cosine"}},
+)`} />
+        <div className={`mt-5 rounded-xl border p-5 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${head}`}>Outer values are defaults, not overrides</h3>
+          <p className={`text-sm mb-3 ${subtxt}`}>
+            Integration-level <code>dimension</code>, <code>metric</code>, <code>index</code>,{' '}
+            <code>gpu</code>, <code>embedder</code> and <code>quantization</code> exist so the common
+            case is declared once. A store that sets one explicitly wins. Declaring no{' '}
+            <code>stores</code> at all but setting <code>dimension</code> builds a single default
+            store from the outer values.
+          </p>
+          <p className={`text-sm ${subtxt}`}>
+            <code>path</code> is a directory prefix rather than a URL — elips is embedded and
+            single-writer per directory. Two stores cannot share a directory, and one store cannot
+            serve two dimensions: elips holds dimension and metric database-global.
+          </p>
+        </div>
       </section>
 
       {/* Navigation */}

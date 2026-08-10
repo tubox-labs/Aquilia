@@ -267,6 +267,31 @@ finally:
 }`}
           language="json"
         />
+
+        <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Changed in 1.4.0b3 — live checks, not a boot snapshot</h3>
+          <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            The endpoint previously rendered whatever each subsystem reported at boot. A storage
+            backend that went offline an hour later kept reporting{' '}
+            <code className="text-aquilia-500">healthy</code> until the process restarted:{' '}
+            <code className="text-aquilia-500">HealthRegistry.register_check()</code> existed, but
+            nothing called it and nothing re-ran the checks.
+          </p>
+          <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            The adapter now calls <code className="text-aquilia-500">await registry.run_checks()</code>{' '}
+            before rendering, and the storage and vectordb subsystems register live aggregate checks.
+            The response shape is unchanged — the values are simply current.
+          </p>
+          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            The cost is one check invocation per registered subsystem per request. A check that
+            raises is caught and recorded as unhealthy rather than failing the endpoint, and{' '}
+            <code className="text-aquilia-500">run_checks()</code> is a no-op when nothing registered
+            one — so an app without those subsystems pays nothing. If a load balancer polls this
+            path aggressively and you would rather it not touch backends, point liveness probes at a
+            cheaper route and keep <code className="text-aquilia-500">/health</code> for real
+            assessment.
+          </p>
+        </div>
       </section>
 
       {/* Lifespan Handshake */}

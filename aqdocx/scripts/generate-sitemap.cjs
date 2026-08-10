@@ -211,6 +211,16 @@ const docSections = [
         ]
       },
       {
+        label: 'Vector Database', path: '/docs/vectordb',
+        children: [
+          { label: 'Overview', path: '/docs/vectordb' },
+          { label: 'Vector Models', path: '/docs/vectordb/models' },
+          { label: 'Queries & Search', path: '/docs/vectordb/queries' },
+          { label: 'SQL Interop', path: '/docs/vectordb/interop' },
+          { label: 'CLI (aq vectordb)', path: '/docs/vectordb/cli' },
+        ]
+      },
+      {
         label: 'Contracts', path: '/docs/contracts',
         children: [
           { label: 'Overview', path: '/docs/contracts/overview' },

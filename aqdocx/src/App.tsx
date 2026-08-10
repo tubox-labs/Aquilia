@@ -321,6 +321,13 @@ import { StorageConfiguration } from './pages/docs/storage/Configuration'
 import { StorageBackends } from './pages/docs/storage/Backends'
 import { StorageController } from './pages/docs/storage/Controller'
 
+// Vector Database
+import { VectorDBOverview } from './pages/docs/vectordb/Overview'
+import { VectorDBModels } from './pages/docs/vectordb/Models'
+import { VectorDBQueries } from './pages/docs/vectordb/Queries'
+import { VectorDBInterop } from './pages/docs/vectordb/Interop'
+import { VectorDBCli } from './pages/docs/vectordb/Cli'
+
 // SQLite
 import { SqliteOverview } from './pages/docs/sqlite/Overview'
 import { SqliteAPI } from './pages/docs/sqlite/API'
@@ -724,6 +731,13 @@ export default function App() {
           <Route path="storage/configuration" element={<StorageConfiguration />} />
           <Route path="storage/backends" element={<StorageBackends />} />
           <Route path="storage/controller" element={<StorageController />} />
+
+          <Route path="vectordb" element={<VectorDBOverview />} />
+          <Route path="vectordb/overview" element={<VectorDBOverview />} />
+          <Route path="vectordb/models" element={<VectorDBModels />} />
+          <Route path="vectordb/queries" element={<VectorDBQueries />} />
+          <Route path="vectordb/interop" element={<VectorDBInterop />} />
+          <Route path="vectordb/cli" element={<VectorDBCli />} />
 
           {/* SQLite */}
           <Route path="sqlite" element={<SqliteOverview />} />

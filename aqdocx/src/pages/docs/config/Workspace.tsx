@@ -311,6 +311,14 @@ workspace = (
         format="json",
         include_request_id=True,
     ))
+
+    # ── Vector database (1.4.0b3+) ────────────────────────────────────────
+    .vectordb(
+        path="./.aquilia/vectors",
+        stores={
+            "docs": {"dimension": 384, "metric": "cosine"},
+        },
+    )
 )`} />
       </section>
 

@@ -42,8 +42,8 @@ const staticReleases: ReleaseEntry[] = [
     tag: 'latest',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
-    summary: "CLI architecture overhaul (aquilia.cli.core), Unified Health Checks Engine (@register_check), single-source ExitCode contract, AqContext ambient state thread, and native C++ router memory leak resolution on server shutdown.",
-    highlights: ['CLI Core Modernization', 'Unified Health Checks Engine', 'Single-Source Exit Code Contract', 'Native Router Memory Leak Fix'],
+    summary: "New aquilia.vectordb subsystem (typed vector models, three filter syntaxes, EQL, embedders, chunking, GPU policy, quantization, SQL-ORM interop, aq vectordb CLI group), CLI architecture overhaul (aquilia.cli.core), Unified Health Checks Engine (@register_check), single-source ExitCode contract, enforced subsystem boot contract (BootContext.di_containers, _timeout, live /health checks), wired admin lifecycle, and native C++ router memory leak resolution on server shutdown.",
+    highlights: ['Vector Database Subsystem (aquilia.vectordb)', 'aq vectordb CLI Group', 'CLI Core Modernization', 'Unified Health Checks Engine', 'Subsystem Boot Contract & Live /health', 'Admin Lifecycle Wired', 'Native Router Memory Leak Fix'],
     assets: [
       { name: 'aquilia-1.4.0b3.tar.gz', size: '2.9 MB', type: 'Source' },
       { name: 'aquilia-1.4.0b3-py3-none-any.whl', size: '2.4 MB', type: 'Wheel' }

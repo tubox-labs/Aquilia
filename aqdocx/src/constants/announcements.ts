@@ -11,7 +11,7 @@ export const ANNOUNCEMENTS: Record<string, Announcement> = {
   '1.4.0b3': {
     version: '1.4.0b3',
     badgeText: 'V1.4.0b3 Release',
-    title: 'CLI Modernization, unified checks engine, single source exit codes, AqContext, & native router memory leak fix:',
+    title: 'Vector database subsystem, aq vectordb CLI, CLI modernization, unified checks engine, enforced subsystem boot contract & wired admin lifecycle:',
     highlightText: "Helmsman's Compass",
     linkText: 'Learn More',
     linkTo: '/releases/1.4.0b3',

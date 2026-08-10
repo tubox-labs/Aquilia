@@ -18,6 +18,7 @@ This documentation is generated from the current `aquilia/` source tree and the 
 * [Resource ViewSets](controllers/resource-viewset.md): Auto-generate CRUD routes with `Resource[T]`.
 * [Distributed Throttle Backends](controllers/throttle-backends.md): Configure Redis rate-limiting across multi-instance deployments.
 * [Strict Discovery Mode](discovery-strict.md): Use runtime imports for 100% accurate component discovery.
+* [Vector Database](vectordb.md): Typed `Annotated` vector models over embedded elips, with SQL-ORM interop and GPU policy.
 
 ## Module Map
 

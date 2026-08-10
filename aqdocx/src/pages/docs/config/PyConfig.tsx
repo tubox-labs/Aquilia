@@ -193,6 +193,7 @@ workspace = (
                 ['AquilaConfig.Signing', 'secret, fallback_secrets, algorithm, salt, session_salt, csrf_salt, activation_salt, cache_salt', 'Cryptographic signing — sessions, CSRF tokens, activation links, cache integrity'],
                 ['AquilaConfig.Render', 'service_name, region, plan, num_instances, image, health_path, auto_deploy, port', 'Render PaaS deployment config — used by aq deploy render'],
                 ['AquilaConfig.Accelerator', 'engine, dataengine', 'Native C++ engine configuration (request router and data/ORM engine)'],
+                ['AquilaConfig.VectorDB', 'enabled, path, default, dimension, metric, index, embedder, quantization, gpu, auto_create, read_only, pool_threads, stores', 'Vector stores (aquilia.vectordb) — disabled by default; requires the optional elips extra'],
                 ['AquilaConfig.Apps', '(nested per-module classes)', 'Module-specific config namespaces — accessed as config.apps.users.max_items'],
                 ['AquilaConfig.Dotenv', 'file, files, auto_load, override, interpolate, strict', 'Dotenv file loading policy — which files to load and in what order'],
               ].map(([section, fields, purpose], i) => (
@@ -332,6 +333,89 @@ class CIEnv(BaseEnv):
     class accelerator(BaseEnv.accelerator):
         engine = Env("AQUILIA_ENGINE", default=False, cast=bool)
         dataengine = Env("AQUILIA_DATAENGINE", default=False, cast=bool)`} />
+      </section>
+
+      {/* VectorDB section */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Cpu className="w-5 h-5 text-aquilia-400" />
+          AquilaConfig.VectorDB — vector stores
+        </h2>
+        <p className={`mb-4 leading-relaxed ${txt}`}>
+          <span className="text-aquilia-400 font-semibold">New in 1.4.0b3.</span> Declares the
+          elips-backed vector stores a workspace opens at boot. Each alias maps to one on-disk
+          directory and is what a vector model&apos;s <code>Meta.store</code> names.
+        </p>
+        <p className={`mb-4 leading-relaxed ${txt}`}>
+          <strong>Disabled by default.</strong> <code>elips</code> is an optional extra, so a
+          workspace that does not declare this block never loads the extension —{' '}
+          <code>ConfigLoader.get_vectordb_config()</code> returns <code>enabled = False</code> and
+          the subsystem returns early.
+        </p>
+
+        <div className={`mb-6 rounded-xl border overflow-hidden ${border}`}>
+          <table className="w-full text-sm">
+            <thead><tr className={thead}>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Field</th>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Default</th>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Description</th>
+            </tr></thead>
+            <tbody className={`divide-y ${divider}`}>
+              {[
+                ['enabled', 'False', 'Open the configured stores at boot.'],
+                ['path', '"./.aquilia/vectors"', 'Directory prefix. Each store gets a subdirectory unless it declares its own absolute path.'],
+                ['default', '"default"', 'Alias used by models that do not name a store.'],
+                ['dimension', '768', 'Vector length for the default store.'],
+                ['metric', '"cosine"', 'Similarity metric — cosine, l2, or dot.'],
+                ['index', '"flat"', 'Index kind — flat (exact) or hnsw / ivf (approximate).'],
+                ['embedder', 'None', 'Embedder URI, e.g. "sentence-transformers/all-MiniLM-L6-v2" or "openai/text-embedding-3-small".'],
+                ['quantization', '"none"', 'Compression codec — none, sq8, pq, or opq. Must be set before aq vectordb compress can train a codebook.'],
+                ['gpu', '"cpu_only"', 'GPU policy — cpu_only, prefer_gpu, or require_gpu.'],
+                ['auto_create', 'True', 'Create store directories when absent. Set False in production so a missing store fails the boot instead of serving an empty index.'],
+                ['read_only', 'False', 'Open without the writer lock. Lets several processes share a store for search; writes raise.'],
+                ['pool_threads', '4', 'Worker threads for blocking elips calls. Reads parallelise; writes serialise inside C++ regardless.'],
+                ['stores', 'None', 'Explicit {alias: config} mapping. Overrides the single-store shorthand above when given.'],
+              ].map(([f, d, desc], i) => (
+                <tr key={i} className={hov}>
+                  <td className="px-4 py-2 font-mono text-xs text-aquilia-400 whitespace-nowrap">{f}</td>
+                  <td className="px-4 py-2 font-mono text-xs text-gray-500 whitespace-nowrap">{d}</td>
+                  <td className={`px-4 py-2 text-xs ${txt}`}>{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <CodeBlock language="python" code={`class BaseEnv(AquilaConfig):
+    class vectordb(AquilaConfig.VectorDB):
+        enabled   = True
+        path      = "./.aquilia/vectors"
+        dimension = 384
+        embedder  = "sentence-transformers/all-MiniLM-L6-v2"
+
+class ProdEnv(BaseEnv):
+    env = "prod"
+
+    class vectordb(BaseEnv.vectordb):
+        embedder     = "openai/text-embedding-3-small"
+        dimension    = 1536
+        auto_create  = False        # a missing store is a boot failure
+        quantization = "sq8"        # 4x smaller, approximate distances`} />
+
+        <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-300 bg-amber-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${head}`}>Two constraints worth knowing before you deploy</h3>
+          <p className={`text-sm mb-3 ${txt}`}>
+            <code>dimension</code> and <code>metric</code> are <strong>database-global</strong> in
+            elips: every model bound to a store must agree with them, and changing either against an
+            existing directory invalidates the built index.
+          </p>
+          <p className={`text-sm ${txt}`}>
+            elips is <strong>single-writer per directory</strong>. Running more than one worker
+            against one store path makes every worker after the first fail to take the lock — a
+            startup fault, not a degradation. Give each worker its own path, or set{' '}
+            <code>read_only = True</code> for search-only workers.
+          </p>
+        </div>
       </section>
 
       {/* Env descriptor */}

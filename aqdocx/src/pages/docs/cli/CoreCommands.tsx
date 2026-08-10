@@ -1,4 +1,5 @@
 import { useTheme } from '../../../context/ThemeContext'
+import { Link } from 'react-router-dom'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Terminal } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
@@ -120,6 +121,27 @@ aq validate
 
 # Run validation and output details in JSON format
 aq validate --strict --json`}</CodeBlock>
+        <div className={`mt-5 rounded-xl border p-5 ${isDark ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-300 bg-amber-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Changed in 1.4.0b3 — exit codes are now enforced</h3>
+          <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            Before this release, <code className="text-aquilia-500">aq validate</code> and{' '}
+            <code className="text-aquilia-500">aq doctor</code> printed error banners and still
+            exited <code className="text-aquilia-500">0</code>, so a broken workspace passed CI. Both
+            now run through the unified health-checks engine and exit via{' '}
+            <code className="text-aquilia-500">exit_code_for()</code>.
+          </p>
+          <ul className={`text-sm space-y-1 list-disc pl-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <li><code className="text-aquilia-500">0</code> — passed, or only INFO/WARN findings</li>
+            <li><code className="text-aquilia-500">1</code> — at least one ERROR or FATAL finding</li>
+            <li><code className="text-aquilia-500">2</code> — bad invocation or arguments</li>
+            <li><code className="text-aquilia-500">3</code> — workspace or config could not be loaded</li>
+            <li><code className="text-aquilia-500">4</code> — unhandled internal CLI exception</li>
+          </ul>
+          <p className={`mt-3 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            A pipeline that previously appeared green may now fail. That is the fix, not a
+            regression — check the reported findings.
+          </p>
+        </div>
       </section>
 
       {/* aq compile */}
@@ -227,6 +249,22 @@ aq doctor
 
 # Export diagnostic logs as JSON
 aq doctor --json`}</CodeBlock>
+        <p className={`${pClass} mt-4`}>
+          <span className="text-aquilia-400 font-semibold">Changed in 1.4.0b3.</span>{' '}
+          <code className="text-aquilia-500">aq doctor</code> runs the same registry of checks as{' '}
+          <code className="text-aquilia-500">aq validate</code>, plus environment-level probes, and
+          obeys the same exit-code contract described above. Every finding carries a stable code
+          (for example <code className="text-aquilia-500">AQ_DB_MISSING</code>), a location, and a
+          concrete remedy. Config-driven subsystem probes stay silent for subsystems a workspace
+          does not declare, so a minimal app produces a short report rather than a wall of noise.
+        </p>
+        <p className={pClass}>
+          Among them is <code className="text-aquilia-500">vectordb.driver</code>, which reports{' '}
+          <code className="text-aquilia-500">AQ_VECTORDB_DRIVER_MISSING</code> when a workspace
+          declares vector stores on an install without the optional{' '}
+          <code className="text-aquilia-500">elips</code> driver — see{' '}
+          <Link to="/docs/vectordb" className="text-aquilia-500 hover:underline">Vector Database</Link>.
+        </p>
       </section>
 
       <NextSteps />

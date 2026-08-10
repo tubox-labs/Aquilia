@@ -8893,39 +8893,1040 @@ This workflow ensures that every commit to the main branch is validated across a
   "1.4.0b3": {
     "README.md": `# Aquilia v1.4.0b3 Release Notes — "Helmsman's Compass"
 
-Aquilia v1.4.0b3 continues the beta cycle for the 1.4 series with a comprehensive overhaul of the **CLI architecture**, introduction of the **Unified Health Checks Engine**, single-source **Exit Code contract**, lazy **\`AqContext\` state thread**, and native C++ **router memory leak resolution**.
+Aquilia v1.4.0b3 continues the beta cycle for the 1.4 series with the new **\`aquilia.vectordb\`** subsystem, a comprehensive overhaul of the **CLI architecture**, introduction of the **Unified Health Checks Engine**, single-source **Exit Code contract**, lazy **\`AqContext\` state thread**, a documented and enforced **subsystem boot contract**, and native C++ **router memory leak resolution**.
+
+---
 
 ## Table of Contents
 
-1. [CLI Architecture Modernization](cli_modernization.md)
-2. [Unified Health Checks Engine](checks_engine.md)
-3. [Native Router Memory Leak Fix](router_memory_leak_fix.md)
-4. [Bug Fixes & Refactorings](bug_fixes.md)
-5. [Migration Guide](migration.md)
+1. [Release Overview](#release-overview)
+2. [Highlights](#highlights)
+3. [Vector Database Subsystem](vectordb.md)
+   - \`aquilia.vectordb\` — typed models over embedded elips
+   - \`VectorDatabaseIntegration\`, \`Workspace.vectordb()\`, \`AquilaConfig.VectorDB\`
+   - \`AppManifest.vector_models\` and \`vector_models/\` discovery
+   - \`VectorDBSubsystem\` — priority 28, conditional required-ness
+   - SQL-ORM interop: \`Link\`, \`resolve\`, \`mirror\`, \`as_models\`, \`reindex\`
+4. [\`aq vectordb\` Command Reference](vectordb_cli.md)
+   - \`status\`, \`gpu\`, \`models\`, \`inspect\`, \`stats\`
+   - \`compact\`, \`vacuum\`, \`compress\`, \`reindex\`, \`reembed\`
+   - Lock discipline and common workflows
+5. [CLI Architecture Overhaul](cli_modernization.md)
+   - \`aquilia.cli.core\` subsystem layout
+   - \`AqContext\` — thread-safe, lazily resolved ambient CLI state
+   - \`ExitCode\` — single source of truth for process return codes
+   - \`CliFault\` — structured fault domain replacing \`sys.exit()\`
+   - \`LoadedWorkspace\` — Python-first workspace loader with regex fallback
+   - \`CommandSpec\` — category-driven command registry & help grouping
+6. [Unified Health Checks Engine](checks_engine.md)
+   - \`Finding\` & \`Check\` protocol (\`@register_check\`)
+   - Standardized runners and human/JSON report renderers
+   - Config-driven subsystem probes across core framework modules
+   - The new \`vectordb.driver\` check
+   - Workspace integrity probes & route extraction checking
+7. [Subsystem Boot Contract](subsystem_boot_contract.md)
+   - \`BootContext.di_containers()\` and \`DI_CONTAINER_KEY\`
+   - \`_timeout\` enforcement in \`BaseSubsystem.initialize()\`
+   - Live \`/health\` checks replacing the boot-time snapshot
+   - Who drives subsystems, and why there is no \`SubsystemOrchestrator\`
+8. [Admin Lifecycle & Rate Limiter](admin_lifecycle.md)
+   - Admin startup/shutdown hooks wired into \`AquiliaServer\`
+   - \`AdminRateLimiter.force_cleanup()\` public sweep API
+9. [Native Router Memory Leak Fix](router_memory_leak_fix.md)
+   - Native C++ nanobind Router instance cleanup on server shutdown
+   - \`ControllerRouter.clear()\` protocol
+   - \`ASGIAdapter.shutdown()\` lifecycle hook
+10. [Bug Fixes & Refactorings](bug_fixes.md)
+    - Silent exit code 0 bug on workspace/DB failures fixed
+    - Route count reporting mismatch fixed (real HTTP routes vs controller counts)
+    - Non-existent route attribute inspection bug fixed
+    - Subsystem DI registration, timeout, and health-check defects fixed
+    - Admin lifecycle never invoked; rate-limit sweep no-op on fresh hosts
+    - Workspace integration detection returning bound methods
+    - Docsite TS2657 React fragment build error fixed
+11. [Migration Guide & Breaking Changes](migration.md)
+    - Removal of legacy CLI parsers (\`discovery_cli.py\`, \`parsers/\`)
+    - Exit code changes for CI/CD pipelines
+    - Optional \`vectordb\` extra and the Python 3.10 marker
+    - Upgrade checklist & compatibility matrix
+
+---
+
+## Release Overview
+
+Aquilia v1.4.0b3 does two things: it adds a whole new data subsystem, and it pays down operational debt in the layers that boot and diagnose everything else.
+
+**\`aquilia.vectordb\`** is the new surface. Retrieval-augmented workloads previously had no home in the framework — applications bolted a vector client onto a service, hand-rolled serialization between the ORM and the store, and got no boot validation, no health reporting, no CLI, and no fault taxonomy. The subsystem gives vector collections the same declarative shape the SQL ORM gives tables, keeps its driver (\`elips\`) an optional extra, and makes the two failure modes that produce *silently wrong* results — dimension mismatch and embedder-lineage mismatch — hard errors instead of confident nonsense.
+
+The rest is repair. Prior to this release, \`aq doctor\` and \`aq validate\` relied on ~1,000 lines of duplicated, drifting logic that silently caught errors, printed warning banners, and exited with status code \`0\`. Commands scraped \`workspace.py\` with brittle regex patterns and probed non-existent controller attributes. The subsystem layer documented a timeout it never enforced and a DI key nothing ever set. Admin's lifecycle hooks were written, tested, and never called. \`/health\` served a boot-time snapshot that could not notice a dependency dying an hour later.
+
+v1.4.0b3 fixes each of those where it lives: a unified, modular CLI architecture (\`aquilia.cli.core\`, \`aquilia.cli.checks\`, \`aquilia.cli.introspect\`) built around a single source of truth for exit codes, and a subsystem layer whose contract is now written down and enforced by tests.
 
 ---
 
 ## Highlights
 
-### 1. Unified Health Checks Engine & Single-Source Exit Codes
-The fragmented \`doctor.py\` and \`validate.py\` implementations are merged into a single health check registry (\`aquilia.cli.checks\`). Every check yields structured \`Finding\` objects with stable error codes (e.g. \`AQ_DB_MISSING\`, \`AQ_ROUTE_CONFLICT\`), severities (\`INFO\`, \`WARN\`, \`ERROR\`, \`FATAL\`), locations, and actionable remedies.
+### 1. Vector Database Subsystem
 
-### 2. \`AqContext\` & Python-First Workspace Loading
-Ad-hoc \`ctx.obj\` dictionary manipulation is replaced by \`AqContext\`. Non-workspace commands like \`aq init\` and \`aq --help\` execute instantaneously without workspace import overhead. \`workspace.py\` is executed as Python code, correctly parsing starter routes and module prefixes.
+\`aquilia.vectordb\` — 24 modules — brings typed vector models, similarity search, embedders, chunking, GPU policy, quantization, and SQL-ORM interop into the framework:
 
-### 3. Subsystem Coverage Expansion
-Introduces config-driven probes across 13 core framework modules (\`tasks\`, \`templates\`, \`storage\`, \`cache\`, \`mail\`, \`i18n\`, \`otel\`, \`sse\`, \`versioning\`, \`http\`, \`auth\`, \`sockets\`, \`contracts\`, \`mlops\`, and \`admin\`).
+\`\`\`python
+from aquilia.vectordb import VectorModel, KeyField, TextField, VectorField, Field
 
-### 4. Native Router Memory Leak Resolution
-Implemented \`ControllerRouter.clear()\`, \`AquiliaServer.shutdown()\`, and \`ASGIAdapter.shutdown()\` deallocation hooks, eliminating nanobind leak warnings on process termination.
+class Document(VectorModel):
+    key:    str         = KeyField(prefix="doc_")
+    body:   str         = TextField(embed=True, min_length=1)
+    vector: list[float] = VectorField(dimension=384)
+    source: str         = Field(default="web", indexed=True)
+
+    class Meta:
+        collection = "documents"
+        store = "default"
+
+hits = await Document.vectors.query().filter(source="docs").search(text="release notes", limit=10)
+\`\`\`
+
+The driver is an optional extra (\`pip install 'aquilia[vectordb]'\`). An install without it behaves exactly as before: importing the package succeeds, and \`VectorNotInstalledFault\` surfaces at first *use*. Discovery imports nothing when no module declares a vector model.
+
+See [vectordb.md](vectordb.md) and [vectordb_cli.md](vectordb_cli.md).
+
+### 2. Unified Health Checks Engine & Single-Source Exit Codes
+
+The fragmented \`doctor.py\` and \`validate.py\` implementations are merged into a single health check registry (\`aquilia.cli.checks\`). Every check yields structured \`Finding\` objects with stable error codes (e.g. \`AQ_DB_MISSING\`, \`AQ_ROUTE_CONFLICT\`), a severity (\`INFO\`, \`WARN\`, \`ERROR\`, \`FATAL\`), a location, and actionable remedies.
+
+Exit codes are governed strictly by \`aquilia.cli.core.exits.exit_code_for()\`:
+- \`ExitCode.OK\` (\`0\`) — All checks pass or emit only \`INFO\`/\`WARN\` findings.
+- \`ExitCode.FAILED\` (\`1\`) — At least one \`ERROR\` or \`FATAL\` finding was discovered.
+- \`ExitCode.USAGE\` (\`2\`) — Argument/invocation error.
+- \`ExitCode.CONFIG\` (\`3\`) — Workspace or configuration file could not be loaded.
+- \`ExitCode.INTERNAL\` (\`4\`) — Unhandled internal CLI exception.
+
+### 3. \`AqContext\` & Python-First Workspace Loading
+
+Ad-hoc \`ctx.obj\` dictionary manipulation is replaced by \`AqContext\`. Workspace discovery is lazy: non-workspace commands like \`aq init\`, \`aq version\`, and \`aq --help\` execute instantaneously without incurring workspace import overhead.
+
+When loaded, \`workspace.py\` is executed as Python code rather than parsed with regular expressions. Declared starter controllers (\`.starter("name")\`) and module-level \`route_prefix\` definitions are accurately parsed into \`LoadedWorkspace\`. Regex parsing remains solely as an automatic fallback when user code contains import errors.
+
+### 4. Subsystem Coverage Expansion
+
+Framework subsystems totalling ~45,000 lines of code had zero CLI health monitoring in previous releases. \`aquilia.cli.checks.subsystems\` introduces config-driven probes for:
+\`tasks\`, \`templates\`, \`storage\`, \`cache\`, \`mail\`, \`i18n\`, \`otel\`, \`sse\`, \`versioning\`, \`http\`, \`auth\`, \`sockets\`, \`contracts\`, \`mlops\`, \`vectordb\`, and \`admin\`.
+
+Probes are strictly config-driven and remain silent for unused subsystems, avoiding noise in minimal applications. \`vectordb\` additionally gets a dedicated \`vectordb.driver\` check that reports \`AQ_VECTORDB_DRIVER_MISSING\` when a workspace declares vector stores on an install without \`elips\`.
+
+### 5. Subsystem Boot Contract Documented and Enforced
+
+\`aquilia.subsystems\` declared a 30-second initialization timeout that nothing read, and a DI \`shared_state\` key that nothing set. Both are fixed:
+
+- \`BaseSubsystem.initialize()\` now wraps \`_do_initialize\` in \`asyncio.wait_for(...)\`, so a subsystem blocking on an unreachable dependency degrades to \`UNHEALTHY\` with a named cause instead of hanging the boot forever.
+- \`BootContext.di_containers()\` is the single DI resolution path — explicit container first, then every container in \`registry.di_containers\`. \`StorageSubsystem\` and \`EffectSubsystem\` both use it, so both actually register.
+- \`/health\` now calls \`HealthRegistry.run_checks()\` before rendering, so a backend that died an hour after boot is no longer masked by the boot-time snapshot.
+
+The package docstring also states plainly what it is: the entry point for hosts that drive subsystems themselves. \`AquiliaServer\` boots storage, cache, tasks, mail and effects through its own ordered \`_setup_*\` methods, and there is deliberately no \`SubsystemOrchestrator\` to keep in sync with it.
+
+See [subsystem_boot_contract.md](subsystem_boot_contract.md).
+
+### 6. Admin Lifecycle Wired
+
+\`AdminLifecycle.on_startup()\` / \`on_shutdown()\` were written, tested in isolation, and never called by anything. Admin routes worked; the audit log was never flushed, the rate limiter never swept, and the cache service and task manager were never resolved from DI. \`AquiliaServer.startup()\` gained Step 3.25 and \`shutdown()\` its mirror, both gated on \`config["integrations"]["admin"]\` and non-fatal on failure.
+
+See [admin_lifecycle.md](admin_lifecycle.md).
+
+### 7. Native Router Memory Leak Resolution
+
+During server shutdown, ASGI lifespan termination, or test teardown, native C++ \`Router\` instances wrapping nanobind bindings could remain referenced in memory, producing nanobind leak warnings on process termination.
+
+v1.4.0b3 adds \`ControllerRouter.clear()\` and updates \`AquiliaServer.shutdown()\` and \`ASGIAdapter.shutdown()\` to explicitly reset C++ router references and internal route tables, eliminating leak warnings.
+
+---
+
+## Summary of Subsystem Changes
+
+| Subsystem / Module | Status | Summary |
+|---|---|---|
+| \`aquilia.vectordb\` | **New** | 24-module typed vector layer over embedded elips — models, fields, queries, EQL, embedders, chunking, GPU policy, quantization, ORM interop |
+| \`aquilia.vectordb.subsystem\` | **New** | \`VectorDBSubsystem\` — priority 28, 60s timeout, \`_required\` raised when stores are declared |
+| \`aquilia.integrations.vectordb\` | **New** | \`VectorDatabaseIntegration\` — typed store declaration, normalizes \`{alias: config}\` into store entries |
+| \`aquilia.cli.commands.vectordb\` | **New** | \`aq vectordb\` group — \`status\`, \`gpu\`, \`models\`, \`inspect\`, \`stats\`, \`compact\`, \`vacuum\`, \`compress\`, \`reindex\`, \`reembed\` |
+| \`aquilia.pyconfig\` | **Improved** | \`AquilaConfig.VectorDB\` nested config class (disabled by default) |
+| \`aquilia.workspace\` | **Improved** | \`Workspace.vectordb()\` builder; \`vectordb\` recognised by \`integrate()\`; emitted into \`to_dict()\` |
+| \`aquilia.config._loader\` | **Improved** | \`ConfigLoader.get_vectordb_config()\` with disabled-by-default defaults |
+| \`aquilia.manifest\` | **Improved** | \`AppManifest.vector_models\`, \`ComponentKind.VECTOR_MODEL\`, \`vector_models\` in default \`auto_discovery\` |
+| \`aquilia.aquilary.core\` | **Improved** | \`AppContext.vector_models\`; \`_discover_vector_models()\` scan and \`_register_vector_models()\` import pass |
+| \`aquilia.subsystems.base\` | **Improved** | \`DI_CONTAINER_KEY\`, \`BootContext.di_containers()\`, enforced \`_timeout\`, documented population contract |
+| \`aquilia.subsystems.effects\` | **Fixed** | DI registration via \`di_containers()\`; \`health_check()\` uses \`details=\` not the non-existent \`metadata=\` |
+| \`aquilia.storage.subsystem\` | **Fixed** | DI registration repaired (dead \`_di_registry\` key); registers a live health check |
+| \`aquilia.asgi\` | **Improved** | \`/health\` runs \`HealthRegistry.run_checks()\` before rendering; \`ASGIAdapter.shutdown()\` releases runtime, container & middleware chain |
+| \`aquilia.server\` | **Improved** | Admin lifecycle startup (Step 3.25) and shutdown wired; \`shutdown()\` invokes \`controller_router.clear()\` |
+| \`aquilia.admin.security\` | **Improved** | \`AdminRateLimiter.force_cleanup()\` public sweep API; \`_sweep()\` returns exact removal counts |
+| \`aquilia.admin.subsystems\` | **Fixed** | \`rate_limit_cleanup()\` no longer pokes private state — no-op on hosts up < \`cleanup_interval\` fixed |
+| \`aquilia.cli.checks.subsystems\`| **Improved** | \`_integration()\` reads \`Workspace._integrations\` and skips callables; new \`vectordb.driver\` check |
+| \`aquilia.cli.core.registry\` | **Improved** | \`vectordb\` categorised under **Database** in \`aq --help\` |
+| \`aquilia.cli.core.exits\` | **New** | \`ExitCode\` enum, \`SEVERITY_ORDER\`, \`exit_code_for()\` single source of truth |
+| \`aquilia.cli.core.faults\` | **New** | \`CliFault\` hierarchy (\`WorkspaceNotFoundFault\`, \`WorkspaceLoadFault\`, etc.) |
+| \`aquilia.cli.core.context\` | **New** | \`AqContext\` lazy state thread replacing \`ctx.obj\` dictionary access |
+| \`aquilia.cli.core.workspace\` | **New** | \`LoadedWorkspace\`, \`load_workspace()\`, \`ensure_importable()\` |
+| \`aquilia.cli.checks.base\` | **New** | \`Finding\`, \`Check\`, \`CheckResult\`, \`@register_check()\`, \`run_checks()\` |
+| \`aquilia.cli.checks.report\` | **New** | \`render_human()\`, \`render_json()\`, \`summarise()\`, \`result_exit_code()\` |
+| \`aquilia.cli.checks.workspace\` | **New** | Core health checks (Python version, modules, manifests, routes, DI, DB) |
+| \`aquilia.cli.introspect.routes\`| **New** | Route introspection via \`ControllerCompiler\` (replaces legacy attribute probes) |
+| \`aquilia.cli.discovery_cli\` | **Removed** | Legacy discovery CLI helper deleted |
+| \`aquilia.cli.parsers\` | **Removed** | Legacy manifest regex parsers (\`module.py\`, \`workspace.py\`) deleted |
+| \`aquilia.controller.router\` | **Improved** | \`ControllerRouter.clear()\` releases C++ nanobind \`_native\` instance |
+| \`pyproject.toml\` | **Improved** | New \`vectordb\` extra (\`elips>=1.1.0; python_version >= '3.11'\`), folded into \`full\` |
+| \`aqdocx\` | **Fixed** | Fixed TS2657 JSX single-parent return error in \`MiddlewareOverview.tsx\` |
+
+---
+
+## Performance Improvements
+
+1. **Lazy CLI Execution**: Commands that do not require workspace inspection (\`aq init\`, \`aq version\`, \`aq --help\`, \`aq mcp\`) run in \`<15ms\` by avoiding workspace file discovery and import overhead.
+2. **Cached Manifest Resolution**: \`LoadedWorkspace.manifest()\` caches \`AppManifest\` references during multi-check runs, eliminating redundant disk reads.
+3. **Native Router Deallocation**: Timely release of native C++ CPython extension structures reduces memory overhead during unit testing and server restarts.
+4. **Zero-Cost Vector Layer When Unused**: \`aquilia.vectordb.__init__\` defers \`engine\`, \`gpu\`, \`interop\`, \`embedders\`, \`eql\`, \`chunking\` and \`subsystem\` behind \`_LAZY_ATTRS\`, so nothing reaches \`elips\` on import. Vector-model discovery imports nothing when no module declares one, so an app without vector models pays no import cost at all.
+5. **Dedicated Vector Thread Pool**: elips calls run on a named \`aquilia-vdb\` \`ThreadPoolExecutor\` rather than the default executor, so a long \`compact()\` cannot starve unrelated \`run_in_executor\` callers, and a stalled vector operation is identifiable in a stack dump.
+6. **Bounded Subsystem Boot**: enforced \`_timeout\` turns an unreachable dependency from an indefinite hang into a bounded \`UNHEALTHY\` result.
+
+---
+
+## Developer Experience Improvements
+
+- **Actionable CLI Diagnostics**: Every health finding displays a stable error code (e.g. \`[AQ_DB_MISSING]\`), source location (\`at: db.sqlite3\`), and a concrete fix (\`fix: Run migrations to create the DB\`).
+- **Machine-Readable Output**: \`aq doctor --json\`, \`aq validate --json\`, and every \`aq vectordb\` subcommand's \`--json\` emit standardized payloads structured for CI/CD test runners.
+- **Accurate Route Tree**: \`aq inspect routes\` compiles routes using \`ControllerCompiler\`, displaying exact paths served (including module prefixes and starter routes).
+- **Vector Slot Introspection**: \`aq vectordb models\` shows how each attribute was routed (key / text / vector / payload / link) — routing is resolved at class creation and is otherwise invisible in the source.
+- **Honest \`/health\`**: the endpoint re-runs registered checks per request, so a dead dependency is visible without a restart.
+
+---
+
+## Documentation Improvements
+
+- New \`docs/vectordb.md\` — the complete \`aquilia.vectordb\` reference (fields, codecs, queries, EQL, embedders, chunking, GPU, faults, operations), linked from \`docs/README.md\`.
+- New release pages: [vectordb.md](vectordb.md), [vectordb_cli.md](vectordb_cli.md), [subsystem_boot_contract.md](subsystem_boot_contract.md), [admin_lifecycle.md](admin_lifecycle.md).
+- \`aquilia.subsystems\` package docstring now states who drives subsystems and why there is no \`SubsystemOrchestrator\`, with a composable ordered-boot example.
+- \`BootContext\` carries a field-by-field population contract table naming who sets each field and what happens when it is \`None\`.
+- \`BaseSubsystem\` documents that \`required\` may be computed during \`_do_initialize\` and must be read after \`initialize()\` returns.
+
+---
+
+## Upgrade Checklist
+
+- [ ] Update \`aquilia\` to \`1.4.0b3\` in \`pyproject.toml\` / \`requirements.txt\`.
+- [ ] Update CI/CD pipelines to expect non-zero exit codes (code \`1\` or \`3\`) when \`aq validate\` or \`aq doctor\` encounters errors.
+- [ ] Remove any internal references to deprecated \`aquilia.cli.parsers\` modules.
+- [ ] Run \`aq doctor\` to perform a full workspace health check under the new engine.
+- [ ] If adopting vector search: \`pip install 'aquilia[vectordb]'\` (Python 3.11+), add \`.vectordb(stores={...})\` to \`workspace.py\`, declare models under \`modules/<app>/vector_models.py\`, then verify with \`aq vectordb status\` and \`aq vectordb models\`.
+- [ ] If you build \`BootContext\` by hand: replace \`shared_state["_di_registry"]\` with \`shared_state[DI_CONTAINER_KEY]\`, or pass \`registry=\`.
+- [ ] If you subclass \`BaseSubsystem\`: confirm \`_do_initialize\` is cancellation-safe, or set \`_timeout = 0\` to opt out of the bound.
+- [ ] If you poke \`AdminRateLimiter\` privates: switch to \`force_cleanup()\`.
+- [ ] If \`/health\` is polled aggressively: budget for one check invocation per registered subsystem per request.
+
+---
+
+## Known Issues
+
+- **\`elips\` has no cp310 wheels.** On Python 3.10 the \`vectordb\` extra installs nothing and vector support degrades to \`VectorNotInstalledFault\` at first use. The environment marker is deliberate — without it, \`aquilia[full]\` would be unresolvable on 3.10 rather than simply omitting vector support.
+- **Single-writer stores and \`workers > 1\`.** elips takes an exclusive lock per database directory. Multi-worker deployments must give each worker its own store path or mark the shared store \`read_only=True\`. There is no shared-writer mode planned; elips is embedded by design.
+- **\`VectorDBSubsystem\` is not driven by \`AquiliaServer\`.** Like every other \`BootContext\` subsystem, it is initialized by the host — an embedder, an alternative runner, a test, or a module lifecycle hook. The \`aq vectordb\` commands configure and shut down \`VectorRegistry\` themselves and need none of this. See [vectordb.md](vectordb.md#wiring-the-store-lifecycle).
+
+---
+
+## Credits
+
+Special thanks to the Aquilia core team and community contributors for auditing CLI failure modes, the subsystem boot layer, and admin lifecycle wiring, and for implementing native C++ lifetime bounds and the vector database subsystem.
+
 `,
-    "cli_modernization.md": `# CLI Architecture Modernization — v1.4.0b3
+    "vectordb.md": `# Vector Database Subsystem — v1.4.0b3
+
+\`aquilia.vectordb\` is a new first-class subsystem: a typed model layer over [elips](https://pypi.org/project/elips/), an embedded vector database. It gives vector collections the same declarative shape Aquilia's SQL ORM gives tables — models, managers, queries, faults, subsystem lifecycle, CLI — without pretending the two storage engines are the same thing.
+
+Full reference: [\`docs/vectordb.md\`](../../docs/vectordb.md).
+
+---
 
 ## Overview
 
-Aquilia v1.4.0b3 replaces legacy monolithic CLI scripts with a modular architecture under \`aquilia.cli.core\`.
+| Aspect | Value |
+|---|---|
+| Package | \`aquilia.vectordb\` (24 modules) |
+| Driver | \`elips >= 1.1.0\` — **optional extra** |
+| Install | \`pip install 'aquilia[vectordb]'\` |
+| Config | \`Workspace.vectordb(...)\`, \`Integration.vectordb(...)\`, \`AquilaConfig.VectorDB\` |
+| Manifest | \`AppManifest.vector_models\`, \`ComponentKind.VECTOR_MODEL\` |
+| Subsystem | \`VectorDBSubsystem\` — priority 28, timeout 60s |
+| CLI | \`aq vectordb\` (10 subcommands) |
+| Health check | \`vectordb.driver\` → \`AQ_VECTORDB_DRIVER_MISSING\` |
 
-## Package Layout
+---
+
+## Motivation
+
+Retrieval-augmented workloads had no home in Aquilia. Applications that wanted similarity search bolted a client library onto a service, hand-rolled serialization between the ORM and the vector store, and had no boot-time validation, no health reporting, no CLI, and no fault taxonomy. Two problems followed:
+
+1. **Silent wrongness.** A vector written under one embedding model and searched under another returns a confidently ranked list of meaningless results. Nothing in a hand-rolled client notices.
+2. **No lifecycle.** A store that failed to open answered every search with an empty list, which reads as "no results" rather than "broken".
+
+The subsystem exists to make both loud.
+
+---
+
+## Design goals
+
+- **Optional at every level.** \`elips\` is a C++ extension. Importing \`aquilia.vectordb\` on an install without it succeeds; the fault surfaces at first *use* as \`VectorNotInstalledFault\` carrying the install hint. Nothing in the package imports \`elips\` at module scope.
+- **One-way dependency.** \`aquilia.vectordb\` imports \`aquilia.models\`; nothing in \`aquilia.models\` imports \`aquilia.vectordb\`. That arrow is what keeps the extra genuinely optional.
+- **Loud over lossy.** Dimension mismatches, embedder-lineage mismatches, nested payloads, and unsupported lookups are rejected — most of them at class-creation time — rather than coerced.
+- **Same shapes as the ORM.** \`VectorModel\`/\`Model\`, \`VectorQuery\`/\`Q\`, \`VectorRegistry\`/\`ModelRegistry\`, \`VectorFault\`/\`Fault\`. Nothing new to learn where nothing new is happening.
+
+---
+
+## Architecture
+
+\`\`\`
+aquilia/vectordb/
+├── __init__.py      # Lazy re-exports (_LAZY_ATTRS) — elips never touched on import
+├── _compat.py       # is_available(), require_elips()
+├── metaclass.py     # VectorModelMeta — slot routing, registration at class creation
+├── base.py          # VectorModel, VectorState
+├── fields.py        # KeyField/VectorField/TextField/Field/ScoreField/LinkField
+├── annotations.py   # Legacy Annotated markers (Key, Dimension, Text, Payload, …)
+├── schema.py        # VectorSchema, VectorOptions, PayloadSpec
+├── codecs.py        # Python type ↔ elips MetaValue codecs
+├── manager.py       # VectorManager (\`Model.vectors\`)
+├── query.py         # VectorQuery, Hit
+├── filters.py       # VF trees → CompiledFilter
+├── expressions.py   # FieldExpression (Document.views >= 10)
+├── eql.py           # parse_eql — string filter grammar
+├── embedders.py     # local / sentence-transformers / fastembed / openai / ollama / callable
+├── chunking.py      # character / recursive / sentence / token chunkers
+├── configs.py       # VectorStoreConfig, GpuOptions, EmbedderOptions, QuantizationConfig
+├── engine.py        # VectorEngine — one elips database
+├── pool.py          # VectorPool — the \`aquilia-vdb\` thread pool
+├── registry.py      # VectorRegistry — models, stores, live engines
+├── gpu.py           # probe(): built vs available, DeviceInfo
+├── interop.py       # Link, resolve, mirror, as_models, reindex
+├── faults.py        # VectorFault hierarchy (21 codes)
+├── signals.py       # vector_pre_save / post_save / pre_delete / post_delete
+└── subsystem.py     # VectorDBSubsystem — BootContext lifecycle
+\`\`\`
+
+### Boot position
+
+\`VectorDBSubsystem\` declares priority **28** — after storage (25), before database (30). Vector stores may live under a storage-managed path, so storage settles first; nothing in the SQL ORM is needed to open one, so it does not wait on the database. \`_timeout\` is **60 seconds** rather than the usual default: opening a store rebuilds its index, which is slower than a socket connect.
+
+### Conditional required-ness
+
+\`_required\` starts \`False\` and is raised to \`True\` inside \`_do_initialize\` **only when stores are actually configured**:
+
+\`\`\`python
+stores = config.get("stores") or []
+if not stores:
+    logger.warning("vectordb is enabled but declares no stores — nothing to open")
+    return
+
+# A declared store that fails to open must stop the boot.
+self._required = True
+\`\`\`
+
+An app with no \`vectordb\` block boots exactly as before. An app that *declared* a store and could not open it fails loudly — see [Edge cases](#edge-cases).
+
+> **\`required\` is only final after \`initialize()\` returns.** Read before that, it holds the class default. \`BaseSubsystem\` now documents this contract explicitly; see [Subsystem boot contract](subsystem_boot_contract.md).
+
+---
+
+## How it works internally
+
+### 1. Declaration → schema
+
+\`VectorModelMeta\` resolves every attribute to exactly one **slot** at class creation: key, vector, text, payload, or score. Two interchangeable declaration styles compile to the same \`VectorSchema\`.
+
+\`\`\`python
+from datetime import datetime
+from aquilia.vectordb import (
+    VectorModel, Field, KeyField, VectorField, TextField, ScoreField,
+)
+
+class Document(VectorModel):
+    key:        str          = KeyField(prefix="doc_")
+    body:       str          = TextField(embed=True, min_length=1, max_length=8192)
+    vector:     list[float]  = VectorField(dimension=384)
+    source:     str          = Field(default="web", indexed=True, max_length=256)
+    views:      int          = Field(default=0, ge=0)
+    score:      float | None = ScoreField()
+    created_at: datetime     = Field(default_factory=datetime.utcnow)
+
+    class Meta:
+        collection = "documents"
+        store = "default"
+        dimension = 384
+\`\`\`
+
+Class access returns the **field** (so \`Document.views >= 10\` builds a filter); instance access returns the **value**. Declaring a field in both the assignment and an \`Annotated[...]\` position for one attribute raises \`VectorSchemaFault\` — there is no principled winner, so the contradiction is rejected rather than resolved by precedence.
+
+### 2. Discovery → registration
+
+\`RuntimeRegistry\` gained a scan and an import pass that mirror the SQL model path:
+
+- \`_discover_vector_models(ctx)\` scans \`modules/<app>/vector_models.py\` and \`modules/<app>/vector_models/*.py\`, appending paths to \`AppContext.vector_models\`.
+- \`_register_vector_models()\` imports them so \`VectorModelMeta\` self-registers into \`VectorRegistry\`.
+
+A **separate directory** rather than a marker inside \`models/\` is deliberate: importing a vector model imports \`aquilia.vectordb\`, and scanning \`models/\` for them would drag the optional dependency into every app that has SQL models. Keeping the paths disjoint keeps that cost opt-in.
+
+Nothing is imported at all when no module declares a vector model, so an app without them never touches \`aquilia.vectordb\`.
+
+### 3. Config → stores
+
+\`VectorDatabaseIntegration.to_dict()\` normalizes \`{alias: config}\` into a list of entries each carrying its own \`alias\`, matching \`StorageIntegration.to_dict()\`. Store-level settings win over integration-level defaults: the outer values exist so the common case (one path, one GPU policy) is declared once, not so they override a store that was explicit.
+
+\`VectorRegistry.configure(stores, default=..., pool_threads=...)\` installs that configuration. Engines open lazily, one per alias, on first \`VectorRegistry.engine(alias)\`.
+
+### 4. Binding validation
+
+elips holds \`dimension\` and \`metric\` **database-global**: they are set once at \`connect()\` and every vault inherits them. \`VectorRegistry._validate_binding()\` therefore checks each model against its store's configuration and fails loudly on a mismatch, naming both sides. Coercing the model to the store's dimension would write vectors that search returns in the wrong order, with nothing in the logs.
+
+---
+
+## Usage guide
+
+### Configuration — \`workspace.py\`
+
+\`\`\`python
+from aquilia.workspace import Workspace
+from aquilia.vectordb import GpuOptions, EmbedderOptions
+
+workspace = (
+    Workspace("myapp")
+    .vectordb(
+        path="./.aquilia/vectors",
+        stores={
+            "default": {
+                "dimension": 384,
+                "metric": "cosine",
+                "index": "hnsw",
+                "embedder": EmbedderOptions(provider="local", model="minilm-l6-v2"),
+            },
+            "images": {"dimension": 512, "metric": "l2"},
+        },
+        gpu=GpuOptions(policy="prefer_gpu", fallback="warn"),
+    )
+)
+\`\`\`
+
+\`Workspace.vectordb()\` is shorthand for \`integrate(VectorDatabaseIntegration(...))\`. Both record into \`Workspace._integrations["vectordb"]\` and surface at \`config["vectordb"]\` plus \`config["integrations"]["vectordb"]\`.
+
+### Configuration — \`aquilia.config.py\`
+
+\`\`\`python
+from aquilia.pyconfig import AquilaConfig
+
+class BaseEnv(AquilaConfig):
+    class vectordb(AquilaConfig.VectorDB):
+        enabled   = True
+        path      = "./.aquilia/vectors"
+        dimension = 384
+        embedder  = "sentence-transformers/all-MiniLM-L6-v2"
+
+class ProdEnv(BaseEnv):
+    env = "prod"
+
+    class vectordb(BaseEnv.vectordb):
+        embedder     = "openai/text-embedding-3-small"
+        dimension    = 1536
+        auto_create  = False     # a missing store is a boot failure
+        quantization = "sq8"     # 4x smaller, approximate distances
+\`\`\`
+
+\`AquilaConfig.VectorDB\` defaults to \`enabled = False\`. \`ConfigLoader.get_vectordb_config()\` returns the same defaults, so an absent block never makes the subsystem try to load the extension.
+
+### Manifest declaration
+
+\`\`\`python
+# modules/blog/manifest.py
+from aquilia.manifest import AppManifest
+
+manifest = AppManifest(
+    name="blog",
+    version="1.0.0",
+    models=["modules.blog.models:Post"],
+    vector_models=["modules.blog.vector_models:Document"],
+)
+\`\`\`
+
+\`vector_models\` is kept separate from \`models\` because the two are bound to different backends — a \`VectorModel\` has no table and never appears in a SQL migration. \`auto_discovery\` now includes \`"vector_models"\` by default.
+
+### Reading and writing
+
+\`\`\`python
+doc = Document(vector=[...], body="release notes", source="docs", views=0)
+await doc.save()            # key assigned if absent
+await doc.refresh()
+await doc.delete_instance()
+
+hits = await Document.vectors.query().filter(source="docs").search(vector=q, limit=10)
+for hit in hits:
+    print(hit.score, hit.body, hit.approximate)
+\`\`\`
+
+### Hybrid retrieval with the SQL ORM
+
+\`\`\`python
+from aquilia.vectordb import as_models, mirror, resolve
+
+@mirror(into=Document,
+        text=lambda p: f"{p.title}\\n\\n{p.body}",
+        meta={"post_id": lambda p: p.pk, "kind": "post"},
+        when=lambda p: p.published)
+class Post(Model):
+    ...
+
+hits  = await Document.vectors.query().filter(kind="post").search(text="alpha", limit=20)
+posts = await as_models(hits, Post, via="post_id",
+                        queryset=Post.query().select_related("author"))
+\`\`\`
+
+\`as_models\` issues **one** SQL round trip regardless of hit count: primary keys are collected from the hits and fetched with a single \`pk__in\`, chunked at 999 to respect the SQLite parameter ceiling, then re-sorted in Python by hit index because SQL \`IN\` does not preserve argument order.
+
+---
+
+## CLI
+
+See [\`vectordb_cli.md\`](vectordb_cli.md) for full flag-by-flag coverage.
+
+\`\`\`bash
+aq vectordb status        # configured stores + elips availability (opens nothing)
+aq vectordb gpu           # capability probe and resolved policy per store
+aq vectordb models        # registered models and their slot routing
+aq vectordb inspect       # open each store, report live health
+aq vectordb stats         # per-collection counts, tombstones, codec, WAL depth
+aq vectordb compact       # reclaim space from deleted records
+aq vectordb vacuum        # release free pages
+aq vectordb compress      # train a quantization codebook and compress
+aq vectordb reindex Post  # rebuild a mirrored collection from SQL
+aq vectordb reembed       # re-embed a collection under a new model
+\`\`\`
+
+---
+
+## Performance implications
+
+| Concern | Behaviour |
+|---|---|
+| **Import cost on installs without vectordb** | Zero. \`_LAZY_ATTRS\` defers \`engine\`, \`gpu\`, \`interop\`, \`embedders\`, \`eql\`, \`chunking\` and \`subsystem\` to first attribute access. Discovery imports nothing when no module declares a vector model. |
+| **Blocking C++ calls** | Offloaded to a dedicated \`ThreadPoolExecutor\` named \`aquilia-vdb\` rather than the default executor, so a long \`compact()\` cannot starve unrelated \`run_in_executor\` callers, and a stalled vector op is identifiable in a stack dump. |
+| **\`pool_threads\`** | Defaults to 4. **Not a write-throughput knob** — elips is single-writer per directory and serializes writes inside C++ however many threads submit them. Reads parallelize; that is what the 4 is for. |
+| **Store open latency** | Opening rebuilds the index, hence the 60s subsystem timeout. A large \`hnsw\` store dominates boot time; \`flat\` opens near-instantly. |
+| **Quantization** | \`sq8\` ≈ 4× smaller, \`pq\`/\`opq\` ≈ 8–32× smaller, both with approximate distances. \`Hit.approximate\` and \`Hit.codec\` surface that to callers applying a score threshold. |
+| **\`as_models\`** | O(1) SQL queries per call, not O(hits). |
+| **Scan mode** | \`all()\`/\`count()\` filter on metadata only and return insertion order. Key-attribute and \`lineage__*\` lookups are evaluated in Python against hydrated records — correct, but they scan rather than narrow the index. |
+
+---
+
+## Edge cases
+
+**Single-writer lock.** elips takes an exclusive lock per database directory. Running more than one worker against the same store path makes every worker after the first fail to acquire it — a startup fault (\`VectorLockFault\`), not a degradation. This is the practical reason \`_required\` is raised when stores are declared: a degraded boot would hide it.
+
+**\`workers > 1\`.** Either give each worker its own store path, or set \`read_only=True\` on the shared store so workers search without the writer lock. Writes then raise.
+
+**\`auto_create=False\`.** A missing store directory fails the boot instead of serving an empty index. Recommended in production.
+
+**Dimension/metric change on an existing store.** Not a migration. elips persists that identity on disk and refuses a reopen that disagrees. \`aq vectordb reembed\` refuses a dimension change in place and names the store to reconfigure.
+
+**Embedder change.** Vectors from two models occupy incompatible spaces, so mixing them does not degrade results — it makes distances meaningless while still returning a confident-looking ranked list. \`VectorEmbedderMismatchFault\` fires at bind time. Re-embedding is an explicit operator action, never implicit.
+
+**Python 3.10.** \`elips 1.1.0\` publishes no cp310 wheels. The extra carries \`python_version >= '3.11'\`, so on 3.10 it installs nothing and \`aquilia.vectordb\` degrades exactly as on any install without the driver — \`VectorNotInstalledFault\` at first use. Without that marker, \`aquilia[full]\` would become unresolvable on 3.10 rather than simply omitting vector support.
+
+**\`__isnull\` lookups.** Rejected with \`VectorLookupFault\`. elips has no null concept — an absent metadata key simply fails to match any predicate — so neither \`True\` nor \`False\` has a faithful translation. Model absence with a sentinel or a boolean flag.
+
+**Range filters over \`Decimal\`/\`UUID\`/\`bytes\`.** Rejected. These encode to strings where lexicographic order is not value order (\`"9" > "10"\`). Equality and \`__in\` still work.
+
+**Nested \`dict\`/\`list\` payloads.** Rejected at class creation, not on first write — a store half-populated with unreadable values is much harder to recover from than an import error.
+
+**Bulk writes bypass \`@mirror\`.** \`bulk_create\`/\`bulk_update\` fire no signals. \`aq vectordb reindex <Model>\` is the sanctioned repair.
+
+**GPU per-query fallback.** elips falls back to CPU per query even under \`require_gpu\`, so "same API, possibly slower" is the default contract. \`fallback="require"\` inspects the query plan and raises \`VectorGpuFault\` when it ran on CPU; that check is opt-in because it costs an \`explain\` per query.
+
+---
+
+## Wiring the store lifecycle
+
+\`AquiliaServer\` boots storage, cache, tasks, mail and effects through its own ordered \`_setup_*\` methods; it does **not** orchestrate \`BootContext\` subsystems. \`VectorDBSubsystem\` is therefore driven by the host — an embedder, an alternative runner, a test, or a module lifecycle hook:
+
+\`\`\`python
+# modules/search/hooks.py
+from aquilia.subsystems import BootContext, VectorDBSubsystem
+
+_subsystem = VectorDBSubsystem()
+
+async def on_boot(config, container=None):
+    ctx = BootContext(config=config, manifests=[])
+    if container is not None:
+        ctx.shared_state["container"] = container
+    status = await _subsystem.initialize(ctx)
+    if status.status.value == "unhealthy" and _subsystem.required:
+        raise RuntimeError(f"vectordb failed to boot: {status.message}")
+
+async def on_close(config, container=None):
+    await _subsystem.shutdown()
+\`\`\`
+
+\`\`\`python
+# modules/search/manifest.py
+from aquilia.manifest import AppManifest, LifecycleConfig
+
+manifest = AppManifest(
+    name="search",
+    version="1.0.0",
+    vector_models=["modules.search.vector_models"],
+    lifecycle=LifecycleConfig(
+        on_startup="modules.search.hooks:on_boot",
+        on_shutdown="modules.search.hooks:on_close",
+    ),
+)
+\`\`\`
+
+The \`aq vectordb\` commands configure and shut down \`VectorRegistry\` themselves, so they work without any of this.
+
+---
+
+## Backward compatibility
+
+Adoption is **purely additive**. There is no legacy vector API to migrate from, and nothing existing changes:
+
+- An install without \`elips\` behaves exactly as before this release.
+- A workspace with no \`vectordb\` block boots with \`VectorDBSubsystem._required = False\` and never imports the driver.
+- \`AppManifest.vector_models\` defaults to \`[]\`; \`AppContext.vector_models\` defaults to \`[]\`.
+- \`VectorModel\` and \`Model\` coexist in one module and are disjoint under \`isinstance\`.
+- The original \`Annotated\` marker syntax (\`Key()\`, \`Dimension(n)\`, \`Text()\`, \`Payload()\`, \`Score()\`, \`MinLength\`, \`MaxValue\`, \`Range\`, …) is fully supported and unchanged; the unified field objects are additive.
+
+---
+
+## Limitations
+
+- **Embedded only.** No networked or distributed vector storage — that is elips's design, not a gap to fill.
+- **No vectors in SQL tables.** \`as_models\` hydrates from SQL; it does not mirror vectors into it.
+- **No GPU kernels.** Aquilia owns no kernels; elips owns the backend abstraction and the fallback chain.
+- **No automatic re-embedding.** \`aq vectordb reembed\` stays an operator action.
+- **No ordering in scan mode.** Without a query vector there is nothing to rank by, so \`order_by\` is not offered rather than silently ignored.
+- **\`offset()\` rejected on \`search()\`.** A similarity index returns top-k, so paging by offset would re-rank between pages.
+
+---
+
+## Related documentation
+
+- [\`docs/vectordb.md\`](../../docs/vectordb.md) — complete reference (fields, codecs, queries, EQL, embedders, chunking, GPU, faults)
+- [\`vectordb_cli.md\`](vectordb_cli.md) — \`aq vectordb\` command reference
+- [\`subsystem_boot_contract.md\`](subsystem_boot_contract.md) — \`BootContext\`, DI resolution, timeout enforcement
+- [\`checks_engine.md\`](checks_engine.md) — the \`vectordb.driver\` health check
+- [\`migration.md\`](migration.md) — upgrade steps and compatibility matrix
+- [\`README.md\`](README.md) — release overview
+`,
+    "vectordb_cli.md": `# \`aq vectordb\` Command Reference — v1.4.0b3
+
+A new CLI group registered in \`aquilia/cli/__main__.py\` and categorised under **Database** in \`aq --help\` (\`aquilia.cli.core.registry._CATEGORIES["vectordb"] = "Database"\`).
+
+\`\`\`bash
+aq vectordb --help
+\`\`\`
+
+Nothing in this group is a breaking change — the whole group is new.
+
+---
+
+## Lock discipline
+
+elips is **single-writer per database directory**. The commands split cleanly on whether they take that lock:
+
+| Takes no lock | Takes the writer lock |
+|---|---|
+| \`status\` | \`inspect\`, \`stats\`, \`compact\`, \`vacuum\`, \`compress\`, \`reindex\`, \`reembed\` |
+| \`gpu\` (probe only; reads config for policy display) | |
+| \`models\` (imports model modules; opens nothing) | |
+
+The lock-taking commands **will fail while a server holds the same store**. That is the lock working, not a bug. Run them during a maintenance window, or point them at a store the server does not own.
+
+---
+
+## \`aq vectordb status\`
+
+Show configured stores and \`elips\` availability. Reads configuration only.
+
+\`\`\`
+--json    Output as JSON
+\`\`\`
+
+\`\`\`bash
+$ aq vectordb status
+Vector store status
+✔ elips available (version 1.1.0)
+
+ * default
+     path       ./.aquilia/vectors/default
+     dimension  384   metric cosine   index hnsw
+     gpu        prefer_gpu
+     embedder   local
+   images
+     path       ./.aquilia/vectors/images
+     dimension  512   metric l2   index flat
+     gpu        cpu_only
+     embedder   none
+
+* = default store
+\`\`\`
+
+Without the driver:
+
+\`\`\`bash
+$ aq vectordb status
+Vector store status
+! elips not installed — vector stores cannot open
+  No module named 'elips'
+  Install with: pip install 'aquilia[vectordb]'
+\`\`\`
+
+Without configuration:
+
+\`\`\`bash
+$ aq vectordb status
+Vector store status
+✔ elips available (version 1.1.0)
+
+i No vector stores configured.
+  Add Workspace.vectordb(stores={...}) to your workspace.py
+\`\`\`
+
+JSON payload shape:
+
+\`\`\`json
+{
+  "elips": { "available": true, "version": "1.1.0" },
+  "enabled": true,
+  "default": "default",
+  "stores": [ { "alias": "default", "path": "...", "dimension": 384, "...": "..." } ]
+}
+\`\`\`
+
+---
+
+## \`aq vectordb gpu\`
+
+Probe GPU capability and show the resolved policy per store.
+
+\`\`\`
+-s, --store TEXT   Resolve policy for one store alias
+    --json         Output as JSON
+\`\`\`
+
+\`built\` (the elips wheel carries GPU bindings — compile-time) and \`available\` (a device is actually present — runtime) are reported **separately**. A GPU-enabled build on a machine with no device is a normal, supported state; collapsing the two into one boolean makes that case impossible to diagnose.
+
+\`\`\`bash
+$ aq vectordb gpu
+GPU capability
+  built      True
+  available  True
+
+  [0] NVIDIA RTX A4000  (cuda)
+       memory 15.73 GiB   fp16 True   unified False
+
+Configured policy
+  default: policy=prefer_gpu fallback=warn — ok
+  images: policy=cpu_only fallback=warn — ok
+\`\`\`
+
+\`require_gpu\` with no device is called out explicitly, because it is a boot failure rather than a slow path:
+
+\`\`\`
+  default: policy=require_gpu fallback=error — BOOT WILL FAIL (require_gpu, no device)
+\`\`\`
+
+Exits \`1\` when \`elips\` is not installed — there is nothing to probe.
+
+---
+
+## \`aq vectordb models\`
+
+List registered vector models and their slot routing.
+
+\`\`\`
+--json    Output as JSON
+\`\`\`
+
+Slot routing is resolved at class creation and is not visible in the source, so this is the fastest way to confirm a \`KeyField\` / \`TextField\` / \`VectorField\` (or a legacy \`Key()\` / \`Text()\` / \`Dimension()\` marker) landed where the author intended.
+
+\`\`\`bash
+$ aq vectordb models
+Vector models
+  modules.blog.vector_models.Document
+     collection documents   store default   dim 384
+     key=key  text=body  vector=vector
+     payloads   created_at, source, views
+     links      author_id
+\`\`\`
+
+\`\`\`bash
+$ aq vectordb models
+Vector models
+i No vector models registered.
+  Declare them in modules/<app>/vector_models.py or a manifest's vector_models list.
+\`\`\`
+
+---
+
+## \`aq vectordb inspect [STORE]\`
+
+Open each store and report live health.
+
+\`\`\`
+STORE     Optional store alias; all stores when omitted
+--json    Output as JSON
+\`\`\`
+
+\`\`\`bash
+$ aq vectordb inspect default
+Vector store inspection
+✔ default: healthy
+     path            ./.aquilia/vectors/default
+     dimension       384
+     metric          cosine
+     index           hnsw
+     collections     ['documents']
+     pending_writes  0
+     gpu             built=True available=True
+\`\`\`
+
+Every store is closed again on the way out, including on failure — the \`finally\` calls \`VectorRegistry.shutdown()\`, so the lock is released even when one store errors.
+
+---
+
+## \`aq vectordb stats [STORE]\`
+
+Per-collection telemetry: record counts, tombstones, codec, WAL depth.
+
+\`\`\`
+STORE     Optional store alias
+--json    Output as JSON
+\`\`\`
+
+\`\`\`bash
+$ aq vectordb stats
+Vector store statistics
+✔ default
+     pending_writes  0
+     documents
+        live=12403  tombstone_ratio=0.04  dim=384  metric=cosine  codec=none
+\`\`\`
+
+\`tombstone_ratio\` is the signal for whether \`compact\` is worth running.
+
+---
+
+## \`aq vectordb compact [STORE]\`
+
+Reclaim space held by deleted records.
+
+\`\`\`
+STORE     Optional store alias
+\`\`\`
+
+\`\`\`bash
+$ aq vectordb compact default
+compact default ...
+✔ Compacted 1 store(s).
+\`\`\`
+
+Refuses a \`read_only\` store and exits \`1\`:
+
+\`\`\`
+✘ default: store is read_only; refusing to compact
+\`\`\`
+
+---
+
+## \`aq vectordb vacuum [STORE]\`
+
+Release free pages back to the filesystem. Same shape and same \`read_only\` refusal as \`compact\`.
+
+\`\`\`bash
+$ aq vectordb vacuum
+vacuum default ...
+✔ Vacuumed 1 store(s).
+\`\`\`
+
+---
+
+## \`aq vectordb compress [STORE]\`
+
+Train a quantization codebook and compress a store in place.
+
+\`\`\`
+STORE                  Optional store alias
+--codec [pq|opq|sq8]   Quantization codec to train and apply  [default: pq]
+--sample-size INT      Vectors sampled to train the codebook  [default: 10000]
+--pq-dim INT           Sub-quantizer count (pq/opq)
+--pq-bits INT          Bits per sub-quantizer code (4-8)
+--yes                  Skip the confirmation prompt
+\`\`\`
+
+Trades recall for memory: \`sq8\` stores one byte per dimension (≈4× smaller); \`pq\`/\`opq\` store a short code per vector (≈8–32× smaller). Distances become approximate afterwards, which is why every hit carries \`approximate=True\` and its codec.
+
+**Not reversible in place.** Compression frees the full-precision vectors once the codebook is trained, so restoring them means re-ingesting or re-embedding. Hence the confirmation:
+
+\`\`\`bash
+$ aq vectordb compress default --codec sq8
+Compress with sq8? Full-precision vectors are discarded and distances become approximate. [y/N]: y
+compressing default/documents with sq8 ...
+✔ Compressed 1 store(s) with sq8.
+\`\`\`
+
+Scriptable with \`--yes\`. Refuses a \`read_only\` store.
+
+---
+
+## \`aq vectordb reindex MODEL\`
+
+Rebuild a mirrored collection from its SQL table.
+
+\`\`\`
+MODEL                    SQL model class name, e.g. Post  (required)
+-b, --batch-size INT     Rows per write batch  [default: 500]
+\`\`\`
+
+This is the sanctioned repair for the bulk-write blind spot: \`bulk_create\` and \`bulk_update\` fire no signals, so rows written that way never reach \`@mirror\` and the vector collection silently drifts.
+
+\`\`\`bash
+$ aq vectordb reindex Post
+✔ Reindexed 8412 record(s) from Post.
+\`\`\`
+
+Exits \`1\` with a named reason when the model is unknown or carries no \`@mirror\`:
+
+\`\`\`
+✘ Post has no @mirror registered — nothing to reindex.
+\`\`\`
+
+---
+
+## \`aq vectordb reembed\`
+
+Re-embed a collection under a different embedding model.
+
+\`\`\`
+-m, --model TEXT         Vector model class name, e.g. Document  (required)
+    --to-embedder TEXT   Target embedder URI  (required)
+-b, --batch-size INT     Records per batch  [default: 200]
+    --dry-run            Report what would change, write nothing
+\`\`\`
+
+Reads every record's stored text, embeds it with the new model, and writes the vector back **under the same key** — so keys, payloads, and any SQL links survive the migration.
+
+\`\`\`bash
+$ aq vectordb reembed --model Document --to-embedder openai/text-embedding-3-large --dry-run
+i Dry run: 12403 record(s) would be re-embedded with openai/text-embedding-3-large.
+
+$ aq vectordb reembed --model Document --to-embedder openai/text-embedding-3-large
+✔ Re-embedded 12403 record(s) with openai/text-embedding-3-large.
+! 17 record(s) had no stored text and were left unchanged.
+\`\`\`
+
+Two failure modes it guards against:
+
+1. **A dimension change** (384 → 1536) cannot be applied in place, because elips holds dimension database-global. The command refuses rather than writing vectors the store cannot index, and names the store to reconfigure:
+
+   \`\`\`
+   ✘ openai/text-embedding-3-large produces 3072-dimension vectors but store 'default' is configured for 384.
+     elips holds dimension database-global, so this cannot be changed in place.
+   \`\`\`
+
+2. **A record with no stored text** cannot be re-embedded from anything. Those are counted and reported rather than silently left on the old model, which would leave the collection split across two vector spaces.
+
+\`--to-embedder\` is **required**: re-embedding under whatever happens to be configured is exactly how a collection ends up with two incompatible vector spaces. A model with no text field is rejected outright.
+
+---
+
+## Common workflows
+
+### Bring up vector search on an existing app
+
+\`\`\`bash
+pip install 'aquilia[vectordb]'
+# add .vectordb(stores={...}) to workspace.py
+# add modules/<app>/vector_models.py
+
+aq vectordb status      # driver installed? stores read correctly?
+aq vectordb models      # slot routing as intended?
+aq doctor               # picks up the vectordb.driver check
+aq serve
+\`\`\`
+
+### Diagnose an empty search result set
+
+\`\`\`bash
+aq vectordb models              # is the model registered at all?
+aq vectordb stats               # does the collection hold records?
+aq vectordb inspect             # is the store healthy, dimension as expected?
+\`\`\`
+
+### Repair drift after a bulk import
+
+\`\`\`bash
+aq vectordb reindex Post
+aq vectordb stats
+\`\`\`
+
+### Maintenance window
+
+\`\`\`bash
+aq vectordb stats               # check tombstone_ratio
+aq vectordb compact
+aq vectordb vacuum
+aq vectordb compress --codec sq8 --yes    # only if memory is the constraint
+\`\`\`
+
+### Migrate embedding models
+
+\`\`\`bash
+# 1. Reconfigure the store's dimension in workspace.py if the new model differs.
+# 2. Dry run first.
+aq vectordb reembed --model Document --to-embedder openai/text-embedding-3-small --dry-run
+# 3. Apply.
+aq vectordb reembed --model Document --to-embedder openai/text-embedding-3-small
+\`\`\`
+
+---
+
+## Anti-patterns
+
+| Don't | Do |
+|---|---|
+| Run \`aq vectordb inspect\` against a live server's store | Use \`aq vectordb status\`, which takes no lock |
+| Run \`workers > 1\` against one store path | Separate paths per worker, or \`read_only=True\` for search-only workers |
+| Change \`dimension\` in config and expect the store to follow | Reconfigure the store, then \`aq vectordb reembed\` |
+| \`aq vectordb compress\` on a store you cannot re-ingest | Verify a backup or a re-ingest path exists first — compression is one-way |
+| Parse the human output in CI | Every command takes \`--json\` |
+
+---
+
+## Related documentation
+
+- [\`vectordb.md\`](vectordb.md) — subsystem overview, architecture, configuration
+- [\`docs/vectordb.md\`](../../docs/vectordb.md) — complete API reference
+- [\`cli_modernization.md\`](cli_modernization.md) — \`ExitCode\` contract these commands exit under
+- [\`checks_engine.md\`](checks_engine.md) — the \`vectordb.driver\` health check
+`,
+    "cli_modernization.md": `# CLI Architecture Modernization — v1.4.0b3
+
+## Overview & Motivation
+
+In previous releases, the Aquilia CLI (\`aq\`) contained significant structural debt:
+1. **Inconsistent Exit Codes**: Commands printed warning/error banners but returned exit code \`0\` unconditionally. Continuous integration pipelines were unable to rely on \`aq validate\` or \`aq doctor\` to fail broken builds.
+2. **Scattered Error Exit Calls**: ~150 scattered \`sys.exit(1)\` invocations were hardcoded into command bodies, making CLI logic impossible to unit test without process termination.
+3. **Competing Workspace Guards**: Three different functions (\`_ensure_workspace_root\`, \`_require_workspace\`, and \`ConfigMissingFault\`) checked for \`workspace.py\` using different rules and error messages.
+4. **Brittle Regex Workspace Parsing**: \`workspace.py\` and \`manifest.py\` were parsed using regular expressions (e.g. \`re.findall(r'Module\\("([^"]+)"')\`), missing commented-out modules, ignoring \`.starter("name")\` starter routes, and ignoring module-level \`route_prefix\` settings.
+5. **Help Category Drift**: \`AquiliaGroup._CATEGORIES\` relied on a manually maintained literal list of command strings. Commands like \`deploy-gen\` vs \`deploy\` caused 7 core commands to silently fall into the "Other" category in \`aq --help\`.
+
+v1.4.0b3 replaces this legacy implementation with a modular architecture under \`aquilia.cli.core\`.
+
+---
+
+## The \`aquilia.cli.core\` Package
 
 \`\`\`
 aquilia/cli/core/
@@ -8934,27 +9935,190 @@ aquilia/cli/core/
 ├── faults.py          # CLI_DOMAIN and CliFault hierarchy
 ├── context.py         # AqContext ambient state thread
 ├── workspace.py       # LoadedWorkspace, load_workspace(), Python-first loader
-└── registry.py        # CommandSpec, CATEGORY_ORDER, category-driven help grouping
+└── registry.py        # CommandSpec, CATEGORY_ORDER, single source of help grouping
 \`\`\`
 
-## ExitCode Contract
+---
+
+## 1. Single Source of Truth for Exit Codes (\`exits.py\`)
+
+\`ExitCode\` establishes a strict contract for process return values:
 
 \`\`\`python
+from enum import IntEnum
+
 class ExitCode(IntEnum):
     OK = 0          # All checks passed / findings <= WARN
     FAILED = 1      # At least one ERROR or FATAL finding
     USAGE = 2       # Command line argument/invocation error
     CONFIG = 3      # Workspace or configuration file missing / load failure
-    INTERNAL = 4    # Unhandled CLI exception
+    INTERNAL = 4    # Unhandled CLI exception (bug in CLI engine)
 \`\`\`
+
+### Severity Mapping
+
+Check severities (\`INFO\`, \`WARN\`, \`ERROR\`, \`FATAL\`) map deterministically to process exit codes:
+
+\`\`\`python
+from aquilia.cli.core.exits import exit_code_for
+from aquilia.faults.core import Severity
+
+# Only ERROR and FATAL cause process failure (ExitCode.FAILED / 1)
+exit_code_for([Severity.INFO, Severity.WARN])  # -> ExitCode.OK (0)
+exit_code_for([Severity.WARN, Severity.ERROR]) # -> ExitCode.FAILED (1)
+\`\`\`
+
+---
+
+## 2. Structured CLI Fault Hierarchy (\`faults.py\`)
+
+Instead of invoking \`sys.exit(1)\` inside command handlers, commands raise typed subclasses of \`CliFault\`. The CLI entrypoint (\`cli\`) catches faults at the process boundary and converts them to exit codes.
+
+\`\`\`python
+from aquilia.cli.core.faults import CliFault, WorkspaceNotFoundFault
+from aquilia.faults.core import FaultDomain, Severity
+
+CLI_DOMAIN = FaultDomain.custom("CLI", "Aquilia command-line interface faults")
+
+class CliFault(Fault):
+    code = "CLI_ERROR"
+    message = "CLI operation failed"
+    domain = CLI_DOMAIN
+    severity = Severity.ERROR
+
+class WorkspaceNotFoundFault(CliFault):
+    code = "CLI_WORKSPACE_NOT_FOUND"
+    message = "No Aquilia workspace found in the current directory"
+    severity = Severity.ERROR
+\`\`\`
+
+### Benefit for Testing
+
+Commands can now be tested as normal Python functions without mocking \`sys.exit()\`:
+
+\`\`\`python
+# Unit test example
+import pytest
+from aquilia.cli.core.faults import WorkspaceNotFoundFault
+
+def test_require_workspace_raises_fault(tmp_path):
+    ctx = AqContext(cwd=tmp_path)
+    with pytest.raises(WorkspaceNotFoundFault):
+        ctx.require_workspace()
+\`\`\`
+
+---
+
+## 3. Ambient CLI State (\`AqContext\`)
+
+\`AqContext\` replaces ad-hoc \`ctx.obj\` dictionary access. The workspace is resolved lazily upon first access:
+
+\`\`\`python
+from dataclasses import dataclass, field
+from pathlib import Path
+from aquilia.cli.core.workspace import LoadedWorkspace, load_workspace
+
+@dataclass
+class AqContext:
+    cwd: Path = field(default_factory=Path.cwd)
+    verbose: bool = False
+    quiet: bool = False
+    json_output: bool = False
+    no_color: bool = False
+    strict: bool = False
+    module_filter: str | None = None
+    mode: str = field(default_factory=lambda: os.environ.get("AQUILIA_ENV", "dev"))
+    _workspace: LoadedWorkspace | None = field(default=None, repr=False)
+
+    @property
+    def workspace(self) -> LoadedWorkspace:
+        if self._workspace is None:
+            self._workspace = load_workspace(self.cwd)
+        return self._workspace
+
+    def require_workspace(self) -> LoadedWorkspace:
+        ws = self.workspace
+        if not ws.exists:
+            raise WorkspaceNotFoundFault(path=str(self.cwd))
+        return ws
+\`\`\`
+
+---
+
+## 4. Python-First Workspace Loader (\`workspace.py\`)
+
+\`workspace.py\` is a Python module, so \`load_workspace()\` imports it cleanly via \`importlib\` instead of scraping source text with regular expressions.
+
+\`\`\`python
+from aquilia.cli.core.workspace import load_workspace
+
+ws = load_workspace(Path.cwd())
+print(f"Root: {ws.root}")
+print(f"Modules: {ws.module_names}")
+print(f"Starter Controller: {ws.starter_module}")
+
+# Manifest resolution with caching
+manifest = ws.manifest("users")
+print(f"Controllers: {manifest.controllers}")
+\`\`\`
+
+### Regex Fallback Mechanism
+
+If \`workspace.py\` contains syntax or import errors, \`load_workspace()\` falls back to a non-evaluating regex scan and sets \`ws.used_fallback = True\`. This allows \`aq doctor\` to inspect and report on a broken workspace rather than failing immediately.
+
+---
+
+## 5. Category-Driven Command Registry (\`registry.py\`)
+
+Command categories are maintained in a single registry mapping command names to display categories in \`aq --help\`:
+
+\`\`\`python
+CATEGORY_ORDER = (
+    "Scaffold", "Develop", "Production", "Database",
+    "Admin", "Inspect", "Subsystems", "Deploy",
+    "Migration", "Other"
+)
+
+# Single source of truth for aq --help
+_CATEGORIES = {
+    "init": "Scaffold", "add": "Scaffold", "generate": "Scaffold",
+    "run": "Develop", "dev": "Develop", "validate": "Develop",
+    "test": "Develop", "discover": "Develop", "doctor": "Develop",
+    "serve": "Production", "db": "Database", "admin": "Admin",
+    "inspect": "Inspect", "manifest": "Inspect", "ws": "Subsystems",
+    "cache": "Subsystems", "mail": "Subsystems", "deploy": "Deploy",
+    "migrate": "Migration",
+}
+\`\`\`
+
+Help integrity tests enforce that every registered Click command maps to a category, preventing unassigned commands from drifting into "Other".
 `,
     "checks_engine.md": `# Unified Health Checks Engine — v1.4.0b3
 
-## Overview
+## Overview & Architecture
 
-Every check yields structured \`Finding\` objects with stable error codes:
+Aquilia v1.4.0b3 introduces a unified health checks engine (\`aquilia.cli.checks\`). It replaces the legacy, separate implementations in \`doctor.py\` (597 lines) and \`validate.py\` (372 lines) with a single registry of extensible, tagged check functions.
+
+\`\`\`
+aquilia/cli/checks/
+├── __init__.py        # Re-exports check protocol & runner
+├── base.py            # Finding, Check, CheckResult, @register_check decorator
+├── report.py          # Human and JSON report formatters
+├── workspace.py       # Core workspace health checks (modules, manifests, routes, DI, DB)
+└── subsystems.py      # Subsystem-specific probes (tasks, templates, storage, etc.)
+\`\`\`
+
+---
+
+## 1. The Check Protocol (\`base.py\`)
+
+Checks never print directly to \`stdout\` or \`stderr\`. Instead, a check receives an \`AqContext\` instance and yields structured \`Finding\` objects.
 
 \`\`\`python
+from aquilia.cli.checks.base import Finding, register_check
+from aquilia.cli.core.context import AqContext
+from aquilia.faults.core import Severity
+
 @register_check(
     name="db.reachable",
     summary="Database configuration is valid and reachable",
@@ -8963,7 +10127,8 @@ Every check yields structured \`Finding\` objects with stable error codes:
 )
 def check_db_reachable(ctx: AqContext):
     ws = ctx.workspace
-    if ws.workspace_obj.database is None:
+    db_cfg = ws.workspace_obj.database
+    if db_cfg is None:
         yield Finding(
             code="AQ_DB_NOT_CONFIGURED",
             message="No database integration configured in workspace",
@@ -8971,25 +10136,1440 @@ def check_db_reachable(ctx: AqContext):
             remedy="Add DatabaseIntegration to workspace.py if persistence is required",
         )
 \`\`\`
+
+### Finding Dataclass
+
+\`\`\`python
+@dataclass
+class Finding:
+    code: str                  # Stable identifier (e.g. "AQ_DB_MISSING")
+    message: str               # Human-readable summary
+    severity: Severity = Severity.ERROR # Severity level (INFO, WARN, ERROR, FATAL)
+    remedy: str | None = None  # Actionable remediation guidance
+    location: str | None = None# File path or module location
+    detail: str | None = None  # Detailed error or stack trace (shown in -v mode)
+\`\`\`
+
+---
+
+## 2. Core Workspace Checks (\`workspace.py\`)
+
+| Check Name | Summary | Severity Range | Tags |
+|---|---|---|---|
+| \`env.python\` | Interpreter version >= 3.10 | \`FATAL\` | \`env\`, \`quick\` |
+| \`workspace.present\` | \`workspace.py\` exists and imports cleanly | \`ERROR\`, \`WARN\` | \`workspace\`, \`quick\` |
+| \`workspace.modules\` | Declared modules exist on disk | \`ERROR\`, \`WARN\` | \`workspace\`, \`modules\` |
+| \`manifest.loadable\` | Every declared module has an importable \`manifest.py\` | \`ERROR\` | \`manifest\`, \`quick\` |
+| \`manifest.references\` | Component references (\`module.path:Class\`) resolve | \`ERROR\` | \`manifest\`, \`deep\` |
+| \`routes.parsable\` | Controller route metadata extracts cleanly | \`ERROR\` | \`routes\`, \`deep\` |
+| \`routes.conflicts\` | No overlapping HTTP method + path collisions | \`ERROR\` | \`routes\`, \`deep\` |
+| \`di.providers\` | DI service providers resolve and import | \`ERROR\`, \`INFO\` | \`di\`, \`deep\` |
+| \`db.reachable\` | Database backend configured and reachable | \`ERROR\`, \`WARN\` | \`db\`, \`deep\` |
+
+---
+
+## 3. Config-Driven Subsystem Checks (\`subsystems.py\`)
+
+Subsystem checks inspect the integrations declared on \`workspace.py\` and stay silent when a subsystem is unused:
+
+- **\`tasks.registry\`**: Validates background task references (\`module:task_name\`) and confirms functions carry the \`@task\` decorator.
+- **\`templates.dirs\`**: Verifies that configured Jinja template search directories exist on disk.
+- **\`vectordb.driver\`**: Confirms \`elips\` is importable when the workspace declares vector stores.
+- **\`subsystems.available\`**: Confirms that packages for configured integrations (\`storage\`, \`cache\`, \`mail\`, \`i18n\`, \`otel\`, \`sse\`, \`versioning\`, \`http\`, \`auth\`, \`sockets\`, \`contracts\`, \`mlops\`, \`vectordb\`, \`admin\`) are installed.
+
+### The \`vectordb.driver\` check
+
+\`elips\` is an optional extra, so a workspace can declare vector stores on an install that cannot open them. Without a check, the first symptom is a \`VectorNotInstalledFault\` at request time — long after deploy.
+
+\`\`\`python
+@register_check(
+    name="vectordb.driver",
+    summary="elips driver is installed when vector stores are declared",
+    tags=["vectordb", "quick"],
+    subsystem="vectordb",
+)
+def check_vectordb_driver(ctx: AqContext):
+    ...
+    yield Finding(
+        code="AQ_VECTORDB_DRIVER_MISSING",
+        message="Vector stores are declared but the elips driver is not installed",
+        severity=Severity.ERROR,
+        remedy="pip install 'aquilia[vectordb]' (requires Python 3.11+)",
+    )
+\`\`\`
+
+The check is \`quick\`-tagged: it imports nothing beyond an availability probe and never opens a store, so it does not contend with a running server for the writer lock. It stays silent when no vector stores are declared.
+
+### Integration detection fix
+
+\`_integration()\` previously resolved integrations by attribute lookup (\`getattr(workspace_obj, name)\`). \`Workspace\` exposes builder **methods** named \`storage\`, \`vectordb\`, \`i18n\`, \`tasks\` and \`templates\`, so \`getattr\` returned a truthy bound method and every workspace appeared to declare every one of those subsystems — producing findings for integrations that were never configured.
+
+\`Workspace._integrations\` is now authoritative, since it holds exactly what \`integrate()\` and the builder methods recorded. Attribute lookup remains as a fallback for non-\`Workspace\` objects and skips callables:
+
+\`\`\`python
+declared = getattr(obj, "_integrations", None)
+if isinstance(declared, dict):
+    found = declared.get(name)
+    if found is not None:
+        return found
+
+for attr in (name, f"{name}_integration", f"_{name}"):
+    found = getattr(obj, attr, None)
+    if found is not None and not callable(found):
+        return found
+return None
+\`\`\`
+
+---
+
+## 4. Route Introspection Engine (\`aquilia.cli.introspect.routes\`)
+
+Legacy CLI route inspection relied on checking non-existent attributes like \`__controller_routes__\`. v1.4.0b3 uses \`ControllerCompiler\` — the exact same compiler called by \`AquiliaServer\` at boot.
+
+\`\`\`python
+from aquilia.cli.introspect.routes import collect_routes, count_routes
+
+# Collect all routes across workspace modules and starter controllers
+routes = collect_routes(ws)
+for controller in routes:
+    print(f"Controller: {controller.controller} (Prefix: {controller.prefix})")
+    for r in controller.routes:
+        print(f"  {r.http_method:<6} {r.full_path:<30} -> {r.handler}")
+\`\`\`
+
+### Accurate Route Counting
+
+\`count_routes()\` counts individual HTTP endpoints rather than controller classes. A controller exposing 5 endpoint methods now correctly reports \`5 routes\` instead of \`1\`.
+
+---
+
+## 5. Report Formatters (\`report.py\`)
+
+### Human Output (\`render_human\`)
+
+\`\`\`
+  x  [AQ_DB_MISSING] Database file does not exist: /app/db.sqlite3
+        at: /app/db.sqlite3
+        fix: Run migrations to create the DB, or check the configured path
+  !  [AQ_TASK_NOT_DECORATED] users: 'sync_user' is listed as a task but has no @task decorator
+        at: modules/users/tasks.py
+        fix: Decorate it with @task so the registry can schedule it
+
+  12 checks run: 1 error, 1 warning
+  Result: FAILED
+\`\`\`
+
+### JSON Output (\`render_json\`) for CI Pipelines
+
+\`\`\`json
+{
+  "summary": {
+    "checks_run": 12,
+    "checks_skipped": 0,
+    "checks_errored": 0,
+    "findings": {
+      "info": 0,
+      "warn": 1,
+      "error": 1,
+      "fatal": 0
+    },
+    "total_findings": 2,
+    "passed": false
+  },
+  "exit_code": 1,
+  "checks": [
+    {
+      "name": "db.reachable",
+      "summary": "Database configuration is valid and reachable",
+      "subsystem": "db",
+      "tags": ["db", "deep"],
+      "skipped": false,
+      "findings": [
+        {
+          "code": "AQ_DB_MISSING",
+          "message": "Database file does not exist: /app/db.sqlite3",
+          "severity": "error",
+          "remedy": "Run migrations to create the DB, or check the configured path",
+          "location": "/app/db.sqlite3",
+          "detail": null
+        }
+      ]
+    }
+  ]
+}
+\`\`\`
+
+---
+
+## Related documentation
+
+- [cli_modernization.md](cli_modernization.md) — \`AqContext\`, \`ExitCode\`, \`CliFault\`
+- [vectordb.md](vectordb.md) — the subsystem behind \`vectordb.driver\`
+- [vectordb_cli.md](vectordb_cli.md) — \`aq vectordb status\` for deeper vector diagnostics
+- [bug_fixes.md](bug_fixes.md#11-workspace-integration-detection-reported-phantom-integrations) — the integration detection defect
+`,
+    "subsystem_boot_contract.md": `# Subsystem Boot Contract — v1.4.0b3
+
+The \`aquilia.subsystems\` package gained a documented, enforced contract. Five defects found in the 2026-08-09 subsystem audit are fixed here, and the package's role relative to \`AquiliaServer\` is now stated explicitly instead of implied.
+
+Regression coverage: \`tests/test_subsystem_boot_contract.py\`.
+
+---
+
+## Overview
+
+| Change | Kind |
+|---|---|
+| \`BootContext.di_containers()\` + \`DI_CONTAINER_KEY\` | New API — single DI resolution path |
+| \`_timeout\` actually enforced in \`BaseSubsystem.initialize()\` | Behavioural fix |
+| \`BootContext\` population contract documented | Documentation |
+| \`StorageSubsystem\` DI registration repaired | Bug fix |
+| \`EffectSubsystem\` DI registration repaired | Bug fix |
+| \`EffectSubsystem.health_check()\` constructs a valid \`HealthStatus\` | Bug fix |
+| \`StorageSubsystem\` / \`VectorDBSubsystem\` register a **live** health check | Bug fix |
+| \`required\` computed-after-\`initialize()\` contract documented | Documentation |
+| \`aquilia.subsystems\` package role documented; no \`SubsystemOrchestrator\` | Documentation |
+
+---
+
+## Who drives subsystems
+
+Previously the package docstring said "the server orchestrates subsystems in priority order". It does not. \`AquiliaServer\` boots storage, cache, tasks, mail and effects through its own ordered \`_setup_*\` methods, and that is the production path.
+
+\`aquilia.subsystems\` is the entry point for hosts that drive subsystems **themselves** — embedders, alternative runners, and tests — where there is no \`AquiliaServer\` to own the sequence. Both paths share the same underlying registries (\`StorageRegistry\`, \`VectorRegistry\`, \`EffectRegistry\`), so behaviour does not diverge; only the orchestration does.
+
+There is deliberately **no \`SubsystemOrchestrator\`**. Adding one would create a second production boot sequence to keep in sync with the server's. A host that wants ordered boot composes it directly:
+
+\`\`\`python
+from aquilia.health import SubsystemStatus
+from aquilia.subsystems import BootContext, EffectSubsystem, StorageSubsystem
+
+subsystems = sorted([StorageSubsystem(), EffectSubsystem()], key=lambda s: s.priority)
+ctx = BootContext(config=cfg, manifests=[], registry=runtime_registry)
+
+for sub in subsystems:
+    status = await sub.initialize(ctx)
+    ctx.health.register(sub.name, status)
+    # \`required\` is only final after initialize() — see below.
+    if status.status is SubsystemStatus.UNHEALTHY and sub.required:
+        raise RuntimeError(f"required subsystem {sub.name} failed: {status.message}")
+
+# ... shutdown in reverse priority order
+for sub in reversed(subsystems):
+    await sub.shutdown()
+\`\`\`
+
+---
+
+## 1. \`BootContext.di_containers()\` — one DI resolution path
+
+### Previous API
+
+Each subsystem invented its own \`shared_state\` key and its own resolution rule.
+
+\`\`\`python
+# StorageSubsystem._register_di  — BEFORE
+registry_obj = ctx.shared_state.get("_di_registry")
+if registry_obj and hasattr(registry_obj, "register"):
+    provider = ValueProvider(value=self._registry, token=StorageRegistry, scope="app")
+    registry_obj.register(provider)
+\`\`\`
+
+\`\`\`python
+# EffectSubsystem._register_with_di  — BEFORE
+container = ctx.shared_state.get("container")
+if container:
+    self._registry.register_with_container(container)
+\`\`\`
+
+**Why it worked (and why it did not).** \`"_di_registry"\` is a key **nothing in the codebase ever sets**. \`StorageRegistry\` was therefore never registered into DI — the branch was permanently dead, silently. \`EffectSubsystem\` used a different key, \`"container"\`, so a host that populated one got exactly one of the two subsystems wired. Neither consulted \`BootContext.registry\`, so a context built with a \`RuntimeRegistry\` — the normal case — registered nothing at all.
+
+### New API
+
+\`\`\`python
+DI_CONTAINER_KEY = "container"
+
+@dataclass
+class BootContext:
+    def di_containers(self) -> list[Any]:
+        """Return every DI container a subsystem should register itself into."""
+        explicit = self.shared_state.get(DI_CONTAINER_KEY)
+        if explicit is not None and hasattr(explicit, "register"):
+            return [explicit]
+
+        containers = getattr(self.registry, "di_containers", None)
+        if isinstance(containers, dict):
+            return [c for c in containers.values() if hasattr(c, "register")]
+        if isinstance(containers, (list, tuple)):
+            return [c for c in containers if hasattr(c, "register")]
+        return []
+\`\`\`
+
+\`\`\`python
+# StorageSubsystem._register_di  — AFTER
+containers = ctx.di_containers()
+if not containers:
+    self._logger.debug("No DI container in boot context -- skipping StorageRegistry registration")
+    return
+
+for container in containers:
+    container.register(ValueProvider(value=self._registry, token=StorageRegistry, scope="app"))
+\`\`\`
+
+### Why it is better
+
+- **One key, one rule.** Subsystems must not invent their own \`shared_state\` key; they call \`di_containers()\`. A misspelled key can no longer silently disable registration.
+- **Explicit container wins.** An embedder can target one container without constructing a \`RuntimeRegistry\`.
+- **All containers, not one.** \`registry.di_containers\` holds one container per app. Returning all of them matches how \`AquiliaServer\` registers app-scoped values — into every container, not the first one. Registering into only one made the registry resolvable from some apps and not others.
+- **Duck-typed, defensively.** Entries without a \`register\` attribute are filtered out, so a malformed registry degrades to "DI is not wired here" rather than raising mid-boot.
+
+### Behavioural changes
+
+| Context shape | Before | After |
+|---|---|---|
+| \`shared_state["container"]\` set | Effects wired; storage not | Both wired into that container |
+| \`shared_state["_di_registry"]\` set | Nothing (key read only by storage, and never set by anything) | Ignored — not a well-known key |
+| \`registry=RuntimeRegistry(...)\` with app containers | Nothing wired | Both wired into **every** app container |
+| Neither | Silent no-op | Debug log, then skip |
+
+### Migration
+
+If you built a \`BootContext\` by hand and set \`"_di_registry"\`, rename it:
+
+\`\`\`python
+# BEFORE
+ctx = BootContext(config=cfg, manifests=[])
+ctx.shared_state["_di_registry"] = container   # never actually worked
+
+# AFTER
+from aquilia.subsystems import DI_CONTAINER_KEY
+ctx = BootContext(config=cfg, manifests=[])
+ctx.shared_state[DI_CONTAINER_KEY] = container
+
+# or, when you already have a RuntimeRegistry:
+ctx = BootContext(config=cfg, manifests=[], registry=runtime_registry)
+\`\`\`
+
+No application code is affected: \`AquiliaServer\` does not use this path, and the key it replaces never worked.
+
+---
+
+## 2. \`_timeout\` is now enforced
+
+### Previous behaviour
+
+\`BaseSubsystem\` declared \`_timeout: float = 30.0\` and documented "timeout-protected initialization". Nothing read the value.
+
+\`\`\`python
+# BEFORE
+async def initialize(self, ctx: BootContext) -> HealthStatus:
+    start = time.monotonic()
+    try:
+        await self._do_initialize(ctx)      # unbounded
+        ...
+\`\`\`
+
+A subsystem blocking on an unreachable dependency — an S3 endpoint behind a dropped route, a vector store whose lock holder never exits — hung the boot forever, with no log line and no health status.
+
+### New behaviour
+
+\`\`\`python
+# AFTER
+if self._timeout and self._timeout > 0:
+    await asyncio.wait_for(self._do_initialize(ctx), timeout=self._timeout)
+else:
+    await self._do_initialize(ctx)
+\`\`\`
+
+\`\`\`python
+except asyncio.TimeoutError:
+    elapsed = (time.monotonic() - start) * 1000
+    message = f"Initialization timed out after {self._timeout:g}s"
+    self._logger.error("%s %s", self._name, message)
+    return HealthStatus(
+        name=self._name,
+        status=SubsystemStatus.UNHEALTHY,
+        latency_ms=elapsed,
+        message=message,
+    )
+\`\`\`
+
+A timeout degrades to \`UNHEALTHY\` with a named cause, exactly like any other initialization failure. A host that treats \`UNHEALTHY + required\` as fatal stops the boot; one that does not carries on degraded.
+
+### Edge cases
+
+- **\`_timeout = 0\` or negative disables the bound.** Deliberate: a subsystem whose init legitimately has no upper bound (a long index rebuild under operator supervision) can opt out rather than pick an arbitrary large number.
+- **\`asyncio.wait_for\` cancels the coroutine.** \`_do_initialize\` must be cancellation-safe. Every in-tree subsystem is; a custom subsystem that acquires a resource before its first \`await\` should release it in a \`finally\`.
+- **Per-subsystem values.** \`VectorDBSubsystem\` sets \`_timeout = 60.0\` because opening a store rebuilds its index — slower than a socket connect. The base default stays 30s.
+
+### User impact
+
+A misconfigured optional subsystem can no longer wedge a deployment in "starting" forever. Existing subsystems that initialize quickly are unaffected — the wrapper adds one \`wait_for\` frame.
+
+---
+
+## 3. \`required\` is computed, not static
+
+\`_required\` is a class attribute, but \`VectorDBSubsystem\` raises it to \`True\` inside \`_do_initialize\` when stores are declared. \`BaseSubsystem\` now documents the resulting contract:
+
+> \`required\` may be computed from configuration during \`_do_initialize\`. Read it **after** \`initialize()\` returns, never before — beforehand it only holds the class default.
+
+\`\`\`python
+# WRONG — reads the class default, always False for vectordb
+if subsystem.required:
+    ...
+status = await subsystem.initialize(ctx)
+
+# RIGHT
+status = await subsystem.initialize(ctx)
+if status.status is SubsystemStatus.UNHEALTHY and subsystem.required:
+    raise RuntimeError(...)
+\`\`\`
+
+An orchestrator that checks \`required\` first would treat a declared-but-unopenable vector store as optional and boot into a state where every search returns an empty list.
+
+---
+
+## 4. \`EffectSubsystem.health_check()\` constructed an invalid \`HealthStatus\`
+
+### Previous behaviour
+
+\`\`\`python
+# BEFORE
+async def health_check(self):
+    from aquilia.subsystems.base import HealthStatus, SubsystemStatus   # re-export
+    ...
+    return HealthStatus(
+        name=self._name,
+        status=...,
+        metadata=health,        # <- no such field
+    )
+\`\`\`
+
+### Root cause
+
+\`HealthStatus\` (\`aquilia/health.py\`) has fields \`name\`, \`status\`, \`latency_ms\`, \`message\`, \`details\`, \`checked_at\`. There is no \`metadata\`. Every call raised \`TypeError: __init__() got an unexpected keyword argument 'metadata'\`, which the caller's \`except Exception\` turned into an unhealthy status with a confusing message — so the effect subsystem reported unhealthy whenever it was asked, regardless of actual state.
+
+### New behaviour
+
+\`\`\`python
+# AFTER
+from aquilia.health import HealthStatus, SubsystemStatus   # module-level, canonical import
+
+async def health_check(self) -> HealthStatus:
+    ...
+    return HealthStatus(
+        name=self._name,
+        status=...,
+        details=health,
+    )
+\`\`\`
+
+The import moved to module scope and to \`aquilia.health\` directly, and the return type is annotated. \`details\` is the field that \`HealthStatus\` actually carries.
+
+### User impact
+
+\`/health\` and any host calling \`EffectSubsystem.health_check()\` now report the effect registry's real state. Previously the effect entry was permanently unhealthy once checked.
+
+---
+
+## 5. \`/health\` reflects live state, not the boot snapshot
+
+### Previous behaviour
+
+\`StorageSubsystem._register_health()\` published one \`storage.<alias>\` status per backend at boot and stopped there. \`HealthRegistry.register_check()\` existed but nothing used it, and \`ASGIAdapter\`'s \`/health\` handler read \`registry.to_dict()\` — a pure snapshot read.
+
+A backend that went offline an hour after boot kept reporting \`HEALTHY\` until the process restarted.
+
+### New behaviour
+
+Both \`StorageSubsystem\` and \`VectorDBSubsystem\` now register a live aggregate check alongside the per-alias snapshot:
+
+\`\`\`python
+# StorageSubsystem._register_health / VectorDBSubsystem._register_health
+health.register_check(self._name, self.health_check)
+\`\`\`
+
+and \`ASGIAdapter\` refreshes before rendering:
+
+\`\`\`python
+# Refresh any subsystem that registered a live check, so a dependency that
+# died after boot is not masked by the boot-time snapshot.
+await registry.run_checks()
+health_report = registry.to_dict()
+\`\`\`
+
+### Behavioural changes
+
+- The per-alias \`storage.<alias>\` / \`vectordb.<alias>\` entries remain a **boot-time snapshot** — they name what was configured and how it looked at open.
+- The aggregate \`storage\` / \`vectordb\` entries are now **live** and re-evaluated on each \`/health\` request.
+- \`run_checks()\` is a **no-op when nothing registered a check**, so an app with no storage or vector subsystem pays nothing.
+
+### Performance implications
+
+\`/health\` now costs one check invocation per registered subsystem per request. For storage that is a backend liveness probe; for vectordb it is \`VectorRegistry.health()\` across configured stores. If \`/health\` is polled aggressively by a load balancer, that cost is real and proportional to the number of registered checks — the trade is a health endpoint that can actually detect a dead dependency.
+
+### Edge cases
+
+- A check that raises is caught by \`HealthRegistry.run_checks()\` and recorded as \`UNHEALTHY\` with the exception message, so one broken probe cannot fail the whole endpoint.
+- \`latency_ms\` on a live-checked entry is the check's own duration, not the boot duration.
+
+---
+
+## Compatibility notes
+
+| Surface | Compatibility |
+|---|---|
+| \`AquiliaServer\` applications | Unaffected — the server does not drive \`BootContext\` subsystems |
+| \`BootContext(...)\` constructor | Unchanged; all new fields optional, \`di_containers()\` is additive |
+| \`shared_state["_di_registry"]\` | No longer read. It never worked, so nothing can regress |
+| \`shared_state["container"]\` | Still honoured, now via \`DI_CONTAINER_KEY\` |
+| Custom \`BaseSubsystem\` subclasses | Must be cancellation-safe in \`_do_initialize\`; set \`_timeout = 0\` to opt out |
+| \`EffectSubsystem.health_check()\` | Signature unchanged; now returns instead of raising |
+| \`/health\` response body | Same shape; values may now differ from the boot snapshot |
+
+---
+
+## Related documentation
+
+- [\`vectordb.md\`](vectordb.md) — \`VectorDBSubsystem\`, which exercises the computed-\`required\` and 60s-timeout paths
+- [\`admin_lifecycle.md\`](admin_lifecycle.md) — the server-side lifecycle fix in the same audit
+- [\`bug_fixes.md\`](bug_fixes.md) — the full defect list
+- [\`migration.md\`](migration.md) — upgrade steps
+`,
+    "admin_lifecycle.md": `# Admin Lifecycle & Rate Limiter — v1.4.0b3
+
+Two defects in the admin subsystem, both found in the 2026-08-09 audit: admin's lifecycle hooks were never invoked, and the rate-limiter cleanup task reached into private state through a path that silently no-ops on a freshly booted host.
+
+Regression coverage: \`tests/test_subsystem_boot_contract.py\`.
+
+---
+
+## 1. Admin lifecycle hooks never ran
+
+### Previous behaviour
+
+Configuring the admin dashboard produced working routes. Everything behind those routes that needed a lifecycle did not run:
+
+- The audit log was never flushed on shutdown — buffered entries were lost on every restart.
+- The rate-limit cleanup sweep never ran, so \`AdminRateLimiter\`'s in-memory attempt records grew for the process lifetime.
+- The cache service was never wired from DI, so admin's cache integration ran unbacked.
+- The task manager was never wired from DI, so \`AdminTasks.enqueue_*\` fell back to inline execution.
+- Admin security DI providers were never registered.
+- The security event tracker was never cleared on shutdown.
+
+### Root cause
+
+\`AquiliaServer._wire_admin_integration()\` registered admin's routes and stopped there. \`AdminLifecycle.on_startup()\` / \`on_shutdown()\` — which perform all of the above — were written, tested in isolation, and never called by anything. There was no \`LifecycleCoordinator\` entry for admin, and the server's startup sequence had no admin step.
+
+The symptom was invisible: routes worked, the dashboard rendered, and the missing upkeep only showed as slow memory growth and an audit log that reset on deploy.
+
+### New behaviour
+
+\`AquiliaServer.startup()\` gained **Step 3.25**, gated on the same config key the route wiring reads:
+
+\`\`\`python
+# Step 3.25: Start admin lifecycle (audit log, cache, cleanup tasks).
+admin_config = self.config.get("integrations", {}).get("admin") if hasattr(self.config, "get") else None
+if admin_config is not None:
+    try:
+        from aquilia.admin import get_admin_subsystems
+
+        self._admin_subsystems = get_admin_subsystems()
+        await self._admin_subsystems.lifecycle.on_startup(self.config, self._get_base_container())
+    except Exception as e:
+        self._admin_subsystems = None
+        self.logger.warning(f"Admin lifecycle startup failed: {e}")
+        # Non-fatal -- admin routes still serve; background upkeep is off
+\`\`\`
+
+and \`AquiliaServer.shutdown()\` mirrors it:
+
+\`\`\`python
+# Shutdown admin lifecycle (flush audit log, sweep rate limiter)
+if getattr(self, "_admin_subsystems", None) is not None:
+    try:
+        await self._admin_subsystems.lifecycle.on_shutdown(self.config, self._get_base_container())
+    except Exception as e:
+        self.logger.warning(f"Error shutting down admin lifecycle: {e}")
+\`\`\`
+
+\`self._admin_subsystems\` is initialized to \`None\` in \`__init__\` so the shutdown path is safe whether startup ran, failed, or was never reached.
+
+### Why the placement
+
+- **Step 3.25 — after DI containers exist, before the task manager starts.** \`on_startup\` resolves \`CacheService\` and \`TaskManager\` from the container, so the container must be built; and it wires the task manager into \`AdminTasks\` before background jobs begin, so an enqueued admin job is not dropped.
+- **Gated on \`config["integrations"]["admin"]\`**, the same key \`_wire_admin_integration\` reads. An app without admin configured pays nothing and imports nothing.
+- **Non-fatal.** A failed admin lifecycle logs a warning and leaves \`_admin_subsystems = None\`. Admin routes still serve; only background upkeep is off. Failing the whole boot because an optional dashboard's cache probe raised would be disproportionate.
+
+### What \`on_startup\` does
+
+1. Initializes the \`AdminSite\` singleton (\`AdminSite.default().initialize()\`).
+2. Resolves \`CacheService\` from the DI container and hands it to \`AdminCacheIntegration\`.
+3. Resolves \`TaskManager\` from the DI container and hands it to \`AdminTasks\`.
+4. Registers admin security DI providers via \`register_security_providers(container, security_config)\`.
+
+It is idempotent: \`self._started\` short-circuits a second call.
+
+### What \`on_shutdown\` does
+
+1. Flushes the audit log (\`await site.audit_log.flush()\` when the log implements \`flush\`).
+2. Runs \`AdminTasks.rate_limit_cleanup()\`.
+3. Clears the security event tracker.
+
+Each step is independently guarded, so one failure does not skip the rest.
+
+### User impact
+
+| Before | After |
+|---|---|
+| Buffered audit entries lost on every restart | Flushed on graceful shutdown |
+| \`AdminRateLimiter\` records grew unbounded | Swept on shutdown, and periodically once \`cleanup_interval\` elapses |
+| \`AdminTasks.enqueue_*\` ran inline | Enqueued through the real \`TaskManager\` |
+| Admin cache integration unbacked | Backed by the configured \`CacheService\` |
+| Admin security providers absent from DI | Registered |
+
+Applications that do not configure admin are unaffected.
+
+### Migration
+
+None. No API changed and no configuration is required — configuring admin is now sufficient for its lifecycle to run. If you previously called \`AdminLifecycle.on_startup()\` yourself from a module hook as a workaround, you can remove it: \`on_startup\` is idempotent, so leaving it in place is also safe.
+
+---
+
+## 2. \`AdminRateLimiter.force_cleanup()\` — public sweep API
+
+### Previous API
+
+\`AdminTasks.rate_limit_cleanup()\` reached into three private attributes and inferred the result from dictionary lengths:
+
+\`\`\`python
+# BEFORE
+before_login = len(limiter._login_records)
+before_sensitive = len(limiter._sensitive_records)
+
+# Force cleanup by resetting the last_cleanup time
+limiter._last_cleanup = 0
+limiter._maybe_cleanup()
+
+cleaned_login = before_login - len(limiter._login_records)
+cleaned_sensitive = before_sensitive - len(limiter._sensitive_records)
+
+return {
+    "cleaned_login": max(0, cleaned_login),
+    "cleaned_sensitive": max(0, cleaned_sensitive),
+}
+\`\`\`
+
+**How it was meant to work.** Setting \`_last_cleanup = 0\` was supposed to make \`_maybe_cleanup()\`'s interval guard fall through, since \`now - 0\` would exceed \`cleanup_interval\`.
+
+### Root cause
+
+\`_maybe_cleanup()\` guards on \`time.monotonic() - self._last_cleanup < self.cleanup_interval\`. \`time.monotonic()\` is **not** wall-clock — on Linux it is time since boot. On a host or container that has been up for less than \`cleanup_interval\` (default **3600s**), \`time.monotonic()\` is itself below 3600, so \`now - 0 < 3600\` held and \`_maybe_cleanup()\` returned immediately.
+
+The sweep therefore did nothing for the first hour of a machine's uptime, and \`rate_limit_cleanup()\` reported \`{"cleaned_login": 0, "cleaned_sensitive": 0}\` — indistinguishable from "there was nothing stale to clean". Fresh containers, which restart constantly, spent a disproportionate share of their life in exactly that window.
+
+The \`max(0, ...)\` clamps were papering over the same fragility from the other end: subtracting lengths cannot distinguish "nothing was stale" from "the sweep never ran", and would go negative if a concurrent request added a record between the two reads.
+
+### New API
+
+The sweep is factored out of the interval check, and exposed:
+
+\`\`\`python
+def _maybe_cleanup(self) -> None:
+    """Periodically remove stale entries to prevent memory growth."""
+    now = time.monotonic()
+    if now - self._last_cleanup < self.cleanup_interval:
+        return
+    self._sweep(now)
+
+def _sweep(self, now: float) -> tuple[int, int]:
+    """Drop stale records unconditionally. Returns (login, sensitive) counts."""
+    self._last_cleanup = now
+    cutoff = now - max(self.login_window, self.sensitive_op_window) * 2
+
+    removed = []
+    for store in (self._login_records, self._sensitive_records):
+        stale_keys = [
+            k for k, v in store.items()
+            if v.lockout_until < now and (not v.attempts or v.attempts[-1] < cutoff)
+        ]
+        for k in stale_keys:
+            store.pop(k, None)
+        removed.append(len(stale_keys))
+    return removed[0], removed[1]
+
+def force_cleanup(self) -> tuple[int, int]:
+    """Sweep stale records now, ignoring \`\`cleanup_interval\`\`."""
+    return self._sweep(time.monotonic())
+\`\`\`
+
+\`\`\`python
+# AFTER
+cleaned_login, cleaned_sensitive = limiter.force_cleanup()
+return {
+    "cleaned_login": cleaned_login,
+    "cleaned_sensitive": cleaned_sensitive,
+}
+\`\`\`
+
+### Why it is better
+
+- **Correct on a fresh host.** \`force_cleanup()\` bypasses the interval guard by construction rather than by trying to defeat it with a sentinel value that \`monotonic()\` semantics can invalidate.
+- **Exact counts.** \`_sweep\` returns what it actually removed instead of a length diff, so the number is right even under concurrent request traffic.
+- **No private access.** \`AdminTasks\` calls one public method. \`_last_cleanup\`, \`_login_records\` and \`_sensitive_records\` are no longer part of any caller's contract.
+- **One sweep implementation.** The periodic path and the forced path cannot drift apart.
+
+### Behavioural changes
+
+| Scenario | Before | After |
+|---|---|---|
+| Cleanup task on a host up < 1 hour | No sweep; reports \`0\` cleaned | Sweeps; reports the real count |
+| Cleanup task on a host up > 1 hour | Sweeps; count inferred from lengths | Sweeps; exact count |
+| Record added concurrently during the sweep | Count could be clamped to \`0\` | Count unaffected — it counts removals |
+| Periodic \`_maybe_cleanup()\` on request paths | Unchanged | Unchanged |
+
+### Edge cases
+
+**An active lockout is never cleared.** \`_sweep\` only removes records that are past their \`lockout_until\` **and** have no attempts newer than \`cutoff\`. \`force_cleanup()\` therefore cannot be used to release a locked-out principal — that is \`clear_login_attempts()\`, and the docstring says so. This matters: a "cleanup" call that silently unlocked brute-force attempts would be a security regression, so the boundary is stated in the API rather than left to the reader.
+
+**\`cutoff\` is \`now - max(login_window, sensitive_op_window) * 2\`.** The 2× margin keeps a record alive for one extra window past expiry, so a client at the edge of a window is not given a fresh budget by a well-timed sweep.
+
+### Migration
+
+Replace any code that poked the privates:
+
+\`\`\`python
+# BEFORE
+limiter._last_cleanup = 0
+limiter._maybe_cleanup()
+
+# AFTER
+cleaned_login, cleaned_sensitive = limiter.force_cleanup()
+\`\`\`
+
+\`_maybe_cleanup()\` remains for the periodic path and is unchanged in behaviour.
+
+---
+
+## Related documentation
+
+- [\`subsystem_boot_contract.md\`](subsystem_boot_contract.md) — the rest of the same audit
+- [\`bug_fixes.md\`](bug_fixes.md) — the full defect list
+- [\`migration.md\`](migration.md) — upgrade steps
 `,
     "router_memory_leak_fix.md": `# Native Router Memory Leak Fix — v1.4.0b3
 
-## Solution
+## Overview
 
-\`ControllerRouter.clear()\` releases native nanobind C++ extension handles and resets route tables during server shutdown and test suite teardown.
+In Aquilia v1.4.0b1 and v1.4.0b2, native C++ extensions (\`aquilia._core.Router\`) were introduced to accelerate HTTP route matching. During server shutdown, ASGI lifespan termination, or test suite execution, compiled native C++ \`Router\` instances could remain referenced by Python objects, producing nanobind leak warnings on process exit:
+
+\`\`\`
+nanobind: leaked 1 instance of type 'aquilia._core.Router'!
+\`\`\`
+
+Aquilia v1.4.0b3 resolves these leak warnings by implementing explicit native resource deallocation routines across \`ControllerRouter\`, \`AquiliaServer\`, and \`ASGIAdapter\`.
+
+---
+
+## Root Cause Analysis
+
+1. **\`ControllerRouter\` Ownership**: \`ControllerRouter\` held a long-lived reference to \`_native\` (\`aquilia._core.Router\`). When routes were recompiled or the router was shut down, internal native method arrays (\`_native_methods\`, \`_native_routes\`) were cleared, but the primary \`_native\` C++ object reference was retained.
+2. **Server Lifespan Teardown**: \`AquiliaServer.shutdown()\` closed database connections and cancelled tasks, but did not instruct its \`controller_router\` instance to release its native engine handles.
+3. **ASGI Lifespan Teardown**: \`ASGIAdapter\` held circular references in \`_cached_middleware_chain\`, \`_default_container\`, and \`_server_runtime\`, preventing the underlying server instance from being garbage collected at the end of ASGI lifespan \`lifespan.shutdown\`.
+
+---
+
+## Technical Solution
+
+### 1. \`ControllerRouter.clear()\` API
+
+\`ControllerRouter\` now exposes an explicit \`.clear()\` method that releases all C++ extension references and resets compiler state:
+
+\`\`\`python
+# aquilia/controller/router.py
+
+class ControllerRouter:
+    def clear(self) -> None:
+        """Clear all route indices and release native engine resources."""
+        self.compiled_controllers.clear()
+        self.routes_by_method.clear()
+        self.matcher = PatternMatcher()
+        self._static_routes.clear()
+        self._dynamic_routes.clear()
+        self._tries.clear()
+        self._name_index.clear()
+        self._native_methods.clear()
+        self._native_routes.clear()
+        self._native = None  # Release nanobind C++ extension handle
+        self._initialized = False
+\`\`\`
+
+\`ControllerRouter.initialize()\` also invokes this cleanup prior to building new native route tables, preventing orphan C++ references during hot-reloads.
+
+---
+
+### 2. \`AquiliaServer.shutdown()\` Integration
+
+\`AquiliaServer.shutdown()\` now invokes \`clear()\` on its \`controller_router\`:
+
+\`\`\`python
+# aquilia/server.py
+
+async def shutdown(self) -> None:
+    # ... database disconnect & task cancellation ...
+
+    # Clear controller router and release native engine resources
+    if hasattr(self, "controller_router") and self.controller_router is not None:
+        try:
+            self.controller_router.clear()
+        except Exception as e:
+            self.logger.warning(f"Error clearing controller router: {e}")
+
+    self._startup_complete = False
+\`\`\`
+
+---
+
+### 3. \`ASGIAdapter.shutdown()\` Clean Teardown
+
+\`ASGIAdapter\` implements a dedicated \`.shutdown()\` method that is invoked during ASGI \`lifespan.shutdown\`:
+
+\`\`\`python
+# aquilia/asgi.py
+
+class ASGIAdapter:
+    async def shutdown(self) -> None:
+        """Shutdown underlying server and release cached references."""
+        if self.server:
+            await self.server.shutdown()
+        self._cached_middleware_chain = None
+        self._default_container = None
+        self._server_runtime = None
+\`\`\`
+
+---
+
+## Verification & Unit Testing
+
+The fix is verified in \`tests/engine/test_memory.py\`:
+
+\`\`\`python
+def test_controller_router_clear_releases_native_instance() -> None:
+    router = ControllerRouter()
+    router.initialize()
+    assert router._native is not None
+
+    router.clear()
+    assert router._native is None
+    assert not router._initialized
+
+@pytest.mark.asyncio
+async def test_server_shutdown_clears_controller_router_native_instance() -> None:
+    server = AquiliaServer(manifests=[manifest], config=loader)
+    server.controller_router.initialize()
+    server._startup_complete = True
+
+    assert server.controller_router._native is not None
+
+    await server.shutdown()
+    assert server.controller_router._native is None
+\`\`\`
+
+All 49 CLI and engine memory tests pass cleanly without emitting nanobind warnings.
 `,
     "bug_fixes.md": `# Bug Fixes & Refactorings — v1.4.0b3
 
-1. **Exit Code 0 Bug Fixed**: \`aq doctor\` and \`aq validate\` now return non-zero exit codes (code 1 or 3) on errors.
-2. **Route Count Mismatch Fixed**: Route inspection counts individual HTTP endpoint methods via \`ControllerCompiler\` instead of controller classes.
-3. **Attribute Probing Fix**: Replaced invalid \`__controller_routes__\` checks with proper compiler invocation.
-4. **Nanobind Memory Leak Fixed**: Implemented cleanup hooks in \`ControllerRouter\`, \`AquiliaServer\`, and \`ASGIAdapter\`.
-`,
-    "migration.md": `# Migration Guide — 1.4.0b1 → 1.4.0b3
+Aquilia v1.4.0b3 resolves several critical bugs across the CLI framework, route introspection engine, subsystem boot layer, admin lifecycle, native C++ bindings, and docsite build infrastructure.
 
-1. Update CI scripts to expect exit code \`1\` or \`3\` on validation errors.
-2. Migrate code using removed \`aquilia.cli.parsers\` to \`aquilia.cli.core.workspace\`.
-3. Update test suite fixtures to call \`server.shutdown()\` or \`router.clear()\`.
+Regression coverage for the subsystem and admin fixes: \`tests/test_subsystem_boot_contract.py\`.
+
+---
+
+## 1. \`aq doctor\` and \`aq validate\` Exited With \`0\` on Broken Workspaces
+
+### Previous Behavior
+Running \`aq doctor\` or \`aq validate\` on a workspace with missing databases, unloadable manifests, or broken imports printed red warning/error banners but still exited with process exit code \`0\`. CI/CD pipelines relying on these commands failed to block broken builds.
+
+### Root Cause
+Command bodies caught exceptions and printed banners, but concluded execution without calling \`sys.exit()\` or returning a non-zero exit code. \`doctor.py\` and \`validate.py\` had separate, uncoordinated exit code paths.
+
+### New Behavior
+All health checks are now managed by \`aquilia.cli.checks\`. Process exit codes are calculated by \`exit_code_for()\`:
+- Workspaces with missing files, broken imports, or \`ERROR\`/\`FATAL\` findings exit with status \`1\` (\`ExitCode.FAILED\`).
+- Non-existent workspaces exit with status \`3\` (\`ExitCode.CONFIG\`).
+
+### User Impact
+CI/CD test suites running \`aq validate\` or \`aq doctor\` now accurately catch configuration errors and halt failing pipeline runs.
+
+---
+
+## 2. \`aq inspect routes\` Displayed Controller Count Instead of Endpoint Count
+
+### Previous Behavior
+A module containing a single \`UserController\` with 5 endpoint methods (\`GET /users\`, \`POST /users\`, \`GET /users/:id\`, \`PUT /users/:id\`, \`DELETE /users/:id\`) reported "1 route".
+
+### Root Cause
+Legacy inspection logic counted \`len(manifest.controllers)\` as \`route_count\`, confusing controller class instances with individual HTTP route handlers.
+
+### New Behavior
+\`aquilia.cli.introspect.routes\` calls \`ControllerCompiler\` (the same compiler used by \`AquiliaServer\` at boot) and sums individual compiled \`RouteInfo\` objects.
+
+\`\`\`bash
+$ aq inspect routes
+  Route Inspection
+  ======================================================================
+
+  users
+     UserController  (prefix: /users)
+       GET      /users                                 -> index
+       POST     /users                                 -> create
+       GET      /users/:id                             -> show
+       PUT      /users/:id                             -> update
+       DELETE   /users/:id                             -> delete
+
+  ----------------------------------------------------------------------
+  Total routes: 5
+  Modules:      1
+\`\`\`
+
+---
+
+## 3. Inspection Probed Non-Existent Controller Attributes
+
+### Previous Behavior
+\`aq inspect routes\` attempted to extract routes statically by probing \`__controller_routes__\`, \`__route__\`, and \`_route_meta\`. Every controller failed inspection and printed:
+\`\`\`
+!  UserController: routes could not be extracted statically
+\`\`\`
+
+### Root Cause
+None of those attributes existed on controller classes. The actual attribute used by the framework is \`__route_metadata__\`, and proper compilation requires \`ControllerCompiler\`.
+
+### New Behavior
+\`extract_routes()\` passes the controller class directly to \`ControllerCompiler().compile_controller()\`, respecting module-level \`route_prefix\` settings and starter controllers (\`.starter("name")\`).
+
+---
+
+## 4. Nanobind Leak Warnings on Server/Router Shutdown
+
+### Previous Behavior
+Stopping the dev server or running unit tests produced nanobind memory leak warnings on process exit:
+\`\`\`
+nanobind: leaked 1 instance of type 'aquilia._core.Router'!
+\`\`\`
+
+### Root Cause
+\`ControllerRouter\` retained a reference to \`_native\` (\`aquilia._core.Router\`), and neither \`AquiliaServer.shutdown()\` nor \`ASGIAdapter.shutdown()\` cleared router instances during shutdown.
+
+### New Behavior
+Added \`ControllerRouter.clear()\`, which resets \`_native = None\`, \`_native_methods.clear()\`, and \`_native_routes.clear()\`. \`AquiliaServer.shutdown()\` and \`ASGIAdapter.shutdown()\` invoke \`clear()\`, releasing native memory cleanly.
+
+---
+
+## 5. \`StorageRegistry\` Was Never Registered Into DI
+
+### Previous Behavior
+A host that booted \`StorageSubsystem\` through \`BootContext\` got working storage backends, but \`StorageRegistry\` was not resolvable from DI. Constructor injection of \`StorageRegistry\` failed with a resolution error.
+
+### Root Cause
+\`StorageSubsystem._register_di()\` read \`ctx.shared_state.get("_di_registry")\` — a key **nothing in the codebase ever sets**. The branch was permanently dead and failed silently, since the guard was \`if registry_obj and hasattr(registry_obj, "register")\`. \`EffectSubsystem\` used a different key (\`"container"\`), so the two subsystems could never both be wired by the same host. Neither consulted \`BootContext.registry\`, so the normal case — a context carrying a \`RuntimeRegistry\` — registered nothing.
+
+### New Behavior
+\`BootContext.di_containers()\` is the single resolution path: \`shared_state[DI_CONTAINER_KEY]\` first, then every container in \`registry.di_containers\`. Both subsystems call it, and both register into **all** app containers rather than one — matching how \`AquiliaServer\` registers app-scoped values.
+
+### User Impact
+\`AquiliaServer\` applications are unaffected (the server does not use this path). Embedders and tests that build a \`BootContext\` now get \`StorageRegistry\` and the effect registry actually wired. Anyone who set \`"_di_registry"\` should rename it to \`DI_CONTAINER_KEY\`; it never worked, so nothing can regress.
+
+See [subsystem_boot_contract.md](subsystem_boot_contract.md#1-bootcontextdi_containers--one-di-resolution-path).
+
+---
+
+## 6. \`BaseSubsystem._timeout\` Was Declared But Never Enforced
+
+### Previous Behavior
+\`BaseSubsystem\` declared \`_timeout: float = 30.0\` and its docstring promised "timeout-protected initialization". A subsystem blocking on an unreachable dependency — an S3 endpoint behind a dropped route, a vector store whose lock holder never exits — hung the boot indefinitely, with no log line and no health status.
+
+### Root Cause
+Nothing read the value. \`initialize()\` awaited \`self._do_initialize(ctx)\` unbounded.
+
+### New Behavior
+\`_do_initialize\` is wrapped in \`asyncio.wait_for(..., timeout=self._timeout)\`. A timeout produces \`UNHEALTHY\` with \`Initialization timed out after 30s\` and an \`ERROR\` log line, so a host that treats \`UNHEALTHY + required\` as fatal stops the boot. A non-positive \`_timeout\` disables the bound deliberately, for a subsystem whose init legitimately has no upper limit.
+
+### User Impact
+A misconfigured optional subsystem can no longer wedge a deployment in "starting" forever. Custom \`BaseSubsystem\` subclasses must be cancellation-safe in \`_do_initialize\` — \`wait_for\` cancels the coroutine — or opt out with \`_timeout = 0\`.
+
+---
+
+## 7. \`EffectSubsystem.health_check()\` Always Raised \`TypeError\`
+
+### Previous Behavior
+Calling \`EffectSubsystem.health_check()\` reported the effect registry as unhealthy with a confusing message, regardless of its actual state.
+
+### Root Cause
+The method constructed \`HealthStatus(..., metadata=health)\`. \`HealthStatus\` (\`aquilia/health.py\`) has no \`metadata\` field — its fields are \`name\`, \`status\`, \`latency_ms\`, \`message\`, \`details\`, \`checked_at\`. Every call raised \`TypeError: __init__() got an unexpected keyword argument 'metadata'\`, which the caller's broad \`except Exception\` converted into an unhealthy status.
+
+\`\`\`python
+# BEFORE
+return HealthStatus(name=self._name, status=..., metadata=health)
+
+# AFTER
+return HealthStatus(name=self._name, status=..., details=health)
+\`\`\`
+
+The import also moved to module scope and to \`aquilia.health\` directly rather than through the \`aquilia.subsystems.base\` re-export, and the return type is now annotated.
+
+### User Impact
+\`/health\` and any host calling \`health_check()\` now report the effect registry's real state.
+
+---
+
+## 8. \`/health\` Served a Boot-Time Snapshot
+
+### Previous Behavior
+A storage backend that went offline an hour after boot kept reporting \`HEALTHY\` until the process restarted.
+
+### Root Cause
+\`StorageSubsystem._register_health()\` published one \`storage.<alias>\` status per backend at boot and stopped. \`HealthRegistry.register_check()\` existed but nothing used it, and \`ASGIAdapter\`'s \`/health\` handler read \`registry.to_dict()\` — a pure snapshot read with no refresh.
+
+### New Behavior
+\`StorageSubsystem\` and \`VectorDBSubsystem\` register a live aggregate check (\`health.register_check(self._name, self.health_check)\`) alongside the per-alias snapshot, and \`ASGIAdapter\` calls \`await registry.run_checks()\` before rendering. Per-alias entries remain a boot snapshot (they describe what was configured); the aggregate entries are live.
+
+### User Impact
+\`/health\` can detect a dead dependency without a restart. The cost is one check invocation per registered subsystem per request — \`run_checks()\` is a no-op when nothing registered a check, so apps without storage or vectordb pay nothing. A check that raises is caught and recorded as \`UNHEALTHY\` rather than failing the endpoint.
+
+---
+
+## 9. Admin Lifecycle Hooks Were Never Invoked
+
+### Previous Behavior
+Configuring the admin dashboard produced working routes and nothing else. Buffered audit entries were lost on every restart, \`AdminRateLimiter\` records grew for the process lifetime, \`AdminTasks.enqueue_*\` silently ran inline, admin's cache integration ran unbacked, and admin security DI providers were absent.
+
+### Root Cause
+\`AquiliaServer._wire_admin_integration()\` registered routes and stopped there. \`AdminLifecycle.on_startup()\` / \`on_shutdown()\` were implemented and tested in isolation but called by nothing — there was no \`LifecycleCoordinator\` entry for admin and no admin step in the server's startup sequence. The symptom was invisible: routes worked, and the missing upkeep showed only as slow memory growth and an audit log that reset on deploy.
+
+### New Behavior
+\`AquiliaServer.startup()\` gained Step 3.25 — after DI containers exist, before the task manager starts — gated on \`config["integrations"]["admin"]\`, with a mirror in \`shutdown()\`. Failure is non-fatal: a warning is logged, \`_admin_subsystems\` stays \`None\`, admin routes still serve, and only background upkeep is off.
+
+### User Impact
+Audit logs flush on graceful shutdown; the rate limiter is swept; \`TaskManager\` and \`CacheService\` are resolved from DI. Applications that do not configure admin are unaffected. No migration is required.
+
+See [admin_lifecycle.md](admin_lifecycle.md#1-admin-lifecycle-hooks-never-ran).
+
+---
+
+## 10. \`AdminTasks.rate_limit_cleanup()\` No-Opped on Freshly Booted Hosts
+
+### Previous Behavior
+\`rate_limit_cleanup()\` returned \`{"cleaned_login": 0, "cleaned_sensitive": 0}\` and removed nothing, for the first hour of a host's uptime — indistinguishable from "there was nothing stale to clean".
+
+### Root Cause
+The task set \`limiter._last_cleanup = 0\` and called \`_maybe_cleanup()\`, expecting the interval guard to fall through. But that guard is \`time.monotonic() - self._last_cleanup < self.cleanup_interval\`, and \`time.monotonic()\` is **not** wall-clock — on Linux it is time since boot. On a host up for less than \`cleanup_interval\` (default 3600s), \`time.monotonic()\` is itself below 3600, so \`now - 0 < 3600\` held and the sweep returned immediately. Fresh containers, which restart constantly, spent a disproportionate share of their life inside that window.
+
+The surrounding \`max(0, before - after)\` length arithmetic hid the same fragility from the other end: it cannot distinguish "nothing was stale" from "the sweep never ran", and would go negative if a concurrent request added a record between the two reads.
+
+### New Behavior
+The sweep is factored out of the interval check into \`_sweep(now)\`, which returns exact \`(login, sensitive)\` removal counts, and exposed as \`AdminRateLimiter.force_cleanup()\`:
+
+\`\`\`python
+# BEFORE
+before_login = len(limiter._login_records)
+limiter._last_cleanup = 0
+limiter._maybe_cleanup()
+cleaned_login = max(0, before_login - len(limiter._login_records))
+
+# AFTER
+cleaned_login, cleaned_sensitive = limiter.force_cleanup()
+\`\`\`
+
+### User Impact
+The cleanup task works on a freshly booted host and reports accurate counts. An active lockout is still never cleared — \`_sweep\` only removes records past their \`lockout_until\` with no recent attempts — so \`force_cleanup()\` cannot be used to release a locked-out principal. That remains \`clear_login_attempts()\`.
+
+See [admin_lifecycle.md](admin_lifecycle.md#2-adminratelimiterforce_cleanup--public-sweep-api).
+
+---
+
+## 11. Workspace Integration Detection Reported Phantom Integrations
+
+### Previous Behavior
+\`aq doctor\` reported subsystem findings for integrations a workspace had never declared. A workspace with no \`templates\` integration could emit \`AQ_TEMPLATE_DIR_MISSING\`, and the storage/cache/mail probes fired against nothing.
+
+### Root Cause
+\`aquilia.cli.checks.subsystems._integration()\` resolved an integration by attribute lookup: \`getattr(workspace_obj, name)\`. But \`Workspace\` exposes builder **methods** named \`storage\`, \`vectordb\`, \`i18n\`, \`tasks\` and \`templates\`. \`getattr\` returned the bound method — truthy — so every workspace looked like it had declared every one of those subsystems.
+
+### New Behavior
+\`_integration()\` treats \`Workspace._integrations\` as authoritative, since it holds exactly what \`integrate()\` and the builder methods recorded. Attribute lookup remains only as a fallback for non-\`Workspace\` objects, and it now skips callables:
+
+\`\`\`python
+declared = getattr(obj, "_integrations", None)
+if isinstance(declared, dict):
+    found = declared.get(name)
+    if found is not None:
+        return found
+
+for attr in (name, f"{name}_integration", f"_{name}"):
+    found = getattr(obj, attr, None)
+    if found is not None and not callable(found):
+        return found
+return None
+\`\`\`
+
+### User Impact
+\`aq doctor\` and \`aq validate\` no longer emit findings for undeclared subsystems. Since findings at \`WARN\` do not affect the exit code, this changes report noise rather than CI outcomes — except where a phantom integration produced an \`ERROR\`.
+
+---
+
+## 12. \`aqdocx\` TS2657 JSX Build Error in \`MiddlewareOverview.tsx\`
+
+### Previous Behavior
+Running \`tsc -b\` on the \`aqdocx\` documentation site failed with:
+\`\`\`
+TS2657: JSX expressions must have one parent element
+\`\`\`
+
+### Root Cause
+The v1.4.0b2 restructure banner \`<div>\` and the architecture diagram \`<div>\` were placed as direct children inside \`return()\` without a parent fragment, causing TypeScript build failures during static site generation.
+
+### New Behavior
+Restored single-root returns and positioned the v1.4.0b2 restructure banner inside \`MiddlewareOverview.tsx\` after the header section. \`tsc -b\` builds cleanly.
+
+---
+
+## Related documentation
+
+- [subsystem_boot_contract.md](subsystem_boot_contract.md) — full detail on fixes 5–8
+- [admin_lifecycle.md](admin_lifecycle.md) — full detail on fixes 9–10
+- [vectordb.md](vectordb.md) — the new vector subsystem
+- [checks_engine.md](checks_engine.md) — the check registry fix 11 lives in
+- [migration.md](migration.md) — upgrade steps and compatibility matrix
+`,
+    "migration.md": `# Migration Guide — 1.4.0b2 → 1.4.0b3
+
+Aquilia v1.4.0b3 is backward-compatible for standard applications, but introduces breaking changes for internal CLI tools, custom health scripts, and CI/CD pipelines expecting legacy exit code behavior. Everything in the new vector database subsystem is additive — nothing existing changes when you do not adopt it.
+
+---
+
+## Quick assessment
+
+| You have… | Action required |
+|---|---|
+| A standard \`AquiliaServer\` application | Bump the version. Nothing else. |
+| CI running \`aq validate\` or \`aq doctor\` | **Yes** — exit codes are now enforced. See §1. |
+| Imports from \`aquilia.cli.parsers\` | **Yes** — the package is removed. See §2. |
+| Test fixtures instantiating \`ControllerRouter\` / \`AquiliaServer\` | Recommended — call \`.clear()\` / \`.shutdown()\`. See §3. |
+| Hand-built \`BootContext\` objects | **Yes** — DI key renamed. See §4. |
+| Custom \`BaseSubsystem\` subclasses | Review — \`_timeout\` is now enforced. See §5. |
+| Code touching \`AdminRateLimiter\` privates | **Yes** — use \`force_cleanup()\`. See §6. |
+| Aggressive \`/health\` polling | Review — the endpoint now runs live checks. See §7. |
+| Interest in vector search | Opt-in. See §8. |
+
+---
+
+## 1. Exit Code Contract Changes
+
+In v1.4.0b2 and earlier, \`aq doctor\` and \`aq validate\` returned exit code \`0\` even when findings contained errors. In v1.4.0b3, exit codes are strictly enforced:
+
+- \`ExitCode.OK\` (\`0\`): Command succeeded without errors.
+- \`ExitCode.FAILED\` (\`1\`): At least one \`ERROR\` or \`FATAL\` finding was discovered.
+- \`ExitCode.CONFIG\` (\`3\`): Workspace file missing or unloadable.
+
+### CI/CD Pipeline Migration
+
+If your CI pipeline relies on \`aq validate\` or \`aq doctor\`, update scripts to handle non-zero exit codes:
+
+\`\`\`bash
+# BEFORE (in CI pipeline)
+aq validate
+# Always returned 0, even on broken manifests
+
+# AFTER (in CI pipeline)
+aq validate
+# Returns exit code 1 if manifest has errors, failing the build as intended.
+\`\`\`
+
+---
+
+## 2. Removed Legacy Parser Modules
+
+The following internal CLI parser modules were removed:
+- \`aquilia/cli/discovery_cli.py\`
+- \`aquilia/cli/parsers/__init__.py\`
+- \`aquilia/cli/parsers/module.py\`
+- \`aquilia/cli/parsers/workspace.py\`
+
+### Replacement
+
+If you had custom scripts importing from \`aquilia.cli.parsers\`, migrate to \`aquilia.cli.core.workspace\`:
+
+\`\`\`python
+# BEFORE
+from aquilia.cli.parsers.workspace import WorkspaceManifest
+manifest = WorkspaceManifest.from_file(Path("workspace.py"))
+
+# AFTER
+from aquilia.cli.core.workspace import load_workspace
+ws = load_workspace(Path.cwd())
+print(ws.module_names)
+\`\`\`
+
+---
+
+## 3. Router Teardown API
+
+If you maintain custom test fixtures that manually instantiate \`ControllerRouter\` or \`AquiliaServer\`, invoke \`.clear()\` or \`.shutdown()\` during teardown:
+
+\`\`\`python
+# BEFORE
+router = ControllerRouter()
+router.initialize()
+# ... test logic ...
+# router left in memory
+
+# AFTER
+router = ControllerRouter()
+router.initialize()
+try:
+    # ... test logic ...
+finally:
+    router.clear()
+\`\`\`
+
+---
+
+## 4. \`BootContext\` DI Key Renamed
+
+If you build a \`BootContext\` by hand — an embedder, an alternative runner, or a test — the DI container key changed.
+
+\`\`\`python
+# BEFORE
+ctx = BootContext(config=cfg, manifests=[])
+ctx.shared_state["_di_registry"] = container    # read only by StorageSubsystem, and never set by anything
+
+# AFTER — explicit container
+from aquilia.subsystems import DI_CONTAINER_KEY
+ctx = BootContext(config=cfg, manifests=[])
+ctx.shared_state[DI_CONTAINER_KEY] = container
+
+# AFTER — or let the runtime registry supply every app container
+ctx = BootContext(config=cfg, manifests=[], registry=runtime_registry)
+\`\`\`
+
+\`BootContext.di_containers()\` resolves the explicit container first, then falls back to every container in \`registry.di_containers\`. It returns an empty list when neither is present, and subsystems treat that as "DI is not wired here" and skip registration with a debug log.
+
+**Nothing can regress**, because \`"_di_registry"\` was never set by any code path — it was a dead branch. \`AquiliaServer\` applications are unaffected: the server does not drive \`BootContext\` subsystems.
+
+Full detail: [subsystem_boot_contract.md](subsystem_boot_contract.md#1-bootcontextdi_containers--one-di-resolution-path).
+
+---
+
+## 5. \`BaseSubsystem._timeout\` Is Now Enforced
+
+\`initialize()\` now wraps \`_do_initialize\` in \`asyncio.wait_for(..., timeout=self._timeout)\`. The declared default has always been 30 seconds; it was simply never read.
+
+Two things to check in a custom subsystem:
+
+**Cancellation safety.** \`wait_for\` cancels the coroutine on timeout. If \`_do_initialize\` acquires a resource before its first \`await\`, release it in a \`finally\`:
+
+\`\`\`python
+async def _do_initialize(self, ctx: BootContext) -> None:
+    handle = acquire_something()
+    try:
+        await self._connect(handle)
+    except asyncio.CancelledError:
+        handle.close()
+        raise
+\`\`\`
+
+**Legitimately unbounded init.** Set \`_timeout = 0\` (or negative) to disable the bound rather than picking an arbitrarily large number:
+
+\`\`\`python
+class IndexRebuildSubsystem(BaseSubsystem):
+    _name = "index-rebuild"
+    _timeout = 0        # operator-supervised; no meaningful upper bound
+\`\`\`
+
+A timeout is not an exception — it returns \`HealthStatus(status=UNHEALTHY, message="Initialization timed out after 30s")\`, so a host that treats \`UNHEALTHY + required\` as fatal stops the boot and one that does not carries on degraded.
+
+Related: \`required\` may be computed during \`_do_initialize\` (\`VectorDBSubsystem\` raises it when stores are declared). Read it **after** \`initialize()\` returns:
+
+\`\`\`python
+# WRONG — reads the class default
+if subsystem.required: ...
+status = await subsystem.initialize(ctx)
+
+# RIGHT
+status = await subsystem.initialize(ctx)
+if status.status is SubsystemStatus.UNHEALTHY and subsystem.required:
+    raise RuntimeError(status.message)
+\`\`\`
+
+---
+
+## 6. \`AdminRateLimiter\` Cleanup
+
+Replace private-state manipulation with the new public method:
+
+\`\`\`python
+# BEFORE
+limiter._last_cleanup = 0
+limiter._maybe_cleanup()
+cleaned = before - len(limiter._login_records)
+
+# AFTER
+cleaned_login, cleaned_sensitive = limiter.force_cleanup()
+\`\`\`
+
+\`_maybe_cleanup()\` remains for the periodic path and is unchanged. \`force_cleanup()\` never clears an active lockout — only records past their \`lockout_until\` with no recent attempts are removed. Releasing a locked-out principal is still \`clear_login_attempts()\`.
+
+If you configure admin, its lifecycle now runs automatically (audit flush, rate-limit sweep, DI wiring for \`CacheService\` and \`TaskManager\`). If you previously called \`AdminLifecycle.on_startup()\` yourself as a workaround, you can remove it — \`on_startup\` is idempotent, so leaving it is also safe.
+
+Full detail: [admin_lifecycle.md](admin_lifecycle.md).
+
+---
+
+## 7. \`/health\` Runs Live Checks
+
+\`ASGIAdapter\`'s \`/health\` handler now calls \`await registry.run_checks()\` before rendering, so a dependency that died after boot is no longer masked by the boot-time snapshot.
+
+**Response shape is unchanged.** Values may now differ from the boot snapshot — that is the point.
+
+**Cost.** One check invocation per registered subsystem per request. \`StorageSubsystem\` and \`VectorDBSubsystem\` register live checks; for storage that is a backend liveness probe, for vectordb it is \`VectorRegistry.health()\` across configured stores. \`run_checks()\` is a no-op when nothing registered a check, so apps without those subsystems pay nothing.
+
+If a load balancer polls \`/health\` aggressively and you would rather it not touch the backends, point it at a cheaper endpoint and reserve \`/health\` for real health assessment.
+
+---
+
+## 8. Adopting the Vector Database (opt-in)
+
+Nothing here is required. An install without \`elips\`, or a workspace without a \`vectordb\` block, behaves exactly as it did in v1.4.0b2.
+
+\`\`\`bash
+pip install 'aquilia[vectordb]'
+\`\`\`
+
+> **Python 3.10:** \`elips 1.1.0\` publishes no cp310 wheels, so the extra carries \`python_version >= '3.11'\`. On 3.10 it installs nothing and \`aquilia.vectordb\` degrades exactly as on any install without the driver — \`VectorNotInstalledFault\` at first use. Without the marker, \`aquilia[full]\` would be unresolvable on 3.10 rather than simply omitting vector support.
+
+**Step 1 — declare stores** in \`workspace.py\`:
+
+\`\`\`python
+from aquilia.workspace import Workspace
+
+workspace = (
+    Workspace("myapp")
+    .vectordb(
+        path="./.aquilia/vectors",
+        stores={"default": {"dimension": 384, "metric": "cosine"}},
+    )
+)
+\`\`\`
+
+or in \`aquilia.config.py\`:
+
+\`\`\`python
+class BaseEnv(AquilaConfig):
+    class vectordb(AquilaConfig.VectorDB):
+        enabled   = True
+        dimension = 384
+\`\`\`
+
+**Step 2 — declare models** in \`modules/<app>/vector_models.py\` (or a \`vector_models/\` package). The directory is separate from \`models/\` deliberately: importing a vector model imports \`aquilia.vectordb\`, and scanning \`models/\` for them would drag the optional dependency into every app that has SQL models.
+
+\`\`\`python
+from aquilia.vectordb import VectorModel, KeyField, TextField, VectorField, Field
+
+class Document(VectorModel):
+    key:    str         = KeyField(prefix="doc_")
+    body:   str         = TextField(embed=True, min_length=1)
+    vector: list[float] = VectorField(dimension=384)
+    source: str         = Field(default="web", indexed=True)
+
+    class Meta:
+        collection = "documents"
+        store = "default"
+\`\`\`
+
+**Step 3 — optionally declare them explicitly** in the module manifest:
+
+\`\`\`python
+manifest = AppManifest(
+    name="blog",
+    version="1.0.0",
+    vector_models=["modules.blog.vector_models"],
+)
+\`\`\`
+
+Discovery finds them either way. A manifest-declared ref that fails to import or resolve is a **hard fault** (\`ModelRegistrationFault\`); a discovery-scanned file that fails is logged and skipped. An explicit declaration is a promise, and a silently-missing model would surface later as an empty search rather than an error.
+
+**Step 4 — verify**:
+
+\`\`\`bash
+aq vectordb status     # driver installed? stores read correctly?
+aq vectordb models     # slot routing as intended?
+aq doctor              # includes the new vectordb.driver check
+\`\`\`
+
+### Deployment constraints
+
+- **elips is single-writer per directory.** With \`workers > 1\`, every worker after the first fails to acquire the lock — a startup fault, not a degradation. Give each worker its own store path, or set \`read_only=True\` on the shared store so workers search without the writer lock (writes then raise).
+- **Set \`auto_create=False\` in production** so a missing store fails the boot instead of serving an empty index.
+- **\`VectorDBSubsystem\` is not driven by \`AquiliaServer\`.** Like every \`BootContext\` subsystem, it is initialized by the host. See [vectordb.md](vectordb.md#wiring-the-store-lifecycle) for a module lifecycle-hook example. The \`aq vectordb\` commands need none of this — they configure and shut down \`VectorRegistry\` themselves.
+
+### What is *not* a migration
+
+Changing \`dimension\`, \`metric\`, or the embedder on an existing store. elips persists that identity on disk and refuses a reopen that disagrees, and vectors from two embedding models occupy incompatible spaces — mixing them makes distances meaningless while still returning a confident-looking ranked list. Use \`aq vectordb reembed --model <M> --to-embedder <URI>\`, which refuses an in-place dimension change and names the store to reconfigure.
+
+Full detail: [vectordb.md](vectordb.md) · [vectordb_cli.md](vectordb_cli.md)
+
+---
+
+## Upgrade Checklist
+
+- [ ] Upgrade \`aquilia\` to \`1.4.0b3\` in \`pyproject.toml\` or \`requirements.txt\`.
+- [ ] Run \`aq doctor\` to perform a full health audit of your workspace.
+- [ ] Remove any imports from \`aquilia.cli.parsers\`.
+- [ ] Verify that CI/CD workflows handle non-zero exit codes from \`aq validate\`.
+- [ ] Ensure test fixtures call \`server.shutdown()\` or \`router.clear()\` to prevent nanobind leak warnings.
+- [ ] Rename \`shared_state["_di_registry"]\` to \`shared_state[DI_CONTAINER_KEY]\` in any hand-built \`BootContext\`.
+- [ ] Confirm custom \`BaseSubsystem\` subclasses are cancellation-safe, or set \`_timeout = 0\`.
+- [ ] Replace \`AdminRateLimiter\` private-state pokes with \`force_cleanup()\`.
+- [ ] If \`/health\` is polled by a load balancer, budget for live check invocations.
+- [ ] If adopting vector search: install \`aquilia[vectordb]\`, declare stores and models, verify with \`aq vectordb status\` / \`aq vectordb models\`.
+
+---
+
+## Deprecated Features
+
+None in this release.
+
+## Removed Features
+
+- \`aquilia/cli/discovery_cli.py\`
+- \`aquilia/cli/parsers/\` (\`__init__.py\`, \`module.py\`, \`workspace.py\`)
+
+Both were internal CLI helpers with no documented public API. See §2 for the replacement.
+
+---
+
+## Compatibility Matrix
+
+| Component | Minimum | Recommended |
+|---|---|---|
+| Python | 3.10 | 3.12+ |
+| Python (with \`vectordb\` extra) | **3.11** | 3.12+ |
+| OS | Linux, macOS 11+, Windows 10+ | Ubuntu 22.04 / macOS 14 |
+| SQLite | 3.35.0 | 3.42.0+ |
+| \`elips\` (optional) | 1.1.0 | 1.1.0+ |
+
+---
+
+## Related documentation
+
+- [README.md](README.md) — release overview and highlights
+- [vectordb.md](vectordb.md) · [vectordb_cli.md](vectordb_cli.md) — the new vector subsystem
+- [subsystem_boot_contract.md](subsystem_boot_contract.md) — \`BootContext\`, timeouts, live health
+- [admin_lifecycle.md](admin_lifecycle.md) — admin startup/shutdown and rate limiter
+- [cli_modernization.md](cli_modernization.md) · [checks_engine.md](checks_engine.md) — CLI architecture
+- [bug_fixes.md](bug_fixes.md) — every defect fixed in this release
 `
   },
   "1.4.0b2": {

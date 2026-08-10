@@ -35,6 +35,23 @@ export function StorageController() {
           The <DocTerm id="storage.StorageRegistry">StorageRegistry</DocTerm> singleton is automatically bound to the DI container when the workspace starts. You can inject it into your controllers directly.
         </p>
 
+        <div className={`mb-6 rounded-xl border p-4 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+          <p className={`text-sm ${subtleText}`}>
+            <span className="text-aquilia-400 font-semibold">Fixed in 1.4.0b3.</span> This has always
+            worked under <code className="text-aquilia-500">AquiliaServer</code>, which registers the
+            registry in every DI container itself. It did <em>not</em> work when a host booted{' '}
+            <code className="text-aquilia-500">StorageSubsystem</code> through a{' '}
+            <code className="text-aquilia-500">BootContext</code> directly — embedders, custom
+            runners, and tests. That path looked for a <code className="text-aquilia-500">shared_state</code>{' '}
+            key nothing ever set, so backends worked but constructor injection failed to resolve.
+            Both paths now resolve containers through{' '}
+            <code className="text-aquilia-500">BootContext.di_containers()</code>. If you set{' '}
+            <code className="text-aquilia-500">"_di_registry"</code> to work around it, rename it to{' '}
+            <code className="text-aquilia-500">DI_CONTAINER_KEY</code>; it never took effect, so
+            nothing can regress.
+          </p>
+        </div>
+
         <p className={`mb-4 ${subtleText}`}>
           Simply declare <DocTerm id="storage.StorageRegistry">StorageRegistry</DocTerm> as a parameter type in your Controller constructor. Aquilia resolves it automatically using type annotations, without requiring explicit <code className="text-aquilia-500">Inject()</code> defaults:
         </p>

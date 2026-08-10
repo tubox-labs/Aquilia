@@ -173,6 +173,11 @@ export function CLIOverview() {
               to: '/docs/cli/subsystems',
               title: 'Subsystem Checks',
               desc: 'Verify cache, mail, and i18n configurations, test client adapters, and run translations extraction.'
+            },
+            {
+              to: '/docs/vectordb/cli',
+              title: 'Vector Stores',
+              desc: 'Inspect, compact, and compress elips vector stores, probe GPU capability, and run ad-hoc similarity searches. New in 1.4.0b3.'
             }
           ].map((sec, i) => (
             <Link key={i} to={sec.to} className="group block py-5 first:pt-0 last:pb-0 transition-colors">

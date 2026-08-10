@@ -685,6 +685,36 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://tubox.cloud/docs/vectordb</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://tubox.cloud/docs/vectordb/models</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://tubox.cloud/docs/vectordb/queries</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://tubox.cloud/docs/vectordb/interop</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://tubox.cloud/docs/vectordb/cli</loc>
+    <lastmod>2026-08-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://tubox.cloud/docs/contracts</loc>
     <lastmod>2026-08-09</lastmod>
     <changefreq>monthly</changefreq>

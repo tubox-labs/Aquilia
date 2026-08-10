@@ -507,6 +507,36 @@ workspace = (
                 <span>Disables frame embedding block headers.</span>
               </div>
             </div>
+
+            <div className={`mt-4 rounded-lg border p-4 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+              <p className={`text-xs font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                New in 1.4.0b3 — <code className="font-mono text-aquilia-400">AdminRateLimiter.force_cleanup()</code>
+              </p>
+              <p className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                The limiter sweeps stale lockout records at most once per{' '}
+                <code className="font-mono text-aquilia-400">cleanup_interval</code> (default 3600s).
+                The admin maintenance task needed a sweep on demand, and got one by writing{' '}
+                <code className="font-mono text-aquilia-400">limiter._last_cleanup = 0</code> to
+                defeat the interval guard, then diffing dict lengths before and after to work out
+                what had been removed. Two private attributes and a subtraction to learn a number the
+                sweep already knew.
+              </p>
+              <CodeBlock code={`# BEFORE -- reach into privates, infer the count
+before = len(limiter._login_records)
+limiter._last_cleanup = 0
+limiter._maybe_cleanup()
+cleaned = max(0, before - len(limiter._login_records))
+
+# AFTER -- the sweep returns what it removed
+cleaned_login, cleaned_sensitive = limiter.force_cleanup()`} language="python" />
+              <p className={`text-xs mt-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                An active lockout is never cleared: a record is dropped only when it is past its
+                lockout <em>and</em> has no recent attempts. Use{' '}
+                <code className="font-mono text-aquilia-400">clear_login_attempts()</code> to release
+                a locked-out account deliberately. Purely additive — the periodic sweep behaviour and
+                the task's return shape are unchanged.
+              </p>
+            </div>
           </div>
 
           {/* AdminAudit Builder */}

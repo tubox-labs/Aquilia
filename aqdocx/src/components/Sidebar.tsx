@@ -226,6 +226,16 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
+        label: 'Vector Database', path: '/docs/vectordb', icon: <Boxes className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/vectordb' },
+          { label: 'Vector Models', path: '/docs/vectordb/models' },
+          { label: 'Queries & Search', path: '/docs/vectordb/queries' },
+          { label: 'SQL Interop', path: '/docs/vectordb/interop' },
+          { label: 'CLI (aq vectordb)', path: '/docs/vectordb/cli' },
+        ]
+      },
+      {
         label: 'Contracts', path: '/docs/contracts', icon: <Binary className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/contracts/overview' },

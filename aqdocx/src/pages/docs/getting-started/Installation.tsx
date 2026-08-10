@@ -122,7 +122,8 @@ export function InstallationPage() {
                 ['server', 'gunicorn, uvicorn[standard]', 'Production web server (Gunicorn + Uvicorn workers)'],
                 ['postgres', 'asyncpg', 'Async PostgreSQL database driver support'],
                 ['otel', 'opentelemetry-api, opentelemetry-sdk, opentelemetry-exporter-otlp-proto-grpc, opentelemetry-instrumentation-asgi', 'OpenTelemetry distributed tracing support'],
-                ['full', 'aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template]', 'Convenience bundle with all standard features'],
+                ['vectordb', "elips>=1.1.0 (Python 3.11+ only)", 'Embedded vector database for aquilia.vectordb — similarity search, embedders, chunking'],
+                ['full', 'aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,mail-dkim,server,postgres,otel,template,vectordb]', 'Convenience bundle with all standard features'],
                 ['all', 'aquilia[full]', 'Full installation with absolutely everything'],
                 ['testing', 'pytest, pytest-asyncio, pytest-cov', 'Testing utilities and coverage tools'],
                 ['dev', 'aquilia[testing], ruff, mypy, pre-commit', 'Development tools, linters, and checkers'],
@@ -140,8 +141,27 @@ export function InstallationPage() {
         <CodeBlock code={`# Install with multiple extras
 pip install "aquilia[redis,postgres,auth]"
 
+# Vector search (Python 3.11+; the extra installs nothing on 3.10)
+pip install "aquilia[vectordb]"
+
 # Install everything
-pip install "aquilia[all]"`} language="bash" />
+pip install "aquilia[full]"`} language="bash" />
+
+        <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'}`}>
+          <h3 className={`text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Why <code className="font-mono text-aquilia-400">vectordb</code> carries a Python marker
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <code className="font-mono text-aquilia-400">elips</code> publishes no cp310 wheels, and
+            Aquilia supports 3.10. The extra is declared as{' '}
+            <code className="font-mono text-aquilia-400">elips&gt;=1.1.0; python_version &gt;= &apos;3.11&apos;</code>{' '}
+            so that <code className="font-mono text-aquilia-400">aquilia[full]</code> stays
+            resolvable on 3.10 instead of failing outright. On 3.10 the extra installs nothing and{' '}
+            <code className="font-mono text-aquilia-400">aquilia.vectordb</code> degrades exactly as
+            it does on any install without the driver: importing it succeeds, and the first actual
+            use raises <code className="font-mono text-aquilia-400">VectorNotInstalledFault</code>.
+          </p>
+        </div>
       </section >
 
       {/* Development Install */}

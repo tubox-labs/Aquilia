@@ -185,6 +185,11 @@ import { StorageAPI } from './docs/storage/API'
 import { StorageConfiguration } from './docs/storage/Configuration'
 import { StorageBackends } from './docs/storage/Backends'
 import { StorageController } from './docs/storage/Controller'
+import { VectorDBOverview } from './docs/vectordb/Overview'
+import { VectorDBModels } from './docs/vectordb/Models'
+import { VectorDBQueries } from './docs/vectordb/Queries'
+import { VectorDBInterop } from './docs/vectordb/Interop'
+import { VectorDBCli } from './docs/vectordb/Cli'
 import { FilesystemOverview } from './docs/filesystem/Overview'
 import { FilesystemAPI } from './docs/filesystem/API'
 import { FilesystemOperations } from './docs/filesystem/Operations'
@@ -479,6 +484,11 @@ export function PrintAllDocs() {
         <div className="print-page-break"><StorageConfiguration /></div>
         <div className="print-page-break"><StorageBackends /></div>
         <div className="print-page-break"><StorageController /></div>
+        <div className="print-page-break"><VectorDBOverview /></div>
+        <div className="print-page-break"><VectorDBModels /></div>
+        <div className="print-page-break"><VectorDBQueries /></div>
+        <div className="print-page-break"><VectorDBInterop /></div>
+        <div className="print-page-break"><VectorDBCli /></div>
         <div className="print-page-break"><FilesystemOverview /></div>
         <div className="print-page-break"><FilesystemAPI /></div>
         <div className="print-page-break"><FilesystemOperations /></div>
