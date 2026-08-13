@@ -98,6 +98,11 @@ archs = ["x86_64", "arm64"]
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 
+[tool.cibuildwheel.windows.environment]
+CMAKE_ARGS = "-DAQUILIA_ENGINE_OPTIONAL=OFF"
+CI = "1"
+CMAKE_GENERATOR = "Visual Studio 17 2022"
+
 
 # ---------------------------------------------------------------------------
 # Project metadata

@@ -117,6 +117,7 @@ jobs:
       - name: Install with no compiler available
         shell: pwsh
         run: |
+          $env:CMAKE_GENERATOR = "Ninja"
           $env:CC = "C:\missing-aquilia-toolchain\cl.exe"
           $env:CXX = "C:\missing-aquilia-toolchain\cl.exe"
           $sdist = Get-ChildItem "dist\*.tar.gz" | Select-Object -First 1
