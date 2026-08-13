@@ -28,12 +28,6 @@ build-backend = "scikit_build_core.build"
 cmake.source-dir = "."
 cmake.build-type = "Release"
 cmake.version = ">=3.21"
-# Force Ninja so a compiler-free Windows install does not select NMake and then
-# fail because nmake.exe is only shipped with Visual Studio Build Tools.
-# scikit-build-core injects a compatible Ninja wheel when it is not installed.
-cmake.args = ["-G", "Ninja"]
-ninja.version = ">=1.11"
-ninja.make-fallback = false
 # When nanobind or a C++20 compiler is unavailable, skip the extensions instead
 # of failing the whole install. Honoured by each extension's CMakeLists.txt.
 cmake.define.AQUILIA_ENGINE_OPTIONAL = "ON"
