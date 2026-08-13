@@ -5,7 +5,7 @@
 #
 # Pipeline stages:
 #   1. quality-gate   — lint, type-check, security audit
-#   2. test           — full test matrix (Python 3.10 – 3.13 × Linux/macOS/Win)
+#   2. test           — full test matrix (Python 3.10 – 3.14 × Linux/macOS/Win)
 #   3. build          — produce sdist + wheel, verify with twine
 #   4. test-publish   — upload to TestPyPI, smoke-install from TestPyPI
 #   5. publish        — upload to production PyPI (needs manual approval)
@@ -45,7 +45,7 @@ permissions:
 # Shared environment
 # ---------------------------------------------------------------------------
 env:
-  PYTHON_DEFAULT: "3.13"
+  PYTHON_DEFAULT: "3.14"
   FORCE_COLOR: "1"                  # coloured output in Actions logs
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
@@ -127,7 +127,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.10", "3.11", "3.12", "3.13"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -198,7 +198,7 @@ jobs:
         uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@6cccd09a31908ffd175b012fb8bf4e1dbda3bc6c # v2.23.0
+        uses: pypa/cibuildwheel@8d2b08b68458a16aeb24b64e68a09ab1c8e82084 # v3.4.1
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           MACOSX_DEPLOYMENT_TARGET: "10.15"
@@ -241,9 +241,41 @@ jobs:
           name: cibw-sdist
           path: dist/*.tar.gz
 
+  test-windows-sdist-fallback:
+    name: "Windows 3.14 compiler-free sdist install"
+    needs: build-sdist
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Set up Python 3.14
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.14"
+
+      - name: Download sdist
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: cibw-sdist
+          path: dist
+
+      - name: Install with no compiler available
+        shell: pwsh
+        run: |
+          $env:CC = "C:\missing-aquilia-toolchain\cl.exe"
+          $env:CXX = "C:\missing-aquilia-toolchain\cl.exe"
+          $sdist = Get-ChildItem "dist\*.tar.gz" | Select-Object -First 1
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir $sdist.FullName
+
+      - name: Verify installed fallback package
+        shell: pwsh
+        run: |
+          Set-Location $env:RUNNER_TEMP
+          python -c "import aquilia; from aquilia._core_loader import NATIVE; from aquilia._dataengine_loader import DATAENGINE_NATIVE; from aquilia.json import native as JSON_NATIVE; assert not NATIVE and not DATAENGINE_NATIVE and not JSON_NATIVE, (NATIVE, DATAENGINE_NATIVE, JSON_NATIVE); print('compiler-free Windows install verified', aquilia.__version__)"
+
   build:
     name: "📦 Combine Distributions & Verify"
-    needs: [build-wheels, build-sdist]
+    needs: [build-wheels, build-sdist, test-windows-sdist-fallback]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -290,6 +322,16 @@ jobs:
             exit 1
           }
           echo "OK: Artifact version verified"
+
+      - name: Verify Windows wheels cover every supported CPython
+        run: |
+          for python_tag in cp310 cp311 cp312 cp313 cp314; do
+            if ! compgen -G "dist/*-${python_tag}-${python_tag}-win_amd64.whl" > /dev/null; then
+              echo "::error::Missing Windows AMD64 wheel for ${python_tag}"
+              exit 1
+            fi
+          done
+          echo "OK: Windows wheels cover CPython 3.10 through 3.14"
 
       - name: Upload final build artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
@@ -458,7 +500,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.10", "3.13"]
+        python: ["3.10", "3.14"]
     steps:
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0

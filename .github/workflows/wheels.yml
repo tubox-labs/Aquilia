@@ -2,7 +2,7 @@
 # Aquilia — Multi-Platform Native Wheel Builder
 # =============================================================================
 # Builds binary wheels for Linux (x86_64, aarch64), macOS (Intel, Apple Silicon),
-# and Windows (AMD64) across Python 3.10 – 3.13 using cibuildwheel.
+# and Windows (AMD64) across Python 3.10 – 3.14 using cibuildwheel.
 # =============================================================================
 
 name: "Wheels"
@@ -65,7 +65,7 @@ jobs:
         uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@6cccd09a31908ffd175b012fb8bf4e1dbda3bc6c # v2.23.0
+        uses: pypa/cibuildwheel@8d2b08b68458a16aeb24b64e68a09ab1c8e82084 # v3.4.1
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           MACOSX_DEPLOYMENT_TARGET: "10.15"
@@ -106,3 +106,34 @@ jobs:
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
+
+  windows_sdist_fallback:
+    name: "Windows 3.14 compiler-free sdist install"
+    needs: build_sdist
+    runs-on: windows-latest
+    steps:
+      - name: Set up Python 3.14
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.14"
+
+      - name: Download sdist
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: cibw-sdist
+          path: dist
+
+      - name: Install without a C/C++ compiler
+        shell: pwsh
+        run: |
+          $env:CC = "C:\missing-aquilia-toolchain\cl.exe"
+          $env:CXX = "C:\missing-aquilia-toolchain\cl.exe"
+          $sdist = Get-ChildItem "dist\*.tar.gz" | Select-Object -First 1
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir $sdist.FullName
+
+      - name: Verify pure-Python fallbacks
+        shell: pwsh
+        run: |
+          Set-Location $env:RUNNER_TEMP
+          python -c "import aquilia; from aquilia._core_loader import NATIVE; from aquilia._dataengine_loader import DATAENGINE_NATIVE; from aquilia.json import native as JSON_NATIVE; assert not NATIVE and not DATAENGINE_NATIVE and not JSON_NATIVE, (NATIVE, DATAENGINE_NATIVE, JSON_NATIVE); print('compiler-free Windows install verified', aquilia.__version__)"
