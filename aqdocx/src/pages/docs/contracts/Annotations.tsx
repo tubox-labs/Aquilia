@@ -350,7 +350,7 @@ class FlexibleContract(Contract):
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>PEP 563 / 649 Support</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia's <code className="text-aquilia-500">introspect_annotations()</code> fully supports deferred evaluation of annotations via <code className="text-aquilia-500">from __future__ import annotations</code> (PEP 563). String annotations are resolved against the module's globals at Contract class creation time.
+          Aquilia's <code className="text-aquilia-500">introspect_annotations()</code> supports string and deferred annotations, including Python 3.14's deferred evaluation behavior. Annotations are resolved against the module globals during Contract class construction.
         </p>
         <CodeBlock language="python" filename="pep563.py">{`from __future__ import annotations  # All annotations become strings
 
@@ -368,6 +368,15 @@ class InvoiceContract(Contract):
     class Spec:
         model = Invoice
         fields = "__all__"`}</CodeBlock>
+        <div className={`mt-6 rounded-xl border p-5 ${isDark ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50'}`}>
+          <h3 className={`font-bold text-sm ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>Definition errors are never downgraded</h3>
+          <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            In v1.4.0b5, a <code>CastFault</code> raised while Python evaluates a deferred facet annotation
+            propagates from class creation. Aquilia still warns and skips introspection for unrelated
+            resolution failures, but it does not suppress validation or security failures such as an
+            unsafe regular-expression constraint.
+          </p>
+        </div>
       </section>
 
       <NextSteps />

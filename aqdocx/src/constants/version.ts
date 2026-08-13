@@ -1,2 +1,1 @@
-export const AQUILIA_VERSION = '1.4.0b3'
-
+export const AQUILIA_VERSION = '1.4.0b5'

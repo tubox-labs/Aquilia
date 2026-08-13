@@ -23,6 +23,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 // Getting Started
 import { IntroductionPage } from './pages/docs/getting-started/Introduction'
 import { InstallationPage } from './pages/docs/getting-started/Installation'
+import { NativeExtensionsPage } from './pages/docs/getting-started/NativeExtensions'
 import { QuickStartPage } from './pages/docs/getting-started/QuickStart'
 import { DeveloperGuidePage } from './pages/docs/getting-started/DeveloperGuide'
 import { ArchitecturePage } from './pages/docs/getting-started/Architecture'
@@ -381,6 +382,7 @@ export default function App() {
         <Route path="/docs" element={<DocsLayout />}>
           <Route index element={<IntroductionPage />} />
           <Route path="installation" element={<InstallationPage />} />
+          <Route path="native-extensions" element={<NativeExtensionsPage />} />
           <Route path="quickstart" element={<QuickStartPage />} />
           <Route path="developer-guide" element={<DeveloperGuidePage />} />
           <Route path="architecture" element={<ArchitecturePage />} />

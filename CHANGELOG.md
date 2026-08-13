@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.4.0b5] — 2026-08-13 — "Stable Bearings"
+
+Makes Aquilia's native distribution contract reliable on real machines: Windows wheels now use the stable Visual Studio 2022 ABI and static MSVC runtime, compiler-free source installs reach the supported pure-Python fallback, CPython 3.14 joins the tested wheel matrix, and installed-wheel CI can no longer be shadowed by the checkout. Also fixes intermittent sync/async controller dispatch and preserves Contract security faults during Python 3.14 deferred annotation evaluation. See [releases/1.4.0b5/](releases/1.4.0b5/README.md) for full documentation.
+
+### Added
+
+- **CPython 3.14 support** — Added project classifier, main CI coverage, release smoke tests, and cibuildwheel artifacts for CPython 3.14 across supported platforms.
+- **Installed native wheel verifier** (`tools/check_installed_native.py`) — Tests the installed package from a temporary directory, removes the checkout from `sys.path`, asserts `_core`, `_dataengine`, and `_json`, and reports loader diagnostics plus the resolved package path.
+- **Compiler-free Windows sdist tests** — CI and release workflows install the sdist on Python 3.14 with deliberately invalid C/C++ compiler paths and assert the pure-Python fallbacks.
+- **Native extensions documentation** — Added wheel/source-build architecture, Windows troubleshooting, strict CI guidance, compatibility notes, and diagnostics to aqdocx and the multi-page b5 release package.
+
+### Changed
+
+- **CMake language initialization** — The root project now uses `project(... LANGUAGES NONE)`, probes C/C++, and calls `enable_language()` only after compilers are available. This makes `AQUILIA_ENGINE_OPTIONAL` effective before CMake can abort.
+- **Windows wheel toolchain** — Native Windows jobs use `windows-2022` with the `Visual Studio 17 2022` generator instead of the preview toolchain selected by `windows-latest`.
+- **Controller invocation** — `ControllerEngine._safe_call()` now invokes a handler once and awaits the returned object only when `inspect.isawaitable(result)` is true.
+- **Strict release configuration** — cibuildwheel passes `CMAKE_ARGS=-DAQUILIA_ENGINE_OPTIONAL=OFF`; a plain environment variable no longer pretends to override the scikit-build CMake definition.
+
+### Improved
+
+- **Release artifact trust** — Wheel tests exercise the installed artifact outside the source tree, closing a path-shadowing hole that let source imports hide packaging failures.
+- **Windows portability** — All three native extensions and their support targets use the static MSVC runtime, removing dependence on build-runner runtime DLLs.
+- **Fallback diagnostics** — Compiler-free installs complete with an explicit warning describing the missing toolchain, active fallbacks, and how to obtain acceleration.
+- **Release completeness gate** — Publication requires Windows AMD64 wheels for CPython 3.10, 3.11, 3.12, 3.13, and 3.14.
+
+### Fixed
+
+- **Windows `DLL load failed` after successful installation** — Corrected the ABI/runtime mismatch that made `_core`, `_dataengine`, and `_json` unavailable on clean Windows systems while CI runners passed.
+- **Optional source install failed before fallback logic** — Missing compilers no longer abort at the root `project()` call when `AQUILIA_ENGINE_OPTIONAL=ON`.
+- **Sync handler dictionary awaited as a coroutine** — Removed bound-method ID reuse from coroutine classification, preventing intermittent `TypeError: 'dict' object can't be awaited` failures.
+- **Decorator-hidden awaitables mishandled** — A synchronous wrapper returning an awaitable is now awaited based on its result.
+- **Python 3.14 Contract security faults swallowed** — `CastFault` raised during deferred annotation access or introspection now propagates from Contract class creation.
+
+### Deprecated
+
+- No public APIs, CLI commands, flags, or configuration fields are deprecated in this release.
+
+### Removed
+
+- **Private `ControllerEngine._is_coro_cache`** — Removed because temporary bound method IDs are not stable cache keys. This private implementation detail had no compatibility guarantee.
+
+### Security
+
+- **Definition-time Contract validation** — Unsafe facet constraints, including ReDoS-prone regular expressions, can no longer be hidden by Python 3.14 annotation-introspection recovery.
+- **Artifact path isolation** — Release tests no longer trust imports resolved from the checkout when validating installed wheels.
+
+### Performance
+
+- **Native acceleration restored on Windows** — Correct wheels activate the existing router, data-engine, and yyjson paths instead of falling back after a DLL error.
+- **Deterministic handler dispatch** — Replaces an unsafe dictionary cache with one constant-time awaitability inspection; no handler is invoked twice.
+
+### Documentation
+
+- Added seven detailed pages under [`releases/1.4.0b5/`](releases/1.4.0b5/README.md).
+- Updated aqdocx installation, native extension, controller engine, Contract annotations/faults, configuration, testing, releases, announcement, navigation, print, and version surfaces.
+- Updated top-level README and GUIDE version/Python compatibility metadata.
+
 ## [1.4.0b4] — 2026-08-10 — "Resolved Fields"
 
 Fixes a metaclass-level precedence bug in `aquilia.contracts` where `@computed` methods in a parent contract were silently demoted to required `TextFacet` input fields in three scenarios: (1) a subclass redeclaring the same field as a type annotation, (2) a subclass binding an ORM model with a matching column, and (3) a same-class `field: type` annotation co-declared with `@computed`. See [releases/1.4.0b4/](releases/1.4.0b4/README.md) for full documentation.

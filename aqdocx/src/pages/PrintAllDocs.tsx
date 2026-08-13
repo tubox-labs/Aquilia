@@ -5,6 +5,7 @@ import { Changelogs } from './Changelogs'
 
 import { IntroductionPage } from './docs/getting-started/Introduction'
 import { InstallationPage } from './docs/getting-started/Installation'
+import { NativeExtensionsPage } from './docs/getting-started/NativeExtensions'
 import { QuickStartPage } from './docs/getting-started/QuickStart'
 import { DeveloperGuidePage } from './docs/getting-started/DeveloperGuide'
 import { ArchitecturePage } from './docs/getting-started/Architecture'
@@ -304,6 +305,7 @@ export function PrintAllDocs() {
       <div className="space-y-16">
         <div className="print-page-break"><IntroductionPage /></div>
         <div className="print-page-break"><InstallationPage /></div>
+        <div className="print-page-break"><NativeExtensionsPage /></div>
         <div className="print-page-break"><QuickStartPage /></div>
         <div className="print-page-break"><DeveloperGuidePage /></div>
         <div className="print-page-break"><ArchitecturePage /></div>

@@ -31,6 +31,7 @@ export const sections: SidebarSection[] = [
     items: [
       { label: 'Introduction', path: '/docs', icon: <BookOpen className="w-3.5 h-3.5" /> },
       { label: 'Installation', path: '/docs/installation', icon: <Download className="w-3.5 h-3.5" /> },
+      { label: 'Native Extensions', path: '/docs/native-extensions', icon: <Binary className="w-3.5 h-3.5" /> },
       { label: 'Quick Start', path: '/docs/quickstart', icon: <Zap className="w-3.5 h-3.5" /> },
       { label: 'Developer Guide', path: '/docs/developer-guide', icon: <Blocks className="w-3.5 h-3.5" /> },
       { label: 'Architecture', path: '/docs/architecture', icon: <Network className="w-3.5 h-3.5" /> },

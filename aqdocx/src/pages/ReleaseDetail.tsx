@@ -47,10 +47,26 @@ interface StaticRelease {
 
 const staticReleases: StaticRelease[] = [
   {
+    version: '1.4.0b5',
+    codename: 'Stable Bearings',
+    date: 'Aug 13, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
+    license: 'MIT',
+    summary: 'Reliable Windows native wheels, compiler-free source installs, Python 3.14 support, and controller/Contract correctness fixes.',
+    assets: [
+      { name: 'aquilia-1.4.0b5.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.0b5-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.0b5',
+    commitCount: '6',
+    contributors: 2
+  },
+  {
     version: '1.3.4',
     codename: 'Structural Integrity',
     date: 'Jul 24, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Two-round architectural audit: 13 bugs fixed across Aquilary registry, Auto-Discovery, Manifest system, Workspace, Config, and CLI subsystems. No breaking changes.',

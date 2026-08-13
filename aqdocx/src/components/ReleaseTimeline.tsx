@@ -159,6 +159,15 @@ export const roadmap: RoadmapNode[] = [
     type: 'patch',
     highlights: ['Distributed Tasks & Workflows', 'Mail Delivery Queue & Bounces', 'Zero-Dependency Native HTTP'],
   },
+  {
+    version: '1.4.0b5',
+    codename: 'Stable Bearings',
+    date: 'Aug 13, 2026',
+    status: 'current',
+    type: 'minor',
+    branch: 'beta',
+    highlights: ['Windows wheel reliability', 'Python 3.14', 'Compiler-free fallback'],
+  },
 ]
 
 interface Props {

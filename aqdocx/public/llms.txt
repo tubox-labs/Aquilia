@@ -15,6 +15,7 @@ Aquilia is a high-performance, async-native, manifest-first Python web framework
 ### Getting Started & Basics
 - [Documentation Home](https://tubox.cloud/docs) — Overview and architecture principles.
 - [Installation Guide](https://tubox.cloud/docs/installation) — Package installation and driver setup.
+- [Native Extensions](https://tubox.cloud/docs/native-extensions) — Binary wheels, compiler-free fallbacks, diagnostics, and Windows compatibility.
 - [Quick Start](https://tubox.cloud/docs/quickstart) — Build a complete REST API in under 5 minutes.
 - [Developer Guide](https://tubox.cloud/docs/developer-guide) — Code conventions and workflow best practices.
 - [Framework Architecture](https://tubox.cloud/docs/architecture) — Internals, request lifecycle, and execution pipeline.

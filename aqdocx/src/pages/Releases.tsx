@@ -36,10 +36,44 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.4.0b5',
+    codename: 'Stable Bearings',
+    date: 'Aug 13, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
+    license: 'MIT',
+    summary: 'Windows native wheels now load on ordinary user systems, compiler-free source installs reliably fall back to Python, CPython 3.14 is supported across CI and wheels, synchronous and asynchronous controller handlers dispatch correctly, and deferred Contract security faults remain visible.',
+    highlights: ['Windows Native Wheel Reliability', 'CPython 3.14 Wheels', 'Compiler-Free Source Installs', 'Correct Sync/Async Handler Dispatch', 'Deferred Contract Fault Preservation'],
+    assets: [
+      { name: 'aquilia-1.4.0b5.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.0b5-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.0b5',
+    commitCount: '6',
+    contributors: 2
+  },
+  {
+    version: '1.4.0b4',
+    codename: 'Resolved Fields',
+    date: 'Aug 10, 2026',
+    tag: 'pre-release',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Corrected @computed facet precedence across Contract inheritance, same-class annotations, and ORM model binding.',
+    highlights: ['Computed Facet Inheritance', 'Annotation Precedence', 'ORM Binding Compatibility'],
+    assets: [
+      { name: 'aquilia-1.4.0b4.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.0b4-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.0b4',
+    commitCount: '1',
+    contributors: 2
+  },
+  {
     version: '1.4.0b3',
     codename: "Helmsman's Compass",
     date: 'Aug 09, 2026',
-    tag: 'latest',
+    tag: 'pre-release',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: "New aquilia.vectordb subsystem (typed vector models, three filter syntaxes, EQL, embedders, chunking, GPU policy, quantization, SQL-ORM interop, aq vectordb CLI group), CLI architecture overhaul (aquilia.cli.core), Unified Health Checks Engine (@register_check), single-source ExitCode contract, enforced subsystem boot contract (BootContext.di_containers, _timeout, live /health checks), wired admin lifecycle, and native C++ router memory leak resolution on server shutdown.",

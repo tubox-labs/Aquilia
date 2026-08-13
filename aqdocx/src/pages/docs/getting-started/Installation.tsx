@@ -46,7 +46,7 @@ export function InstallationPage() {
               </li>
               <li className="flex justify-between items-center bg-aquilia-500/10 p-2 rounded-lg border border-aquilia-500/20">
                 <span className="text-aquilia-500 font-medium">Recommended</span>
-                <span className="font-mono font-bold text-aquilia-500">3.12+</span>
+                <span className="font-mono font-bold text-aquilia-500">3.14</span>
               </li>
             </ul>
             <p className={`text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -90,6 +90,12 @@ export function InstallationPage() {
         </p>
 
         <CodeBlock code={`pip install aquilia`} language="bash" />
+        <p className={`mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Aquilia v1.4.0b5 supports CPython 3.10 through 3.14. Published wheels include the native
+          acceleration modules; source installs without a compiler use pure-Python fallbacks. See{' '}
+          <Link className="text-aquilia-500 hover:underline" to="/docs/native-extensions">Native Extensions</Link>{' '}
+          for verification and Windows troubleshooting.
+        </p>
       </section >
 
       {/* Extras */}
@@ -198,7 +204,7 @@ aq version`}
 
         <CodeBlock
           code={`$ aq version
-Aquilia v1.2.3
+Aquilia v1.4.0b5
 
 $ aq doctor
 ✓ Python 3.12.3 (compatible)
@@ -320,6 +326,9 @@ $ aq doctor
           </Link>
           <Link to="/docs/project-structure" className={`text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}>
             → Project Structure: Understand the workspace layout
+          </Link>
+          <Link to="/docs/native-extensions" className={`text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}>
+            → Native Extensions: Wheels, fallbacks, and Windows diagnostics
           </Link>
         </div>
       </section >

@@ -85,6 +85,28 @@ except CastFault as e:
     print(e.code)      # "BP100"`}</CodeBlock>
       </section>
 
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Definition-Time CastFaults</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Some facet constraints are validated while the Contract class is created. These errors are
+          programming or security errors and must be raised immediately, including when Python 3.14
+          evaluates a deferred annotation inside the metaclass.
+        </p>
+        <CodeBlock language="python" filename="unsafe_contract.py">{`import pytest
+from aquilia.contracts import Contract, Field
+from aquilia.contracts.exceptions import CastFault
+
+with pytest.raises(CastFault):
+    class UnsafeSearch(Contract):
+        # Nested quantifiers are rejected as a ReDoS risk at definition time.
+        query: str = Field(pattern=r"(a+)+")`}</CodeBlock>
+        <p className={`mt-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Before v1.4.0b5 on Python 3.14, the metaclass could swallow this fault as a generic annotation
+          introspection failure and create an incompletely validated Contract. The fault now propagates;
+          no migration is required unless tests incorrectly expected the unsafe class to be created.
+        </p>
+      </section>
+
       {/* SealFault */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SealFault</h2>

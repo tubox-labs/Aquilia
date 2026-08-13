@@ -146,6 +146,36 @@ def validate_username(self, value, context):
         />
       </section>
 
+      <section className="space-y-4">
+        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Sync and Async Handler Dispatch
+        </h2>
+        <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Since v1.4.0b5, the engine invokes each handler exactly once and awaits the returned value
+          only when it is awaitable. This supports regular <code>def</code> handlers, native
+          <code>async def</code> handlers, and synchronous decorators that return a coroutine.
+        </p>
+        <CodeBlock language="python" filename="handlers.py" code={`class OrdersController(Controller):
+    @GET("/sync")
+    def sync(self, ctx):
+        return {"mode": "sync"}
+
+    @GET("/async")
+    async def async_route(self, ctx):
+        return {"mode": "async"}
+
+    @GET("/wrapped")
+    @trace_request  # may be a sync wrapper returning an awaitable
+    def wrapped(self, ctx):
+        return load_order_async(ctx)
+`} />
+        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Do not call a handler once to inspect it and a second time to execute it. The engine no longer
+          caches coroutine status by the temporary identity of bound method objects; this removes an
+          intermittent CPython ID-reuse failure that could try to await a synchronous dictionary.
+        </p>
+      </section>
+
       {/* Navigation */}
       <div className="flex justify-between items-center pt-8 border-t border-gray-200 dark:border-white/10">
         <Link to="/docs/controllers/factory" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition-colors">

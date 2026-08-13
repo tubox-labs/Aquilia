@@ -1,4 +1,56 @@
 export const localReleases: Record<string, Record<string, string>> = {
+  "1.4.0b5": {
+    "README.md": `# Aquilia v1.4.0b5 Release Notes — "Stable Bearings"
+
+Aquilia v1.4.0b5 makes native distribution reliable on real machines. It adds CPython 3.14 support, fixes Windows wheel portability, makes compiler-free source installs fail-soft, and repairs sync/async controller dispatch plus Contract security fault propagation.
+
+## Pages
+
+- [Native Wheels and Source Builds](native_packaging.md)
+- [Controller Dispatch Correctness](controller_dispatch.md)
+- [Contract Safety on Python 3.14](contract_safety.md)
+- [CI and Release Pipeline](ci_release_pipeline.md)
+- [Bug Fixes and Internal Refactoring](bug_fixes.md)
+- [Migration and Upgrade Guide](migration.md)
+
+Install with \`pip install --upgrade --no-cache-dir aquilia==1.4.0b5\`. See the repository release notes for the complete compatibility matrix and upgrade checklist.`,
+    "native_packaging.md": `# Native Wheels and Source Builds
+
+Windows release wheels use Visual Studio 17 2022, AMD64, and static MSVC runtime linkage. The root CMake project probes compilers before enabling C/C++; with \`AQUILIA_ENGINE_OPTIONAL=ON\`, a compiler-free source install packages the Python fallbacks. Release CI uses \`CMAKE_ARGS=-DAQUILIA_ENGINE_OPTIONAL=OFF\` and asserts that \`_core\`, \`_dataengine\`, and \`_json\` load from outside the checkout.
+
+\`\`\`bash
+python -c "from aquilia._core_loader import NATIVE; from aquilia._dataengine_loader import DATAENGINE_NATIVE; from aquilia.json import native as JSON_NATIVE; print(NATIVE, DATAENGINE_NATIVE, JSON_NATIVE)"
+\`\`\`
+
+Expected for a wheel: \`True True True\`. A compiler-free source install may report three false flags and remains fully functional.`,
+    "controller_dispatch.md": `# Controller Dispatch Correctness
+
+\`ControllerEngine._safe_call()\` now invokes a handler exactly once and awaits only when the returned value is awaitable. This preserves regular \`def\` handlers, \`async def\` handlers, and synchronous decorators that return coroutines. The private bound-method ID coroutine cache was removed because CPython can reuse temporary method IDs, which previously caused \`TypeError: 'dict' object can't be awaited\`.
+
+No application migration is required.`,
+    "contract_safety.md": `# Contract Safety on Python 3.14
+
+Deferred annotation evaluation can raise facet validation errors while \`ContractMeta\` builds a class. v1.4.0b5 re-raises \`CastFault\` instead of swallowing it as a generic introspection failure. Unsafe patterns such as \`Field(pattern=r"(a+)+")\` therefore fail at definition time on Python 3.14 as intended.`,
+    "ci_release_pipeline.md": `# CI and Release Pipeline
+
+The release matrix covers CPython 3.10–3.14 on Linux x86_64/aarch64, macOS x86_64/arm64, and Windows AMD64. Native wheel jobs are strict and test the installed artifact outside the checkout. A separate Windows 3.14 sdist job deliberately removes the compiler and verifies the pure-Python fallback.`,
+    "bug_fixes.md": `# Bug Fixes and Internal Refactoring
+
+- Fixed Windows native DLL load failures caused by preview MSVC runtime dependencies.
+- Fixed compiler-free source installs aborting before optional CMake fallback logic.
+- Fixed installed-wheel tests being shadowed by the source checkout.
+- Fixed sync handlers being awaited after bound-method ID reuse.
+- Fixed deferred Python 3.14 Contract \`CastFault\` errors being swallowed.
+
+No CLI, routing, DI, ORM, auth, or public configuration APIs changed.`,
+    "migration.md": `# Migration Guide — v1.4.0b4 to v1.4.0b5
+
+\`\`\`bash
+python -m pip install --upgrade --no-cache-dir aquilia==1.4.0b5
+\`\`\`
+
+No application code changes are required. Windows users should reinstall without cache if an older beta wheel failed with a DLL error. Packaging CI that requires native wheels should pass \`CMAKE_ARGS=-DAQUILIA_ENGINE_OPTIONAL=OFF\`; compiler-free compatibility jobs should expect the Python fallbacks instead.`,
+  },
   "1.3.10": {
     "README.md": `# Aquilia v1.3.10 Release Notes — "Migration Rewrite"
 
@@ -11982,4 +12034,3 @@ workspace = (
 `
   }
 };
-

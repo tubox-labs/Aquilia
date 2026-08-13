@@ -333,6 +333,15 @@ class CIEnv(BaseEnv):
     class accelerator(BaseEnv.accelerator):
         engine = Env("AQUILIA_ENGINE", default=False, cast=bool)
         dataengine = Env("AQUILIA_DATAENGINE", default=False, cast=bool)`} />
+        <p className={`mt-4 text-sm leading-relaxed ${txt}`}>
+          These settings control runtime loading only. The build-time CMake option
+          <code> AQUILIA_ENGINE_OPTIONAL</code> is separate: <code>ON</code> permits a compiler-free
+          source install, while release CI passes <code>OFF</code> so a wheel cannot silently omit an
+          extension. No Accelerator fields or CLI flags changed in v1.4.0b5.
+        </p>
+        <p className={`mt-2 text-sm ${txt}`}>
+          See <a className="text-aquilia-500 hover:underline" href="/docs/native-extensions">Native Extensions</a> for build requirements, diagnostics, and Windows compatibility.
+        </p>
       </section>
 
       {/* VectorDB section */}

@@ -8,6 +8,14 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Record<string, Announcement> = {
+  '1.4.0b5': {
+    version: '1.4.0b5',
+    badgeText: 'V1.4.0b5 Release',
+    title: 'Reliable Windows native wheels, Python 3.14 support, compiler-free installs, and handler/Contract correctness fixes:',
+    highlightText: 'Stable Bearings',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.4.0b5',
+  },
   '1.4.0b3': {
     version: '1.4.0b3',
     badgeText: 'V1.4.0b3 Release',
@@ -134,5 +142,5 @@ export function getLatestAnnouncement(version?: string): Announcement {
   if (version && ANNOUNCEMENTS[version]) {
     return ANNOUNCEMENTS[version]
   }
-  return ANNOUNCEMENTS['1.4.0b3']
+  return ANNOUNCEMENTS['1.4.0b5']
 }

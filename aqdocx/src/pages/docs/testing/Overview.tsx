@@ -67,6 +67,24 @@ export function TestingOverview() {
         </div>
       </section>
 
+      <section className={sectionClass}>
+        <h2 className={h2Class}>Native Wheel Verification</h2>
+        <p className={pClass}>
+          Release-wheel tests must prove that the installed wheel loads all three native modules.
+          Run the check outside the repository checkout; otherwise the source tree can shadow the
+          installed package and create a false result.
+        </p>
+        <CodeBlock language="bash" filename="ci.sh">{`python tools/check_installed_native.py
+
+# Equivalent assertions for an installed release wheel:
+python -c "from aquilia._core_loader import NATIVE; from aquilia._dataengine_loader import DATAENGINE_NATIVE; from aquilia.json import native as JSON_NATIVE; assert NATIVE and DATAENGINE_NATIVE and JSON_NATIVE"`}</CodeBlock>
+        <p className={pClass}>
+          v1.4.0b5 CI also tests the opposite contract on Windows 3.14: an sdist installed with invalid
+          compiler paths must succeed and report all three fallbacks. Keep strict wheel tests and
+          compiler-free source-install tests separate; they validate intentionally different outcomes.
+        </p>
+      </section>
+
       {/* Quick Start example */}
       <section className={sectionClass}>
         <h2 className={h2Class}>

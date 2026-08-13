@@ -153,7 +153,7 @@ class OrderContract(Contract):
       { kind: 'tip', text: 'You can also use the @computed decorator instead of Computed() directly.' },
       { kind: 'note', text: 'Fixed in v1.4.0b4: computed facets are correctly preserved across inheritance hierarchies and model bindings.' }
     ],
-    status: 'stable (fixed in v1.4.0b4)',
+    status: 'stable',
     docsHref: '/docs/contracts/facets',
     source: { file: 'aquilia/contracts/facets.py' },
   },
@@ -190,7 +190,7 @@ assert bp.is_sealed()  # True — full_name is NOT a required input field`,
     notes: [
       { kind: 'warning', text: 'Pre-v1.4.0b4 bug pattern to avoid: do not annotate and compute on the same field in a base class if you want to re-annotate in a child class. This is now fixed, but users on older versions should be aware.' }
     ],
-    status: 'stable (fixed in v1.4.0b4)',
+    status: 'stable',
     docsHref: '/docs/contracts/facets',
     source: { file: 'aquilia/contracts/annotations.py' },
   },
