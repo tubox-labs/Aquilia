@@ -10,7 +10,6 @@ This is NOT a serializer. It is a *first-class framework primitive*.
 
 from __future__ import annotations
 
-import contextlib
 import warnings
 from collections.abc import Mapping, Sequence
 from typing import (
@@ -343,8 +342,15 @@ class ContractMeta(type):
             ann_namespace: dict[str, Any] = {}
             # Get resolved annotations from the class
             cls_annotations = {}
-            with contextlib.suppress(Exception):
+            try:
                 cls_annotations = cls.__annotations__
+            except CastFault:
+                # On Python 3.14 this access evaluates deferred annotations.
+                # Facet validation errors are definition errors, not a reason
+                # to silently discard every annotated field on the Contract.
+                raise
+            except Exception:
+                pass
             ann_namespace["__annotations__"] = cls_annotations
             # Re-inject field descriptors for introspection
             ann_namespace.update(field_descriptors)
@@ -373,6 +379,13 @@ class ContractMeta(type):
                 bases,
                 include_explicit_facets=True,
             )
+        except CastFault:
+            # Python 3.14 evaluates deferred annotations when
+            # ``cls.__annotations__`` is accessed above. Facet factory
+            # validation therefore happens inside this try block instead of
+            # in the class body. Security failures such as an unsafe regex
+            # must retain their definition-time error semantics.
+            raise
         except Exception as exc:
             warnings.warn(
                 f"Contract '{name}': annotation introspection failed: {exc}. "

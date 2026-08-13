@@ -716,7 +716,6 @@ class TestEngineCaches:
         ControllerEngine._simple_route_cache[42] = True
         ControllerEngine._has_lifecycle_hooks[Controller] = (False, False)
         ControllerEngine._clearance_cache[99] = None
-        ControllerEngine._is_coro_cache[123] = True
 
         ControllerEngine.clear_caches()
 
@@ -724,7 +723,33 @@ class TestEngineCaches:
         assert len(ControllerEngine._simple_route_cache) == 0
         assert len(ControllerEngine._has_lifecycle_hooks) == 0
         assert len(ControllerEngine._clearance_cache) == 0
-        assert len(ControllerEngine._is_coro_cache) == 0
+
+    async def test_safe_call_does_not_reuse_bound_method_coroutine_state(self):
+        """A sync handler must remain sync after an async bound method call."""
+        engine = ControllerEngine(ControllerFactory())
+
+        class Handler:
+            async def asynchronous(self):
+                return "async"
+
+            def synchronous(self):
+                return {"kind": "sync"}
+
+        handler = Handler()
+        assert await engine._safe_call(handler.asynchronous) == "async"
+        assert await engine._safe_call(handler.synchronous) == {"kind": "sync"}
+
+    async def test_safe_call_awaits_result_from_sync_wrapper(self):
+        """Decorators may return awaitables without being coroutine functions."""
+        engine = ControllerEngine(ControllerFactory())
+
+        async def inner():
+            return "wrapped"
+
+        def wrapper():
+            return inner()
+
+        assert await engine._safe_call(wrapper) == "wrapped"
 
 
 class TestEngineThrottle:

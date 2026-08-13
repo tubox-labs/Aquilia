@@ -560,6 +560,20 @@ class TestBPSEC008_TextFacetReDoS:
         with pytest.raises(CastFault, match="nested quantifiers"):
             TextFacet(pattern=r"(a+)+")
 
+    def test_deferred_annotation_cast_fault_is_not_swallowed(self, monkeypatch):
+        """Python 3.14 deferred facet validation must still fail class creation."""
+        import aquilia.contracts.core as contract_core
+
+        def reject_annotation(*args, **kwargs):
+            raise CastFault("<pattern>", "Regex pattern contains a ReDoS risk")
+
+        monkeypatch.setattr(contract_core, "introspect_annotations", reject_annotation)
+
+        with pytest.raises(CastFault, match="ReDoS risk"):
+
+            class UnsafeDeferredContract(Contract):
+                value: str
+
     def test_safe_str_coercion_accepts_primitives(self):
         facet = TextFacet()
         facet.name = "val"

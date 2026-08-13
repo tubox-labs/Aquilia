@@ -53,6 +53,15 @@ endif()
 enable_language(C)
 enable_language(CXX)
 
+# Binary wheels must load on clean Windows machines, not only on CI runners
+# that happen to have the matching Visual C++ Redistributable installed.
+# Initialize every target (including nanobind's static support libraries) with
+# the static MSVC runtime so the .pyd files do not depend on msvcp/vcruntime
+# DLLs from the build host's toolchain generation.
+if(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 if(AQUILIA_ENGINE_TESTS)
   enable_testing()
 endif()

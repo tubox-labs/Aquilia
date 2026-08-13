@@ -126,7 +126,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-2022]
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - name: Checkout
@@ -185,7 +185,9 @@ jobs:
             arch: x86_64
           - os: macos-14
             arch: arm64
-          - os: windows-latest
+          # Stable MSVC v143 produces wheels that load on ordinary Windows
+          # installations without a VS 2026 preview runtime dependency.
+          - os: windows-2022
             arch: AMD64
     steps:
       - name: Checkout
@@ -499,7 +501,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-2022]
         python: ["3.10", "3.14"]
     steps:
       - name: Set up Python ${{ matrix.python }}

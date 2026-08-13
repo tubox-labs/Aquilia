@@ -43,7 +43,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14, windows-latest]
+        # Pin Windows to the stable VS 2022 ABI. windows-latest currently uses
+        # VS 2026, whose preview runtime is not present on normal user systems.
+        os: [ubuntu-latest, macos-14, windows-2022]
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7

@@ -51,7 +51,9 @@ jobs:
             arch: x86_64
           - os: macos-14
             arch: arm64
-          - os: windows-latest
+          # Build redistributable wheels with stable MSVC v143, not the VS
+          # 2026 preview toolchain currently selected by windows-latest.
+          - os: windows-2022
             arch: AMD64
 
     steps:

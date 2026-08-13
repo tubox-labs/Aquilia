@@ -1492,9 +1492,6 @@ class ControllerEngine:
             media_type=content_type,
         )
 
-    # Cache for coroutine function checks
-    _is_coro_cache: dict[int, bool] = {}  # id(func) -> is_coroutine
-
     def _get_cached_signature(self, func: Any) -> inspect.Signature:
         """Get and cache function signature."""
         # For bound methods, use the underlying function to get a stable ID
@@ -1580,20 +1577,18 @@ class ControllerEngine:
                 kwargs[param_name] = request
 
     async def _safe_call(self, func: Any, *args, **kwargs) -> Any:
-        """Safely call function (sync or async)."""
-        fid = id(func)
-        is_coro = ControllerEngine._is_coro_cache.get(fid)
-        if is_coro is None:
-            is_coro = inspect.iscoroutinefunction(func)
-            ControllerEngine._is_coro_cache[fid] = is_coro
+        """Call a handler once and await its result only when necessary.
 
-        if is_coro:
-            return await func(*args, **kwargs)
-        else:
-            result = func(*args, **kwargs)
-            if inspect.isawaitable(result):
-                return await result
-            return result
+        Bound method objects are temporary, so caching coroutine status by
+        ``id(func)`` is unsafe: CPython can reuse that ID for a different
+        handler and make a synchronous return value get awaited. Inspecting
+        the result also handles decorators that hide an awaitable behind a
+        synchronous wrapper.
+        """
+        result = func(*args, **kwargs)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     # ── Throttle ─────────────────────────────────────────────────────
 
@@ -1806,7 +1801,6 @@ class ControllerEngine:
         cls._has_lifecycle_hooks.clear()
         cls._simple_route_cache.clear()
         cls._clearance_cache.clear()
-        cls._is_coro_cache.clear()
         cls._type_hints_cache.clear()
 
     def _to_response(self, result: Any) -> Response:
