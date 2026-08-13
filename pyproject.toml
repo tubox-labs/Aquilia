@@ -28,6 +28,10 @@ build-backend = "scikit_build_core.build"
 cmake.source-dir = "."
 cmake.build-type = "Release"
 cmake.version = ">=3.21"
+# Keep a generator available for compiler-free source installs; native Windows
+# CI overrides this with the stable Visual Studio generator below.
+ninja.version = ">=1.11"
+ninja.make-fallback = false
 # When nanobind or a C++20 compiler is unavailable, skip the extensions instead
 # of failing the whole install. Honoured by each extension's CMakeLists.txt.
 cmake.define.AQUILIA_ENGINE_OPTIONAL = "ON"

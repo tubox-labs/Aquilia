@@ -204,6 +204,7 @@ jobs:
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           MACOSX_DEPLOYMENT_TARGET: "10.15"
+          CMAKE_GENERATOR: ${{ matrix.os == 'windows-2022' && 'Visual Studio 17 2022' || '' }}
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3

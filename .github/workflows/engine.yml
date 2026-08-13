@@ -56,6 +56,13 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install (builds the extension)
+        if: runner.os != 'Windows'
+        run: pip install -e ".[testing]"
+
+      - name: Install (Windows Visual Studio generator)
+        if: runner.os == 'Windows'
+        env:
+          CMAKE_GENERATOR: Visual Studio 17 2022
         run: pip install -e ".[testing]"
 
       - name: Assert the native engine actually loaded
