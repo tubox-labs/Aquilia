@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aquilia.faults.domains import MigrationFault
@@ -27,8 +29,6 @@ from aquilia.models.migration.codegen import collect_imports, render_operations,
 from aquilia.models.migration.operations import Operation
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from aquilia.models.migration.graph import MigrationNode
 
 __all__ = [
@@ -170,6 +170,58 @@ def render_migration_module(
 # ── Module loading ──────────────────────────────────────────────────────────
 
 
+def _find_workspace_root(path: Path) -> Path | None:
+    """Find the workspace that owns a migration file.
+
+    Migration directories may be nested or configured outside the conventional
+    ``migrations/`` location, so the search starts at the migration file and
+    then falls back to the command's working directory. A workspace is identified
+    by the same Python-native markers accepted by the CLI: ``workspace.py`` or
+    ``aquilia.py``.
+
+    Args:
+        path: Migration file whose workspace should be located.
+
+    Returns:
+        The resolved workspace root, or ``None`` when no workspace marker exists.
+    """
+    starts = (path.resolve().parent, Path.cwd().resolve())
+    visited: set[Path] = set()
+    for start in starts:
+        for candidate in (start, *start.parents):
+            if candidate in visited:
+                continue
+            visited.add(candidate)
+            if (candidate / "workspace.py").is_file() or (candidate / "aquilia.py").is_file():
+                return candidate
+    return None
+
+
+def _ensure_workspace_importable(path: Path) -> Path | None:
+    """Add a migration's workspace root to ``sys.path`` before deserialization.
+
+    Generated fields may contain durable dotted references to application code,
+    such as ``modules.users.models.UserStatus`` for an ``EnumField``. Installed
+    console scripts do not guarantee that their current working directory is on
+    ``sys.path``, so migration loading must establish workspace importability
+    explicitly instead of relying on prior model discovery.
+
+    Args:
+        path: Migration file about to be imported.
+
+    Returns:
+        The workspace root that was found, or ``None`` outside a workspace.
+    """
+    workspace_root = _find_workspace_root(path)
+    if workspace_root is None:
+        return None
+
+    root = str(workspace_root)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    return workspace_root
+
+
 def load_migration_module(path: Path) -> MigrationNode:
     """Load a migration file from disk into a :class:`MigrationNode`.
 
@@ -194,6 +246,7 @@ def load_migration_module(path: Path) -> MigrationNode:
 
     from aquilia.models.migration.graph import MigrationNode
 
+    _ensure_workspace_importable(path)
     revision = revision_from_path(path)
     spec = importlib.util.spec_from_file_location(f"aquilia_migration_{revision}", path)
     if spec is None or spec.loader is None:

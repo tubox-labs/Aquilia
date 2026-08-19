@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import sqlite3
+import sys
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
+from aquilia.cli.__main__ import cli
 from aquilia.cli.commands.model_cmds import (
     cmd_check,
     cmd_diff,
@@ -252,3 +256,86 @@ def test_db_cli_enhanced_workflow(temp_workspace):
 
     finally:
         model_cmds._discover_models = original_discover
+
+
+def test_db_migrate_imports_workspace_enum_fields(tmp_path, monkeypatch):
+    """The installed CLI can deserialize EnumFields from workspace modules.
+
+    A console-script launch does not guarantee that the workspace working
+    directory appears on ``sys.path``. Generated migrations nevertheless store
+    durable enum references such as ``modules.users.models.UserStatus``, so the
+    migration loader must make the owning workspace importable before executing
+    the migration module.
+    """
+    workspace_root = tmp_path / "enum_workspace"
+    users_module = workspace_root / "modules" / "users"
+    migrations_dir = workspace_root / "migrations"
+    users_module.mkdir(parents=True)
+    migrations_dir.mkdir()
+
+    (workspace_root / "workspace.py").write_text(
+        '"""Regression workspace for migration import resolution."""\n',
+        encoding="utf-8",
+    )
+    (users_module / "models.py").write_text(
+        'from enum import Enum\n\nclass UserStatus(Enum):\n    ACTIVE = "active"\n',
+        encoding="utf-8",
+    )
+    (migrations_dir / "20260819_093002_user.py").write_text(
+        '"""Create the user table with a workspace EnumField."""\n\n'
+        "from aquilia.models import fields\n"
+        "from aquilia.models.migration.operations import CreateModel, Operation\n"
+        "from aquilia.models.migration.schema import ColumnState, TableState\n\n"
+        "class Meta:\n"
+        '    """Migration metadata read by the migration runner."""\n\n'
+        '    revision = "20260819_093002"\n'
+        '    slug = "user"\n'
+        "    dependencies = []\n"
+        "    replaces = []\n"
+        "    atomic = True\n\n"
+        "operations: list[Operation] = [\n"
+        "    CreateModel(\n"
+        '        model="User",\n'
+        "        table=TableState.of(\n"
+        '            "User",\n'
+        '            "users",\n'
+        "            columns=[\n"
+        "                ColumnState.of(\n"
+        '                    "status",\n'
+        "                    fields.EnumField(\n"
+        '                        enum_class="modules.users.models.UserStatus",\n'
+        "                    ),\n"
+        "                ),\n"
+        '                ColumnState.of("id", fields.BigAutoField()),\n'
+        "            ],\n"
+        "        ),\n"
+        "    ),\n"
+        "]\n",
+        encoding="utf-8",
+    )
+
+    resolved_root = str(workspace_root.resolve())
+    monkeypatch.chdir(workspace_root)
+    monkeypatch.setattr(sys, "path", [entry for entry in sys.path if entry not in {"", resolved_root}])
+    for module_name in list(sys.modules):
+        if module_name == "modules" or module_name.startswith("modules."):
+            monkeypatch.delitem(sys.modules, module_name, raising=False)
+
+    database_path = workspace_root / "db.sqlite3"
+    result = CliRunner().invoke(
+        cli,
+        [
+            "db",
+            "migrate",
+            "--migrations-dir",
+            str(migrations_dir),
+            "--database-url",
+            f"sqlite:///{database_path}",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Applied 1 migration(s)" in result.output
+    with sqlite3.connect(database_path) as connection:
+        table = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'").fetchone()
+    assert table == ("users",)

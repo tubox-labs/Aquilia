@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.4.0b6] — 2026-08-19 — "Safe Passage"
+
+Fixes database migration loading for generated fields that reference workspace
+modules, including `EnumField(enum_class=...)` paths such as
+`modules.users.models.UserStatus`. The migration loader now discovers the owning
+workspace and adds its root to `sys.path` before deserializing migration code,
+so `aq db migrate`, `aq db sqlmigrate`, and library-level migration graph loads
+behave consistently from installed console-script environments.
+
+### Fixed
+
+- **Workspace enum imports during migration loading** — Migration files are
+  executed from their path, which does not automatically make a workspace's
+  `modules/` package importable. The loader now searches from the migration
+  directory and current working directory for `workspace.py` or `aquilia.py`,
+  then idempotently bootstraps that root on `sys.path` before executing the
+  migration.
+- **CLI migration regression coverage** — Added an end-to-end `CliRunner`
+  regression that applies a migration containing
+  `modules.users.models.UserStatus` with no preloaded workspace modules.
+
+### Documentation
+
+- Added the v1.4.0b6 release overview, bug-fix notes, and migration guide under
+  [`releases/1.4.0b6/`](releases/1.4.0b6/README.md).
+
 ## [1.4.0b5] — 2026-08-13 — "Stable Bearings"
 
 Makes Aquilia's native distribution contract reliable on real machines: Windows wheels now use the stable Visual Studio 2022 ABI and static MSVC runtime, compiler-free source installs reach the supported pure-Python fallback, CPython 3.14 joins the tested wheel matrix, and installed-wheel CI can no longer be shadowed by the checkout. Also fixes intermittent sync/async controller dispatch and preserves Contract security faults during Python 3.14 deferred annotation evaluation. See [releases/1.4.0b5/](releases/1.4.0b5/README.md) for full documentation.
