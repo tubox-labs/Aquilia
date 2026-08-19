@@ -2,8 +2,9 @@
 AquilaVectorDB — Payload codecs.
 
 elips metadata is flat and narrowly typed: ``MetaValue = bool | int | float | str``,
-one level deep, no lists. Python payloads are not, so every ``Payload`` attribute
-is routed through a codec that encodes on write and decodes on read.
+one level deep, no lists. Python payloads are not, so every ``Field(...)`` or
+compatibility ``Payload()`` attribute is routed through a codec that encodes on
+write and decodes on read.
 
 The table is closed by design. An attribute whose type has no codec raises
 :class:`~aquilia.vectordb.faults.VectorSchemaFault` at model-creation time rather

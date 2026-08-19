@@ -30,6 +30,9 @@ behave consistently from installed console-script environments.
 
 - Added the v1.4.0b6 release overview, bug-fix notes, and migration guide under
   [`releases/1.4.0b6/`](releases/1.4.0b6/README.md).
+- Reworked the `aquilia.vectordb` module and class docstrings to recommend the
+  modern `Field(...)` descriptor declarations while documenting the supported
+  `typing.Annotated` compatibility form and its equivalents.
 
 ## [1.4.0b5] — 2026-08-13 — "Stable Bearings"
 

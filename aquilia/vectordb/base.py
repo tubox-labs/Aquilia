@@ -1,32 +1,47 @@
 """
 AquilaVectorDB — ``VectorModel`` base class.
 
-The declarative face of the subsystem. A model is a typed description of one
-elips collection:
+The declarative face of the subsystem. New models should use the unified field
+descriptor form, which keeps the Python type annotation visible while attaching
+defaults, validation, storage aliases, indexing hints, and slot routing to one
+object:
+
+```python
+from datetime import datetime
+from aquilia.vectordb import VectorModel, Field, KeyField, TextField, VectorField, ScoreField
+
+class Document(VectorModel):
+    key:        str          = KeyField(prefix="doc_")
+    body:       str          = TextField(embed=True, min_length=1, max_length=8192)
+    vector:     list[float]  = VectorField(dimension=384)
+    source:     str          = Field(default="web", indexed=True, max_length=256)
+    views:      int          = Field(default=0, ge=0)
+    score:      float | None = ScoreField()
+    created_at: datetime     = Field(default_factory=datetime.utcnow)
+
+    class Meta:
+        collection = "documents"
+        store = "default"
+        dimension = 384
+```
+
+The original ``Annotated`` marker form remains valid for compatibility:
 
 ```python
 from typing import Annotated
 from aquilia.vectordb import VectorModel, Key, Text, Payload, Dimension
 
-class Document(VectorModel):
-    key: Annotated[str, Key()]
-    body: Annotated[str, Text()]
+class CompatibilityDocument(VectorModel):
+    key:    Annotated[str, Key()]
+    body:   Annotated[str, Text()]
     vector: Annotated[list[float], Dimension(384)]
     source: Annotated[str, Payload(indexed=True)]
-    score: Annotated[float | None, Score()] = None
-
-    class Meta:
-        collection = "documents"
-        store = "default"
 ```
 
-Every attribute is a real annotation, so a type checker sees ``doc.source`` as
-``str`` and ``doc.score`` as ``float | None`` without a plugin. Compare the
-field-assignment style (``source = CharField()``), where the checker sees a
-``CharField`` and the string type is invisible.
-
-Instances are plain objects with ``__slots__``-free ``__dict__`` storage; the
-schema does the work, so there is no per-attribute descriptor overhead on reads.
+Modern field declarations are descriptors: class access returns the field so
+``Document.views >= 10`` builds a filter, while instance access returns the
+stored value. Values still live in the instance ``__dict__``; the descriptor is
+the declaration and expression layer, not a second storage system.
 """
 
 from __future__ import annotations
@@ -178,12 +193,12 @@ class VectorModel(metaclass=VectorModelMeta):
 
     @key.setter
     def key(self, value: str | None) -> None:
-        """Assign the key through whichever attribute carries ``Key()``."""
+        """Assign the key through whichever attribute carries the key field."""
         attr = self._vfields.key_attr
         if not attr:
             raise VectorSchemaFault(
                 model=self._vfields.model_name,
-                reason="cannot set key on a model with no Key() attribute",
+                reason="cannot set key on a model with no key attribute",
             )
         self.__dict__[attr] = value
         state = self.__dict__.get("_vstate")
@@ -199,7 +214,7 @@ class VectorModel(metaclass=VectorModelMeta):
         return list(value) if value is not None else None
 
     def text_value(self) -> str | None:
-        """Return the text, or ``None`` when the model has no ``Text()`` attribute."""
+        """Return the text, or ``None`` when the model has no text field."""
         attr = self._vfields.text_attr
         if not attr:
             return None
@@ -280,7 +295,7 @@ class VectorModel(metaclass=VectorModelMeta):
         if vector is None and self.text_value() is None:
             errors["__all__"] = (
                 "record has neither a vector nor text — nothing to embed or index. "
-                "Set the vector, or set the Text() attribute and configure an embedder."
+                "Set the vector, or set the TextField attribute and configure an embedder."
             )
 
         if errors:
@@ -367,7 +382,7 @@ class VectorModel(metaclass=VectorModelMeta):
         if not key_attr:
             raise VectorSchemaFault(
                 model=schema.model_name,
-                reason="cannot delete a model with no Key() attribute",
+                reason="cannot delete a model with no key attribute",
             )
 
         key = getattr(self, key_attr, None)

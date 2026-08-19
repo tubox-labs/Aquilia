@@ -56,19 +56,24 @@ class Link:
     """
     Marks a payload attribute holding the primary key of a SQL row.
 
-    Compiles to an ordinary :class:`~aquilia.vectordb.annotations.Payload` entry
-    plus registry metadata naming the target model. It is deliberately *not* a
-    foreign key: elips has no referential integrity, no cascade, and no join.
+    ``LinkField`` is the recommended declaration. This marker form compiles to
+    the same ordinary payload entry plus registry metadata naming the target
+    model. It is deliberately *not* a foreign key: elips has no referential
+    integrity, no cascade, and no join.
 
     Example::
 
+        from aquilia.vectordb import LinkField, KeyField, TextField, VectorModel
+
         class Document(VectorModel):
-            key:     Annotated[str, Key()]
-            body:    Annotated[str, Text()]
-            user_id: Annotated[int, Link(User)]
+            key:     str = KeyField()
+            body:    str = TextField()
+            user_id: int = LinkField(User)
 
         hit = (await Document.vectors.search("alpha"))[0]
         user = await resolve(hit, "user_id")     # one SELECT, explicit
+
+    The older compatibility spelling is ``user_id: Annotated[int, Link(User)]``.
 
     Args:
         model: The target ``Model`` class, or a dotted ``"module:Class"`` path

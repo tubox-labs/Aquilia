@@ -2,15 +2,28 @@
 AquilaVectorDB — Unified field architecture.
 
 The Pydantic-inspired declaration surface (§2.2 of the implementation plan).
-One field object carries slot routing, defaults, storage aliasing, and every
-validation constraint, replacing the stack of separate ``Annotated`` markers the
-legacy syntax needed::
+One field object carries slot routing, defaults, storage aliasing, embedding
+options, and every validation constraint. This is the modern and recommended
+form for new models::
 
-    # Legacy — three markers, one attribute
+    from datetime import datetime
+    from aquilia.vectordb import VectorModel, Field, KeyField, TextField, VectorField
+
+    class Document(VectorModel):
+        key:        str         = KeyField(prefix="doc_")
+        body:       str         = TextField(embed=True, min_length=1, max_length=8192)
+        vector:     list[float] = VectorField(dimension=384)
+        source:     str         = Field(default="web", indexed=True, max_length=256)
+        views:      int         = Field(default=0, ge=0)
+        created_at: datetime    = Field(default_factory=datetime.utcnow)
+
+The older marker syntax is still accepted for compatibility. It expresses the
+same slots and constraints by stacking ``Annotated`` metadata::
+
     source: Annotated[str, Payload(indexed=True), MinLength(1), MaxLength(256)]
 
-    # Unified
-    source: str = Field(default="web", indexed=True, min_length=1, max_length=256)
+Use the unified declaration when starting a model; reserve marker metadata for
+existing models or APIs that specifically need ``Annotated`` types.
 
 Hierarchy::
 
@@ -37,10 +50,10 @@ which keeps attribute reads at dict-lookup cost.
 Mutability
 ----------
 
-Unlike the frozen legacy markers, a field is mutable: the metaclass fills in
-``name``, and a subclass may inherit and re-route one. Fields are therefore
-never shared between attributes — :meth:`BaseVectorField.clone` exists for the
-inheritance path, which copies rather than aliasing.
+Unlike the frozen compatibility markers, a field is mutable: the metaclass
+fills in ``name``, and a subclass may inherit and re-route one. Fields are
+therefore never shared between attributes — :meth:`BaseVectorField.clone`
+exists for the inheritance path, which copies rather than aliasing.
 """
 
 from __future__ import annotations
@@ -198,7 +211,8 @@ class BaseVectorField:
         alias: Storage key override. Defaults to the attribute name. Set it when
             the on-disk key must differ from the Python name — renaming an
             attribute without it orphans existing data.
-        indexed: Metadata index hint for accelerated filtering.
+        indexed: Reserved metadata-index hint. It is retained in the compiled
+            schema, but current elips payload filters still scan metadata.
         description: Human-readable documentation, surfaced by
             ``aq vectordb models``.
         constraints: A :class:`StringConstraints` or :class:`NumericConstraints`

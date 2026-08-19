@@ -14,6 +14,9 @@ refer to application code in workspace modules. This is especially visible with
   `MigrationEngine` loads use the same import bootstrap.
 - A CLI regression test reproduces the installed `aq` process conditions and
   verifies that an EnumField migration applies successfully.
+- VectorDB documentation now presents `Field(...)`, `KeyField`, `TextField`,
+  `VectorField`, and `ScoreField` as the recommended declaration surface while
+  retaining the PEP 593 `Annotated` form for compatibility.
 
 ## Compatibility
 

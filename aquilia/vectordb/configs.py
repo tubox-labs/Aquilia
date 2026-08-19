@@ -98,9 +98,9 @@ class EmbedderOptions:
     """
     Server-side embedding configuration.
 
-    When set, models with a ``Text()`` slot may be written without an explicit
-    vector: elips embeds from the text on write and from the query string on
-    search.
+    When set, models with a ``TextField`` or ``Text()`` slot may be written
+    without an explicit vector: elips embeds from the text on write and from
+    the query string on search.
 
     The embedder is part of a persisted database's identity. Changing it against
     an existing directory makes stored vectors incomparable to new ones, so boot

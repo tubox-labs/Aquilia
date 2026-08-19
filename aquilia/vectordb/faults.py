@@ -97,7 +97,8 @@ class VectorSchemaFault(VectorFault):
 
     Raised at class-creation time by ``VectorModelMeta`` — an unroutable
     annotation, a duplicate slot marker, a nested ``dict`` payload, or a
-    ``Meta.dimension`` that disagrees with a ``Dimension()`` marker.
+    ``Meta.dimension`` that disagrees with a ``Dimension()`` marker or a
+    ``VectorField(dimension=...)`` declaration.
 
     Notes:
         Failing at class creation rather than at first write is deliberate:

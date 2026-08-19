@@ -32,6 +32,12 @@ No application code changes are required. Enum classes referenced by generated
 migrations must still remain importable at their recorded dotted path; moving or
 renaming such a class requires the same compatibility handling as before.
 
+For new VectorDB models, use descriptor declarations such as
+`key: str = KeyField()`, `body: str = TextField(...)`, and
+`vector: list[float] = VectorField(dimension=...)`. Existing models using
+`Annotated[str, Key()]`, `Annotated[list[float], Dimension(...)]`, or the other
+marker classes remain supported and do not need to be rewritten.
+
 ## Verification
 
 Run the migration commands from a workspace containing an EnumField migration:

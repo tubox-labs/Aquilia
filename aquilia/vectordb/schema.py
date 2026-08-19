@@ -42,7 +42,7 @@ class PayloadSpec:
         indexed: Whether an index hint was declared.
         written: Whether the attribute is persisted (a score is not).
         field: The declaring :class:`~aquilia.vectordb.fields.BaseVectorField`,
-            or ``None`` for a legacy ``Annotated`` declaration. Carries defaults
+            or ``None`` for a compatibility-marker declaration. Carries defaults
             and normalization rules the write path applies.
     """
 
@@ -66,7 +66,7 @@ class VectorOptions:
         collection: elips vault name; defaults to the lowercased class name.
         store: Which configured store alias this model binds to.
         dimension: Vector length declared via ``Meta``; ``0`` when only a
-            ``Dimension()`` marker carries it.
+            ``Dimension()`` marker or ``VectorField(dimension=...)`` carries it.
         metric: Similarity metric — ``cosine``, ``l2``, or ``dot``.
         index: Index kind — ``flat``, ``hnsw``, or ``ivf``.
         index_options: Index tuning forwarded to elips.
@@ -107,8 +107,8 @@ class VectorSchema:
     Attributes:
         model: The model class.
         model_name: Class name, used in fault messages.
-        key_attr: Attribute carrying ``Key()``.
-        text_attr: Attribute carrying ``Text()``, or ``None``.
+        key_attr: Attribute carrying a ``KeyField`` or ``Key()`` marker.
+        text_attr: Attribute carrying a ``TextField`` or ``Text()`` marker, or ``None``.
         vector_attr: Attribute holding the vector, or ``None``.
         dimension: Resolved vector length; ``0`` when unknown until bind time.
         payloads: ``{attribute: PayloadSpec}``, declaration-ordered.
@@ -117,7 +117,7 @@ class VectorSchema:
         score_attr: Attribute receiving search scores, or ``None``.
         embed_text: Whether the text slot asked for automatic embedding.
         fields: ``{attribute: BaseVectorField}`` for every unified field
-            declaration. Empty for a purely legacy ``Annotated`` model.
+            declaration. Empty for a purely compatibility-marker model.
     """
 
     model: type

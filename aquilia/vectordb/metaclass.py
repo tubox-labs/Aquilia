@@ -1,13 +1,14 @@
 """
 AquilaVectorDB — VectorModel metaclass and schema.
 
-:class:`VectorModelMeta` turns an annotated class body into a :class:`VectorSchema`:
+:class:`VectorModelMeta` turns a typed class body into a :class:`VectorSchema`:
 
-* every attribute carrying a slot marker (:class:`Key`, :class:`Text`,
-  :class:`Payload`, ...) is routed to one of elips' fixed record positions;
-* attributes with no marker are inferred by type (§2.4 of the implementation
-  plan), with anything unroutable rejected at class creation;
-* validators from the ``Annotated`` metadata are built and cached;
+* modern ``BaseVectorField`` assignments (``KeyField()``, ``TextField()``,
+  ``VectorField()``, ``Field()``) are resolved first;
+* ``Annotated`` field objects and the older slot markers remain supported;
+* attributes with no declaration are inferred by type (§2.4 of the
+  implementation plan), with anything unroutable rejected at class creation;
+* validators from field options or ``Annotated`` metadata are built and cached;
 * the class is registered in :class:`VectorRegistry` and a
   ``vector_class_prepared`` signal is fired.
 
@@ -25,14 +26,15 @@ Without ``include_extras=True`` the ``Annotated`` metadata wrapper is *stripped*
 and every marker vanishes, silently turning a ``Key()`` field into an inferred
 payload. This is the single most important line in the metaclass.
 
-Why no data descriptors
------------------------
+Field descriptors and instance storage
+---------------------------------------
 
-Values live in ``instance.__dict__``, written by ``__init__``. No descriptor is
-installed on the class, so ``get_type_hints`` output and runtime attribute types
-agree exactly and a static checker sees ``body: str`` with no ``@overload``
-gymnastics. The cost — there is no class-level ``Document.body`` — is why
-queries take keyword arguments, exactly as ``Q.filter(**kwargs)`` already does.
+Modern field assignments install descriptors on the model class. Class access
+returns the field object, so ``Document.views >= 10`` builds a filter expression;
+instance access reads the typed value from ``instance.__dict__``. Pure marker
+models retain the older no-descriptor behavior and use keyword filters. Both
+styles compile to the same schema, but direct field assignment is the preferred
+declaration for new code.
 """
 
 from __future__ import annotations
@@ -157,11 +159,13 @@ def _build_schema(
 
     Steps, mirroring ``ModelMeta.__new__``:
 
-    1. Resolve annotations, including ``Annotated`` metadata.
-    2. Merge inherited payloads; this class's annotations override them.
+    1. Resolve direct field assignments and annotations, including
+       ``Annotated`` metadata.
+    2. Merge inherited payloads and field descriptors; this class's declarations
+       override them.
     3. Route each attribute to a slot through the unified priority chain
        (§2.5): a directly-assigned field, then ``Annotated`` field metadata,
-       then a legacy marker, then type inference.
+       then a compatibility marker, then type inference.
     4. Enforce cardinality: ≤1 ``Key``, ≤1 ``Text``, ≤1 ``Score``, ≤1 vector
        attribute; at least one of vector/text so the model can be written.
     5. Precompute the caches the hot paths read.
@@ -266,7 +270,7 @@ def _build_schema(
             payloads[attr] = _payload_spec_from_field(model_cls.__name__, attr, field_obj, base_type or str, metadata)
             continue
 
-        # ── Legacy slot markers, checked before inference ───────────────
+        # ── Compatibility slot markers, checked before inference ───────
         if isinstance(metadata.get("key"), Key):
             _ensure_none(key_attr, model_cls.__name__, "Key", attr)
             key_attr = attr
@@ -393,8 +397,8 @@ def _resolve_field(model_cls: type, attr: str, metadata: dict[str, Any]) -> Base
     2. ``Annotated`` metadata — ``views: Annotated[int, Field(ge=0)]``.
 
     Returns:
-        The declaring field, or ``None`` when the attribute uses legacy markers
-        or bare type inference. A field found in *both* places is a
+        The declaring field, or ``None`` when the attribute uses compatibility
+        markers or bare type inference. A field found in *both* places is a
         contradiction and is rejected rather than resolved by precedence.
     """
     assigned = model_cls.__dict__.get(attr)
@@ -422,12 +426,14 @@ def _resolve_field(model_cls: type, attr: str, metadata: dict[str, Any]) -> Base
         if fallback is not UNSET_SENTINEL and not isinstance(fallback, BaseVectorField):
             field_obj.default = fallback
 
-    # Legacy constraints may sit alongside a field in the same Annotated tuple;
+    # Compatibility constraints may sit beside a field in the same Annotated tuple;
     # fold them in so the two metadata vocabularies compose rather than one
     # silently winning.
-    legacy = metadata.get("constraints") or []
-    if legacy:
-        field_obj.extra_validators = tuple(field_obj.extra_validators) + tuple(c.build() for c in legacy)
+    compatibility_constraints = metadata.get("constraints") or []
+    if compatibility_constraints:
+        field_obj.extra_validators = tuple(field_obj.extra_validators) + tuple(
+            constraint.build() for constraint in compatibility_constraints
+        )
 
     return field_obj
 
@@ -494,8 +500,8 @@ def _attach_links(model_cls: type, hints: dict[str, Any], schema: VectorSchema) 
     """
     Record link declarations on the model class.
 
-    Two spellings are recognised and normalised to one registry: the legacy
-    ``Link`` marker inside ``Annotated`` (matched by class name in
+    Two spellings are recognised and normalised to one registry: the
+    compatibility ``Link`` marker inside ``Annotated`` (matched by class name in
     :func:`_slot_name`, so the metaclass never imports ``aquilia.models``), and
     an assigned :class:`~aquilia.vectordb.fields.LinkField`.
 
@@ -744,7 +750,7 @@ def _annotated_metadata(annotation: Any) -> dict[str, Any]:
     """
     Extract slot markers, fields, and constraints from an ``Annotated[...]``.
 
-    Returns a dict with legacy slot names (``"key"``, ``"text"``, ``"payload"``,
+    Returns a dict with compatibility slot names (``"key"``, ``"text"``, ``"payload"``,
     ``"dimension"``, ``"score"``, ``"link"``) mapped to marker instances, plus
     ``"field"`` (a :class:`BaseVectorField`, when one is present),
     ``"constraints"`` (every :class:`Constraint`), and ``"raw_annotation"``.

@@ -1,10 +1,21 @@
 """
-AquilaVectorDB — Annotation markers and constraints.
+AquilaVectorDB — Compatibility annotation markers and constraints.
 
-Vector models declare their shape through :data:`typing.Annotated` metadata
-rather than field-descriptor assignment::
+New vector models should use the unified field descriptors from
+:mod:`aquilia.vectordb.fields`::
+
+    from aquilia.vectordb import Field, KeyField, TextField, VectorField, VectorModel
 
     class Doc(VectorModel):
+        key:    str         = KeyField()
+        vector: list[float] = VectorField(dimension=768)
+        text:   str         = TextField(embed=True, min_length=1)
+        views:  int         = Field(default=0, ge=0)
+
+This module provides the supported ``Annotated`` form for compatibility and for
+projects that prefer metadata-driven declarations::
+
+    class CompatibilityDoc(VectorModel):
         key:    Annotated[str, Key()]
         vector: Annotated[list[float], Dimension(768)]
         text:   Annotated[str, Text(), MinLength(1)]
@@ -52,9 +63,15 @@ class Key:
     addresses every record by key, so a model without one cannot be written,
     and a model with two has no single identity.
 
-    Example::
+    Compatibility example::
 
         key: Annotated[str, Key()]
+
+    Modern equivalent::
+
+        from aquilia.vectordb import KeyField
+
+        key: str = KeyField()
     """
 
     __slots__ = ()
@@ -71,9 +88,15 @@ class Dimension:
             store must agree. Checked at model-creation time against
             ``Meta.dimension`` and again at bind time against the engine.
 
-    Example::
+    Compatibility example::
 
         vector: Annotated[list[float], Dimension(768)]
+
+    Modern equivalent::
+
+        from aquilia.vectordb import VectorField
+
+        vector: list[float] = VectorField(dimension=768)
     """
 
     size: int
@@ -99,9 +122,15 @@ class Text:
             embedded from this attribute. Set ``False`` to store the text as a
             retrievable field only, leaving vectors always caller-supplied.
 
-    Example::
+    Compatibility example::
 
         text: Annotated[str, Text()]
+
+    Modern equivalent::
+
+        from aquilia.vectordb import TextField
+
+        text: str = TextField()
     """
 
     embed: bool = True
@@ -125,10 +154,17 @@ class Payload:
         indexed: Reserved for future metadata-index hints. elips filters scan
             metadata linearly today, so this is recorded but not yet acted on.
 
-    Example::
+    Compatibility example::
 
         views: Annotated[int, Payload(), MinValue(0)]
         slug:  Annotated[str, Payload(name="url_slug")]
+
+    Modern equivalent::
+
+        from aquilia.vectordb import Field
+
+        views: int = Field(default=0, ge=0)
+        slug: str = Field(alias="url_slug")
     """
 
     name: str | None = None
@@ -144,9 +180,15 @@ class Score:
     the caller constructed, it stays ``None`` — there is no score outside the
     context of a query. Never written to the store. At most one per model.
 
-    Example::
+    Compatibility example::
 
         score: Annotated[float | None, Score()] = None
+
+    Modern equivalent::
+
+        from aquilia.vectordb import ScoreField
+
+        score: float | None = ScoreField()
     """
 
     __slots__ = ()
@@ -181,7 +223,11 @@ class MinLength(Constraint):
     Args:
         value: Inclusive minimum length.
 
-    Example::
+    Modern declaration::
+
+        title: str = Field(min_length=1)
+
+    Compatibility declaration::
 
         title: Annotated[str, Payload(), MinLength(1)]
     """
@@ -200,7 +246,11 @@ class MaxLength(Constraint):
     Args:
         value: Inclusive maximum length.
 
-    Example::
+    Modern declaration::
+
+        title: str = Field(max_length=256)
+
+    Compatibility declaration::
 
         title: Annotated[str, Payload(), MaxLength(256)]
     """
@@ -219,7 +269,11 @@ class MinValue(Constraint):
     Args:
         value: Inclusive lower bound.
 
-    Example::
+    Modern declaration::
+
+        views: int = Field(ge=0)
+
+    Compatibility declaration::
 
         views: Annotated[int, Payload(), MinValue(0)]
     """
@@ -238,7 +292,11 @@ class MaxValue(Constraint):
     Args:
         value: Inclusive upper bound.
 
-    Example::
+    Modern declaration::
+
+        rating: float = Field(le=5.0)
+
+    Compatibility declaration::
 
         rating: Annotated[float, Payload(), MaxValue(5.0)]
     """
@@ -258,7 +316,11 @@ class Range(Constraint):
         min_value: Inclusive lower bound.
         max_value: Inclusive upper bound.
 
-    Example::
+    Modern declaration::
+
+        rating: float = Field(ge=0.0, le=5.0)
+
+    Compatibility declaration::
 
         rating: Annotated[float, Payload(), Range(0.0, 5.0)]
     """
@@ -279,7 +341,11 @@ class Pattern(Constraint):
         regex: Pattern the value must match.
         message: Optional custom error message.
 
-    Example::
+    Modern declaration::
+
+        code: str = Field(pattern=r"^[A-Z]{3}-\\d{4}$")
+
+    Compatibility declaration::
 
         code: Annotated[str, Payload(), Pattern(r"^[A-Z]{3}-\\d{4}$")]
     """
@@ -296,7 +362,13 @@ class Email(Constraint):
     """
     Require a valid email address.
 
-    Example::
+    Modern declaration::
+
+        from aquilia.models.fields.validators import EmailValidator
+
+        author: str = Field(validators=[EmailValidator()])
+
+    Compatibility declaration::
 
         author: Annotated[str, Payload(), Email()]
     """
@@ -310,7 +382,13 @@ class URL(Constraint):
     """
     Require a valid URL.
 
-    Example::
+    Modern declaration::
+
+        from aquilia.models.fields.validators import URLValidator
+
+        source: str = Field(validators=[URLValidator()])
+
+    Compatibility declaration::
 
         source: Annotated[str, Payload(), URL()]
     """
@@ -324,7 +402,13 @@ class Slug(Constraint):
     """
     Require a slug (letters, numbers, hyphens, underscores).
 
-    Example::
+    Modern declaration::
+
+        from aquilia.models.fields.validators import SlugValidator
+
+        slug: str = Field(validators=[SlugValidator()])
+
+    Compatibility declaration::
 
         slug: Annotated[str, Payload(), Slug()]
     """
@@ -341,7 +425,11 @@ class Choices(Constraint):
     Args:
         values: Allowed values.
 
-    Example::
+    Modern declaration::
+
+        status: str = Field(choices=("draft", "live"))
+
+    Compatibility declaration::
 
         status: Annotated[str, Payload(), Choices("draft", "live")]
     """
@@ -395,9 +483,13 @@ class Validate(Constraint):
         validator: A ``BaseValidator`` instance, or any callable raising
             ``ValidationError`` on invalid input.
 
-    Example::
+    Modern declaration::
 
         from aquilia.models.fields.validators import DecimalValidator
+
+        amount: str = Field(validators=[DecimalValidator(10, 2)])
+
+    Compatibility declaration::
 
         amount: Annotated[str, Payload(), Validate(DecimalValidator(10, 2))]
     """

@@ -35,3 +35,11 @@ and other callers of the migration loader. Enum classes and other application
 references remain required to exist at their serialized dotted paths; the fix
 only restores the import path that the CLI previously established during model
 discovery.
+
+## VectorDB declaration documentation was stale
+
+The package documentation led with the older `typing.Annotated` marker syntax,
+even though the implementation supports a unified descriptor API with defaults,
+validation, aliases, embedding options, and field query expressions. The
+VectorDB docstrings now show the descriptor form first and include equivalent
+`Annotated` examples as supported compatibility syntax.

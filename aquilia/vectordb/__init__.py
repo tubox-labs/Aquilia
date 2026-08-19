@@ -2,22 +2,45 @@
 AquilaVectorDB — typed vector storage and similarity search.
 
 An ORM-shaped layer over the embedded `elips <https://pypi.org/project/elips/>`_
-vector database, declared with :data:`typing.Annotated` metadata::
+vector database. Declare models with unified field descriptors (the modern and
+recommended form)::
+
+    from datetime import datetime
+    from aquilia.vectordb import (
+        VectorModel, Field, KeyField, TextField, VectorField, ScoreField,
+    )
+
+    class Document(VectorModel):
+        key:        str          = KeyField(prefix="doc_")
+        body:       str          = TextField(embed=True, min_length=1, max_length=8192)
+        vector:     list[float]  = VectorField(dimension=384)
+        source:     str          = Field(default="web", indexed=True, max_length=256)
+        views:      int          = Field(default=0, ge=0)
+        score:      float | None = ScoreField()
+        created_at: datetime     = Field(default_factory=datetime.utcnow)
+
+        class Meta:
+            collection = "documents"
+            store = "default"
+            dimension = 384
+
+    hits = await Document.vectors.search("release notes", limit=10)
+
+The older :data:`typing.Annotated` marker form remains supported for existing
+models and compatibility::
 
     from typing import Annotated
     from aquilia.vectordb import VectorModel, Key, Text, Payload, Dimension
 
-    class Document(VectorModel):
+    class CompatibilityDocument(VectorModel):
         key:    Annotated[str, Key()]
         body:   Annotated[str, Text()]
         vector: Annotated[list[float], Dimension(384)]
         source: Annotated[str, Payload(indexed=True)]
 
-        class Meta:
-            collection = "documents"
-            store = "default"
-
-    hits = await Document.vectors.search("release notes", limit=10)
+Use the unified form for new code: one field object carries its slot, defaults,
+validation, aliases, indexing hints, embedding/chunking options, and query
+expressions. Both forms compile to the same :class:`VectorSchema`.
 
 Optional dependency
 -------------------
@@ -245,7 +268,7 @@ __all__ = [
     "NumericConstraints",
     # Dual-syntax expressions (§4.2)
     "FieldExpression",
-    # Legacy annotation markers (backwards compatible)
+    # Compatibility annotation markers (backwards compatible)
     "Key",
     "Dimension",
     "Text",

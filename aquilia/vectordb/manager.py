@@ -476,9 +476,10 @@ class BaseVectorManager(Generic[TModel]):
         a transformer processes 32 texts in roughly the time it takes to process
         two, so a per-record loop would dominate the cost of any bulk ingest.
 
-        Text whose vectors the *engine* computes (``provider="local"``) is passed
-        through as text — elips embeds it outside the vault lock, which is
-        strictly better than round-tripping it through Python.
+        Text from a ``TextField`` or compatibility ``Text()`` slot whose vectors
+        the *engine* computes (``provider="local"``) is passed through as text —
+        elips embeds it outside the vault lock, which is strictly better than
+        round-tripping it through Python.
         """
         records: list[dict[str, Any]] = []
         pending_text: list[str] = []
