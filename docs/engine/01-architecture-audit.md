@@ -95,10 +95,10 @@ Measured total: **16.49 µs/request** static (60,644 req/s in-process), **20.21 
 `ControllerEngine.execute` (controller/engine.py:148) branches three ways:
 
 1. **Monkeypatched handler** (engine.py:175) — OpenAPI/admin routes, bypasses DI.
-2. **Simple fast path** (engine.py:356) — skips `_bind_parameters`, contracts, lifecycle hooks. Gated by `_simple_route_cache[id(route)]` (engine.py:318).
+2. **Simple fast path** (engine.py:356) — skips `_bind_parameters`, contracts, lifecycle hooks. Gated by `_simple_route_cache[id(route)]` (engine.py:318), with a weak-reference ownership check so a reused object ID cannot inherit another route's classification.
 3. **Full path** (engine.py:404) — `_bind_parameters`, filters, pagination, contracts, content negotiation.
 
-Five class-level caches (engine.py:126-130) key on `id(route)` / `id(callable)` — **`id()` reuse after GC is a latent correctness hazard** if routes are ever rebuilt at runtime (hot reload). Not currently triggered because routes live for process lifetime.
+The route caches key on `id(route)` with weak-reference ownership checks; a reused object ID is rejected and recomputed. Callable caches still use stable underlying function identities.
 
 ### 3.2 Middleware
 
@@ -185,8 +185,8 @@ Worst offenders for deferred imports: `server.py` (52), `di/core.py` (43), `admi
 | `_signature_cache` | engine.py:126 | callable | **unbounded** |
 | `_pipeline_param_cache` | engine.py:127 | `id(callable)` | **unbounded, id-keyed** |
 | `_has_lifecycle_hooks` | engine.py:128 | class | unbounded |
-| `_simple_route_cache` | engine.py:129 | `id(route)` | **unbounded, id-keyed** |
-| `_clearance_cache` | engine.py:130 | `id(route)` | **unbounded, id-keyed** |
+| `_simple_route_cache` | engine.py:129 | `id(route)` + weakref | unbounded, stale IDs rejected |
+| `_clearance_cache` | engine.py:130 | `id(route)` + weakref | unbounded, stale IDs rejected |
 | `_static_routes` / `_tries` / `_dynamic_routes` / `_name_index` | router.py:85-92 | — | built at init |
 | `_cached_middleware_chain` | asgi.py:75 | — | invalidated on startup |
 | `_ctx_pool` | controller/base.py:311 | — | ring buffer, 256 |

@@ -20,6 +20,7 @@ import asyncio
 import contextlib
 import inspect
 import logging
+import weakref
 from typing import Any, get_type_hints
 
 from aquilia.auth.clearance import ClearanceEngine, _build_clearance_denied_response, build_merged_clearance
@@ -136,8 +137,10 @@ class ControllerEngine:
     _signature_cache: dict[Any, inspect.Signature] = {}
     _pipeline_param_cache: dict[int, set] = {}  # id(callable) -> set of param names
     _has_lifecycle_hooks: dict[type, tuple] = {}  # class -> (has_on_request, has_on_response)
-    _simple_route_cache: dict[int, bool] = {}  # id(route) -> is_simple
-    _clearance_cache: dict[int, Any] = {}  # id(route) -> merged Clearance or None
+    _simple_route_cache: dict[int, bool] = {}  # id(route) -> is_simple (validated by ref)
+    _simple_route_cache_refs: dict[int, weakref.ReferenceType[Any]] = {}
+    _clearance_cache: dict[int, Any] = {}  # id(route) -> clearance (validated by ref)
+    _clearance_cache_refs: dict[int, weakref.ReferenceType[Any]] = {}
     _type_hints_cache: dict[int, dict] = {}  # id(callable) -> get_type_hints() result
 
     def __init__(
@@ -326,7 +329,15 @@ class ControllerEngine:
             # §6.1 FIX: lifecycle hook presence disqualifies fast path so hooks
             # are never silently skipped.
             route_id = id(route)
-            is_simple = ControllerEngine._simple_route_cache.get(route_id)
+            route_ref = ControllerEngine._simple_route_cache_refs.get(route_id)
+            if route_ref is not None and route_ref() is not route:
+                ControllerEngine._simple_route_cache.pop(route_id, None)
+                ControllerEngine._simple_route_cache_refs.pop(route_id, None)
+            is_simple = (
+                ControllerEngine._simple_route_cache.get(route_id)
+                if route_ref is not None and route_ref() is route
+                else None
+            )
             if is_simple is None:
                 params = route_metadata.parameters
                 has_contract = (
@@ -363,6 +374,7 @@ class ControllerEngine:
                     and (not params or all(_is_special_param(p) or p.source == "path" for p in params))
                 )
                 ControllerEngine._simple_route_cache[route_id] = is_simple
+                ControllerEngine._simple_route_cache_refs[route_id] = weakref.ref(route)
 
             if is_simple:
                 # Direct call -- skip _bind_parameters, contract, lifecycle hooks
@@ -563,7 +575,13 @@ class ControllerEngine:
 
         # Cache clearance per route
         route_id = id(route)
-        cached = ControllerEngine._clearance_cache.get(route_id)
+        route_ref = ControllerEngine._clearance_cache_refs.get(route_id)
+        if route_ref is not None and route_ref() is not route:
+            ControllerEngine._clearance_cache.pop(route_id, None)
+            ControllerEngine._clearance_cache_refs.pop(route_id, None)
+        cached = (
+            ControllerEngine._clearance_cache.get(route_id) if route_ref is not None and route_ref() is route else None
+        )
         if cached is ...:  # Sentinel: already checked, no clearance
             return None
 
@@ -571,8 +589,10 @@ class ControllerEngine:
             merged = build_merged_clearance(controller_class, handler_method)
             if merged is None:
                 ControllerEngine._clearance_cache[route_id] = ...
+                ControllerEngine._clearance_cache_refs[route_id] = weakref.ref(route)
                 return None
             ControllerEngine._clearance_cache[route_id] = merged
+            ControllerEngine._clearance_cache_refs[route_id] = weakref.ref(route)
             cached = merged
 
         # Use configured engine or create one
@@ -1800,7 +1820,9 @@ class ControllerEngine:
         cls._pipeline_param_cache.clear()
         cls._has_lifecycle_hooks.clear()
         cls._simple_route_cache.clear()
+        cls._simple_route_cache_refs.clear()
         cls._clearance_cache.clear()
+        cls._clearance_cache_refs.clear()
         cls._type_hints_cache.clear()
 
     def _to_response(self, result: Any) -> Response:

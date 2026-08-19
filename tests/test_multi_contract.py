@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import weakref
 
 import pytest
 
@@ -370,3 +371,38 @@ async def test_contract_context_di_service_resolution():
     errors = exc_info.value.field_errors
     assert "discount_code" in errors
     assert errors["discount_code"] == ["Unknown or expired code"]
+
+
+@pytest.mark.asyncio
+async def test_contract_route_does_not_trust_stale_route_id_cache():
+    """A reused route object ID must not bypass Contract parameter binding."""
+    from aquilia.controller.engine import ControllerEngine
+    from aquilia.di import Container
+
+    compiler = ControllerCompiler()
+    compiled_route = compiler.compile_controller(UserOrderController).routes[0]
+    route_id = id(compiled_route)
+
+    class UnrelatedRoute:
+        pass
+
+    unrelated = UnrelatedRoute()
+    ControllerEngine._simple_route_cache[route_id] = True
+    ControllerEngine._simple_route_cache_refs[route_id] = weakref.ref(unrelated)
+
+    payload = {
+        "items": [{"product_id": 1, "qty": 1, "price": 5.0}],
+        "total": 5.0,
+        "slug": "item",
+    }
+    request = make_mock_request(body=payload)
+    response = await ControllerEngine(ControllerFactory()).execute(
+        compiled_route,
+        request,
+        path_params={},
+        container=Container(),
+    )
+
+    assert response.status == 200
+    assert ControllerEngine._simple_route_cache[route_id] is False
+    assert ControllerEngine._simple_route_cache_refs[route_id]() is compiled_route
