@@ -133,9 +133,78 @@ def test_lazy_module_type():
     assert isinstance(lazy_attr("json", "dumps"), LazyObject)
 
 
+def test_aquilia_exports_and_type_checking_sync():
+    """Verify that aquilia.__init__ has 100% sync between _EXPORTS, _OPTIONAL_TARGETS, __all__, and TYPE_CHECKING."""
+    import ast
+    from pathlib import Path
+
+    init_path = Path(__file__).resolve().parent.parent / "aquilia" / "__init__.py"
+    tree = ast.parse(init_path.read_text(encoding="utf-8"))
+
+    exports_names = set()
+    optional_names = set()
+    all_names = set()
+    type_checking_names = set()
+
+    for stmt in tree.body:
+        if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+            target = stmt.targets[0] if isinstance(stmt, ast.Assign) else stmt.target
+            if isinstance(target, ast.Name):
+                if target.id == "_EXPORTS":
+                    for k in stmt.value.keys:
+                        if isinstance(k, ast.Constant):
+                            exports_names.add(k.value)
+                elif target.id == "_OPTIONAL_TARGETS":
+                    for k in stmt.value.keys:
+                        if isinstance(k, ast.Constant):
+                            optional_names.add(k.value)
+                elif target.id == "__all__":
+                    for elt in stmt.value.elts:
+                        if isinstance(elt, ast.Constant):
+                            all_names.add(elt.value)
+        elif isinstance(stmt, ast.If):
+            # Check for if TYPE_CHECKING:
+            test = stmt.test
+            is_type_checking = (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+                isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+            )
+            if is_type_checking:
+                for sub in stmt.body:
+                    if isinstance(sub, ast.ImportFrom):
+                        for alias in sub.names:
+                            type_checking_names.add(alias.asname or alias.name)
+
+    total_exports = exports_names | optional_names
+    assert total_exports, "Expected _EXPORTS and _OPTIONAL_TARGETS to be non-empty"
+    assert all_names == total_exports, f"Mismatch between exports and __all__: {all_names ^ total_exports}"
+    assert type_checking_names == total_exports, f"Mismatch between exports and TYPE_CHECKING: {type_checking_names ^ total_exports}"
+
+
+def test_aquilia_top_level_deferred_import():
+    """Verify that 'import aquilia' remains lazy and does not drag heavy subsystems into sys.modules."""
+    import subprocess
+
+    cmd = [
+        sys.executable,
+        "-c",
+        (
+            "import sys\n"
+            "import aquilia\n"
+            "heavy = ['aquilia.admin', 'aquilia.models', 'aquilia.storage', 'aquilia.mail', 'aquilia.tasks', 'aquilia.sockets']\n"
+            "loaded = [mod for mod in heavy if mod in sys.modules]\n"
+            "assert not loaded, f'Heavy subsystems eagerly loaded: {loaded}'\n"
+            "assert aquilia.Controller.__name__ == 'Controller'\n"
+            "assert 'aquilia.controller' in sys.modules\n"
+        ),
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    assert res.returncode == 0, f"Lazy import failed:\n{res.stderr}"
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):
             fn()
             print(f"ok  {name}")
     print("all lazy self-checks passed")
+

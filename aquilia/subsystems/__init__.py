@@ -36,6 +36,8 @@ server's. A host that wants ordered boot composes it directly::
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from aquilia.subsystems.base import (
     DI_CONTAINER_KEY,
     BaseSubsystem,
@@ -43,6 +45,10 @@ from aquilia.subsystems.base import (
     SubsystemInitializer,
 )
 from aquilia.subsystems.effects import EffectSubsystem
+
+if TYPE_CHECKING:
+    from aquilia.storage.subsystem import StorageSubsystem
+    from aquilia.vectordb.subsystem import VectorDBSubsystem
 
 
 def _get_storage_subsystem():

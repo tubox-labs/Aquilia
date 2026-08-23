@@ -73,7 +73,57 @@ DI-injectable FileSystem service::
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from aquilia.filesystem import _directory, _errors, _lock, _ops, _security, _streaming, _tempfile
+
+if TYPE_CHECKING:
+    from aquilia.filesystem._config import FileSystemConfig
+    from aquilia.filesystem._directory import (
+        DirEntry,
+        copy_tree,
+        list_dir,
+        make_dir,
+        remove_dir,
+        remove_tree,
+        scan_dir,
+        walk,
+    )
+    from aquilia.filesystem._errors import (
+        DiskFullFault,
+        FileClosedFault,
+        FileExistsFault,
+        FileNotFoundFault,
+        FileSystemFault,
+        FileSystemIOFault,
+        IsDirectoryFault,
+        NotDirectoryFault,
+        PathTooLongFault,
+        PathTraversalFault,
+        PermissionDeniedFault,
+        wrap_os_error,
+    )
+    from aquilia.filesystem._handle import AsyncFile
+    from aquilia.filesystem._lock import AsyncFileLock, LockAcquisitionError
+    from aquilia.filesystem._metrics import FileSystemMetrics
+    from aquilia.filesystem._ops import (
+        FileStat,
+        append_file,
+        async_open,
+        copy_file,
+        delete_file,
+        file_exists,
+        file_stat,
+        move_file,
+        read_file,
+        write_file,
+    )
+    from aquilia.filesystem._path import AsyncPath
+    from aquilia.filesystem._pool import FileSystemPool
+    from aquilia.filesystem._security import sanitize_filename, validate_path
+    from aquilia.filesystem._service import FileSystem
+    from aquilia.filesystem._streaming import AsyncFileStream, AsyncWriteStream, stream_copy, stream_read
+    from aquilia.filesystem._tempfile import AsyncTemporaryDirectory, AsyncTemporaryFile, async_tempdir, async_tempfile
 
 __all__ = [
     # Core types
