@@ -1,6 +1,6 @@
 # Aquilia Framework — Complete Usage Guide
 
-> **Version:** 1.4.0b6
+> **Version:** 1.4.0
 > **Python:** 3.10–3.14
 > **Architecture:** ASGI-native, modular, DI-first
 

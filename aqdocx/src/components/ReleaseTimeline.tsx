@@ -155,18 +155,17 @@ export const roadmap: RoadmapNode[] = [
     version: '1.3.5',
     codename: 'Distributed Tide',
     date: 'Jul 28, 2026',
-    status: 'current',
+    status: 'released',
     type: 'patch',
     highlights: ['Distributed Tasks & Workflows', 'Mail Delivery Queue & Bounces', 'Zero-Dependency Native HTTP'],
   },
   {
-    version: '1.4.0b5',
-    codename: 'Stable Bearings',
-    date: 'Aug 13, 2026',
+    version: '1.4.0',
+    codename: 'Grand Armada',
+    date: 'Aug 23, 2026',
     status: 'current',
     type: 'minor',
-    branch: 'beta',
-    highlights: ['Windows wheel reliability', 'Python 3.14', 'Compiler-free fallback'],
+    highlights: ['Native C++20 acceleration', 'VectorDB subsystem', 'Native ASGI devplatform', 'WebSocket middleware'],
   },
 ]
 

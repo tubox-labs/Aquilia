@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-08-23 — "Grand Armada"
+
+Aquilia v1.4.0 is the **flagship milestone release** of the framework, consolidating seven beta cycles (`v1.4.0b0`–`v1.4.0b6`) into a production-grade, hardened, stable release. It introduces optional native C++ acceleration extensions (`_core`, `_dataengine`, `_json`), the embedded `aquilia.vectordb` vector search subsystem, the native ASGI Development Platform (`aquilia.devplatform`), a complete restructuring of the HTTP middleware package, a dedicated WebSocket middleware pipeline, a modernized CLI architecture with unified health checks, complete CPython 3.10–3.14 compatibility with multi-platform binary wheels, and 100% typed static exports for seamless IDE autocomplete and developer ergonomics. See [`releases/1.4.0/`](releases/1.4.0/README.md) for full documentation.
+
+### Added
+
+#### Native C++ Acceleration Engines (`aquilia/_core`, `aquilia/_dataengine`, `aquilia/_json`)
+- **Native build system** (`scikit-build-core` + `nanobind`): CMake-based build for three optional C++20 extensions. `AQUILIA_ENGINE_OPTIONAL=ON` enables fail-soft compilation on machines without C++ toolchains.
+- **`aquilia._core`** — Zero-copy Radix-trie HTTP router with fixed-slot `RequestContext` (7 fixed C++ slots with zero `__dict__` overhead on fast paths, custom `tp_traverse`/`tp_clear` GC cycle handling, and string interner).
+- **`aquilia._dataengine`** — Native `FieldPlan` Contract validation & `RowPlan` ORM hydration engine (13× faster ORM `get()`, 8.3× faster Contract validation). Supports per-field eligibility with automatic fallback escape paths for non-representable fields.
+- **`aquilia._json`** — First-party native JSON engine powered by vendored [yyjson](https://github.com/ibireme/yyjson) 0.10.0 (3.9–8.5× faster serialization/deserialization) with iterative heap work stacks for stack-overflow protection and thread-local buffer pools.
+- **`aquilia.json`** — Unified framework JSON entrypoint with `dumps()` (returning `bytes`) and `loads()` (accepting `bytes | bytearray | memoryview | str`).
+- **Inline SQLite Execution (`aquilia.sqlite._inline`)** — Bounded index seeks (`SEARCH` nodes) execute inline on the event loop, bypassing thread-hopping overhead for short queries.
+- **`AquilaConfig.Accelerator`** — Configuration controls in `workspace.py` (`engine`, `dataengine`), environment variables (`AQUILIA_ENGINE`, `AQUILIA_DATAENGINE`), and CLI flags (`aq run --engine/--no-engine`, `--dataengine/--no-dataengine`).
+
+#### Vector Database Subsystem (`aquilia.vectordb`)
+- **`aquilia.vectordb`** — Typed vector storage and similarity-search subsystem backed by embedded [elips](https://pypi.org/project/elips/) (`pip install 'aquilia[vectordb]'`).
+- **`VectorModel`** — Declarative vector collection models with automatic slot routing and self-registration.
+- **Unified Field Descriptors** — `KeyField`, `VectorField`, `TextField`, `Field`/`PayloadField`, `ScoreField`, `LinkField` with reusable constraint bundles (`StringConstraints`, `NumericConstraints`).
+- **Four Query Filter Syntaxes** — Keyword lookups (`views__gte=10`), `VF` boolean trees, operator-overloaded field expressions (`(Document.views >= 100) & (Document.source == "docs")`), and string `EQL` (`parse_eql()`).
+- **Embedders & Text Chunking** — Adapters for `LocalEmbedder`, `SentenceTransformersEmbedder`, `FastEmbedder`, `OpenAIEmbedder`, `OllamaEmbedder`, `CallableEmbedder` with embedding lineage tracking and deterministic chunk provenance keys.
+- **Quantization** — `sq8` (≈4× smaller), `pq`, and `opq` (≈8–32× smaller) in-place compression.
+- **SQL-ORM Mirroring & Hybrid Retrieval** — `@mirror` background task syncing and `as_models()` single-query SQL retrieval.
+- **`aq vectordb` CLI Group** — `status`, `models`, `inspect`, `stats`, `compact`, `vacuum`, `compress`, `reindex`, `reembed`.
+
+#### Native Development Platform (`aquilia.devplatform` / ADP)
+- **Native ASGI Development Server** — High-performance `h11`-based HTTP/1.1 transport (`--http h11`) and dependency-free RFC 6455 WebSocket engine (`--ws auto`).
+- **AST-Based Hot Reloading** — Reverse dependency tracking using AST static import analysis, reporting discovery diffs on reload and performing bounded graceful server drain before reload.
+- **Per-Request CPU Profiling** — cProfile capture via `X-Aquilia-Profile: true` header or `adp_profiler` config, rendering directly in Inspector via Flamegraphs or call trees.
+- **DevPlatform Fault Domain** — `FaultDomain.DEVPLATFORM` with structured `StartupFault`, `ReloadFault`, `InspectorFault`, `WorkerFault`, and `ConfigurationFault`.
+
+#### WebSocket Middleware Pipeline (`aquilia/sockets/middleware/`)
+- **`SocketMiddleware`** — 3-hook base class (`on_connect`, `on_message`, `on_disconnect`).
+- **`SocketMiddlewareStack` & `SocketMiddlewareChain`** — Ordering, collision checking, and presets (`minimal()`, `defaults()`, `production()`).
+- **Built-in Socket Middleware** — `SocketFaultMiddleware`, `SocketMetricsMiddleware`, `MessageValidationMiddleware`, `SocketRateLimitMiddleware`, `SocketAuthMiddleware`, `SocketPermissionMiddleware`, `SocketLoggingMiddleware`.
+
+#### Modernized CLI Architecture & Unified Health Checks
+- **`ExitCode` & `CliFault`** — Centralized exit codes (`OK = 0`, `FAILED = 1`, `USAGE = 2`, `CONFIG = 3`, `INTERNAL = 4`) and structured CLI exceptions.
+- **Unified Health Checks Engine (`aquilia.cli.checks`)** — Extensible check engine running automated diagnostics across 16 subsystems for `aq doctor` and `aq validate`.
+- **Accurate Route Introspection** — `aq inspect routes` compiled via `ControllerCompiler`, accurately counting endpoint methods rather than classes.
+
+#### IDE Code Intelligence & Type Checking Parity
+- **100% Typed Top-Level Exports** — Static `if TYPE_CHECKING:` re-exports in `aquilia/__init__.py`, `aquilia/filesystem/__init__.py`, and `aquilia/subsystems/__init__.py` providing instant autocomplete, parameter hints, and Go-to-Definition navigation across all 594 public exports in VS Code, PyCharm, and Mypy, with zero runtime import overhead.
+
+### Changed
+- **Middleware Package Layout** — Restructured into `core/`, `stack/`, `builtin/`, `instrumentation/`, and `utils/`. `Middleware` base moved to a fault-free leaf module.
+- **CPython 3.14 Support** — Tested natively across all platforms with cibuildwheel release artifacts.
+- **Windows Wheel Portability** — Release wheels use Visual Studio 2022 with static MSVC runtime linkage, eliminating external DLL dependency failures.
+- **Live Health Endpoint** — `/health` endpoint refreshes live subsystem check aggregates dynamically before rendering.
+- **Subsystem Boot Contract** — Bounded `BaseSubsystem.initialize()` timeout enforcement with `asyncio.wait_for()`.
+
+### Fixed
+- **IDE Autocomplete Failure** — Fixed missing static exports in `aquilia/__init__.py` by introducing typed `if TYPE_CHECKING:` imports and complete `__all__` synchronization.
+- **Controller Sync/Async Dispatch Integrity** — Fixed bound-method ID reuse causing `TypeError: 'dict' object can't be awaited`, and ensured synchronous wrappers returning awaitables are properly awaited.
+- **Metaclass Computed Field Inheritance** — Fixed `@computed` methods demoting to `TextFacet` on subclassing with type annotations or model bindings.
+- **Database Migration Workspace Module Loading** — Fixed `aq db migrate` failing on migrations referencing workspace enums by bootstrapping the workspace root to `sys.path`.
+- **HTTP Rate Limiting Returning 500** — Fixed `NameError` on rate-limited responses and moved identity-based rules to priority `16` (after auth).
+- **WebSocket Parameterized Route Matching** — Fixed `@Socket("/chat/:room")` un-awaited coroutine matcher bug.
+- **RequestContext Memory Leak** — Implemented custom C++ `tp_traverse`/`tp_clear` to resolve GC cycle leaks.
+- **Nanobind Router Leak Warnings** — Added explicit `ControllerRouter.clear()` and `ASGIAdapter.shutdown()` cleanup.
+- **Silent Exit Code 0 in CLI** — Fixed `aq doctor` and `aq validate` returning 0 on broken workspaces.
+- **Admin Lifecycle Activation** — Wired admin startup/shutdown lifecycle hooks and fixed `AdminRateLimiter` monotonic sweep bugs.
+
+### Performance
+- **Database queries (`db_queries`)** — 5.8× faster (1,496 → 8,759 rps).
+- **Contract validation (`validation`)** — 8.3× faster (1,809 → 15,075 rps).
+- **ORM entity hydration (`get()`)** — 13× faster (120.7 µs → 9.3 µs).
+- **JSON encoding/decoding** — 3.9–8.5× faster.
+- **DI scope resolution** — 3× faster (66.8 ns → 22.9 ns).
+
 ## [1.4.0b6] — 2026-08-19 — "Safe Passage"
 
 Fixes database migration loading for generated fields that reference workspace

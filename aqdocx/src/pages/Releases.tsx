@@ -36,10 +36,27 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.4.0',
+    codename: 'Grand Armada',
+    date: 'Aug 23, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
+    license: 'MIT',
+    summary: 'Flagship stable release delivering C++20 native acceleration engines, embedded VectorDB subsystem, native ASGI devplatform with h11 and WebSockets, restructured middleware architecture, unified CLI health checks, and 100% typed static exports.',
+    highlights: ['Native C++20 Accelerators', 'VectorDB Subsystem', 'Native ASGI Dev Server', 'WebSocket Middleware Pipeline', 'Unified Health Checks', 'Full IDE Autocomplete Parity'],
+    assets: [
+      { name: 'aquilia-1.4.0.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.0-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.0',
+    commitCount: '28',
+    contributors: 4
+  },
+  {
     version: '1.4.0b5',
     codename: 'Stable Bearings',
     date: 'Aug 13, 2026',
-    tag: 'latest',
+    tag: 'pre-release',
     python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
     license: 'MIT',
     summary: 'Windows native wheels now load on ordinary user systems, compiler-free source installs reliably fall back to Python, CPython 3.14 is supported across CI and wheels, synchronous and asynchronous controller handlers dispatch correctly, and deferred Contract security faults remain visible.',
