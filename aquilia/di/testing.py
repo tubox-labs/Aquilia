@@ -23,7 +23,7 @@ class MockProvider(ValueProvider):
         name: str = "mock",
         tags: tuple[str, ...] = (),
     ):
-        super().__init__(value, token, name, tags)
+        super().__init__(value, token, name=name, tags=tags)
         self.access_count = 0
         self.instantiate_calls = []
 

@@ -1012,34 +1012,51 @@ def register_security_providers(container: Any, config: dict[str, Any] | None = 
             If None, uses defaults.
     """
     try:
-        from aquilia.di.providers import FactoryProvider, ValueProvider  # noqa: F401
-        from aquilia.di.scopes import Scope  # noqa: F401
+        from aquilia.di.providers import ValueProvider
 
         policy = AdminSecurityPolicy.from_config(config) if config else AdminSecurityPolicy()
 
         container.register(
-            AdminSecurityPolicy,
-            ValueProvider(policy),
+            ValueProvider(
+                value=policy,
+                token=AdminSecurityPolicy,
+                name="admin_security_policy",
+            )
         )
         container.register(
-            AdminCSRFProtection,
-            ValueProvider(policy.csrf),
+            ValueProvider(
+                value=policy.csrf,
+                token=AdminCSRFProtection,
+                name="admin_csrf_protection",
+            )
         )
         container.register(
-            AdminRateLimiter,
-            ValueProvider(policy.rate_limiter),
+            ValueProvider(
+                value=policy.rate_limiter,
+                token=AdminRateLimiter,
+                name="admin_rate_limiter",
+            )
         )
         container.register(
-            AdminSecurityHeaders,
-            ValueProvider(policy.headers),
+            ValueProvider(
+                value=policy.headers,
+                token=AdminSecurityHeaders,
+                name="admin_security_headers",
+            )
         )
         container.register(
-            PasswordValidator,
-            ValueProvider(policy.password_validator),
+            ValueProvider(
+                value=policy.password_validator,
+                token=PasswordValidator,
+                name="admin_password_validator",
+            )
         )
         container.register(
-            SecurityEventTracker,
-            ValueProvider(policy.event_tracker),
+            ValueProvider(
+                value=policy.event_tracker,
+                token=SecurityEventTracker,
+                name="admin_security_event_tracker",
+            )
         )
 
     except ImportError:

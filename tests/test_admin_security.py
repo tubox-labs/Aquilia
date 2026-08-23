@@ -916,51 +916,60 @@ class TestAdminSecurityPolicy:
 
 
 class TestDIRegistration:
-    """Tests for register_security_providers."""
+    """Tests for register_security_providers and register_admin_providers."""
 
-    def test_registers_all_providers(self):
-        """All security components are registered with the container."""
+    def test_registers_all_providers_with_real_container(self):
+        """All security components are registered and resolvable in the DI container."""
+        from aquilia.di.core import Container
+
+        container = Container()
+        register_security_providers(container)
+
+        policy = container.resolve(AdminSecurityPolicy)
+        assert isinstance(policy, AdminSecurityPolicy)
+        assert isinstance(container.resolve(AdminCSRFProtection), AdminCSRFProtection)
+        assert isinstance(container.resolve(AdminRateLimiter), AdminRateLimiter)
+        assert isinstance(container.resolve(AdminSecurityHeaders), AdminSecurityHeaders)
+        assert isinstance(container.resolve(PasswordValidator), PasswordValidator)
+        assert isinstance(container.resolve(SecurityEventTracker), SecurityEventTracker)
+
+    def test_registration_with_custom_config(self):
+        """Custom configuration is applied to the registered security policy."""
+        from aquilia.di.core import Container
+
+        container = Container()
+        custom_config = {
+            "rate_limit": {"max_login_attempts": 3},
+        }
+        register_security_providers(container, config=custom_config)
+
+        policy = container.resolve(AdminSecurityPolicy)
+        assert policy.rate_limiter.max_login_attempts == 3
+
+    def test_registers_all_providers_mock_container(self):
+        """All security components are registered as ValueProviders."""
         container = MagicMock()
+        register_security_providers(container)
 
-        # The real register_security_providers imports ValueProvider from DI,
-        # which may have a different signature. Mock it at the import level.
-        mock_value_provider = MagicMock()
-        with patch("aquilia.admin.security.register_security_providers") as mock_reg:
-            # Instead, call the real function with proper mocking of DI internals
-            pass
-
-        # Test the real function by patching the DI imports
-        with (
-            patch("aquilia.di.providers.ValueProvider") as MockVP,
-            patch("aquilia.di.providers.FactoryProvider"),
-            patch("aquilia.di.scopes.Scope"),
-        ):
-            MockVP.return_value = MagicMock()
-            register_security_providers(container)
-
-        # Should have registered 6 components
         assert container.register.call_count == 6
 
-        registered_types = [call[0][0] for call in container.register.call_args_list]
-        assert AdminSecurityPolicy in registered_types
-        assert AdminCSRFProtection in registered_types
-        assert AdminRateLimiter in registered_types
-        assert AdminSecurityHeaders in registered_types
-        assert PasswordValidator in registered_types
-        assert SecurityEventTracker in registered_types
+        # Each call registers a ValueProvider instance
+        registered_providers = [call[0][0] for call in container.register.call_args_list]
+        registered_values = [p._value for p in registered_providers]
+
+        assert any(isinstance(v, AdminSecurityPolicy) for v in registered_values)
+        assert any(isinstance(v, AdminCSRFProtection) for v in registered_values)
+        assert any(isinstance(v, AdminRateLimiter) for v in registered_values)
+        assert any(isinstance(v, AdminSecurityHeaders) for v in registered_values)
+        assert any(isinstance(v, PasswordValidator) for v in registered_values)
+        assert any(isinstance(v, SecurityEventTracker) for v in registered_values)
 
     def test_registration_handles_missing_di(self):
         """Gracefully handles missing DI module."""
         container = MagicMock()
-        with patch(
-            "aquilia.admin.security.register_security_providers",
-            side_effect=ImportError,
-        ):
+        with patch.dict("sys.modules", {"aquilia.di.providers": None}):
             # Should not raise
-            try:
-                register_security_providers(container)
-            except ImportError:
-                pass  # Expected in test environment
+            register_security_providers(container)
 
     def test_registration_handles_errors(self):
         """Gracefully handles registration errors."""
@@ -968,6 +977,26 @@ class TestDIRegistration:
         container.register.side_effect = Exception("DI error")
         # Should not raise — logs warning instead
         register_security_providers(container)
+
+    def test_register_admin_providers_with_real_container(self):
+        """All admin subsystem components are registered and resolvable in the DI container."""
+        from aquilia.admin.audit import AdminAuditLog, ModelBackedAuditLog
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.di_providers import register_admin_providers
+        from aquilia.admin.site import AdminSite
+        from aquilia.di.core import Container
+
+        container = Container()
+        register_admin_providers(container)
+
+        site = container.resolve(AdminSite)
+        assert isinstance(site, AdminSite)
+        controller = container.resolve(AdminController)
+        assert isinstance(controller, AdminController)
+        audit = container.resolve(AdminAuditLog)
+        assert isinstance(audit, (AdminAuditLog, ModelBackedAuditLog))
+        model_audit = container.resolve(ModelBackedAuditLog)
+        assert isinstance(model_audit, ModelBackedAuditLog)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

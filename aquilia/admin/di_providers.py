@@ -83,36 +83,47 @@ def register_admin_providers(container: Container) -> None:
     """
     try:
         from aquilia.di.providers import FactoryProvider, ValueProvider
-        from aquilia.di.scopes import Scope
 
         # AdminSite is a singleton
         container.register(
-            AdminSite,
-            ValueProvider(AdminSite.default()),
+            ValueProvider(
+                value=AdminSite.default(),
+                token=AdminSite,
+                name="admin_site",
+            )
         )
 
         # AdminController -- one per app scope
         container.register(
-            AdminController,
-            FactoryProvider(provide_admin_controller, scope=Scope.APP),
+            FactoryProvider(
+                provide_admin_controller,
+                scope="app",
+                name=f"{AdminController.__module__}.{AdminController.__qualname__}",
+            )
         )
 
         # AuditLog -- singleton from site
         container.register(
-            AdminAuditLog,
-            FactoryProvider(provide_audit_log, scope=Scope.SINGLETON),
+            FactoryProvider(
+                provide_audit_log,
+                scope="singleton",
+                name=f"{AdminAuditLog.__module__}.{AdminAuditLog.__qualname__}",
+            )
         )
 
         # ModelBackedAuditLog -- singleton
         container.register(
-            ModelBackedAuditLog,
-            FactoryProvider(provide_model_backed_audit_log, scope=Scope.SINGLETON),
+            FactoryProvider(
+                provide_model_backed_audit_log,
+                scope="singleton",
+                name=f"{ModelBackedAuditLog.__module__}.{ModelBackedAuditLog.__qualname__}",
+            )
         )
 
     except ImportError:
         pass
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to register admin DI providers: %s", exc)
 
 
 __all__ = [
