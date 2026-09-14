@@ -72,35 +72,34 @@ class SessionBackend:
 
 def resolve_backend(b: Any, auth_manager: Any) -> Any:
     """
-    Resolve a backend reference (instance, class, short name, or dotted path)
-    into an instantiated backend object.
+    Resolve a backend reference into an instantiated backend object.
+
+    Accepted references, in order:
+
+    * a registry **name** (``"token"``, ``"jwt-stateless"``, ``"session"``,
+      ``"api_key"``, ``"password"``, or any name registered via
+      :func:`aquilia.auth.strategies.register_strategy`) — resolved through
+      the default strategy registry;
+    * a **dotted path** to a class or function;
+    * a backend **class** (builtin names get their canonical dependencies;
+      custom classes are signature-inspected against the AuthManager);
+    * a ready-made **instance** (returned unchanged).
     """
     import importlib
     import inspect
 
     if isinstance(b, str):
-        b_lower = b.strip().lower()
-        if b_lower == "token":
-            from aquilia.auth.backends.token import TokenBackend
+        b_stripped = b.strip()
 
-            return TokenBackend(auth_manager.token_manager, auth_manager.identity_store)
-        elif b_lower == "session":
-            return SessionBackend(auth_manager.identity_store)
-        elif b_lower == "password":
-            from aquilia.auth.backends.password import PasswordBackend
+        # Registry name first — the extensibility point. Unknown short names
+        # raise here with the list of available strategies.
+        from aquilia.auth.strategies import get_default_registry
 
-            return PasswordBackend(
-                auth_manager.identity_store,
-                auth_manager.credential_store,
-                auth_manager.password_hasher,
-                auth_manager.rate_limiter,
-                auth_manager.login_identifier_attributes,
-            )
-        elif b_lower == "api_key":
-            from aquilia.auth.backends.api_key import ApiKeyBackend
+        registry = get_default_registry()
+        if registry.is_registered(b_stripped):
+            return registry.create(b_stripped, auth_manager)
 
-            return ApiKeyBackend(auth_manager.credential_store, auth_manager.identity_store)
-        elif "." in b:
+        if "." in b:
             # Dotted path to class or function
             try:
                 module_path, class_name = b.rsplit(".", 1)
@@ -110,7 +109,10 @@ def resolve_backend(b: Any, auth_manager: Any) -> Any:
                 raise ImportError(f"Could not import auth backend: {b}") from err
             return resolve_backend(backend_cls, auth_manager)
         else:
-            raise ValueError(f"Unknown authentication backend name: {b}")
+            raise ValueError(
+                f"Unknown authentication backend name: {b}. Registered strategies: "
+                f"{', '.join(registry.names())}"
+            )
 
     if inspect.isclass(b):
         cls_name = b.__name__
@@ -118,6 +120,11 @@ def resolve_backend(b: Any, auth_manager: Any) -> Any:
             from aquilia.auth.backends.token import TokenBackend
 
             return TokenBackend(auth_manager.token_manager, auth_manager.identity_store)
+        elif cls_name == "StatelessTokenBackend":
+            from aquilia.auth.backends.token import StatelessTokenBackend
+
+            builder = getattr(auth_manager, "principal_builder", None)
+            return StatelessTokenBackend(auth_manager.token_manager, principal_builder=builder)
         elif cls_name == "SessionBackend":
             return SessionBackend(auth_manager.identity_store)
         elif cls_name == "PasswordBackend":
