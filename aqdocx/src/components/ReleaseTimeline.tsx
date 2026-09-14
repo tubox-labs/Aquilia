@@ -163,9 +163,17 @@ export const roadmap: RoadmapNode[] = [
     version: '1.4.0',
     codename: 'Grand Armada',
     date: 'Aug 23, 2026',
-    status: 'current',
+    status: 'released',
     type: 'minor',
     highlights: ['Native C++20 acceleration', 'VectorDB subsystem', 'Native ASGI devplatform', 'WebSocket middleware'],
+  },
+  {
+    version: '1.4.1',
+    codename: 'Safe Harbor',
+    date: 'Sep 15, 2026',
+    status: 'current',
+    type: 'patch',
+    highlights: ['Auth architecture rebuild', 'Migration audit fixes', 'Async route guards', 'Durable DB/Redis stores'],
   },
 ]
 

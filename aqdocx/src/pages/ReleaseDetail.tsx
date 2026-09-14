@@ -47,10 +47,42 @@ interface StaticRelease {
 
 const staticReleases: StaticRelease[] = [
   {
+    version: '1.4.1',
+    codename: 'Safe Harbor',
+    date: 'Sep 15, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
+    license: 'MIT',
+    summary: 'Hardening and repair release featuring complete authentication & authorization architecture rebuild, NestJS migration audit fixes, admin session loop resolution, and durable database/Redis stores.',
+    assets: [
+      { name: 'aquilia-1.4.1.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.1-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.1',
+    commitCount: '15',
+    contributors: 4
+  },
+  {
+    version: '1.4.0',
+    codename: 'Grand Armada',
+    date: 'Aug 23, 2026',
+    tag: 'stable',
+    python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
+    license: 'MIT',
+    summary: 'Flagship stable release delivering C++20 native acceleration engines, embedded VectorDB subsystem, native ASGI devplatform with h11 and WebSockets, restructured middleware architecture, unified CLI health checks, and 100% typed static exports.',
+    assets: [
+      { name: 'aquilia-1.4.0.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.0-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.0',
+    commitCount: '28',
+    contributors: 4
+  },
+  {
     version: '1.4.0b5',
     codename: 'Stable Bearings',
     date: 'Aug 13, 2026',
-    tag: 'latest',
+    tag: 'pre-release',
     python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
     license: 'MIT',
     summary: 'Reliable Windows native wheels, compiler-free source installs, Python 3.14 support, and controller/Contract correctness fixes.',

@@ -8,6 +8,14 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Record<string, Announcement> = {
+  '1.4.1': {
+    version: '1.4.1',
+    badgeText: 'V1.4.1 Safe Harbor Release',
+    title: 'Authentication & authorization architecture rebuild, NestJS migration audit fixes, durable DB/Redis stores, and async guards:',
+    highlightText: 'Safe Harbor',
+    linkText: 'Learn More',
+    linkTo: '/releases/1.4.1',
+  },
   '1.4.0': {
     version: '1.4.0',
     badgeText: 'V1.4.0 Stable Release',
@@ -150,5 +158,5 @@ export function getLatestAnnouncement(version?: string): Announcement {
   if (version && ANNOUNCEMENTS[version]) {
     return ANNOUNCEMENTS[version]
   }
-  return ANNOUNCEMENTS['1.4.0']
+  return ANNOUNCEMENTS['1.4.1']
 }

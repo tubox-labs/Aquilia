@@ -36,10 +36,27 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.4.1',
+    codename: 'Safe Harbor',
+    date: 'Sep 15, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
+    license: 'MIT',
+    summary: 'Hardening and repair release featuring complete authentication & authorization architecture rebuild (Passport-style strategies, async guards, stateless JWT, CurrentUser injection, token rotation with reuse detection), NestJS migration audit fixes, admin session loop resolution, and durable database/Redis stores.',
+    highlights: ['Auth Architecture Rebuild', 'Async Route Guard Pipeline', 'Migration Audit Fixes', 'Admin Session Middleware Fix', 'Durable DB & Redis Stores', 'Refresh Token Reuse Detection'],
+    assets: [
+      { name: 'aquilia-1.4.1.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.1-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.1',
+    commitCount: '15',
+    contributors: 4
+  },
+  {
     version: '1.4.0',
     codename: 'Grand Armada',
     date: 'Aug 23, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
     license: 'MIT',
     summary: 'Flagship stable release delivering C++20 native acceleration engines, embedded VectorDB subsystem, native ASGI devplatform with h11 and WebSockets, restructured middleware architecture, unified CLI health checks, and 100% typed static exports.',
