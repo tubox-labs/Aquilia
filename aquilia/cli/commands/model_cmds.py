@@ -351,6 +351,19 @@ def cmd_makemigrations(
         click.echo(click.style("No model changes detected.", fg="yellow"))
         return []
 
+    if dry_run:
+        # A MigrationNode, not a path: report what would be written rather
+        # than claiming nothing is pending.
+        click.echo(
+            click.style(
+                f"Would create migration: {generated.name} ({len(generated.operations)} operation(s))",
+                fg="cyan",
+            )
+        )
+        for operation in generated.operations:
+            click.echo(click.style(f"  - {operation.describe()}", dim=True))
+        return []
+
     model_names = ", ".join(m.__name__ for m in models)
     click.echo(
         click.style(

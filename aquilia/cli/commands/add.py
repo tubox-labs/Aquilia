@@ -145,9 +145,13 @@ def add_module(
         # Discover the new module
         discovered = workspace_generator._discover_modules()
 
-        # Update workspace.py with discovered modules (preserves existing config)
+        # Update workspace.py with discovered modules (preserves existing config).
+        # An explicit --route-prefix is honored: without this override the
+        # flag was accepted, printed, and then silently replaced by the
+        # default /<name> in the generated module block.
         workspace_path = workspace_root / "workspace.py"
-        workspace_generator.update_workspace_config(workspace_path, discovered)
+        overrides = {name: {"route_prefix": route_prefix}} if route_prefix else None
+        workspace_generator.update_workspace_config(workspace_path, discovered, overrides)
 
         if verbose:
             info(f"{_CHECK} Updated workspace.py with auto-discovery")

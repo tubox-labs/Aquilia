@@ -84,42 +84,61 @@ class WorkspaceGenerator:
         items = re.findall(r'"([^"]+)"', list_content)
         return items if items else default
 
-    def _extract_existing_module_blocks(self, content: str) -> dict[str, str]:
+    def _extract_existing_module_blocks(self, content: str) -> tuple[dict[str, str], list[str]]:
         """
-        Parses the existing workspace.py content to extract the exact source block
-        for each declared module.
-        Returns a dict mapping module_name -> full .module(...) code block string.
+        Extract the exact source block for each declared module.
+
+        Blocks are located by balanced parentheses starting at any line
+        whose first meaningful token is ``.module(`` and the module's name
+        is read from anywhere inside the block -- single-line and multi-line
+        formatting, and comments inside the block, all survive. A
+        formatting-sensitive regex here (requiring ``.module(Module("name"``
+        on one line) is what silently replaced hand-written multi-line
+        module configuration with regenerated defaults.
+
+        Returns:
+            ``(named, unnamed)`` -- a dict mapping module name to its full
+            ``.module(...)`` block, plus any blocks whose ``Module(...)``
+            name could not be read (a variable instead of a string
+            literal). Unnamed blocks are preserved verbatim rather than
+            discarded: they are user configuration.
         """
         import re
 
-        blocks = {}
+        named: dict[str, str] = {}
+        unnamed: list[str] = []
         lines = content.split("\n")
 
         i = 0
         while i < len(lines):
-            line = lines[i]
-            stripped = line.lstrip()
-
-            # Look for lines starting with ".module(Module("
-            match = re.match(r"\.module\(Module\(\s*[\"\']([^\"\']+)[\"\']", stripped)
-            if match:
-                module_name = match.group(1)
-                paren_depth = 0
-                block_lines = []
-                while i < len(lines):
-                    current_line = lines[i]
-                    block_lines.append(current_line)
-                    paren_depth += current_line.count("(") - current_line.count(")")
-                    i += 1
-                    if paren_depth <= 0:
-                        break
-                # We have the full block
-                blocks[module_name] = "\n".join(block_lines)
-            else:
+            stripped = lines[i].lstrip()
+            if not stripped.startswith(".module("):
                 i += 1
-        return blocks
+                continue
+            block_lines: list[str] = []
+            paren_depth = 0
+            while i < len(lines):
+                current_line = lines[i]
+                block_lines.append(current_line)
+                paren_depth += current_line.count("(") - current_line.count(")")
+                i += 1
+                if paren_depth <= 0:
+                    break
+            block = "\n".join(block_lines)
+            name_match = re.search(r"Module\(\s*[\"']([^\"']+)[\"']", block, re.DOTALL)
+            if name_match:
+                named.setdefault(name_match.group(1), block)
+            else:
+                unnamed.append(block)
+        return named, unnamed
 
-    def generate_workspace_module_config(self, discovered_modules: dict, existing_blocks: dict | None = None) -> str:
+    def generate_workspace_module_config(
+        self,
+        discovered_modules: dict,
+        existing_blocks: dict | None = None,
+        unnamed_blocks: list[str] | None = None,
+        overrides: dict[str, dict] | None = None,
+    ) -> str:
         """
         Generate workspace module configuration as pointers to per-module manifests.
 
@@ -128,22 +147,42 @@ class WorkspaceGenerator:
         dependencies). All component declarations (controllers, services,
         middleware, etc.) live exclusively in each module's ``manifest.py``.
 
+        Existing hand-written blocks win over regeneration -- including for
+        modules discovery did not report, so no user configuration is ever
+        dropped -- and blocks whose module name could not be read are
+        re-emitted verbatim.
+
         Args:
             discovered_modules: Dictionary of discovered module data
-            existing_blocks: Optional dictionary of existing module config blocks to preserve
+            existing_blocks: Existing module config blocks to preserve verbatim
+            unnamed_blocks: Existing blocks with no readable module name
+            overrides: Per-module metadata overrides (e.g. the route prefix
+                given to ``aq add module --route-prefix``), merged over the
+                discovery data for newly generated blocks.
 
         Returns:
             String containing workspace module configuration (pointers only)
         """
         if existing_blocks is None:
             existing_blocks = {}
-        lines = []
+        if unnamed_blocks is None:
+            unnamed_blocks = []
+        if overrides is None:
+            overrides = {}
+        lines: list[str] = []
 
-        for mod_name, mod_data in discovered_modules.items():
+        # Discovered modules first, in discovery order; then any preserved
+        # block for a module discovery did not report -- removing those
+        # silently deleted user configuration.
+        ordered_names = list(discovered_modules) + [name for name in existing_blocks if name not in discovered_modules]
+
+        for mod_name in ordered_names:
             # If this module already has a manual configuration block, preserve it
             if mod_name in existing_blocks:
                 lines.append(existing_blocks[mod_name])
                 continue
+
+            mod_data = {**discovered_modules.get(mod_name, {}), **overrides.get(mod_name, {})}
 
             # Generate module configuration -- pointer only
             version = mod_data.get("version", "0.1.0")
@@ -172,19 +211,31 @@ class WorkspaceGenerator:
             module_line = f"    .module({config_chain})"
             lines.append(module_line)
 
+        # Blocks whose module name could not be read are user
+        # configuration too -- re-emit them verbatim rather than dropping.
+        lines.extend(unnamed_blocks)
+
         # Separate each .module() block with a blank line for readability
         return "\n\n".join(lines)
 
-    def update_workspace_config(self, workspace_path: Path, discovered_modules: dict) -> None:
+    def update_workspace_config(
+        self,
+        workspace_path: Path,
+        discovered_modules: dict,
+        overrides: dict[str, dict] | None = None,
+    ) -> None:
         """
         Update workspace.py with auto-discovered module configurations.
 
-        Safely strips existing .module() blocks and re-inserts them
-        before the integrations section, preserving all other content.
+        Strips existing ``.module()`` blocks and re-inserts them before the
+        integrations section, preserving every block verbatim -- recognized
+        or not -- regardless of how it was formatted.
 
         Args:
             workspace_path: Path to workspace.py file
             discovered_modules: Dictionary of discovered module data
+            overrides: Per-module metadata overrides applied to newly
+                generated blocks (e.g. ``aq add module --route-prefix``).
         """
         if not workspace_path.exists():
             return
@@ -192,10 +243,15 @@ class WorkspaceGenerator:
         content = workspace_path.read_text(encoding="utf-8")
 
         # Extract existing module blocks to preserve them
-        existing_blocks = self._extract_existing_module_blocks(content)
+        existing_blocks, unnamed_blocks = self._extract_existing_module_blocks(content)
 
         # Generate new module configuration, preserving existing configs
-        new_config = self.generate_workspace_module_config(discovered_modules, existing_blocks)
+        new_config = self.generate_workspace_module_config(
+            discovered_modules,
+            existing_blocks,
+            unnamed_blocks,
+            overrides,
+        )
 
         import re
 
@@ -257,6 +313,19 @@ class WorkspaceGenerator:
             # Build the modules section with its own header
             modules_section = "\n    # ---- Modules " + "-" * 57 + "\n\n" + new_config + "\n\n"
             content = content[:pos] + modules_section + content[pos:]
+        else:
+            # No integrations marker at all (a minimal workspace). Falling
+            # through silently here meant "updated workspace.py" printed
+            # while nothing was written -- the new modules vanished. Insert
+            # into the workspace() return chain instead.
+            rewritten = self._insert_modules_into_return(content, new_config)
+            if rewritten is None:
+                print(
+                    "  ⚠️  No insertion point found in workspace.py "
+                    "(no Integrations section and no workspace() return chain) -- skipping write"
+                )
+                return
+            content = rewritten
 
         # --- Phase 4: Clean up excessive blank lines ---
         content = re.sub(r"\n{3,}", "\n\n", content)
@@ -276,6 +345,58 @@ class WorkspaceGenerator:
         # Write back
         workspace_path.write_text(content, encoding="utf-8")
         print(f"\u2705 Updated workspace.py with {len(discovered_modules)} module configurations")
+
+    def _insert_modules_into_return(self, content: str, new_config: str) -> str | None:
+        """Insert module blocks into ``workspace()``'s return expression.
+
+        For a workspace with no integrations section there is no marker to
+        insert before; the module chain belongs inside the ``return (...)``
+        expression. A parenthesized chain gets the blocks appended before
+        its closing paren; a bare ``return Workspace(...)`` is re-wrapped.
+
+        Returns the rewritten source, or ``None`` when no suitable return
+        statement exists (the caller reports and skips the write).
+        """
+        import ast
+
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            return None
+
+        target: ast.Return | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for stmt in node.body:
+                    if isinstance(stmt, ast.Return) and isinstance(stmt.value, ast.Call):
+                        if target is None or stmt.end_lineno > target.end_lineno:
+                            target = stmt
+        if target is None:
+            return None
+
+        lines = content.split("\n")
+        start_idx = target.lineno - 1
+        end_idx = target.end_lineno - 1
+        ret_src = "\n".join(lines[start_idx : end_idx + 1])
+        indent = ret_src[: len(ret_src) - len(ret_src.lstrip())]
+
+        expr_src = ret_src.strip()
+        after_return = expr_src[len("return") :].strip()
+
+        if after_return.startswith("(") and ret_src.rstrip().endswith(")"):
+            # Parenthesized chain: insert before the final closing paren.
+            close_idx = ret_src.rstrip().rfind(")")
+            block = "\n".join(f"    {line}" if line.strip() else line for line in new_config.split("\n"))
+            rewritten = ret_src[:close_idx] + "\n" + block + "\n" + indent + ret_src[close_idx:]
+            lines[start_idx : end_idx + 1] = rewritten.split("\n")
+            return "\n".join(lines)
+
+        # Bare expression: re-wrap it with the module chain inside parens.
+        expr_indented = "\n".join(f"    {line}" if line.strip() else line for line in after_return.split("\n"))
+        block = "\n".join(f"    {line}" if line.strip() else line for line in new_config.split("\n"))
+        rewritten = f"{indent}return (\n{expr_indented}\n\n{block}\n{indent})"
+        lines[start_idx : end_idx + 1] = rewritten.split("\n")
+        return "\n".join(lines)
 
     def _discover_modules(self) -> dict:
         """Enhanced module discovery with intelligent classification.

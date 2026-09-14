@@ -47,6 +47,7 @@ if sys.platform == "win32":
                 )
 # ─────────────────────────────────────────────────────────────────────────────
 
+import os
 import re as _re
 
 import click
@@ -205,26 +206,148 @@ def _require_workspace(ctx: click.Context) -> None:
         raise SystemExit(1)
 
 
+def _strip_source_comments(text: str) -> str:
+    """Strip ``#`` comments from Python source (line-preserving).
+
+    The static workspace scan must never read configuration out of a
+    comment: a commented-out ``PostgresConfig(host="", ...)`` block used to
+    reconstruct ``postgresql://:5432/``, which then connected with the OS
+    username and failed with "password authentication failed for user
+    '<login>'". Preserving line numbers keeps any error message honest.
+
+    A simple character scan tracks string state so a ``#`` inside a quoted
+    URL is not treated as a comment start.
+    """
+    out_lines: list[str] = []
+    for line in text.split("\n"):
+        kept: list[str] = []
+        quote: str | None = None
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if quote is None:
+                if ch == "#":
+                    break  # comment: drop the rest of the line
+                if ch in "\"'":
+                    quote = ch
+                kept.append(ch)
+            else:
+                if ch == "\\" and i + 1 < len(line):
+                    kept.append(ch)
+                    i += 1
+                    kept.append(line[i])
+                else:
+                    if ch == quote:
+                        quote = None
+                    kept.append(ch)
+            i += 1
+        out_lines.append("".join(kept))
+    return "\n".join(out_lines)
+
+
+def _workspace_db_url_from_module(workspace_file: Path) -> str | None:
+    """Import ``workspace.py`` and read the database URL off the built Workspace.
+
+    Executing the real workspace (the same thing ``aq run`` does) resolves
+    ``Env(...)`` defaults, ``DatabaseIntegration`` objects, and any
+    configuration shape the static regex cannot know about. Returns ``None``
+    when the module cannot be imported or exposes no database URL -- the
+    caller falls back to cheaper strategies.
+    """
+    import importlib.util
+
+    module_name = "aq_cli_workspace_probe"
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, workspace_file)
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        from aquilia.workspace import Workspace as _Workspace
+
+        candidate = getattr(module, "workspace", None)
+        workspace_obj = None
+        if isinstance(candidate, _Workspace):
+            workspace_obj = candidate
+        elif callable(candidate):
+            result = candidate()
+            if isinstance(result, _Workspace):
+                workspace_obj = result
+
+        if workspace_obj is None:
+            return None
+
+        for integration in getattr(workspace_obj, "integrations", []) or []:
+            data = integration if isinstance(integration, dict) else getattr(integration, "to_dict", dict)()
+            if not isinstance(data, dict):
+                continue
+            if str(data.get("_integration_type", "")) != "database":
+                continue
+            url = data.get("url")
+            if isinstance(url, str) and url:
+                return url
+            # Env("DATABASE_URL", default=...) -- resolve the real value.
+            env_marker = data.get("_env_url") or data.get("env_url")
+            if isinstance(env_marker, str) and env_marker:
+                resolved = os.environ.get(env_marker)
+                if resolved:
+                    return resolved
+    except Exception:
+        return None
+    return None
+
+
 def _detect_workspace_db_url() -> str:
     """Auto-detect the database URL from workspace.py in the current directory.
 
-    Scans workspace.py for ``.database(url="...")`` or
-    ``Integration.database(url="...")`` patterns first.  If not found,
-    looks for typed config patterns like ``MysqlConfig(...)``,
-    ``PostgresConfig(...)``, or ``OracleConfig(...)`` and reconstructs
-    the URL from the extracted parameters.
+    Resolution order (first hit wins):
 
-    Falls back to the framework default ``sqlite:///db.sqlite3``.
+    1. ``AQ_DATABASE_URL`` / ``DATABASE_URL`` environment variables -- an
+       explicit environment override always beats the file.
+    2. Importing ``workspace.py`` and reading the URL off the built
+       ``Workspace`` (resolves ``Env(...)`` defaults and every
+       ``DatabaseIntegration`` shape).
+    3. A static scan of the source for ``.database(url=...)``,
+       ``DatabaseIntegration(url=...)``, ``Env("DATABASE_URL",
+       default=...)`` literals, or typed config patterns
+       (``MysqlConfig``/``PostgresConfig``/``OracleConfig``) -- with
+       comment lines stripped first so commented-out configuration is
+       never read.
+    4. The framework default ``sqlite:///db.sqlite3``.
     """
+    for env_key in ("AQ_DATABASE_URL", "DATABASE_URL"):
+        value = os.environ.get(env_key)
+        if value:
+            return value
+
     workspace_file = Path("workspace.py")
     if not workspace_file.exists():
         return _DEFAULT_DB_URL
+
+    # 2. Execute the real workspace (the same code path as `aq run`).
+    from_module = _workspace_db_url_from_module(workspace_file)
+    if from_module:
+        return from_module
+
+    # 3. Static scan -- never reading comments.
     try:
-        text = workspace_file.read_text(encoding="utf-8")
-        # Match .database(url="<url>") or .database(url='<url>')
+        text = _strip_source_comments(workspace_file.read_text(encoding="utf-8"))
+        # Match .database(url="<url>") / .integrate(DatabaseIntegration(url="<url>"))
         m = _re.search(r'\.database\(\s*url\s*=\s*["\']([^"\']+)["\']', text)
+        if not m:
+            m = _re.search(r'DatabaseIntegration\(\s*url\s*=\s*["\']([^"\']+)["\']', text)
         if m:
             return m.group(1)
+
+        # Env("DATABASE_URL", default="<url>") -- the default literal is the
+        # fallback when the environment variable is not set.
+        env_default = _re.search(
+            r'Env\(\s*["\'](?:AQ_)?DATABASE_URL["\']\s*,\s*default\s*=\s*["\']([^"\']+)["\']',
+            text,
+        )
+        if env_default:
+            return env_default.group(1)
 
         # Match typed config: MysqlConfig(...), PostgresConfig(...), OracleConfig(...)
         cfg_match = _re.search(
