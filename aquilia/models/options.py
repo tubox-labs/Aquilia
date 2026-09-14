@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 if TYPE_CHECKING:
     pass
 
@@ -40,6 +42,10 @@ class Options:
         default_related_name: Default related_name template
         required_db_features: Backend features required
         required_db_vendor: Backend vendor required (e.g., "postgresql")
+        composite_pk: ``CompositePrimaryKey`` declared via ``Meta.primary_key``,
+            or ``None``. When set, the table's primary key is the table-level
+            ``PRIMARY KEY (fields...)`` constraint those fields name and no
+            surrogate ``id`` is injected.
     """
 
     __slots__ = (
@@ -63,6 +69,7 @@ class Options:
         "required_db_features",
         "required_db_vendor",
         "proxy",
+        "composite_pk",
         "_model_cls",
     )
 
@@ -148,6 +155,19 @@ class Options:
         self.required_db_features: list[str] = getattr(meta, "required_db_features", []) if meta else []
         self.required_db_vendor: str | None = getattr(meta, "required_db_vendor", None) if meta else None
         self.proxy: bool = getattr(meta, "proxy", False) if meta else False
+        composite_pk = getattr(meta, "primary_key", None) if meta else None
+        if composite_pk is not None:
+            from aquilia.models.fields.composite import CompositePrimaryKey
+
+            if not isinstance(composite_pk, CompositePrimaryKey):
+                raise ConfigInvalidFault(
+                    key="Meta.primary_key",
+                    reason=(
+                        "Meta.primary_key must be a CompositePrimaryKey(...) declaration, "
+                        f"got {type(composite_pk).__name__}"
+                    ),
+                )
+        self.composite_pk = composite_pk
         self._model_cls = None
 
     @property

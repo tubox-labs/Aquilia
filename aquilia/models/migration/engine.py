@@ -122,7 +122,7 @@ class MigrationEngine:
         hints: tuple[RenameHint, ...] = (),
         infer_renames: bool = True,
         dry_run: bool = False,
-    ) -> Path | None:
+    ) -> Path | MigrationNode | None:
         """Generate a migration for the difference between the snapshot and the models.
 
         Args:
@@ -134,8 +134,12 @@ class MigrationEngine:
             dry_run: Compute the migration but write nothing.
 
         Returns:
-            The path written, or ``None`` when the models already match the
-            snapshot or *dry_run* was set.
+            The path written, ``None`` when the models already match the
+            snapshot, or -- with *dry_run* -- the computed
+            :class:`MigrationNode` describing exactly what *would* be
+            written. Dry-run must report pending changes, not silently
+            claim none: a caller deciding whether to regenerate relies on
+            the distinction between "no drift" and "not written".
 
         Raises:
             MigrationFault: If the models cannot be snapshotted, or an operation
@@ -162,7 +166,7 @@ class MigrationEngine:
         )
 
         if dry_run:
-            return None
+            return node
 
         self.migrations_dir.mkdir(parents=True, exist_ok=True)
         path = self.migrations_dir / f"{node.name}.py"

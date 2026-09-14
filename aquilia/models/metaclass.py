@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from aquilia.faults.domains import ConfigInvalidFault
 from aquilia.models.fields_module import BigAutoField, Field, ForeignKey, ManyToManyField
 from aquilia.models.manager import BaseManager, Manager
 from aquilia.models.options import Options
@@ -16,6 +17,31 @@ if TYPE_CHECKING:
     from aquilia.models.base import Model
 
 __all__ = ["ModelMeta"]
+
+
+def _fk_raw_id_property(attr_name: str, column: str):
+    """Build the ``<column>`` property exposing a ForeignKey's raw stored key.
+
+    The relation descriptor mediates ``instance.<attr>`` (a hydrated model,
+    a ``RelatedNotLoaded`` sentinel, or ``None``); this property is the raw
+    column value at ``instance.<attr>_id`` -- what queries write
+    (``filter(user_id=...)``) and what the database stores, so reads and
+    writes finally share one spelling.
+    """
+
+    def getter(self):
+        value = self.__dict__.get(attr_name)
+        if value is None or isinstance(value, (int, str, float, bytes)):
+            return value
+        return getattr(value, "pk", value)  # Model instance or RelatedNotLoaded
+
+    def setter(self, value):
+        # Route through the descriptor so FK assignment validation
+        # (type checks, instance unwrapping) applies to the raw spelling too.
+        setattr(self, attr_name, value)
+
+    doc = f"Raw foreign-key value of the ``{attr_name}`` relation (column ``{column}``)."
+    return property(getter, setter, doc=doc)
 
 
 class ModelMeta(type):
@@ -174,11 +200,34 @@ class ModelMeta(type):
 
         # Parse options (table name, ordering, indexes, constraints, etc.)
         opts = Options(name, meta_class, table_attr)
+        composite_pk = getattr(opts, "composite_pk", None)
 
-        # Auto-inject PK if no primary key defined (and not abstract)
+        # Auto-inject PK if no primary key defined (and not abstract). A
+        # declared composite primary key replaces the surrogate entirely: the
+        # table's identity is the table-level PRIMARY KEY (fields...)
+        # constraint, and injecting an `id` anyway would silently give every
+        # composite-key table a second, bogus key.
         if not opts.abstract:
             has_pk = any(f.primary_key for f in fields.values())
-            if not has_pk:
+            if composite_pk is not None:
+                if has_pk:
+                    raise ConfigInvalidFault(
+                        key="Meta.primary_key",
+                        reason=(
+                            f"{name} declares both a primary_key=True field and "
+                            "Meta.primary_key; choose one form of primary key"
+                        ),
+                    )
+                missing = [fname for fname in composite_pk.fields if fname not in fields]
+                if missing:
+                    raise ConfigInvalidFault(
+                        key="Meta.primary_key",
+                        reason=(
+                            f"{name}.Meta.primary_key names unknown field(s) {missing}; "
+                            "composite primary key fields must be declared on the model"
+                        ),
+                    )
+            elif not has_pk:
                 pk_field = BigAutoField()
                 fields["id"] = pk_field
                 namespace["id"] = pk_field
@@ -196,14 +245,22 @@ class ModelMeta(type):
         model_cls._reverse_fk_cache = None
 
         # Determine PK -- record both the DB column name and the Python
-        # attribute name of whichever field has primary_key=True.
+        # attribute name of whichever field has primary_key=True. A composite
+        # primary key has no single owning field: _pk_attr points at the
+        # first key column (so single-attribute call sites keep working) and
+        # _pk_composite carries the full ordered key.
+        model_cls._pk_composite = tuple(composite_pk.fields) if composite_pk is not None else None
         model_cls._pk_name = "id"
         model_cls._pk_attr = "id"
+        if composite_pk is not None:
+            model_cls._pk_attr = composite_pk.fields[0]
         for fname, field in fields.items():
             if field.primary_key:
                 model_cls._pk_name = field.column_name
                 model_cls._pk_attr = fname
                 break
+        if composite_pk is not None:
+            model_cls._pk_name = fields[composite_pk.fields[0]].column_name
 
         # Set name on all fields declared directly on this class (inherited
         # fields are already bound to their original owner class).
@@ -236,6 +293,19 @@ class ModelMeta(type):
         # the type test. Kept parallel to _col_to_attr rather than widening its
         # tuples, which are read elsewhere.
         model_cls._fk_attrs = frozenset(fname for fname, f in model_cls._non_m2m_fields if isinstance(f, ForeignKey))
+
+        # Expose the raw FK value under the column name: `session.user_id`
+        # reads/writes the stored key while `session.user` stays the relation
+        # descriptor. Without this, the write/filter spelling (`user_id=`)
+        # and the read spelling (`obj.user.pk`) differed -- `obj.user_id`
+        # was an AttributeError.
+        for fname, f in model_cls._non_m2m_fields:
+            if not isinstance(f, ForeignKey):
+                continue
+            column = f.column_name
+            if column == fname or column in fields:
+                continue
+            setattr(model_cls, column, _fk_raw_id_property(fname, column))
 
         # Auto-inject default Manager if none declared
         if not opts.abstract and not any(isinstance(v, BaseManager) for v in namespace.values()):

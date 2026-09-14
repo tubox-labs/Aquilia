@@ -41,6 +41,52 @@ _INSERT_RE = re.compile(r"^\s*INSERT\s+INTO\s+", re.IGNORECASE)
 # Extract rowcount from asyncpg status strings like "INSERT 0 1", "UPDATE 3"
 _STATUS_ROWCOUNT_RE = re.compile(r"(\d+)\s*$")
 
+# The column list of an index definition: "... USING btree (col_a, col_b)"
+_INDEXDEF_COLUMNS_RE = re.compile(r"\bUSING\s+\w+\s*\((.*)\)\s*$")
+
+
+def _indexdef_columns(definition: str) -> list[str]:
+    """Recover the key column names from a ``pg_get_indexdef`` string.
+
+    Handles multi-part keys, quoted identifiers, ``COLLATE`` clauses, and
+    ``ASC``/``DESC``/``NULLS`` options; a non-identifier part (an expression
+    index like ``lower(email)``) is kept verbatim so it remains comparable.
+    """
+    match = _INDEXDEF_COLUMNS_RE.search(definition or "")
+    if not match:
+        return []
+    body = match.group(1)
+
+    parts: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for ch in body:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    parts.append("".join(current))
+
+    columns = []
+    for part in parts:
+        part = part.strip()
+        while True:
+            upper = part.upper()
+            for suffix in (" ASC", " DESC", " NULLS FIRST", " NULLS LAST"):
+                if upper.endswith(suffix):
+                    part = part[: -len(suffix)].strip()
+                    break
+            else:
+                break
+        part = re.sub(r"\s+COLLATE\s+\"?[\w.]+\"?", "", part, flags=re.IGNORECASE).strip()
+        columns.append(part.strip('"'))
+    return columns
+
 
 class _PgCursorResult:
     """
@@ -179,20 +225,46 @@ class PostgresAdapter(DatabaseAdapter):
 
         # INSERT: auto-append RETURNING "id" so we can expose lastrowid.
         is_insert = _INSERT_RE.match(adapted_sql) is not None
-        if is_insert and "RETURNING" not in adapted_sql.upper():
+        appended_returning = is_insert and "RETURNING" not in adapted_sql.upper()
+        if appended_returning:
             adapted_sql += ' RETURNING "id"'
 
         conn = self._get_conn()
 
-        if is_insert:
-            # Use fetchrow to get the returned id
+        async def _fetchrow(query: str):
             if conn is not None:
-                row = await conn.fetchrow(adapted_sql, *args)
-            else:
-                async with self._pool.acquire() as c:
-                    row = await c.fetchrow(adapted_sql, *args)
+                return await conn.fetchrow(query, *args)
+            async with self._pool.acquire() as c:
+                return await c.fetchrow(query, *args)
+
+        async def _execute_plain(query: str) -> str:
+            if conn is not None:
+                return await conn.execute(query, *args)
+            async with self._pool.acquire() as c:
+                return await c.execute(query, *args)
+
+        if is_insert:
+            try:
+                row = await _fetchrow(adapted_sql)
+            except Exception as exc:
+                # The auto-appended RETURNING "id" assumes a column named
+                # "id"; tables without one (a composite primary key, a
+                # custom PK name) must still insert. The clause exists only
+                # to expose lastrowid, so drop it and fall back to a plain
+                # execute.
+                if _HAS_ASYNCPG and isinstance(exc, asyncpg.exceptions.UndefinedColumnError) and appended_returning:
+                    # Drop only the clause we appended; the rest of
+                    # adapted_sql is already dialect-correct.
+                    status = await _execute_plain(adapted_sql[: -len(' RETURNING "id"')])
+                    return _PgCursorResult.from_status(status)
+                raise
             lastrowid = row["id"] if row and "id" in row else None
-            return _PgCursorResult(lastrowid=lastrowid, rowcount=1)
+            # A RETURNING row means exactly one row was inserted; no row
+            # means the statement inserted nothing (the conflict path of
+            # INSERT ... ON CONFLICT DO NOTHING). Hardcoding 1 here made
+            # every conflicted upsert report itself as created.
+            rowcount = 1 if row is not None else 0
+            return _PgCursorResult(lastrowid=lastrowid, rowcount=rowcount)
 
         # Non-INSERT (DDL, UPDATE, DELETE, etc.)
         if conn is not None:
@@ -335,6 +407,24 @@ class PostgresAdapter(DatabaseAdapter):
         return [r["table_name"] for r in rows]
 
     async def get_columns(self, table_name: str) -> list[ColumnInfo]:
+        # The primary-key membership is fetched separately: introspection
+        # consumers (schema drift, `aq db diff`) read ColumnInfo.primary_key,
+        # and leaving it False marked every PostgreSQL primary key as
+        # changed on the next diff. Array columns get their full type
+        # ("text[]") the same way: information_schema reports only 'ARRAY',
+        # which cannot be compared against a model's element type.
+        pk_rows = await self.fetch_all(
+            "SELECT kcu.column_name "
+            "FROM information_schema.table_constraints tc "
+            "JOIN information_schema.key_column_usage kcu "
+            "ON kcu.constraint_name = tc.constraint_name "
+            "AND kcu.constraint_schema = tc.constraint_schema "
+            "WHERE tc.table_schema = 'public' AND tc.table_name = ? "
+            "AND tc.constraint_type = 'PRIMARY KEY'",
+            [table_name],
+        )
+        pk_columns = {row["column_name"] for row in pk_rows}
+
         rows = await self.fetch_all(
             "SELECT column_name, data_type, is_nullable, column_default, "
             "character_maximum_length "
@@ -343,23 +433,59 @@ class PostgresAdapter(DatabaseAdapter):
             "ORDER BY ordinal_position",
             [table_name],
         )
+        if any(row["data_type"] == "ARRAY" for row in rows):
+            array_types = {
+                row["attname"]: row["full_type"]
+                for row in await self.fetch_all(
+                    "SELECT a.attname, format_type(a.atttypid, a.atttypmod) AS full_type "
+                    "FROM pg_attribute a "
+                    "JOIN pg_class t ON a.attrelid = t.oid "
+                    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+                    "WHERE n.nspname = 'public' AND t.relname = ? "
+                    "AND a.attnum > 0 AND NOT a.attisdropped",
+                    [table_name],
+                )
+            }
+        else:
+            array_types = {}
+
         columns = []
         for row in rows:
             columns.append(
                 ColumnInfo(
                     name=row["column_name"],
-                    data_type=row["data_type"],
+                    data_type=array_types.get(row["column_name"], row["data_type"]),
                     nullable=row["is_nullable"] == "YES",
                     default=row.get("column_default"),
                     max_length=row.get("character_maximum_length"),
+                    primary_key=row["column_name"] in pk_columns,
                 )
             )
         return columns
 
     async def get_indexes(self, table_name: str) -> list[dict[str, Any]]:
-        """Get index info for a PostgreSQL table."""
+        """Get index info for a PostgreSQL table.
+
+        Column names are recovered from ``pg_get_indexdef`` so drift
+        comparison can match an index against the model's declaration, and
+        each entry carries ``constraint_backed`` -- ``True`` when the index
+        exists only to back a PRIMARY KEY / UNIQUE constraint. Those indexes
+        are implied by the constraint rather than independently declared, so
+        reporting them as plain indexes made every model-declared index and
+        constraint look like drift.
+        """
         rows = await self.fetch_all(
-            "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = ?",
+            "SELECT i.relname AS indexname, "
+            "pg_get_indexdef(i.oid) AS indexdef, "
+            "ix.indisunique AS is_unique, "
+            "ix.indisprimary AS is_primary, "
+            "EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conindid = i.oid) AS constraint_backed "
+            "FROM pg_class t "
+            "JOIN pg_namespace n ON n.oid = t.relnamespace "
+            "JOIN pg_index ix ON ix.indrelid = t.oid "
+            "JOIN pg_class i ON i.oid = ix.indexrelid "
+            "WHERE n.nspname = 'public' AND t.relname = ? "
+            "ORDER BY i.relname",
             [table_name],
         )
         indexes = []
@@ -368,7 +494,10 @@ class PostgresAdapter(DatabaseAdapter):
                 {
                     "name": row["indexname"],
                     "definition": row["indexdef"],
-                    "unique": "UNIQUE" in row.get("indexdef", "").upper(),
+                    "unique": bool(row["is_unique"]),
+                    "columns": _indexdef_columns(row["indexdef"]),
+                    "constraint_backed": bool(row["constraint_backed"]),
+                    "primary": bool(row["is_primary"]),
                 }
             )
         return indexes

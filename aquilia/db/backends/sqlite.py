@@ -238,7 +238,15 @@ class SQLiteAdapter(DatabaseAdapter):
         return columns
 
     async def get_indexes(self, table_name: str) -> list[dict[str, Any]]:
-        """Get index info for a table."""
+        """Get index info for a table.
+
+        Each entry carries the PRAGMA ``origin`` (``"c"`` = created by
+        ``CREATE INDEX``, ``"u"``/``"pk"`` = auto-created to back a UNIQUE or
+        PRIMARY KEY constraint) so schema-drift comparison can tell a
+        declared index from the implementation detail of a constraint --
+        without it, every constraint shows up as an index the model never
+        declared.
+        """
         rows = await self.fetch_all(f'PRAGMA index_list("{table_name}")')
         indexes = []
         for row in rows:
@@ -250,6 +258,7 @@ class SQLiteAdapter(DatabaseAdapter):
                     "name": idx_name,
                     "unique": bool(row["unique"]),
                     "columns": columns,
+                    "origin": row.get("origin", "c"),
                 }
             )
         return indexes

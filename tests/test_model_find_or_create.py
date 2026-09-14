@@ -376,7 +376,7 @@ class MockDB:
     def __init__(self, dialect="sqlite"):
         self.dialect = dialect
         self.capabilities = MagicMock(supports_returning=False)
-        self._execute_result = MockCursor(lastrowid=1)
+        self._execute_result = MockCursor(lastrowid=1, rowcount=1)
         self._fetch_one_result = None
         self.execute_count = 0
         self.fetch_one_count = 0
@@ -465,7 +465,7 @@ class TestFindOrCreateWithPatching:
         from aquilia.models.fields_module import CharField
 
         mock_db = MockDB()
-        mock_db._execute_result = MockCursor(lastrowid=42)
+        mock_db._execute_result = MockCursor(lastrowid=42, rowcount=1)
 
         class TestUser(Model):
             _table_name = "test_users"
@@ -521,7 +521,7 @@ class TestFindOrCreateWithPatching:
         from aquilia.models.fields_module import CharField
 
         mock_db = MockDB()
-        mock_db._execute_result = MockCursor(lastrowid=1)
+        mock_db._execute_result = MockCursor(lastrowid=1, rowcount=1)
 
         class TestUser(Model):
             _table_name = "test_users"
@@ -550,7 +550,7 @@ class TestFindOrCreateWithPatching:
         from aquilia.models.fields_module import CharField
 
         mock_db = MockDB()
-        mock_db._execute_result = MockCursor(lastrowid=1)
+        mock_db._execute_result = MockCursor(lastrowid=1, rowcount=1)
 
         class TestUser(Model):
             _table_name = "test_users"
@@ -580,7 +580,7 @@ class TestFindOrCreateWithPatching:
         from aquilia.models.fields_module import CharField
 
         mock_db = MockDB()
-        mock_db._execute_result = MockCursor(lastrowid=1)
+        mock_db._execute_result = MockCursor(lastrowid=1, rowcount=1)
 
         class TestUser(Model):
             _table_name = "test_users"
@@ -646,7 +646,7 @@ class TestConcurrency:
                 # First call succeeds with INSERT
                 if created_count["value"] == 0:
                     created_count["value"] += 1
-                    return MockCursor(lastrowid=1)
+                    return MockCursor(lastrowid=1, rowcount=1)
                 else:
                     # Subsequent calls hit conflict
                     return MockCursor(lastrowid=0)

@@ -248,6 +248,20 @@ class Reference:
         db_constraint: When ``False``, the relationship is tracked in state and
             used for dependency ordering, but no SQL ``REFERENCES`` clause is
             emitted. Mirrors ``ForeignKey(db_constraint=False)``.
+        to_field: Field class name of the referenced primary key (e.g.
+            ``"UUIDField"``), captured at generation time so a migration file
+            is self-contained: the FK column's type is rendered from this spec
+            and never depends on the live model registry being loaded (``aq db
+            migrate`` does not import workspace models). Empty for references
+            whose target could not be resolved when the state was built.
+        to_field_kwargs: Constructor arguments for ``to_field`` that affect
+            its SQL type (e.g. ``{"max_length": 36}`` for a ``CharField`` PK).
+
+    ``to_field``/``to_field_kwargs`` deliberately do not participate in
+    equality: they are a *rendering* fact captured so apply-time DDL is
+    correct, not a semantic identity fact. Snapshots written before these
+    fields existed therefore do not suddenly diff as changed the way an
+    equality-relevant addition would make them.
     """
 
     model: str
@@ -257,6 +271,28 @@ class Reference:
     on_update: OnDelete = "CASCADE"
     deferrable: bool = False
     db_constraint: bool = True
+    to_field: str = ""
+    to_field_kwargs: dict[str, Any] = field(default_factory=dict)
+
+    def __eq__(self, other: object) -> bool:
+        """Compare the semantic identity fields only (see class docstring)."""
+        if not isinstance(other, Reference):
+            return NotImplemented
+        return (
+            self.model == other.model
+            and self.table == other.table
+            and self.column == other.column
+            and self.on_delete == other.on_delete
+            and self.on_update == other.on_update
+            and self.deferrable == other.deferrable
+            and self.db_constraint == other.db_constraint
+        )
+
+    def __hash__(self) -> int:
+        """Hash the same fields ``__eq__`` compares, so equal references hash equal."""
+        return hash(
+            (self.model, self.table, self.column, self.on_delete, self.on_update, self.deferrable, self.db_constraint)
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a plain JSON-safe dict, omitting default-valued keys.
@@ -277,6 +313,10 @@ class Reference:
             data["deferrable"] = True
         if not self.db_constraint:
             data["db_constraint"] = False
+        if self.to_field:
+            data["to_field"] = self.to_field
+            if self.to_field_kwargs:
+                data["to_field_kwargs"] = dict(self.to_field_kwargs)
         return data
 
     @classmethod
@@ -299,6 +339,8 @@ class Reference:
             on_update=normalize_referential_action(data.get("on_update", "CASCADE")),
             deferrable=bool(data.get("deferrable", False)),
             db_constraint=bool(data.get("db_constraint", True)),
+            to_field=data.get("to_field", ""),
+            to_field_kwargs=dict(data.get("to_field_kwargs") or {}),
         )
 
 
@@ -452,6 +494,30 @@ class ColumnState:
                 model_name = target if isinstance(target, str) else getattr(target, "__name__", str(target))
                 table_name = model_name.lower()
                 pk_column = "id"
+
+            # Capture the referenced PK's field spec so the FK column's type
+            # survives into the migration file. Without it, apply-time DDL
+            # depends on ForeignKey resolving the target through the live
+            # model registry -- which is empty under `aq db migrate`, so every
+            # FK column fell back to INTEGER and UUID-keyed targets produced
+            # un-appliable DDL.
+            to_field = ""
+            to_field_kwargs: dict[str, Any] = {}
+            target_pk = fld._resolve_pk_field()
+            if target_pk is not None:
+                spec = target_pk.deconstruct()
+                to_field = spec.get("type", type(target_pk).__name__)
+                # Keep only constructor arguments that affect the SQL type
+                # (e.g. ``max_length`` for a CharField PK, ``enum_class`` for
+                # an EnumField PK). null/unique/index flags are rendering
+                # noise here: the target column's own definition already
+                # carries them.
+                to_field_kwargs = {
+                    k: v
+                    for k, v in spec.items()
+                    if k not in ("type", "null", "unique", "primary_key", "db_index", "db_column", "default")
+                }
+
             reference = Reference(
                 model=model_name,
                 table=table_name,
@@ -459,6 +525,8 @@ class ColumnState:
                 on_delete=normalize_referential_action(getattr(fld, "on_delete", "CASCADE")),
                 on_update=normalize_referential_action(getattr(fld, "on_update", "CASCADE")),
                 db_constraint=bool(getattr(fld, "db_constraint", True)),
+                to_field=to_field,
+                to_field_kwargs=to_field_kwargs,
             )
             kwargs.pop("to", None)
             kwargs.pop("on_delete", None)
@@ -618,6 +686,18 @@ class ColumnState:
                 field_kwargs=_ordered({k: v for k, v in nested.items() if k != "type"}),
             ).rebuild_field()
 
+        # ArrayField.base_field is serialized the same way: a nested
+        # deconstruct() dict that must become a live field instance before the
+        # outer ArrayField can resolve its element type.
+        nested = kwargs.get("base_field")
+        if isinstance(nested, dict):
+            kwargs["base_field"] = ColumnState(
+                name=self.name,
+                column=self.column,
+                field_class=nested.get("type", "TextField"),
+                field_kwargs=_ordered({k: v for k, v in nested.items() if k != "type"}),
+            ).rebuild_field()
+
         try:
             instance = field_cls(**_drop_unsupported(field_cls, kwargs))
         except MigrationFault:
@@ -639,6 +719,13 @@ class ColumnState:
     def sql_type(self, dialect: str) -> str:
         """Return the SQL column type for *dialect*, delegated to the real field.
 
+        A foreign-key column is the exception: its type is the *referenced*
+        primary key's type, and the reference records that target's field spec
+        (captured when the state was built -- see :attr:`Reference.to_field`).
+        Rendering from the recorded spec keeps the migration self-contained:
+        rebuilding the ``ForeignKey`` itself and asking it would require the
+        live model registry, which is not loaded when migrations are applied.
+
         Args:
             dialect: Target dialect name (``"sqlite"``, ``"postgresql"``,
                 ``"mysql"``, ``"oracle"``).
@@ -650,6 +737,14 @@ class ColumnState:
             MigrationFault: Propagated from :meth:`rebuild_field` if the field
                 class cannot be resolved.
         """
+        if self.reference is not None and self.reference.to_field:
+            target = ColumnState(
+                name=self.name,
+                column=self.column,
+                field_class=self.reference.to_field,
+                field_kwargs=_ordered(dict(self.reference.to_field_kwargs)),
+            )
+            return target.rebuild_field().sql_type(dialect)
         return self.rebuild_field().sql_type(dialect)
 
     # ── Serialization ───────────────────────────────────────────────────
@@ -1406,6 +1501,15 @@ class TableState:
         indexes = _collect_indexes(model_cls, table, columns)
         constraints = _collect_constraints(model_cls, table, columns)
 
+        # A Meta-declared composite primary key is a table-level constraint,
+        # not a property of any one column: single-column keys use the
+        # column-level flag, multi-column keys have no inline form at all.
+        composite_pk = getattr(meta, "composite_pk", None)
+        if composite_pk is not None:
+            key_columns = tuple(columns[attr].column for attr in composite_pk.fields if attr in columns)
+            if key_columns:
+                constraints.append(PrimaryKeyConstraintState(name=f"pk_{table}", columns=key_columns))
+
         options: dict[str, Any] = {}
         if getattr(meta, "db_tablespace", ""):
             options["tablespace"] = meta.db_tablespace
@@ -1748,13 +1852,7 @@ class ProjectState:
                 continue
             model = table_to_model.get(db_table) or _model_name_from_table(db_table)
             declared = declared_states.get(model)
-            tables[model] = await _introspect_table(
-                db,
-                db_table,
-                model,
-                table_to_model,
-                declared.columns if declared else {},
-            )
+            tables[model] = await _introspect_table(db, db_table, model, table_to_model, declared)
 
         return cls(tables=dict(sorted(tables.items())))
 
@@ -2378,37 +2476,47 @@ async def _introspect_table(
     db_table: str,
     model: str,
     table_to_model: dict[str, str],
-    declared_columns: dict[str, ColumnState],
+    declared: TableState | None,
 ) -> TableState:
     """Build a :class:`TableState` from a live table's metadata.
+
+    The database reports *storage*; the model declares *semantics*. Where a
+    declared model matches the table, the two are reconciled so a schema that
+    matches its models is not reported as drift:
+
+    - Columns are keyed by the model's attribute name (``user``), not the
+      database column name (``user_id``) -- otherwise every foreign key
+      reports as a remove-plus-add pair.
+    - A column whose storage type renders identically to the declared field
+      (SQLite stores a ``UUIDField`` as ``VARCHAR(36)``, indistinguishable
+      from a ``CharField(36)``) adopts the declared field class: the storage
+      is the same, so the difference is vocabulary, not drift. Mismatched
+      storage keeps the introspected facts and is reported as real drift.
+    - Indexes that exist only to back a PRIMARY KEY / UNIQUE constraint
+      (SQLite ``sqlite_autoindex_*`` / ``origin`` u|pk, PostgreSQL
+      constraint-backed indexes) are recorded as the column's ``unique`` flag
+      or a unique *constraint*, never as separately declared indexes.
+    - A unique constraint whose name the database cannot report (SQLite
+      auto-names these) borrows the declared name when its columns match,
+      mirroring how auto-field width is already recovered from the model.
 
     Args:
         db: A connected database.
         db_table: The table to introspect.
         model: The model name to record for it.
         table_to_model: Table-to-model mapping, for naming foreign key targets.
-        declared_columns: Columns from the matching model, consulted only for
-            facts the database provably cannot report -- currently the width of
-            an auto field, which SQLite renders identically for every width.
-            Empty when no model matches the table.
+        declared: The model's own table state, when a model matches; used only
+            for facts the database provably cannot report. ``None`` otherwise.
 
     Returns:
         The introspected table state.
     """
+    dialect = getattr(db, "dialect", None) or "sqlite"
     columns_raw = await db.get_columns(db_table)
     indexes_raw = await _safe_introspect(db, "get_indexes", db_table)
     foreign_keys = await _safe_introspect(db, "get_foreign_keys", db_table)
 
-    indexes: list[IndexState] = []
-    unique_columns: set[str] = set()
-    for entry in indexes_raw:
-        cols = tuple(entry.get("columns", ()))
-        if not cols:
-            continue
-        unique = bool(entry.get("unique"))
-        if unique and len(cols) == 1:
-            unique_columns.add(cols[0])
-        indexes.append(IndexState(name=entry["name"], columns=cols, unique=unique))
+    declared_by_column = {column.column: column for column in declared.columns.values()} if declared else {}
 
     references_by_column = {}
     for entry in foreign_keys:
@@ -2421,11 +2529,95 @@ async def _introspect_table(
             on_update=_normalize_action(entry.get("on_update")),
         )
 
+    indexes: list[IndexState] = []
+    unique_columns: set[str] = set()
+    # Unique key column sets that back a constraint, with the index name that
+    # implements them (an auto-generated name when the backend cannot report
+    # the constraint's own).
+    implicit_uniques: list[tuple[str, tuple[str, ...]]] = []
+    for entry in indexes_raw:
+        cols = tuple(entry.get("columns", ()))
+        name = str(entry.get("name", ""))
+        unique = bool(entry.get("unique"))
+        origin = str(entry.get("origin", "c") or "c")
+        constraint_backed = bool(entry.get("constraint_backed")) or origin in ("u", "pk") or name.startswith(
+            "sqlite_autoindex_"
+        )
+        is_pk_index = origin == "pk" or bool(entry.get("primary"))
+
+        if unique and constraint_backed:
+            if is_pk_index:
+                # The index backs the PRIMARY KEY. A single-column key is
+                # reported by the column itself; a composite one is rebuilt
+                # from the pk-flagged columns below. Either way it is not a
+                # unique constraint and not a declared index.
+                pass
+            elif len(cols) == 1:
+                unique_columns.add(cols[0])
+            elif cols:
+                implicit_uniques.append((name, cols))
+            continue
+
+        if not cols:
+            # An index whose key columns cannot be recovered is still a
+            # declared index; keep it by name so its presence compares.
+            if name and not constraint_backed:
+                indexes.append(IndexState(name=name, columns=(), unique=unique))
+            continue
+
+        if unique and len(cols) == 1:
+            # A single-column unique index that is not constraint-backed.
+            # On backends that report the distinction (sqlite, postgresql)
+            # this is a declared unique Index; on MySQL, where a unique
+            # constraint *is* an index, it is recorded as the column's
+            # unique flag instead.
+            if dialect in ("sqlite", "postgresql"):
+                indexes.append(IndexState(name=name, columns=cols, unique=True))
+            else:
+                unique_columns.add(cols[0])
+            continue
+
+        indexes.append(IndexState(name=name, columns=cols, unique=unique))
+
+    constraints: list[ConstraintState] = []
+    consumed: set[int] = set()
+    if declared is not None:
+        for constraint in declared.constraints:
+            if not isinstance(constraint, UniqueConstraintState):
+                continue
+            wanted = set(constraint.columns)
+            for position, (name, cols) in enumerate(implicit_uniques):
+                if position not in consumed and set(cols) == wanted:
+                    constraints.append(constraint)
+                    consumed.add(position)
+                    break
+    for position, (name, cols) in enumerate(implicit_uniques):
+        if position in consumed:
+            continue
+        fallback = name if name and not name.startswith("sqlite_autoindex_") else f"uq_{db_table}_{'_'.join(cols)}"
+        constraints.append(UniqueConstraintState(name=fallback, columns=cols))
+
     columns: dict[str, ColumnState] = {}
+    # A composite primary key introspects as several pk-flagged integer
+    # columns; auto-increment is a single-column concept, so the width
+    # inference must not fire when the key spans more than one column.
+    pk_column_names = {col.name for col in columns_raw if getattr(col, "primary_key", False)}
     for col in columns_raw:
         primary_key = bool(getattr(col, "primary_key", False))
-        field_class = _field_class_for(col.data_type)
-        auto_increment = primary_key and field_class in _AUTO_FOR_INTEGER
+        data_type = str(col.data_type)
+        # A PostgreSQL array column reports its full type ("text[]"); the
+        # element type names the base field an ArrayField needs to rebuild.
+        array_kwargs: dict[str, Any] | None = None
+        if data_type.upper().endswith("[]"):
+            field_class = "ArrayField"
+            array_kwargs = {"base_field": {"type": _field_class_for(data_type[:-2])}}
+        else:
+            field_class = _field_class_for(data_type)
+        auto_increment = primary_key and len(pk_column_names) == 1 and field_class in _AUTO_FOR_INTEGER
+        declared_col = declared_by_column.get(col.name)
+        reference = references_by_column.get(col.name)
+        adopt_declared = False
+
         if auto_increment:
             # No backend reports an "is auto-increment" flag through ColumnInfo,
             # and an integer primary key is an auto field in Aquilia's model
@@ -2436,20 +2628,66 @@ async def _introspect_table(
             # auto field as plain INTEGER, so the declared class is preferred
             # over the inferred one when a model is available.
             field_class = _AUTO_FOR_INTEGER[field_class]
-            declared = declared_columns.get(col.name)
-            if declared is not None and declared.auto_increment:
-                field_class = declared.field_class
-        columns[col.name] = ColumnState(
-            name=col.name,
+            if declared_col is not None and declared_col.auto_increment:
+                field_class = declared_col.field_class
+                adopt_declared = True
+        elif declared_col is not None:
+            # The database cannot distinguish fields that render to the same
+            # storage type (UUIDField vs CharField(36) on SQLite; a ForeignKey
+            # vs its target PK's scalar type everywhere). When the declared
+            # field renders to exactly the storage the database reports, the
+            # declared vocabulary is the correct label; otherwise the
+            # mismatch is genuine drift and the introspected facts stand.
+            probe_kwargs = _introspected_kwargs(col)
+            if array_kwargs is not None:
+                probe_kwargs = {**probe_kwargs, **array_kwargs}
+            introspected = ColumnState(
+                name=col.name,
+                column=col.name,
+                field_class=field_class,
+                field_kwargs=probe_kwargs,
+                reference=reference,
+            )
+            if _same_storage(introspected, declared_col, dialect):
+                field_class = declared_col.field_class
+                adopt_declared = True
+
+        if declared_col is not None and adopt_declared:
+            kwargs = dict(declared_col.field_kwargs)
+        else:
+            kwargs = _introspected_kwargs(col)
+            if array_kwargs is not None:
+                kwargs = {**kwargs, **array_kwargs}
+
+        # Key the column by the model's attribute name so the diff compares
+        # like with like; the database column name is preserved in
+        # ``column``.
+        attr = declared_col.name if declared_col is not None else col.name
+        columns[attr] = ColumnState(
+            name=attr,
             column=col.name,
             field_class=field_class,
-            field_kwargs=_introspected_kwargs(col),
+            field_kwargs=kwargs,
             primary_key=primary_key,
             unique=col.name in unique_columns and not primary_key,
             null=bool(getattr(col, "nullable", False)) and not primary_key,
-            default=getattr(col, "default", None) if getattr(col, "default", None) is not None else NOT_PROVIDED,
-            reference=references_by_column.get(col.name),
+            default=_normalize_introspected_default(getattr(col, "default", None)),
+            reference=reference,
             auto_increment=auto_increment,
+        )
+
+    # A multi-column primary key introspects as several pk-flagged columns;
+    # the model vocabulary for it is a table-level PrimaryKeyConstraintState
+    # with plain columns -- collapse so the two shapes compare equal.
+    pk_attrs = [attr for attr, column in columns.items() if column.primary_key]
+    if len(pk_attrs) > 1:
+        for attr in pk_attrs:
+            columns[attr] = columns[attr].evolve(primary_key=False)
+        constraints.append(
+            PrimaryKeyConstraintState(
+                name=f"pk_{db_table}",
+                columns=tuple(columns[attr].column for attr in pk_attrs),
+            )
         )
 
     return TableState(
@@ -2457,7 +2695,59 @@ async def _introspect_table(
         db_table=db_table,
         columns=columns,
         indexes=tuple(sorted(indexes, key=lambda index: index.name)),
+        constraints=tuple(sorted(constraints, key=lambda constraint: constraint.name)),
     )
+
+
+def _same_storage(introspected: ColumnState, declared: ColumnState, dialect: str) -> bool:
+    """Return whether two column states render to the same storage type.
+
+    Both sides go through the same backend renderer, so this compares
+    storage, not vocabulary: a ``UUIDField`` and an introspected
+    ``CharField(max_length=36)`` are equal on SQLite (both ``VARCHAR(36)``)
+    and different from an ``IntegerField``.
+    """
+    try:
+        left = introspected.sql_type(dialect)
+        right = declared.sql_type(dialect)
+    except Exception:  # pragma: no cover -- unresolvable field classes
+        return False
+    return re.sub(r"\s+", "", left).upper() == re.sub(r"\s+", "", right).upper()
+
+
+def _normalize_introspected_default(raw: Any) -> Any:
+    """Best-effort convert a backend-reported column default to a Python value.
+
+    Backends report DDL literals: SQLite gives ``"'active'"`` (quotes
+    included), PostgreSQL ``"'active'::character varying"``. Compared raw
+    against the model's Python default they diff on every defaulted column.
+    Only values that convert cleanly are normalized; anything ambiguous
+    (sequences like ``nextval(...)``) is left verbatim.
+    """
+    if raw is None:
+        return NOT_PROVIDED
+    if not isinstance(raw, str):
+        return raw
+    text = raw.strip()
+    cast = re.search(r"^(.*?)::[\w\s(),]+$", text)
+    if cast and cast.group(1).startswith("'") and cast.group(1).endswith("'"):
+        text = cast.group(1)
+    if len(text) >= 2 and text.startswith("'") and text.endswith("'"):
+        inner = text[1:-1].replace("''", "'")
+        if re.fullmatch(r"-?\d+", inner):
+            return int(inner)
+        if re.fullmatch(r"-?\d+\.\d+", inner):
+            return float(inner)
+        if inner.upper() in ("TRUE", "FALSE"):
+            return inner.upper() == "TRUE"
+        return inner
+    if re.fullmatch(r"-?\d+", text):
+        return int(text)
+    if re.fullmatch(r"-?\d+\.\d+", text):
+        return float(text)
+    if text.upper() in ("TRUE", "FALSE"):
+        return text.upper() == "TRUE"
+    return raw
 
 
 def _introspected_kwargs(col: Any) -> dict[str, Any]:

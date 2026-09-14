@@ -3158,6 +3158,23 @@ class ArrayField(Field[list[Any]]):
             return f"{self.base_field.sql_type(dialect)}[]"
         return "TEXT"  # JSON fallback
 
+    def deconstruct(self) -> dict[str, Any]:
+        """Extend ``Field.deconstruct()`` with ``base_field`` and ``size``.
+
+        ``base_field`` determines the column's SQL type (``TextField()`` ->
+        ``TEXT[]``), so omitting it would make the migration snapshot lossy:
+        the generated file would render a bare ``ArrayField()`` that neither
+        constructs nor round-trips. Serialized as its own nested
+        ``deconstruct()`` dict (the same form ``GeneratedField.output_field``
+        uses) so the result stays JSON-safe while naming the concrete field
+        class needed to rebuild the element type.
+        """
+        d = super().deconstruct()
+        d["base_field"] = self.base_field.deconstruct()
+        if self.size is not None:
+            d["size"] = self.size
+        return d
+
 
 class HStoreField(Field[dict[str, "str | None"]]):
     """PostgreSQL ``hstore`` field -- a flat string-to-string(-or-``None``) key/value map, JSON-encoded on other dialects."""

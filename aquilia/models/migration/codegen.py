@@ -246,8 +246,8 @@ def render_field(column: ColumnState, *, indent: int = 0) -> str:
         if key in skip:
             continue
         value = column.field_kwargs[key]
-        if key == "output_field" and isinstance(value, dict):
-            args.append(f"output_field={_render_nested_field(value, indent=indent + 1)}")
+        if key in ("output_field", "base_field") and isinstance(value, dict):
+            args.append(f"{key}={_render_nested_field(value, indent=indent + 1)}")
             continue
         # deconstruct() emits related_name=None for relation fields that never
         # set one; it has no schema meaning and only adds noise.
@@ -326,6 +326,10 @@ def render_reference(reference: Reference, *, indent: int = 0) -> str:
         args.append("deferrable=True")
     if not reference.db_constraint:
         args.append("db_constraint=False")
+    if reference.to_field:
+        args.append(f"to_field={render_string(reference.to_field)}")
+        if reference.to_field_kwargs:
+            args.append(f"to_field_kwargs={render_value(reference.to_field_kwargs, indent=indent + 1)}")
     return _call("Reference", args, indent=indent)
 
 

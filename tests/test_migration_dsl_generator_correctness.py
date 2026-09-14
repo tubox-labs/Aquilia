@@ -151,7 +151,10 @@ def test_foreign_key_targets_table_not_model_name(generated):
     _, code = generated
 
     assert "usersmodel" not in code.lower()
-    assert 'Reference(model="UserModel", table="users")' in code
+    # The reference records the target table (not the lowercased model name)
+    # and, since the migration must be self-contained, the target PK's field
+    # class so the FK column type survives without the live model registry.
+    assert 'Reference(model="UserModel", table="users", to_field="UUIDField")' in code
     assert 'column="user_id"' in code
 
 

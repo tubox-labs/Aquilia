@@ -345,6 +345,9 @@ class Model(metaclass=ModelMeta):
     _table_name: ClassVar[str] = ""
     _pk_name: ClassVar[str] = "id"
     _pk_attr: ClassVar[str] = "id"
+    # Ordered attribute names of a Meta-declared composite primary key, or
+    # None for the ordinary single-column key. Set by the metaclass.
+    _pk_composite: ClassVar[tuple[str, ...] | None] = None
     _column_names: ClassVar[list[str]] = []
     _attr_names: ClassVar[list[str]] = []
     _non_m2m_fields: ClassVar[list[tuple[str, Field]]] = []
@@ -427,23 +430,79 @@ class Model(metaclass=ModelMeta):
             # "changed" any time related()/select_related() replaces an
             # unhydrated sentinel with the equivalent hydrated instance.
             return NotImplemented
-        return bool(getattr(self, self._pk_attr) == getattr(other, other._pk_attr))
+        return bool(self.pk == other.pk)
 
     def __hash__(self) -> int:
         """Hash by (class name, pk value) so instances are usable in sets/dict keys."""
-        return hash((self.__class__.__name__, getattr(self, self._pk_attr, None)))
+        return hash((self.__class__.__name__, self.pk))
 
     # ── pk property ──────────────────────────────────────────────────
 
     @property
     def pk(self) -> Any:
-        """Shortcut for accessing the primary key value."""
+        """Shortcut for accessing the primary key value.
+
+        A composite primary key yields the tuple of its column values, in
+        declaration order.
+        """
+        if self._pk_composite is not None:
+            return tuple(getattr(self, attr, None) for attr in self._pk_composite)
         return getattr(self, self._pk_attr, None)
 
     @pk.setter
     def pk(self, value: Any) -> None:
-        """Set the primary key value."""
-        setattr(self, self._pk_attr, value)
+        """Set the primary key value.
+
+        A composite primary key accepts a sequence with one value per key
+        column, assigned in declaration order.
+        """
+        if self._pk_composite is not None:
+            if not isinstance(value, (tuple, list)) or len(value) != len(self._pk_composite):
+                raise QueryFault(
+                    model=self.__class__.__name__,
+                    operation="pk",
+                    reason=(
+                        f"Composite primary key expects a sequence of "
+                        f"{len(self._pk_composite)} values, got {value!r}"
+                    ),
+                )
+            for attr, part in zip(self._pk_composite, value, strict=True):
+                setattr(self, attr, part)
+        else:
+            setattr(self, self._pk_attr, value)
+
+    def _pk_identity(self) -> tuple[Any, ...] | None:
+        """Return the primary-key values as a tuple, or ``None`` if incomplete.
+
+        ``None`` means "no usable identity" -- an unset single key or a
+        composite key with at least one unset column -- which is what the
+        persistence paths (save/refresh/delete) treat as unsaved.
+        """
+        if self._pk_composite is None:
+            value = getattr(self, self._pk_attr, None)
+            return None if value is None else (value,)
+        values = tuple(getattr(self, attr, None) for attr in self._pk_composite)
+        if any(part is None for part in values):
+            return None
+        return values
+
+    def _pk_where(self, dialect: str) -> tuple[str, list[Any]]:
+        """Build the WHERE fragment and parameters locating this row by its key.
+
+        Returns:
+            ``(sql, params)`` -- e.g. ``('"id" = ?', [7])`` for a single key,
+            ``('"a" = ? AND "b" = ?', [1, 2])`` for a composite one.
+        """
+        if self._pk_composite is None:
+            field = self._fields[self._pk_attr]
+            return f'"{self._pk_name}" = ?', [field.to_db(getattr(self, self._pk_attr), dialect=dialect)]
+        clauses: list[str] = []
+        params: list[Any] = []
+        for attr in self._pk_composite:
+            field = self._fields[attr]
+            clauses.append(f'"{field.column_name}" = ?')
+            params.append(field.to_db(getattr(self, attr), dialect=dialect))
+        return " AND ".join(clauses), params
 
     # ── Class-level DB ───────────────────────────────────────────────
 
@@ -537,6 +596,12 @@ class Model(metaclass=ModelMeta):
         if isinstance(pk_field, (AutoField, BigAutoField)) and cursor.lastrowid:
             setattr(instance, cls._pk_attr, cursor.lastrowid)
 
+        # The instance now matches the database; snapshot it so a later
+        # save() takes the UPDATE path. Without this, create() followed by
+        # a modification and save() re-INSERTed the row and died on the
+        # primary-key unique constraint.
+        instance._snapshot_original()
+
         # Signal: post_save (created=True)
         await post_save.send(sender=cls, instance=instance, created=True)
 
@@ -558,6 +623,18 @@ class Model(metaclass=ModelMeta):
         dialect = getattr(db, "dialect", "sqlite")
 
         if pk is not None:
+            if cls._pk_composite is not None:
+                if not isinstance(pk, (tuple, list)) or len(pk) != len(cls._pk_composite):
+                    raise QueryFault(
+                        model=cls.__name__,
+                        operation="get",
+                        reason=(
+                            f"Composite primary key expects a sequence of "
+                            f"{len(cls._pk_composite)} values, got {pk!r}"
+                        ),
+                    )
+                filters = dict(zip(cls._pk_composite, pk, strict=True))
+                return await cls.get(**filters)
             pk_field = cls._fields.get(cls._pk_attr)
             db_pk = pk_field.to_db(pk, dialect=dialect) if pk_field is not None else pk
             sql = f'SELECT * FROM "{cls._table_name}" WHERE "{cls._pk_name}" = ?'
@@ -617,6 +694,14 @@ class Model(metaclass=ModelMeta):
         """
         Get an existing record matching ``lookup``, or create one if none exists.
 
+        Atomic when the lookup fields are covered by a unique constraint
+        (single-column or composite): the create is a single
+        ``INSERT ... ON CONFLICT DO NOTHING`` statement, so concurrent
+        callers cannot both create the row and cannot crash into a unique
+        violation. Lookups without a unique constraint fall back to
+        SELECT-then-INSERT, which races under concurrency by definition --
+        a ``RuntimeWarning`` is emitted for that case only.
+
         Args:
             defaults: Extra field values applied only when creating a new
                 record (merged on top of ``lookup``). Ignored if a matching
@@ -626,14 +711,7 @@ class Model(metaclass=ModelMeta):
 
         Returns:
             A ``(instance, created)`` tuple: ``created`` is ``True`` only
-            when a new record was inserted.
-
-        Caveat:
-            This is a plain SELECT-then-INSERT and is **not** atomic --
-            under concurrent access two callers can both miss the SELECT
-            and both attempt to INSERT, risking a duplicate or a unique
-            constraint violation. Use ``find_or_create()`` instead when you
-            need a race-free upsert backed by ``INSERT ... ON CONFLICT``.
+            when a new record was inserted by *this* call.
 
         Usage:
 
@@ -641,13 +719,18 @@ class Model(metaclass=ModelMeta):
                 email="alice@test.com", defaults={"name": "Alice"}
             )
         """
-        warnings.warn(
-            f"{cls.__name__}.get_or_create() is not atomic (SELECT-then-INSERT). "
-            f"Under concurrent access this can race. Use find_or_create() for a "
-            f"race-free INSERT ... ON CONFLICT upsert.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        if lookup and cls._validate_unique_constraint(set(lookup)):
+            return await cls.find_or_create(defaults=defaults, **lookup)
+
+        if lookup:
+            warnings.warn(
+                f"{cls.__name__}.get_or_create() lookup {sorted(lookup)} has no unique "
+                "constraint, so the fallback SELECT-then-INSERT is not atomic under "
+                "concurrent access. Add a unique constraint, or use lookup fields "
+                "covered by one.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         instance = await cls.get_or_none(**lookup)
         if instance is not None:
             return instance, False
@@ -661,6 +744,14 @@ class Model(metaclass=ModelMeta):
         """
         Update an existing record matching ``lookup``, or create one if none exists.
 
+        Atomic when the lookup fields are covered by a unique constraint:
+        creation goes through ``INSERT ... ON CONFLICT DO NOTHING``
+        (exactly one concurrent caller wins the insert) and the remaining
+        callers apply their ``defaults`` with an UPDATE filtered by
+        ``lookup`` -- under a race the result is still exactly one row and
+        no unique-violation fault. Lookups without a unique constraint fall
+        back to SELECT-then-UPDATE-or-INSERT with a ``RuntimeWarning``.
+
         Args:
 
             defaults: Field values to apply. If a record is found, these
@@ -673,13 +764,7 @@ class Model(metaclass=ModelMeta):
         Returns:
 
             A ``(instance, created)`` tuple: ``created`` is ``True`` only
-            when a new record was inserted.
-
-        Caveat:
-
-            Like ``get_or_create()``, this is SELECT-then-UPDATE-or-INSERT
-            and not atomic under concurrent access; prefer
-            ``find_or_create()`` when race-freedom matters.
+            when a new record was inserted by *this* call.
 
         Usage:
 
@@ -687,13 +772,29 @@ class Model(metaclass=ModelMeta):
                 email="alice@test.com", defaults={"name": "Alice 2"}
             )
         """
-        warnings.warn(
-            f"{cls.__name__}.update_or_create() is not atomic (SELECT-then-UPDATE-or-INSERT). "
-            f"Under concurrent access this can race. Use find_or_create() for a "
-            f"race-free INSERT ... ON CONFLICT upsert.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        if lookup and cls._validate_unique_constraint(set(lookup)):
+            # Race-free shape: attempt the insert first. The winner creates
+            # the row; every other caller (including a concurrent one that
+            # finds the row already there) takes the UPDATE path.
+            instance, created = await cls.find_or_create(defaults=defaults, **lookup)
+            if created:
+                return instance, True
+            update_data = defaults or {}
+            if update_data:
+                await cls.query().filter(**lookup).update(update_data)
+                for k, v in update_data.items():
+                    setattr(instance, k, v)
+            return instance, False
+
+        if lookup:
+            warnings.warn(
+                f"{cls.__name__}.update_or_create() lookup {sorted(lookup)} has no unique "
+                "constraint, so the fallback SELECT-then-UPDATE-or-INSERT is not atomic "
+                "under concurrent access. Add a unique constraint, or use lookup fields "
+                "covered by one.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         instance = await cls.get_or_none(**lookup)
         if instance is not None:
             # Update
@@ -887,10 +988,11 @@ class Model(metaclass=ModelMeta):
         cursor = await db.execute(sql, params)
 
         # ── Determine if insert succeeded ─────────────────────────────────
-        # For INSERT ON CONFLICT DO NOTHING / INSERT IGNORE:
-        # - lastrowid > 0 means insert succeeded (SQLite, MySQL)
-        # - lastrowid == 0 or rowcount == 0 means conflict (no insert)
-        was_created = bool(cursor.lastrowid)
+        # rowcount is the reliable signal: 1 when the INSERT added a row, 0
+        # when the conflict path skipped it. lastrowid goes stale on a
+        # reused connection (it keeps the id of the last *successful*
+        # insert), so it would report a conflicted insert as created.
+        was_created = bool(getattr(cursor, "rowcount", 0))
 
         if was_created:
             pk_field = cls._fields[cls._pk_attr]
@@ -1289,9 +1391,10 @@ class Model(metaclass=ModelMeta):
                 reason="Cannot use force_insert and force_update together",
             )
 
-        pk_val = getattr(self, self._pk_attr, None)
+        pk_val = self.pk
+        pk_identity = self._pk_identity()
 
-        if force_update and pk_val is None:
+        if force_update and pk_identity is None:
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="save",
@@ -1301,7 +1404,7 @@ class Model(metaclass=ModelMeta):
         db = self._get_db()
         dialect = getattr(db, "dialect", "sqlite")
         is_create = (
-            pk_val is None or getattr(self, "_original_values", None) is None or force_insert
+            pk_identity is None or getattr(self, "_original_values", None) is None or force_insert
         ) and not force_update
 
         # Optional validation
@@ -1321,14 +1424,18 @@ class Model(metaclass=ModelMeta):
                 target_fields = (
                     list(dirty.keys())
                     if dirty
-                    else [attr for attr in self._attr_names if not self._fields[attr].primary_key]
+                    else [
+                        attr
+                        for attr in self._attr_names
+                        if not self._fields[attr].primary_key and attr not in (self._pk_composite or ())
+                    ]
                 )
 
             for attr_name in target_fields:
                 upd_field = self._fields.get(attr_name)
                 if upd_field is None or isinstance(upd_field, ManyToManyField):
                     continue
-                if upd_field.primary_key:
+                if upd_field.primary_key or attr_name in (self._pk_composite or ()):
                     continue
                 value = getattr(self, attr_name, None)
                 if hasattr(upd_field, "pre_save"):
@@ -1341,9 +1448,8 @@ class Model(metaclass=ModelMeta):
 
             if data:
                 update_builder = UpdateBuilder(self._table_name).set_dict(data)
-                pk_field = self._fields[self._pk_attr]
-                db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
-                update_builder.where(f'"{self._pk_name}" = ?', db_pk_val)
+                where_sql, where_params = self._pk_where(dialect)
+                update_builder.where(where_sql, *where_params)
                 sql, params = update_builder.build()
                 await db.execute(sql, params)
 
@@ -1504,8 +1610,9 @@ class Model(metaclass=ModelMeta):
         - PROTECT: raise ProtectedError if references exist
         - RESTRICT: raise RestrictedError if references exist
         """
-        pk_val = getattr(self, self._pk_attr)
-        if pk_val is None:
+        pk_val = self.pk
+        pk_identity = self._pk_identity()
+        if pk_identity is None:
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="delete",
@@ -1517,8 +1624,6 @@ class Model(metaclass=ModelMeta):
 
         db = self._get_db()
         dialect = getattr(db, "dialect", "sqlite")
-        pk_field = self._fields[self._pk_attr]
-        db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
 
         # Cascade handling (potentially several statements across related
         # tables) plus the final delete must be one atomic unit -- otherwise
@@ -1527,13 +1632,25 @@ class Model(metaclass=ModelMeta):
         real_db = getattr(db, "_wrapped_db", db)
         async with real_db.transaction():
             # Handle on_delete for models that FK to us (cached lookup)
-            for model_cls, col_name, on_delete_action in self._get_reverse_fk_refs():
+            reverse_refs = self._get_reverse_fk_refs()
+            if reverse_refs and self._pk_composite is not None:
+                raise QueryFault(
+                    model=self.__class__.__name__,
+                    operation="delete",
+                    reason=(
+                        "Composite primary keys cannot be referenced by single-column "
+                        "foreign keys; remove the referencing ForeignKey or use a "
+                        "surrogate key"
+                    ),
+                )
+            for model_cls, col_name, on_delete_action in reverse_refs:
                 handler = OnDeleteHandler(on_delete_action)
-                await handler.handle(db, model_cls, col_name, db_pk_val)
+                await handler.handle(db, model_cls, col_name, pk_identity[0] if len(pk_identity) == 1 else pk_val)
 
             # Delete this instance using DeleteBuilder
             builder = DeleteBuilder(self._table_name)
-            builder.where(f'"{self._pk_name}" = ?', db_pk_val)
+            where_sql, where_params = self._pk_where(dialect)
+            builder.where(where_sql, *where_params)
             sql, params = builder.build()
             cursor = await db.execute(sql, params)
             row_count = int(cursor.rowcount or 0)
@@ -1611,8 +1728,8 @@ class Model(metaclass=ModelMeta):
             QueryFault: If the instance has no PK (unsaved) or field is unknown.
             ModelNotFoundFault: If the record no longer exists in the database.
         """
-        pk_val = getattr(self, self._pk_attr)
-        if pk_val is None:
+        pk_val = self.pk
+        if self._pk_identity() is None:
             raise QueryFault(
                 model=self.__class__.__name__,
                 operation="refresh",
@@ -1632,12 +1749,11 @@ class Model(metaclass=ModelMeta):
                     )
                 cols.append(field.column_name)
             col_sql = ", ".join(f'"{c}"' for c in cols)
-            sql = f'SELECT {col_sql} FROM "{self._table_name}" WHERE "{self._pk_name}" = ?'
             db = self._get_db()
             dialect = getattr(db, "dialect", "sqlite")
-            pk_field = self._fields[self._pk_attr]
-            db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
-            rows = await db.fetch_all(sql, [db_pk_val])
+            where_sql, where_params = self._pk_where(dialect)
+            sql = f'SELECT {col_sql} FROM "{self._table_name}" WHERE {where_sql}'
+            rows = await db.fetch_all(sql, where_params)
             if not rows:
                 raise ModelNotFoundFault(model_name=self.__class__.__name__)
             row = rows[0]
@@ -2140,6 +2256,12 @@ class Model(metaclass=ModelMeta):
             col_def = field.sql_column_def(dialect)
             if col_def:
                 builder.column(col_def)
+
+        # Meta.primary_key -- a composite primary key is a table-level
+        # constraint; there is no inline form for a multi-column key.
+        if cls._pk_composite is not None:
+            key_cols = ", ".join(f'"{cls._fields[attr].column_name}"' for attr in cls._pk_composite)
+            builder.constraint(f"PRIMARY KEY ({key_cols})")
 
         # unique_together constraints
         for ut in cls._meta.unique_together:

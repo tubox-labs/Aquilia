@@ -12,6 +12,7 @@ in Python.
 
 from __future__ import annotations
 
+import atexit
 from typing import Any
 
 from aquilia._dataengine_loader import DATAENGINE_NATIVE, native_module
@@ -30,6 +31,16 @@ _PLAN_CACHE: dict[tuple, Any] = {}
 def plan_cache_size() -> int:
     """Distinct (model, row shape) pairs analysed. Used by the cache-bound test."""
     return len(_PLAN_CACHE)
+
+
+def _clear_plan_cache() -> None:
+    """Drop cached native plans at interpreter shutdown.
+
+    The plans hold nanobind objects; leaving them referenced past
+    interpreter finalization makes nanobind report "leaked function"
+    warnings at exit. Purely teardown hygiene -- no runtime effect.
+    """
+    _PLAN_CACHE.clear()
 
 
 def _field_type_code(field: Any, tc: Any) -> int | None:
@@ -207,3 +218,5 @@ def row_plan_for(model_cls: type, row_keys: tuple[str, ...]) -> Any:
 
     _PLAN_CACHE[cache_key] = plan
     return plan
+
+atexit.register(_clear_plan_cache)

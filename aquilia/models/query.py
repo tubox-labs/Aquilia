@@ -590,6 +590,13 @@ class Q(Generic[TModel]):
 
         field = self._model_cls._fields.get(base_key) if hasattr(self._model_cls, "_fields") else None
         if field is None:
+            # A foreign key is filtered by its column name (``user_id=``)
+            # while ``_fields`` is keyed by the relation attribute
+            # (``user``); resolve through the column map.
+            mapped = getattr(self._model_cls, "_col_to_attr", {}).get(base_key)
+            if mapped is not None:
+                field = mapped[1]
+        if field is None:
             return value
 
         dialect = self._get_dialect()
