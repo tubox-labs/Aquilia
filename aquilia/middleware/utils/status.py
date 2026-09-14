@@ -16,13 +16,58 @@ from typing import Any
 
 # Faults meaning "we do not know who you are" — 401, not the 403 the SECURITY
 # domain would otherwise produce. Authorization failures (authenticated but not
-# permitted) keep 403.
+# permitted) keep 403. All AUTH_0xx authentication codes (bad credentials,
+# invalid/expired/revoked tokens, MFA challenges, locked accounts, OAuth
+# client/grant failures) mean the caller did not prove an identity → 401
+# (RFC 9110 §15.5.2). AUTH_1xx (password policy) and AUTH_4xx (MFA enrolment)
+# are request-body problems → 400; AUTH_009/AUTH_304 carry Retry-After
+# semantics → 429.
 UNAUTHENTICATED_CODES: frozenset[str] = frozenset(
     {
+        "AUTH_001",  # AUTH_INVALID_CREDENTIALS
+        "AUTH_002",  # AUTH_TOKEN_INVALID
+        "AUTH_003",  # AUTH_TOKEN_EXPIRED
+        "AUTH_004",  # AUTH_TOKEN_REVOKED
+        "AUTH_005",  # AUTH_MFA_REQUIRED (identity not yet proven)
+        "AUTH_006",  # AUTH_MFA_INVALID
+        "AUTH_007",  # AUTH_ACCOUNT_SUSPENDED
         "AUTH_010",  # AUTH_REQUIRED
+        "AUTH_011",  # AUTH_CLIENT_INVALID
+        "AUTH_012",  # AUTH_GRANT_INVALID
+        "AUTH_013",  # AUTH_REDIRECT_URI_MISMATCH
+        "AUTH_014",  # AUTH_SCOPE_INVALID
+        "AUTH_015",  # AUTH_PKCE_INVALID
+        "AUTH_201",  # AUTH_SESSION_REQUIRED
+        "AUTH_202",  # AUTH_SESSION_INVALID
+        "AUTH_203",  # AUTH_SESSION_HIJACK_DETECTED
+        "AUTH_301",  # AUTH_CONSENT_REQUIRED (OAuth identity not yet granted)
+        "AUTH_302",  # AUTH_DEVICE_CODE_PENDING
+        "AUTH_303",  # AUTH_DEVICE_CODE_EXPIRED
         "AUTHENTICATION_REQUIRED",  # AuthenticationRequiredFault / session decorators
         "SESSION_REQUIRED",  # SessionRequiredFault
         "INVALID_CREDENTIALS",  # Auth module login failure
+    }
+)
+
+#: Rate-limit-style auth faults — the caller must slow down (429), not
+#: re-authenticate. ``retry_after`` on the fault carries the window.
+AUTH_RATE_LIMIT_CODES: frozenset[str] = frozenset(
+    {
+        "AUTH_008",  # AUTH_ACCOUNT_LOCKED
+        "AUTH_009",  # AUTH_RATE_LIMITED
+        "AUTH_304",  # AUTH_SLOW_DOWN
+    }
+)
+
+#: Request-payload auth faults — the submitted credential/consent data is
+#: malformed per policy; re-submitting the same value cannot succeed.
+AUTH_BAD_REQUEST_CODES: frozenset[str] = frozenset(
+    {
+        "AUTH_101",  # AUTH_PASSWORD_WEAK
+        "AUTH_102",  # AUTH_PASSWORD_BREACHED
+        "AUTH_103",  # AUTH_PASSWORD_REUSED
+        "AUTH_401",  # AUTH_MFA_NOT_ENROLLED
+        "AUTH_402",  # AUTH_MFA_ALREADY_ENROLLED
     }
 )
 
@@ -72,7 +117,7 @@ def fault_to_status(fault: Any) -> int:
     Resolution order, most specific first:
 
     1. Explicit ``status`` attribute (``HTTPFault``).
-    2. Known authentication / conflict codes.
+    2. Known authentication / rate-limit / bad-request / conflict codes.
     3. Code-substring heuristics (``NOT_FOUND``/``MISSING`` → 404,
        ``VALIDATION``/``INVALID`` → 400).
     4. The ``auth`` domain → 401.
@@ -87,6 +132,10 @@ def fault_to_status(fault: Any) -> int:
         code = str(code)
         if code in UNAUTHENTICATED_CODES:
             return 401
+        if code in AUTH_RATE_LIMIT_CODES:
+            return 429
+        if code in AUTH_BAD_REQUEST_CODES:
+            return 400
         if code in CONFLICT_CODES:
             return 409
         if "NOT_FOUND" in code or "MISSING" in code:
@@ -104,6 +153,8 @@ __all__ = [
     "fault_to_status",
     "DOMAIN_STATUS",
     "UNAUTHENTICATED_CODES",
+    "AUTH_RATE_LIMIT_CODES",
+    "AUTH_BAD_REQUEST_CODES",
     "CONFLICT_CODES",
     "DEFAULT_STATUS",
 ]

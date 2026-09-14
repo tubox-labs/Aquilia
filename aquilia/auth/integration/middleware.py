@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from aquilia.auth.backends.base import resolve_backend
-from aquilia.auth.core import Identity
+from aquilia.auth.core import Authentication, Identity
 from aquilia.auth.faults import AUTH_REQUIRED
 from aquilia.auth.integration.aquila_sessions import SessionAuthBridge, bind_identity, bind_token_claims
 from aquilia.auth.integration.runtime_context import (
@@ -29,6 +29,7 @@ from aquilia.auth.integration.runtime_context import (
     set_auth_runtime_context,
 )
 from aquilia.auth.manager import AuthManager
+from aquilia.auth.state import AuthState, apply_auth_state_views, route_is_public
 from aquilia.di import Container
 from aquilia.di.providers import ValueProvider
 from aquilia.faults import Fault, FaultDomain, FaultEngine
@@ -36,7 +37,7 @@ from aquilia.middleware.core.base import Middleware
 from aquilia.middleware.core.types import Handler
 from aquilia.request import Request
 from aquilia.response import Response
-from aquilia.sessions import Session, SessionEngine
+from aquilia.sessions import SessionEngine
 
 if TYPE_CHECKING:
     from aquilia.auth.backends import AuthBackend
@@ -52,18 +53,46 @@ class AquilAuthMiddleware(Middleware):
     """
     Unified middleware for Auth + Sessions + DI integration.
 
-    This middleware:
-    1. Resolves session from SessionEngine
-    2. Extracts auth data from session or token
-    3. Injects identity into DI container
-    4. Handles authentication errors with FaultEngine
-    5. Commits session changes on response
+    Architecture (v2 — *authenticate, then enforce*):
+
+    **Phase 1 — resolve session** (when a SessionEngine is mounted).
+
+    **Phase 2 — optional authentication** through the configured strategies.
+    Authentication **never raises here**: a failed credential is recorded on
+    the canonical :class:`~aquilia.auth.state.AuthState` and the request
+    stays anonymous. This is what makes public routes tolerant — an invalid
+    or expired Bearer token on a ``@Public()`` route degrades to anonymous
+    instead of rejecting the request (the passport-jwt ``@Public()``
+    semantics).
+
+    **Phase 3 — principal materialization**: the ``principal_factory``
+    (``Auth.principal_factory`` dotted path) maps ``(identity, claims)`` to
+    an application-defined principal, carried on ``auth_state.principal``
+    and registered in the request DI container.
+
+    **Phase 4 — canonical state propagation**: one write point
+    (:func:`aquilia.auth.state.apply_auth_state_views`) sets every legacy
+    mirror (``request.state["identity"|"authenticated"|"principal"|
+    "token_claims"]``, ``ctx.identity``, ``ctx.auth_state``, the request-scoped
+    ``Identity``/principal DI registrations).
+
+    **Phase 5 — enforcement**: only now. The global ``require_auth`` flag
+    rejects unauthenticated requests — *unless the matched route is*
+    ``@Public()`` — by raising a fault, so the ExceptionMiddleware renders it
+    through the application's configured ``error_renderer`` (auth errors use
+    the same pluggable error contract as every other fault). A recorded
+    resolution error is re-raised in preference to the generic
+    ``AUTH_REQUIRED`` so protected routes keep precise 401s.
+
+    **Phase 6 — handler** → **Phase 7 — session commit** (privilege-change
+    aware).
 
     Order in middleware stack:
     1. RequestScopeMiddleware (creates DI container)
-    2. FaultHandlerMiddleware (fault handling)
+    2. FaultHandlerMiddleware / ExceptionMiddleware (fault handling — OUTSIDE
+       auth, so faults raised here are rendered with the app's error contract)
     3. AquilAuthMiddleware (this one)
-    4. Application handlers
+    4. Guard pipeline (engine) + application handlers
     """
 
     def __init__(
@@ -74,6 +103,7 @@ class AquilAuthMiddleware(Middleware):
         require_auth: bool = False,
         backends: list[AuthBackend] | None = None,
         logger: logging.Logger | None = None,
+        principal_factory: Any = None,
     ):
         """
         Initialize unified auth middleware.
@@ -82,25 +112,23 @@ class AquilAuthMiddleware(Middleware):
             session_engine: Optional Aquilia SessionEngine instance.
             auth_manager: AquilAuth AuthManager instance.
             fault_engine: Optional FaultEngine for error handling.
-            require_auth: If True, require authentication for all routes.
-            backends: Ordered list of active backends.
+            require_auth: If True, require authentication for all routes
+                (routes marked ``@Public()`` are exempt).
+            backends: Ordered list of active backends (strategy names,
+                dotted paths, classes, or instances).
             logger: Optional logger instance.
+            principal_factory: Optional ``callable(identity, claims) ->
+                principal`` producing the application-defined principal.
         """
         self.session_engine = session_engine
         self.auth_manager = auth_manager
         self.session_bridge = SessionAuthBridge(session_engine) if session_engine is not None else None
         self.fault_engine = fault_engine
         self.require_auth = require_auth
+        self.principal_factory = principal_factory
         self.logger = logger or logging.getLogger("aquilia.auth.middleware")
 
-        _backends = (
-            backends
-            if backends is not None
-            else [
-                "aquilia.auth.backends.TokenBackend",
-                "aquilia.auth.backends.SessionBackend",
-            ]
-        )
+        _backends = backends if backends is not None else ["token", "session"]
 
         resolved_backends = [resolve_backend(b, auth_manager) for b in _backends]
 
@@ -116,30 +144,17 @@ class AquilAuthMiddleware(Middleware):
         ctx: RequestCtx,
         next: Handler,
     ) -> Response:
-        """
-        Process request through auth pipeline.
-
-        Args:
-            request: Incoming request
-            ctx: Request context (DI container)
-            next: Next handler in chain
-
-        Returns:
-            Response from handler
-        """
-        # Get DI container from context
+        """Process request through the auth pipeline."""
         container = getattr(ctx, "container", None)
 
         # Phase 1: Resolve session if session engine is available
         session = None
         if self.session_engine is not None:
             session = await self.session_engine.resolve(request, container)
-
-            # Store session in request state
             request.state["session"] = session
-
-            # Also set on ctx for template rendering
             ctx.session = session
+
+        auth_state = AuthState(session=session)
 
         auth_context = _RequestAuthContext(
             manager=self.auth_manager,
@@ -159,7 +174,7 @@ class AquilAuthMiddleware(Middleware):
         runtime_token = set_auth_runtime_context(runtime_context)
 
         try:
-            # Phase 2: Resolve identity
+            # Phase 2: Optional authentication — never raises.
             credentials: dict[str, Any] = {}
             auth_header = request.header("authorization")
             token = None
@@ -174,98 +189,135 @@ class AquilAuthMiddleware(Middleware):
             if session is not None:
                 credentials["session"] = session
 
-            identity = None
             for backend in self.backends:
-                if backend.accepts(credentials):
-                    try:
-                        identity = await backend.authenticate(credentials)
-                        if identity is not None:
-                            # Sync identity to session if using TokenBackend and session exists
-                            if (
-                                backend.__class__.__name__ == "TokenBackend"
-                                and session is not None
-                                and token is not None
-                            ):
-                                bind_identity(session, identity)
-                                claims = await self.auth_manager.verify_token(token)
-                                if claims:
-                                    bind_token_claims(session, claims)
-                            break
-                    except Exception as e:
-                        if hasattr(e, "code") and str(e.code).startswith("AUTH"):
-                            raise
-                        self.logger.warning(f"Backend {backend.__class__.__name__} failed authentication: {e}")
-
-            # Phase 3: Check authentication requirement
-            if self.require_auth and not identity:
-                # No identity and auth required
-                response = self._handle_auth_required()
-                runtime_context.response = response
-                if self.session_engine is not None and session is not None:
-                    await self.session_engine.commit(session, response)
-                return response
-
-            initial_auth_state = session.is_authenticated if session is not None else False
-
-            # Phase 4: Inject identity into request and DI
-            request.state["identity"] = identity
-            request.state["authenticated"] = identity is not None
-
-            # Also set on ctx for template rendering
-            ctx.identity = identity
-            runtime_context.identity = identity
-
-            if container and identity:
-                # Register identity in DI container for injection
-                if not container.is_registered(Identity):
-                    await container.register_instance(
-                        Identity,
-                        identity,
-                        scope="request",
+                if not backend.accepts(credentials):
+                    continue
+                try:
+                    result = await backend.authenticate(credentials)
+                except Exception as e:
+                    if hasattr(e, "code") and str(e.code).startswith("AUTH"):
+                        # Record — do NOT raise. Enforcement (global flag or
+                        # guard) decides whether this matters for the route;
+                        # public/optional routes degrade to anonymous.
+                        if auth_state.error is None:
+                            auth_state.error = e
+                        self.logger.debug(
+                            "auth: strategy %s rejected credential (%s)",
+                            backend.__class__.__name__,
+                            getattr(e, "code", e),
+                        )
+                        continue
+                    self.logger.warning(
+                        "Backend %s failed authentication: %s", backend.__class__.__name__, e
                     )
+                    continue
 
-            # Phase 5: Execute handler
+                if result is None:
+                    continue
+
+                # Unpack: Authentication (rich) or bare Identity (legacy).
+                if isinstance(result, Authentication):
+                    auth_state.identity = result.identity
+                    auth_state.claims = result.claims
+                    auth_state.principal = result.principal
+                else:
+                    auth_state.identity = result
+                auth_state.strategy = backend.__class__.__name__
+
+                # Sync identity to session if a token authenticated and a
+                # session exists (legacy behavior preserved). Claims arrive
+                # as a raw dict (token strategies) or a TokenClaims object —
+                # normalize before the attribute-reading binder.
+                if (
+                    backend.__class__.__name__ in ("TokenBackend", "StatelessTokenBackend")
+                    and session is not None
+                    and token is not None
+                ):
+                    bind_identity(session, auth_state.identity)
+                    try:
+                        claims_obj = auth_state.claims
+                        if isinstance(claims_obj, dict):
+                            from aquilia.auth.core import TokenClaims
+
+                            claims_obj = TokenClaims.from_dict(claims_obj)
+                        elif claims_obj is None:
+                            claims_obj = await self.auth_manager.verify_token(token)
+                        if claims_obj is not None:
+                            bind_token_claims(session, claims_obj)
+                    except Exception as e:
+                        # Session claims binding is best-effort; a malformed
+                        # claims payload must not fail an authenticated request.
+                        self.logger.debug("auth: session claims binding skipped (%s)", e)
+                break
+
+            # Phase 3: Application principal factory.
+            if (
+                auth_state.principal is None
+                and self.principal_factory is not None
+                and auth_state.identity is not None
+            ):
+                try:
+                    auth_state.principal = self.principal_factory(auth_state.identity, auth_state.claims)
+                except Exception as e:
+                    self.logger.error("principal_factory raised; continuing without principal: %s", e)
+
+            # Phase 4: Canonical state propagation (single write point for
+            # every legacy mirror).
+            initial_auth_state = session.is_authenticated if session is not None else False
+            apply_auth_state_views(auth_state, request, ctx)
+            runtime_context.identity = auth_state.identity
+
+            if container is not None:
+                if auth_state.identity is not None and not container.is_registered(Identity):
+                    await container.register_instance(Identity, auth_state.identity, scope="request")
+                principal = auth_state.principal
+                if principal is not None:
+                    principal_type = type(principal)
+                    if not container.is_registered(principal_type):
+                        await container.register_instance(principal_type, principal, scope="request")
+
+            # Phase 5: Enforcement. Faults propagate to the ExceptionMiddleware,
+            # which renders them through the configured error_renderer.
+            is_public = route_is_public(request)
+            if self.require_auth and not is_public and not auth_state.authenticated:
+                denial = auth_state.error or AUTH_REQUIRED()
+                # Commit the session before denying: rejected requests may
+                # still have mutated session state (e.g. attempt counters,
+                # the very first anonymous session's cookie) that must reach
+                # the client. The rendered error response carries the
+                # session headers via the fault's metadata.
+                if self.session_engine is not None and session is not None:
+                    try:
+                        commit_target = Response(status=401)
+                        privilege_changed = session.is_authenticated != initial_auth_state
+                        await self.session_engine.commit(session, commit_target, privilege_changed=privilege_changed)
+                        set_cookies = [v for k, v in commit_target.headers.items() if k.lower() == "set-cookie"]
+                        if set_cookies:
+                            existing = getattr(denial, "metadata", {}).get("headers", {})
+                            existing.update({"Set-Cookie": ", ".join(set_cookies)})
+                            denial.metadata["headers"] = existing
+                    except Exception:
+                        self.logger.debug("auth: session commit during denial failed", exc_info=True)
+                raise denial
+
+            # Phase 6: Execute handler
             try:
                 response = await next(request, ctx)
             except Exception:
                 # Let all exceptions propagate to ExceptionMiddleware
                 # which properly maps Faults to HTTP status codes.
-                # The fault_engine is used for auth-specific operations
-                # (e.g., _handle_auth_required) not for general exception handling.
                 raise
 
             runtime_context.response = response
 
-            # Phase 6: Commit session
+            # Phase 7: Commit session
             if self.session_engine is not None and session is not None:
-                # Check if privilege changed (transitioned from anonymous to authenticated or vice versa)
                 privilege_changed = session.is_authenticated != initial_auth_state
                 await self.session_engine.commit(session, response, privilege_changed=privilege_changed)
 
             return response
         finally:
             reset_auth_runtime_context(runtime_token)
-
-    def _handle_auth_required(self) -> Response:
-        """Create response for missing authentication."""
-        if self.fault_engine:
-            fault = AUTH_REQUIRED()
-            # Convert to response
-            return Response.json(
-                {
-                    "error": {
-                        "code": fault.error_code,
-                        "message": fault.public_message,
-                        "retryable": fault.retryable,
-                    }
-                },
-                status=401,
-            )
-        else:
-            return Response.json(
-                {"error": "Authentication required"},
-                status=401,
-            )
 
     def _fault_to_response(self, fault_result: Any) -> Response:
         """Convert fault result to HTTP response."""
@@ -386,64 +438,47 @@ class OptionalAuthMiddleware(AquilAuthMiddleware):
 # ============================================================================
 
 
-class SessionMiddleware(Middleware):
+def _canonical_session_middleware() -> type[Middleware]:
+    from aquilia.middleware.builtin.session import SessionMiddleware as _Builtin
+
+    return _Builtin
+
+
+class SessionMiddleware(_canonical_session_middleware()):  # type: ignore[misc, valid-type]
     """
     Session-only middleware without authentication.
 
-    Use this for applications that need sessions but not auth.
+    .. deprecated::
+        This class was a fourth, weaker reimplementation of the session
+        request lifecycle (no privilege-change tracking, sync DI
+        registration) and was never mounted by the server. Use
+        :class:`aquilia.middleware.builtin.session.SessionMiddleware` — the
+        one canonical session middleware — instead. This alias is kept so
+        existing imports keep working and will be removed in a future
+        release.
     """
 
-    def __init__(
-        self,
-        session_engine: SessionEngine,
-        logger: logging.Logger | None = None,
-    ):
-        """
-        Initialize session middleware.
+    def __init__(self, session_engine: SessionEngine | None = None, logger: logging.Logger | None = None):
+        import warnings
 
-        Args:
-            session_engine: Aquilia SessionEngine
-            logger: Optional logger
-        """
-        self.session_engine = session_engine
-        self.logger = logger or logging.getLogger("aquilia.sessions.middleware")
+        warnings.warn(
+            "aquilia.auth.integration.middleware.SessionMiddleware is deprecated; "
+            "use aquilia.middleware.builtin.session.SessionMiddleware instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(session_engine)
+        if logger is not None:
+            self.logger = logger
 
-    async def __call__(
-        self,
-        request: Request,
-        ctx: RequestCtx,
-        next: Handler,
-    ) -> Response:
-        """Process request with session management."""
-        # Get DI container
-        container = getattr(ctx, "container", None)
+    @property
+    def session_engine(self) -> SessionEngine | None:
+        """Historical attribute name (the canonical one is ``engine``)."""
+        return self.engine
 
-        # Resolve session
-        session = await self.session_engine.resolve(request, container)
-
-        # Store in request state
-        request.state["session"] = session
-
-        # Also set on ctx for template rendering
-        ctx.session = session
-
-        # Register in DI if available
-        if container:
-            container.register(
-                ValueProvider(
-                    value=session,
-                    token=Session,
-                    scope="request",
-                )
-            )
-
-        # Execute handler
-        response = await next(request, ctx)
-
-        # Commit session
-        await self.session_engine.commit(session, response)
-
-        return response
+    @session_engine.setter
+    def session_engine(self, value: SessionEngine | None) -> None:
+        self.engine = value
 
 
 # ============================================================================

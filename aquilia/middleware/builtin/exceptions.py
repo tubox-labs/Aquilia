@@ -184,31 +184,43 @@ class ExceptionMiddleware(Middleware):
         self._log(status, f"Fault {exc.code}: {exc.message}")
 
         if wants_html(request):
-            return self._render_html(exc, request, status, str(exc.code), message)
+            response = self._render_html(exc, request, status, str(exc.code), message)
+        else:
+            error: dict = {
+                "code": exc.code,
+                "message": message,
+                "domain": exc.domain.value if isinstance(exc.domain, FaultDomain) else str(exc.domain),
+            }
 
-        error: dict = {
-            "code": exc.code,
-            "message": message,
-            "domain": exc.domain.value if isinstance(exc.domain, FaultDomain) else str(exc.domain),
-        }
+            # Safe metadata for client-visible faults: always on 4xx, plus debug
+            # mode for diagnosis. Keys prefixed with "_" are internal and never sent.
+            metadata = getattr(exc, "metadata", None)
+            if isinstance(metadata, dict) and (status < 500 or self.debug):
+                public = {k: v for k, v in metadata.items() if not str(k).startswith("_") and k != "headers"}
+                if public:
+                    error["metadata"] = public
 
-        # Safe metadata for client-visible faults: always on 4xx, plus debug
-        # mode for diagnosis. Keys prefixed with "_" are internal and never sent.
-        metadata = getattr(exc, "metadata", None)
-        if isinstance(metadata, dict) and (status < 500 or self.debug):
-            public = {k: v for k, v in metadata.items() if not str(k).startswith("_")}
-            if public:
-                error["metadata"] = public
+            # BP200 is the Contract validation fault; its per-field details are the
+            # entire point of the response.
+            if exc.code == "BP200" and metadata:
+                details = metadata.get("details")
+                if details:
+                    error["details"] = details
 
-        # BP200 is the Contract validation fault; its per-field details are the
-        # entire point of the response.
-        if exc.code == "BP200" and metadata:
-            details = metadata.get("details")
-            if details:
-                error["details"] = details
+            body = self._render_json_body(exc, status, request, {"error": error})
+            response = Response.json(body, status=status)
 
-        body = self._render_json_body(exc, status, request, {"error": error})
-        return Response.json(body, status=status)
+        # Faults may carry response headers in metadata (e.g. the auth
+        # middleware attaches the session's Set-Cookie to a 401 denial so
+        # rejected requests still establish/rotate their session cookie).
+        extra_headers = {}
+        if isinstance(getattr(exc, "metadata", None), dict):
+            headers_meta = exc.metadata.get("headers", {})
+            if isinstance(headers_meta, dict):
+                extra_headers = {str(k): str(v) for k, v in headers_meta.items()}
+        for key, value in extra_headers.items():
+            response.headers[key] = value
+        return response
 
     def _handle_unexpected(self, exc: Exception, request: Request) -> Response:
         from aquilia.response import Response

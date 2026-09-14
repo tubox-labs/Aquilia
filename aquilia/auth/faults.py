@@ -15,6 +15,7 @@ class AUTH_INVALID_CREDENTIALS(Fault):
     """Invalid username or password."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_001"
     severity = Severity.WARN
     message = "Invalid credentials"
@@ -31,6 +32,7 @@ class AUTH_TOKEN_INVALID(Fault):
     """Invalid or malformed token."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_002"
     severity = Severity.WARN
     message = "Invalid token"
@@ -42,6 +44,7 @@ class AUTH_TOKEN_EXPIRED(Fault):
     """Access token has expired."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_003"
     severity = Severity.WARN
     message = "Token expired"
@@ -53,6 +56,7 @@ class AUTH_TOKEN_REVOKED(Fault):
     """Token has been revoked."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_004"
     severity = Severity.WARN
     message = "Token revoked"
@@ -64,6 +68,7 @@ class AUTH_MFA_REQUIRED(Fault):
     """Multi-factor authentication required."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_005"
     severity = Severity.WARN
     message = "MFA required"
@@ -75,6 +80,7 @@ class AUTH_MFA_INVALID(Fault):
     """Invalid MFA code."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_006"
     severity = Severity.WARN
     message = "Invalid MFA code"
@@ -86,6 +92,7 @@ class AUTH_ACCOUNT_SUSPENDED(Fault):
     """Account is suspended."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_007"
     severity = Severity.ERROR
     message = "Account suspended"
@@ -97,6 +104,7 @@ class AUTH_ACCOUNT_LOCKED(Fault):
     """Account is locked due to failed login attempts."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_008"
     severity = Severity.WARN
     message = "Account locked"
@@ -109,6 +117,7 @@ class AUTH_RATE_LIMITED(Fault):
     """Too many authentication attempts."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_009"
     severity = Severity.WARN
     message = "Rate limit exceeded"
@@ -121,6 +130,7 @@ class AUTH_REQUIRED(Fault):
     """Authentication required but not provided."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_010"
     severity = Severity.WARN
     message = "Authentication required"
@@ -132,6 +142,7 @@ class AUTH_CLIENT_INVALID(Fault):
     """Invalid OAuth client credentials."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_011"
     severity = Severity.WARN
     message = "Invalid client"
@@ -143,6 +154,7 @@ class AUTH_GRANT_INVALID(Fault):
     """Invalid OAuth grant (code, refresh token, etc.)."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_012"
     severity = Severity.WARN
     message = "Invalid grant"
@@ -154,6 +166,7 @@ class AUTH_REDIRECT_URI_MISMATCH(Fault):
     """OAuth redirect URI doesn't match registered URI."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_013"
     severity = Severity.WARN
     message = "Redirect URI mismatch"
@@ -165,6 +178,7 @@ class AUTH_SCOPE_INVALID(Fault):
     """Requested scope is invalid or not allowed."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_014"
     severity = Severity.WARN
     message = "Invalid scope"
@@ -176,6 +190,7 @@ class AUTH_PKCE_INVALID(Fault):
     """PKCE code verifier doesn't match challenge."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_015"
     severity = Severity.ERROR
     message = "PKCE verification failed"
@@ -192,6 +207,7 @@ class AUTHZ_POLICY_DENIED(Fault):
     """Authorization policy denied access."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTHZ_001"
     severity = Severity.WARN
     message = "Access denied by policy"
@@ -210,6 +226,7 @@ class AUTHZ_INSUFFICIENT_SCOPE(Fault):
     """Token missing required scopes."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTHZ_002"
     severity = Severity.WARN
     message = "Insufficient scope"
@@ -226,6 +243,7 @@ class AUTHZ_INSUFFICIENT_ROLE(Fault):
     """Identity missing required role."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTHZ_003"
     severity = Severity.WARN
     message = "Insufficient role"
@@ -242,6 +260,7 @@ class AUTHZ_RESOURCE_FORBIDDEN(Fault):
     """Access to resource is forbidden."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTHZ_004"
     severity = Severity.WARN
     message = "Resource forbidden"
@@ -253,6 +272,7 @@ class AUTHZ_TENANT_MISMATCH(Fault):
     """Identity tenant doesn't match resource tenant."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTHZ_005"
     severity = Severity.ERROR
     message = "Tenant mismatch"
@@ -269,6 +289,7 @@ class AUTH_PASSWORD_WEAK(Fault):
     """Password doesn't meet policy requirements."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_101"
     severity = Severity.WARN
     message = "Weak password"
@@ -285,6 +306,7 @@ class AUTH_PASSWORD_BREACHED(Fault):
     """Password found in breach database."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_102"
     severity = Severity.WARN
     message = "Breached password"
@@ -296,6 +318,7 @@ class AUTH_PASSWORD_REUSED(Fault):
     """Password was recently used."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_103"
     severity = Severity.WARN
     message = "Password reused"
@@ -307,6 +330,7 @@ class AUTH_KEY_EXPIRED(Fault):
     """API key has expired."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_104"
     severity = Severity.WARN
     message = "API key expired"
@@ -318,6 +342,7 @@ class AUTH_KEY_REVOKED(Fault):
     """API key has been revoked."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_105"
     severity = Severity.WARN
     message = "API key revoked"
@@ -334,6 +359,7 @@ class AUTH_SESSION_REQUIRED(Fault):
     """Session required but not found."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_201"
     severity = Severity.WARN
     message = "Session required"
@@ -345,6 +371,7 @@ class AUTH_SESSION_INVALID(Fault):
     """Session is invalid or corrupted."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_202"
     severity = Severity.WARN
     message = "Invalid session"
@@ -356,6 +383,7 @@ class AUTH_SESSION_HIJACK_DETECTED(Fault):
     """Potential session hijacking detected."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_203"
     severity = Severity.ERROR
     message = "Session hijack detected"
@@ -372,6 +400,7 @@ class AUTH_CONSENT_REQUIRED(Fault):
     """User consent required for OAuth flow."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_301"
     severity = Severity.INFO
     message = "Consent required"
@@ -383,6 +412,7 @@ class AUTH_DEVICE_CODE_PENDING(Fault):
     """Device code authorization pending."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_302"
     severity = Severity.INFO
     message = "Authorization pending"
@@ -394,6 +424,7 @@ class AUTH_DEVICE_CODE_EXPIRED(Fault):
     """Device code has expired."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_303"
     severity = Severity.WARN
     message = "Device code expired"
@@ -405,6 +436,7 @@ class AUTH_SLOW_DOWN(Fault):
     """Device flow polling too fast."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_304"
     severity = Severity.WARN
     message = "Slow down"
@@ -422,6 +454,7 @@ class AUTH_MFA_NOT_ENROLLED(Fault):
     """MFA not enrolled for user."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_401"
     severity = Severity.WARN
     message = "MFA not enrolled"
@@ -433,6 +466,7 @@ class AUTH_MFA_ALREADY_ENROLLED(Fault):
     """MFA already enrolled."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_402"
     severity = Severity.WARN
     message = "MFA already enrolled"
@@ -444,6 +478,7 @@ class AUTH_WEBAUTHN_INVALID(Fault):
     """WebAuthn credential invalid."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_403"
     severity = Severity.WARN
     message = "WebAuthn invalid"
@@ -455,6 +490,7 @@ class AUTH_BACKUP_CODE_INVALID(Fault):
     """Invalid backup code."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_404"
     severity = Severity.WARN
     message = "Invalid backup code"
@@ -466,6 +502,7 @@ class AUTH_BACKUP_CODE_EXHAUSTED(Fault):
     """All backup codes used."""
 
     domain = FaultDomain.SECURITY
+    public = True
     code = "AUTH_405"
     severity = Severity.WARN
     message = "Backup codes exhausted"
