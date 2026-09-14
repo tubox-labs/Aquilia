@@ -235,6 +235,7 @@ def extract_controller_metadata(
                     prefix,
                     pipeline,
                     tags,
+                    controller_class=controller_class,
                 )
                 routes.append(route)
 
@@ -298,6 +299,7 @@ def _extract_route_metadata(
     prefix: str,
     class_pipeline: list[Any],
     class_tags: list[str],
+    controller_class: type | None = None,
 ) -> RouteMetadata:
     """Extract route metadata from decorated method."""
 
@@ -320,6 +322,24 @@ def _extract_route_metadata(
     merged_pipeline = class_pipeline + method_pipeline
     merged_tags = class_tags + route_meta["tags"]
 
+    # ── Security metadata (@Public / @UseGuards) ──
+    # Method-level markers win over class-level; both land in _raw_metadata
+    # where the engine reads them via the standard direct-getattr /
+    # _raw_metadata fallback pattern.
+    raw_metadata = dict(route_meta)
+    public = bool(getattr(method, "__aquilia_public__", False)) or bool(
+        controller_class is not None and getattr(controller_class, "__aquilia_public__", False)
+    )
+    if public:
+        raw_metadata["public"] = True
+
+    guards: list[Any] = []
+    if controller_class is not None:
+        guards.extend(getattr(controller_class, "__aquilia_route_guards__", []) or [])
+    guards.extend(getattr(method, "__aquilia_route_guards__", []) or [])
+    if guards:
+        raw_metadata["guards"] = list(guards)
+
     return RouteMetadata(
         http_method=route_meta["http_method"],
         path_template=path_template,
@@ -334,7 +354,7 @@ def _extract_route_metadata(
         response_model=route_meta["response_model"],
         status_code=route_meta["status_code"],
         version=route_meta.get("version"),
-        _raw_metadata=route_meta,
+        _raw_metadata=raw_metadata,
     )
 
 
@@ -399,6 +419,10 @@ def _extract_method_params(
             elif _has_dep_default(param):
                 # Default value is a Dep(...) descriptor → resolve via RequestDAG
                 source = "dep"
+            elif _is_current_user_param(param_name, param_type):
+                # Annotated[T, CurrentUser] / name "current_user" → principal
+                # injection from the canonical auth state (see auth.principals)
+                source = "di"
             elif _is_contract_type(param_type):
                 # Contract subclass → auto-parse request body
                 source = "body"
@@ -505,6 +529,41 @@ def _has_dep_default(param: Any) -> bool:
         return isinstance(param.default, Dep)
     except ImportError:
         return False
+
+
+def _is_current_user_param(param_name: str, annotation: Any) -> bool:
+    """
+    Check whether a parameter requests principal injection via ``CurrentUser``.
+
+    Matches:
+
+    * ``user: Annotated[MyPrincipal, CurrentUser]`` — the marker rides in
+      the ``Annotated`` metadata (detected structurally via the
+      ``__aquilia_current_user__`` attribute so this module needs no import
+      of ``aquilia.auth``);
+    * ``user: CurrentUser`` — the bare marker type;
+    * a parameter literally named ``current_user``.
+
+    Deliberately structural (no auth import): the controller layer stays
+    import-clean of the auth package.
+    """
+    if param_name == "current_user":
+        return True
+
+    def _is_marker(obj: Any) -> bool:
+        return getattr(obj, "__aquilia_current_user__", False) is True or (
+            isinstance(obj, type) and getattr(obj, "__aquilia_current_user__", False) is True
+        )
+
+    if _is_marker(annotation):
+        return True
+
+    origin = get_origin(annotation)
+    if origin is not None and Annotated is not None and origin is Annotated:
+        for meta in get_args(annotation)[1:]:
+            if _is_marker(meta):
+                return True
+    return False
 
 
 def _is_contract_type(annotation: Any) -> bool:

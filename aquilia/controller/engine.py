@@ -24,10 +24,12 @@ import weakref
 from typing import Any, get_type_hints
 
 from aquilia.auth.clearance import ClearanceEngine, _build_clearance_denied_response, build_merged_clearance
+from aquilia.auth.principals import CurrentUser, find_current_user_marker
 from aquilia.contracts.exceptions import SealFault
 from aquilia.controller.base import Controller, RequestCtx, _reset_current_request_ctx, _set_current_request_ctx
 from aquilia.controller.compiler import CompiledRoute
 from aquilia.controller.factory import ControllerFactory, InstantiationMode
+from aquilia.controller.metadata import RouteMetadata
 from aquilia.di import Container
 from aquilia.faults.domains import ForbiddenFault, GatewayTimeoutFault, InternalServerErrorFault, PayloadTooLargeFault
 from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
@@ -116,6 +118,11 @@ class ContractContext(dict):
         return False
 
 
+#: Default options for ``CurrentUser`` params declared without an explicit
+#: marker instance (bare class or ``current_user`` parameter name).
+_DEFAULT_CURRENT_USER_MARKER = CurrentUser()
+
+
 class ControllerEngine:
     """
     Executes controller methods with complete integration.
@@ -150,12 +157,17 @@ class ControllerEngine:
         fault_engine: Any | None = None,
         effect_registry: Any | None = None,
         clearance_engine: Any | None = None,
+        guard_pipeline: Any | None = None,
     ):
         self.factory = factory
         self.enable_lifecycle = enable_lifecycle
         self.fault_engine = fault_engine
         self.effect_registry = effect_registry
         self.clearance_engine = clearance_engine
+        #: ``aquilia.auth.guards.GuardPipeline`` — global guards + the
+        #: pipeline runner. Optional: without it, only handler-level legacy
+        #: guards (@requires/@authenticated wrappers) execute.
+        self.guard_pipeline = guard_pipeline
         self.logger = logging.getLogger("aquilia.controller.engine")
         self._lifecycle_initialized: set[type] = set()
 
@@ -301,6 +313,14 @@ class ControllerEngine:
             )
             if isinstance(clearance_result, Response):
                 return clearance_result
+
+            # ── Guard pipeline ──
+            # Global (APP_GUARD-equivalent) + module (manifest) + route
+            # (@UseGuards) guards, with @Public() semantics. Runs before the
+            # simple-route fast path so every route shape is covered.
+            guard_result = await self._run_route_guards(route, route_metadata, request, ctx)
+            if isinstance(guard_result, Response):
+                return guard_result
 
             # ── Lifecycle hook detection (needed for both paths) ──
             # Cache per-class whether on_request / on_response are overridden.
@@ -608,6 +628,78 @@ class ControllerEngine:
         if isinstance(ctx.state, dict):
             ctx.state["clearance_verdict"] = verdict
 
+        return None
+
+    async def _run_route_guards(
+        self,
+        route: CompiledRoute,
+        route_metadata: RouteMetadata,
+        request: Request,
+        ctx: RequestCtx,
+    ) -> Response | None:
+        """
+        Run the merged guard chain for a route.
+
+        Sources (in execution order): global guards
+        (``Auth.global_guards`` — the NestJS ``APP_GUARD`` equivalent),
+        module guards (``AppManifest.guards``, stamped on the compiled
+        route), and route guards (``@UseGuards`` on class or method).
+        ``@Public()`` routes skip authentication guards but keep
+        authorization guards.
+
+        Denials raise (faults flow through the exception pipeline — the
+        fault→401/403 mapping is centralized there); a returned Response
+        short-circuits exactly like clearance denial.
+        """
+        pipeline = self.guard_pipeline
+        from aquilia.auth.guards import GuardPipeline
+
+        route_guards = GuardPipeline.collect_route_guards(route, route_metadata)
+        if pipeline is None and not route_guards:
+            return None
+
+        from aquilia.auth.state import AuthState, route_is_public
+
+        auth_state = getattr(ctx, "auth_state", None)
+        if auth_state is None:
+            state = getattr(request, "state", None)
+            auth_state = state.get("auth_state") if state is not None and hasattr(state, "get") else None
+        if auth_state is None:
+            # Standalone engine use (no auth middleware): build an ephemeral
+            # state from the legacy mirrors so guards still see one truth.
+            auth_state = AuthState(identity=getattr(ctx, "identity", None))
+            auth_state.session = getattr(ctx, "session", None)
+            if state is not None and hasattr(state, "get"):
+                auth_state.principal = state.get("principal")
+                auth_state.claims = state.get("token_claims")
+
+        try:
+            if pipeline is not None:
+                await pipeline.run(
+                    route=route,
+                    route_metadata=route_metadata,
+                    request=request,
+                    ctx=ctx,
+                    auth_state=auth_state,
+                    is_public=route_is_public(request),
+                )
+            elif route_guards:
+                await GuardPipeline().run(
+                    route=route,
+                    route_metadata=route_metadata,
+                    request=request,
+                    ctx=ctx,
+                    auth_state=auth_state,
+                    is_public=route_is_public(request),
+                )
+        except Exception as exc:
+            # Route through the exception-filter mechanism so app-registered
+            # filters and the fault pipeline see the denial exactly like a
+            # handler-raised fault.
+            filtered = await self._apply_exception_filters(exc, route.controller_class, route_metadata, ctx)
+            if filtered is not None:
+                return filtered
+            raise
         return None
 
     async def _execute_flow_pipeline(
@@ -1167,6 +1259,20 @@ class ControllerEngine:
             # DI injection
             elif param.source == "di":
                 try:
+                    # CurrentUser marker — principal injection (app types).
+                    cu_marker = find_current_user_marker(param.type)
+                    is_current_user = cu_marker is not None or param_name == "current_user"
+
+                    if is_current_user:
+                        marker = cu_marker or _DEFAULT_CURRENT_USER_MARKER
+                        value = self._resolve_current_user_typed(request, ctx, param)
+                        if value is None and param.required and not marker.optional:
+                            from aquilia.auth.faults import AUTH_REQUIRED
+
+                            raise AUTH_REQUIRED()
+                        kwargs[param_name] = value
+                        continue
+
                     # For Session, Identity, and SessionPrincipal/AuthPrincipal, we use optional=True so we can raise our own Faults
                     is_session_param = param_name == "session" or (
                         hasattr(param.type, "__name__") and param.type.__name__ == "Session"
@@ -1260,6 +1366,108 @@ class ControllerEngine:
             )
 
         return kwargs, request_dag
+
+    @staticmethod
+    def _resolve_current_user(request: Request, ctx: RequestCtx, param: Any) -> Any:
+        """
+        Resolve a ``CurrentUser`` parameter from the canonical auth state.
+
+        Order: ``auth_state.principal`` → app principal registered on
+        ``request.state["principal"]`` → the framework ``Identity`` → the
+        session principal. Returns ``None`` for anonymous requests.
+        """
+        state = None
+        rs = getattr(request, "state", None)
+        if rs is not None and hasattr(rs, "get"):
+            state = rs.get("auth_state")
+        if state is None:
+            state = getattr(ctx, "auth_state", None)
+        if state is not None:
+            if getattr(state, "principal", None) is not None:
+                return state.principal
+            if getattr(state, "identity", None) is not None:
+                return state.identity
+
+        principal = rs.get("principal") if rs is not None and hasattr(rs, "get") else None
+        if principal is not None:
+            return principal
+
+        identity = None
+        if rs is not None and hasattr(rs, "get"):
+            identity = rs.get("identity")
+        if identity is None:
+            identity = getattr(ctx, "identity", None)
+        if identity is not None:
+            return identity
+
+        session = None
+        if rs is not None and hasattr(rs, "get"):
+            session = rs.get("session")
+        if session is None:
+            session = getattr(ctx, "session", None)
+        if session is not None:
+            principal = getattr(session, "principal", None)
+            if principal is not None:
+                return principal
+        return None
+
+    @classmethod
+    def _resolve_current_user_typed(cls, request: Request, ctx: RequestCtx, param: Any) -> Any:
+        """
+        Type-aware principal resolution.
+
+        When the parameter declares a concrete type (``Annotated[Identity,
+        CurrentUser]`` while a ``principal_factory`` is configured), the
+        injected value must satisfy the declared type: prefer the framework
+        Identity over the app principal when that is what the handler asked
+        for, and vice versa.
+        """
+        from typing import Any as _Any
+        from typing import get_args, get_origin
+
+        value = cls._resolve_current_user(request, ctx, param)
+        declared: Any = param.type
+        origin = get_origin(declared)
+        if origin is not None and origin is not object:
+            try:
+                from typing import Annotated as _Annotated
+
+                if origin is _Annotated:
+                    declared = get_args(declared)[0]
+            except Exception:
+                pass
+
+        if declared is None or declared is _Any or declared is object:
+            return value
+
+        # Optional[...] → unwrap to the non-None arg
+        try:
+            from typing import Union as _Union
+
+            args = get_args(declared)
+            if get_origin(declared) is _Union and args:
+                non_none = [a for a in args if a is not type(None)]
+                if len(non_none) == 1:
+                    declared = non_none[0]
+        except Exception:
+            pass
+
+        if not isinstance(declared, type) or value is None or isinstance(value, declared):
+            return value
+
+        # The best-effort value doesn't match the declared type — try the
+        # other candidate from the canonical state.
+        state = None
+        rs = getattr(request, "state", None)
+        if rs is not None and hasattr(rs, "get"):
+            state = rs.get("auth_state")
+        if state is None:
+            state = getattr(ctx, "auth_state", None)
+        if state is not None:
+            for candidate in (getattr(state, "identity", None), getattr(state, "principal", None)):
+                if candidate is not None and isinstance(candidate, declared):
+                    return candidate
+        return value
 
     def _cast_value(self, value: str, annotation: Any) -> Any:
         """Cast string value to target type.

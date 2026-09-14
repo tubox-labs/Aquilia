@@ -45,6 +45,8 @@ from aquilia.controller.decorators import (
     TRACE,
     VALID_HTTP_METHODS,
     WS,
+    Public,
+    UseGuards,
     route,
 )
 from aquilia.controller.engine import ControllerEngine
@@ -119,6 +121,9 @@ __all__ = [
     "WS",
     "route",
     "VALID_HTTP_METHODS",
+    # Security metadata decorators
+    "Public",
+    "UseGuards",
     # Resources
     "Resource",
     "ReadOnlyResource",

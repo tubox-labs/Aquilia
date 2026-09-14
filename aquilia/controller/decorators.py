@@ -737,3 +737,83 @@ def route(
         return func
 
     return decorator
+
+
+# ============================================================================
+# Security Metadata Decorators — @Public() / @UseGuards()
+# ============================================================================
+
+
+def Public():  # noqa: N802 — NestJS-familiar spelling
+    """
+    Mark a route (or a whole controller) as **public**.
+
+    ``@Public()`` is the opt-out for protect-by-default deployments
+    (``require_auth_by_default = True`` / global guards):
+
+    * the global authentication requirement does not apply to the route;
+    * **authentication guards** (``AuthGuard`` and any guard declaring
+      ``authentication_guard = True``) are skipped;
+    * invalid or expired bearer tokens on the route **degrade to
+      anonymous** instead of rejecting the request — a stale token on a
+      public route must not break the response (the passport-jwt /
+      ``@Public()`` semantics).
+
+    Authorization guards (``RoleGuard``, ``ScopeGuard``, custom guards)
+    still run — a public route that additionally requires a role will
+    demand an authenticated identity via that guard.
+
+    Example::
+
+        @GET("/health")
+        @Public()
+        async def health(self, ctx):
+            ...
+
+    Also valid on a controller class (every route in it becomes public).
+    """
+
+    def decorator(target: Any) -> Any:
+        target.__aquilia_public__ = True
+        return target
+
+    return decorator
+
+
+def UseGuards(*guards: Any):  # noqa: N802 — NestJS-familiar spelling
+    """
+    Attach guards to a route (or a whole controller).
+
+    Guards run in the framework guard pipeline **before** the handler, in
+    declaration order, after global and module guards. Both async guards
+    (``async def can_activate(ctx) -> bool``) and legacy sync guards
+    (``def check(ctx) -> None``) are supported — see
+    :mod:`aquilia.auth.guards`.
+
+    Accepts guard classes or instances::
+
+        @DELETE("/users/{id}")
+        @UseGuards(AuthGuard, RoleGuard("admin"))
+        async def delete_user(self, ctx):
+            ...
+
+    On a controller class, the guards apply to every route in it. The
+    attached guards are also mirrored onto ``__guards__`` so the OpenAPI
+    builder emits security requirements for the route.
+    """
+
+    def decorator(target: Any) -> Any:
+        existing = list(getattr(target, "__aquilia_route_guards__", []) or [])
+        existing.extend(guards)
+        target.__aquilia_route_guards__ = existing
+
+        # Mirror onto __guards__ for OpenAPI security metadata. The engine's
+        # guard pipeline executes __aquilia_route_guards__ only; __guards__
+        # from the legacy @requires/@authenticated wrappers keep executing
+        # inside those wrappers — no double execution.
+        legacy = list(getattr(target, "__guards__", []) or [])
+        legacy.extend(guards)
+        target.__guards__ = legacy
+        return target
+
+    return decorator

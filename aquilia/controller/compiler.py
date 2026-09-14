@@ -8,7 +8,7 @@ Integrates with:
 """
 
 import inspect
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from aquilia.controller.metadata import ControllerMetadata, RouteMetadata, extract_controller_metadata
@@ -32,6 +32,10 @@ class CompiledRoute:
     app_name: str | None = None
     version_metadata: dict[str, Any] | None = None
     bound_version: Any | None = None
+    #: Guards declared on the owning module's ``AppManifest`` — resolved and
+    #: stamped at controller-load time; executed by the guard pipeline after
+    #: global guards and before route guards.
+    module_guards: list[Any] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for caching."""
