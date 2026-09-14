@@ -763,12 +763,14 @@ class WorkspaceGenerator:
                     # loop = "auto"        # "auto" | "asyncio" | "uvloop"
 
                 class auth(AquilaConfig.Auth):
+                    # Auth is opt-in: set enabled = True (or add
+                    # .integrate(Integration.auth(...))) to mount the HTTP
+                    # pipeline. See docs/AUTH_ARCHITECTURE.md.
                     secret_key      = Secret(env="AQ_SECRET_KEY", default="change-me-in-prod")
                     password_hasher = AquilaConfig.PasswordHasher(algorithm="argon2id")
-                    backends        = [
-                        "aquilia.auth.backends.TokenBackend",
-                        "aquilia.auth.backends.SessionBackend",
-                    ]
+                    # Strategy names (or dotted paths); register your own via
+                    # aquilia.auth.register_strategy("name", ...).
+                    backends        = ["token", "session"]
 
                 class di(AquilaConfig.DI):
                     # Dependency-injection container tuning. See AquilaConfig.DI

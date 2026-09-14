@@ -653,166 +653,148 @@ async def handler(ctx: RequestCtx):
 
 ## 7. Authentication & Authorization
 
-### Identity
+> The complete architecture reference lives in
+> [`docs/AUTH_ARCHITECTURE.md`](docs/AUTH_ARCHITECTURE.md) — configuration
+> precedence, the request pipeline, and migration notes. This section is the
+> practical tour.
 
-Every authenticated request has an `Identity`:
+### Configuring auth (opt-in)
 
-```python
-from aquilia.auth import Identity, IdentityType, IdentityStatus
-
-identity = Identity(
-    id="user_123",
-    type=IdentityType.USER,          # USER, SERVICE, DEVICE, ANONYMOUS
-    status=IdentityStatus.ACTIVE,    # ACTIVE, LOCKED, SUSPENDED
-    attributes={
-        "email": "user@example.com",
-        "name": "John Doe",
-        "roles": ["admin"],
-        "scopes": ["read", "write"],
-    },
-    tenant_id="org_456",
-)
-
-# Check permissions
-identity.has_role("admin")      # True
-identity.has_scope("write")     # True
-```
-
-### Credentials
+Auth enforcement is **opt-in** — defining the config section (to set a
+secret or hasher) never mounts the HTTP pipeline by itself:
 
 ```python
-from aquilia.auth import PasswordCredential, ApiKeyCredential
-
-# Password (Argon2id hashing)
-password_cred = PasswordCredential(
-    identity_id="user_123",
-    password_hash="$argon2id$...",
-)
-
-# API Key (SHA-256, scoped)
-api_key = ApiKeyCredential(
-    identity_id="service_456",
-    key_hash="sha256:...",
-    scopes=["read"],
-    expires_at=datetime(2025, 12, 31),
-)
+class auth(AquilaConfig.Auth):
+    enabled                = True                    # opt in to the pipeline
+    secret_key             = Secret(env="AQ_SECRET_KEY", required=True)
+    access_token_ttl_seconds = 1800                  # canonical unit: seconds
+    stateless              = True                    # verify claims, no per-request lookup
+    collapse_token_errors  = True                    # one generic 401 (anti-enumeration)
+    require_auth_by_default = True                   # protect-by-default + @Public()
+    backends               = ["token", "session"]    # strategy names
 ```
 
-### Auth Manager
+Everything normalizes onto one model (`AuthSettings`) — env classes, typed
+integrations (`Integration.auth(...)`), raw dicts, and `AQ_AUTH__*`
+environment variables all compose, with documented precedence. All TTLs are
+seconds; the audience is always a list; no layer injects secrets.
+
+### Protecting routes: guards + @Public + @UseGuards
 
 ```python
-from aquilia.auth import AuthManager
+from aquilia import GET, DELETE, Controller, Public, RequestCtx, UseGuards
+from aquilia.auth import AuthGuard, RoleGuard, CurrentUser
+from typing import Annotated
 
-auth = AuthManager()
+class AdminController(Controller):
+    @DELETE("/users/{id}")
+    @UseGuards(AuthGuard, RoleGuard("admin"))
+    async def delete_user(self, ctx: RequestCtx, id: int):
+        ...
 
-# Register identity
-await auth.register(
-    identity_id="user_123",
-    password="secure_password",
-    attributes={"email": "user@example.com", "roles": ["user"]},
-)
-
-# Authenticate
-result = await auth.authenticate("user_123", "secure_password")
-if result.success:
-    identity = result.identity
-    tokens = result.tokens  # Access + refresh tokens
+    @GET("/health")           # exempt from protect-by-default
+    @Public()
+    async def health(self, ctx: RequestCtx):
+        return {"status": "ok"}
 ```
 
-### Token Management
+* Guards may be **async** (`async def can_activate(ctx) -> bool`) and perform
+  real work — JWT verification, permission-table lookups, policy services.
+  Legacy sync guards (`def check(ctx)`) still work.
+* Guard sources compose in order: `auth.global_guards` (the NestJS
+  `APP_GUARD` equivalent) → module manifest `guards` → `@UseGuards(...)`.
+* `@Public()` skips *authentication* guards; authorization guards (roles,
+  scopes, policies) still run.
+* **Invalid tokens on public routes degrade to anonymous** — a stale token
+  never breaks a public response.
+
+### Injecting the principal: CurrentUser
+
+```python
+from dataclasses import dataclass
+from typing import Annotated, Optional
+
+@dataclass
+class AppUser:
+    id: str
+    session_id: str | None
+
+# workspace.py:  class auth(AquilaConfig.Auth):
+#                   principal_factory = "app.auth.build_principal"
+
+class MeController(Controller):
+    @GET("/me")
+    async def me(self, ctx: RequestCtx, user: Annotated[AppUser, CurrentUser]):
+        return {"id": user.id, "sid": user.session_id}
+
+    @GET("/maybe-me")                     # anonymous allowed
+    @Public()
+    async def maybe(self, ctx: RequestCtx, user: Annotated[Optional[AppUser], CurrentUser(optional=True)]):
+        return {"id": user.id if user else None}
+```
+
+Without a `principal_factory`, `CurrentUser` injects the framework
+`Identity`. The canonical request state is `ctx.auth_state`
+(`identity`, `principal`, `claims`, `session`).
+
+### Custom strategies (Passport-style)
+
+```python
+from aquilia.auth import register_strategy
+
+class GoogleOAuthBackend:
+    def accepts(self, credentials): return "google_code" in credentials
+    async def authenticate(self, credentials): ...
+
+register_strategy("google", lambda auth_manager: GoogleOAuthBackend(...))
+
+# then:  class auth(AquilaConfig.Auth): backends = ["google", "jwt-stateless"]
+```
+
+Built-ins: `token` (stateful), `jwt-stateless` (claims-only, no identity
+lookup), `session`, `api_key`, `password`.
+
+### Tokens: issuance, extra claims, rotation with reuse detection
 
 ```python
 from aquilia.auth import TokenManager, KeyRing, KeyDescriptor
 
-# Generate key pair
-key = KeyDescriptor.generate("key_001", algorithm="RS256")
-keyring = KeyRing(keys=[key])
-
-# Create token manager
-token_mgr = TokenManager(keyring=keyring)
-
-# Issue tokens
-access_token = await token_mgr.issue_access_token(
-    identity_id="user_123",
-    scopes=["read", "write"],
-    ttl=timedelta(hours=1),
+token = await tokens.issue_access_token(
+    "user_123", scopes=["read"], session_id="s1",
+    extra_claims={"org": "acme"},          # arbitrary claims (reserved ones protected)
 )
+claims = await tokens.validate_access_token(token)
 
-# Validate tokens
-claims = await token_mgr.validate(access_token)
+# Refresh rotation is ON by default: each exchange atomically rotates the
+# credential; replaying a rotated-away token REVOKES THE WHOLE SESSION
+# FAMILY (stolen-token tripwire). Concurrent refreshes yield exactly one winner.
+access, refresh = await tokens.refresh_access_token(refresh_token)
 ```
 
-### Guards
-
-Guards protect routes from unauthorized access:
+### Durable stores
 
 ```python
-from aquilia.auth import AuthGuard, RoleGuard, ScopeGuard
-
-class AdminController(Controller):
-    prefix = "/admin"
-    pipeline = [AuthGuard(), RoleGuard("admin")]
-
-    @GET("/dashboard")
-    async def dashboard(self, ctx: RequestCtx):
-        return Response.json({"message": "Admin dashboard"})
-
-    @DELETE("/users/{id:int}")
-    @ScopeGuard("admin:delete")
-    async def delete_user(self, ctx: RequestCtx, id: int):
-        ...
+class auth(AquilaConfig.Auth):
+    store_type = "database"                          # identity+credential stores
+    token_store = {"type": "redis", "url": "redis://..."}   # rotation state
 ```
 
-### Authorization Engines
+`DatabaseIdentityStore` / `DatabaseCredentialStore` / `DatabaseTokenStore`
+persist on any Aquilia-supported database (sharing the app database by
+default); `RedisTokenStore` and the Redis session store serve multi-process
+deployments. Or pass ready-made store objects.
+
+### Authorization engines
 
 ```python
-from aquilia.auth import RBACEngine, ABACEngine
-
-# Role-Based Access Control
-rbac = RBACEngine()
-rbac.define_role("admin", permissions=["read", "write", "delete"])
-rbac.define_role("viewer", permissions=["read"])
-rbac.assign_role("user_123", "admin")
-allowed = await rbac.check("user_123", "delete")  # True
-
-# Attribute-Based Access Control
-abac = ABACEngine()
-abac.add_policy(
-    name="same_org_access",
-    condition=lambda subject, resource: subject.tenant_id == resource.org_id,
-)
+from aquilia.auth import PermissionEngine, RBACEngine, ABACEngine
+from aquilia.auth import AuthGuard, RoleGuard, ScopeGuard, PolicyGuard
 ```
 
-### Password Hashing
-
-```python
-from aquilia.auth import PasswordHasher, PasswordPolicy
-
-hasher = PasswordHasher()
-hashed = await hasher.hash("my_password")
-valid = await hasher.verify("my_password", hashed)  # True
-
-# Password policy
-policy = PasswordPolicy(
-    min_length=12,
-    require_uppercase=True,
-    require_lowercase=True,
-    require_digits=True,
-    require_special=True,
-)
-policy.validate("Weak")  # Raises PolicyViolation
-```
-
-### Auth Middleware
-
-```python
-from aquilia.auth.integration import AquilAuthMiddleware
-
-# Automatically extracts identity from JWT/session for every request
-middleware = AquilAuthMiddleware(token_manager=token_mgr)
-```
-
----
+RBAC, scopes, policies, and the Clearance engine are unchanged Aquilia
+features — their guards now also support the async `can_activate` contract.
+MFA (TOTP/WebAuthn/backup codes) and the OAuth *server* machinery (PKCE,
+device-code flow) remain first-class framework advantages.
 
 ## 8. Faults (Error Handling)
 

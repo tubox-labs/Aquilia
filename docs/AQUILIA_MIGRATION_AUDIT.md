@@ -1117,3 +1117,20 @@ auth was disabled) was removed.
 `GET /admin/` renders 200; without a cookie the guard still redirects to
 login; the auth-enabled path mounts `AquilAuthMiddleware` with no duplicate
 session middleware; `SessionEngine` resolves from every DI container.
+
+---
+
+# 9. Follow-up: the authentication gap analysis and architecture rebuild
+
+A second, auth-focused verification pass over the migration produced
+[`AQUILIA_AUTH_VS_NESTJS_GAPS.md`](AQUILIA_AUTH_VS_NESTJS_GAPS.md) (18
+findings, 10 missing NestJS capabilities, 10 multiple-sources-of-truth
+defects — including the Critical AG-13 signing-secret precedence bug that
+§7's F-22 fix had only partially addressed). The complete rebuild that
+resolved them — unified configuration, authenticate-then-enforce pipeline,
+async guard pipeline with `@Public()`/`@UseGuards`, strategy registry,
+stateless JWT, `CurrentUser` principals, rotation with reuse detection,
+durable stores — is documented in
+[`AUTH_ARCHITECTURE.md`](AUTH_ARCHITECTURE.md) and
+[`../releases/1.4.1/auth_architecture.md`](../releases/1.4.1/auth_architecture.md)
+(fix report: gaps doc §11). Released in v1.4.1 alongside §7–§8.
