@@ -20,14 +20,10 @@ from typing import Any, cast
 from aquilia import signing as _signing
 from aquilia.aquilary import Aquilary, AquilaryRegistry, RegistryMode, RuntimeRegistry
 from aquilia.asgi import ASGIAdapter
-from aquilia.auth.core import Identity, IdentityStatus, IdentityType, PasswordCredential
-from aquilia.auth.hashing import PasswordHasher
 from aquilia.auth.integration.middleware import AquilAuthMiddleware
 
 # Auth Integration
 from aquilia.auth.manager import AuthManager
-from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
-from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenConfig, TokenManager
 from aquilia.config import ConfigLoader
 from aquilia.controller.compiler import CompiledRoute, ControllerCompiler
 from aquilia.controller.engine import ControllerEngine
@@ -278,6 +274,8 @@ class AquiliaServer:
         self.middleware_stack = MiddlewareStack()
 
         # Setup middleware (also initializes aquila_sockets)
+        self._auth_settings: Any | None = None
+        self._guard_pipeline: Any | None = None
         self._setup_middleware()
 
         # Get base DI container for controller factory
@@ -290,6 +288,7 @@ class AquiliaServer:
             self.controller_factory,
             fault_engine=self.fault_engine,
             effect_registry=None,  # Wired at startup after effects init
+            guard_pipeline=getattr(self, "_guard_pipeline", None),
         )
         self.controller_compiler = ControllerCompiler()
 
@@ -413,23 +412,36 @@ class AquiliaServer:
         session_config = self.config.get_session_config()
         auth_config = self.config.get_auth_config()
 
-        # Initialize SessionEngine if either Sessions or Auth is enabled
-        # Auth REQUIRES sessions
-        use_sessions = session_config.get("enabled", False)
-        use_auth = auth_config.get("enabled", False)
+        # AuthSettings is the single canonical view (normalized from every
+        # supported config spelling — pyconfig flat attrs, nested loader
+        # shape, env overrides).
+        from aquilia.auth.config import AuthSettings
 
-        if use_auth:
-            backends = auth_config.get("security", {}).get(
-                "backends",
-                [
-                    "aquilia.auth.backends.TokenBackend",
-                    "aquilia.auth.backends.SessionBackend",
-                ],
-            )
-            has_session = any("session" in str(b).lower() or "SessionBackend" in str(b) for b in backends)
-            if has_session:
-                # Force enable sessions config if session auth is enabled
-                use_sessions = True
+        auth_settings = AuthSettings.from_config(auth_config)
+        self._auth_settings = auth_settings
+
+        # Initialize SessionEngine if either Sessions or Auth is enabled.
+        # Sessions are force-enabled ONLY when the session strategy is
+        # actually in the backend list — a Bearer-only app (backends
+        # ["token"] / ["jwt-stateless"]) must not get cookie machinery
+        # mounted against its will.
+        use_sessions = session_config.get("enabled", False)
+        use_auth = auth_settings.enabled
+
+        backends = auth_settings.backends
+        # ``stateless = True`` swaps the stateful token strategy for the
+        # stateless one (verified claims → principal, no identity lookup).
+        if auth_settings.stateless:
+            backends = [("jwt-stateless" if b in ("token", "jwt") else b) for b in backends]
+        # Sessions are force-enabled ONLY when the session strategy is
+        # explicitly listed (exact name / dotted path ending in
+        # SessionBackend) — a Bearer-only app must not get cookie machinery.
+        has_session = any(
+            str(b) in ("session", "aquilia.auth.backends.SessionBackend", "aquilia.auth.backends.base.SessionBackend")
+            for b in backends
+        )
+        if use_auth and has_session:
+            use_sessions = True
 
         self._session_engine = None
         self._auth_manager = None
@@ -447,18 +459,10 @@ class AquiliaServer:
         # Note: if session backend is active, session engine must have succeeded
         auth_initialized = False
         if use_auth:
-            backends = auth_config.get("security", {}).get(
-                "backends",
-                [
-                    "aquilia.auth.backends.TokenBackend",
-                    "aquilia.auth.backends.SessionBackend",
-                ],
-            )
-            has_session = any("session" in str(b).lower() or "SessionBackend" in str(b) for b in backends)
             if not has_session or self._session_engine is not None:
                 try:
                     # Create AuthManager
-                    auth_manager = self._create_auth_manager(auth_config)
+                    auth_manager = self._create_auth_manager(auth_settings)
                     self._auth_manager = auth_manager
 
                     # Add Unified Auth Middleware (handles both sessions and auth)
@@ -466,24 +470,19 @@ class AquiliaServer:
                         AquilAuthMiddleware(
                             session_engine=self._session_engine,
                             auth_manager=auth_manager,
-                            require_auth=auth_config.get("security", {}).get("require_auth_by_default", False),
+                            require_auth=auth_settings.require_auth_by_default,
                             backends=backends,
                             fault_engine=self.fault_engine,
+                            principal_factory=auth_manager.principal_builder,
                         ),
                         scope="global",
                         priority=_AUTH_PRIORITY,  # Replaces session middleware
                         name="auth",
                     )
 
-                    # NOTE: ValueProvider/SessionEngine come from the
-                    # module-level imports -- a local import here shadowed
-                    # them for the whole function and blew up with
-                    # UnboundLocalError on the session-DI block below when
-                    # auth was disabled.
                     from aquilia.auth.hashing import PasswordPolicy
 
-                    security_cfg = auth_config.get("security", {}) if isinstance(auth_config, dict) else {}
-                    policy_cfg = security_cfg.get("password_policy", {}) if isinstance(security_cfg, dict) else {}
+                    policy_cfg = auth_config.get("security", {}).get("password_policy", {})
                     password_policy = (
                         PasswordPolicy.from_dict(policy_cfg) if isinstance(policy_cfg, dict) else PasswordPolicy()
                     )
@@ -496,18 +495,17 @@ class AquiliaServer:
                             )
                         )
                         # Register sub-components so Services can use them
-                        # We use string tokens to ensure consistent resolution with type hints
                         container.register(
                             ValueProvider(
                                 value=auth_manager.identity_store,
-                                token="aquilia.auth.stores.MemoryIdentityStore",
+                                token=type(auth_manager.identity_store),
                                 scope="app",
                             )
                         )
                         container.register(
                             ValueProvider(
                                 value=auth_manager.credential_store,
-                                token="aquilia.auth.stores.MemoryCredentialStore",
+                                token=type(auth_manager.credential_store),
                                 scope="app",
                             )
                         )
@@ -534,11 +532,29 @@ class AquiliaServer:
                     auth_initialized = True
 
                 except Exception as e:
+                    # Fail CLOSED outside dev/test: a misconfigured auth
+                    # pipeline (insecure secret, unknown store type, bad
+                    # principal_factory) must crash the boot rather than
+                    # silently degrade to an unprotected server. Dev/test
+                    # keep the lenient log-and-continue for ergonomics.
+                    is_dev_mode = (
+                        self.mode in (RegistryMode.DEV, RegistryMode.TEST)
+                        or self.config.get("mode", "") in ("dev", "test")
+                        or self._is_debug()
+                    )
+                    if not is_dev_mode:
+                        raise
                     self.logger.error(
                         f"Failed to initialize auth system: {e}. Falling back to session-only middleware.",
                         exc_info=True,
                     )
                     self._auth_manager = None
+
+        # Guard pipeline — global guards (NestJS APP_GUARD equivalent) plus,
+        # when protect-by-default is on without the auth middleware, an
+        # implicit AuthGuard so the default-deny posture still exists at the
+        # route level (with @Public() exemptions).
+        self._guard_pipeline = self._build_guard_pipeline(auth_settings, auth_initialized)
 
         # Session middleware and SessionEngine DI registration are gated on
         # the session ENGINE existing -- not on auth being enabled. Nesting
@@ -2156,10 +2172,28 @@ class AquiliaServer:
             if not directory:
                 directory = "/tmp/aquilia_sessions"
             return FileStore(directory=directory)
+        elif store_name == "redis":
+            # The sessions docs always claimed this type; it used to silently
+            # fall back to MemoryStore. Requires ``pip install redis``.
+            redis_url = kwargs.get("redis_url") or kwargs.get("url") or "redis://localhost:6379/0"
+            try:
+                import redis.asyncio as aioredis
+            except ImportError:
+                self.logger.warning(
+                    "Session store 'redis' requires the 'redis' package (pip install redis); "
+                    "falling back to MemoryStore."
+                )
+                return MemoryStore()
+            from aquilia.sessions.store import RedisStore
+
+            return RedisStore(
+                aioredis.from_url(redis_url),
+                key_prefix=kwargs.get("key_prefix", "aquilia:session:"),
+            )
         else:
             self.logger.warning(
                 f"Unknown session store name '{store_name}', falling back to MemoryStore. "
-                f"Valid store names: 'memory', 'default', 'file'"
+                f"Valid store names: 'memory', 'default', 'file', 'redis'"
             )
             return MemoryStore(
                 max_sessions=kwargs.get("max_sessions", 10000) if isinstance(kwargs.get("max_sessions"), int) else 10000
@@ -2404,9 +2438,13 @@ class AquiliaServer:
         """
         Initialise the :mod:`aquilia.signing` engine from config.
 
-        Resolution order for the signing secret:
-        1. ``AquilaConfig.Signing.secret``  (new Python-native config)
-        2. ``AquilaConfig.Auth.secret_key``  (legacy path)
+        Resolution order for the signing secret
+        (:func:`aquilia.auth.config.resolve_signing_secret` — shared with the
+        auth token engine, tested, and default-free):
+
+        1. ``AquilaConfig.Signing.secret``  (signing owns signing)
+        2. ``AquilaConfig.Auth.secret_key`` (user-set; injected defaults are
+           treated as unset — a default can never outrank operator config)
         3. Environment variable ``AQ_SECRET_KEY``
         4. Environment variable ``SECRET_KEY``
         5. Insecure dev fallback ``"aquilia-dev-secret-key-CHANGEME"``
@@ -2415,21 +2453,19 @@ class AquiliaServer:
         Any configured ``fallback_secrets`` are also wired in for transparent
         key rotation.
         """
-        import os
+        from aquilia.auth.config import AuthSettings, resolve_signing_secret
 
-        # 1. Try new signing config section
+        # 1. New signing config section
         signing_cfg = self.config.get("signing", {}) or {}
-        secret = signing_cfg.get("secret") if isinstance(signing_cfg, dict) else None
+        signing_secret = signing_cfg.get("secret") if isinstance(signing_cfg, dict) else None
 
-        # 2. Fall back to auth.secret_key
-        if not secret:
-            auth_cfg = self.config.get_auth_config() or {}
-            token_cfg = auth_cfg.get("tokens", {}) or {}
-            secret = token_cfg.get("secret_key") or auth_cfg.get("secret_key")
+        # 2. Auth secret (user-set only — the loader no longer injects one)
+        auth_settings = AuthSettings.from_config(self.config.get_auth_config() or {})
 
-        # 3–4. Fall back to env vars
-        if not secret:
-            secret = os.environ.get("AQ_SECRET_KEY") or os.environ.get("SECRET_KEY")
+        secret, source = resolve_signing_secret(
+            signing_secret=signing_secret,
+            auth_settings=auth_settings,
+        )
 
         _INSECURE_FALLBACK = "aquilia-dev-secret-key-CHANGEME"
 
@@ -2440,6 +2476,8 @@ class AquiliaServer:
                 "before going to production."
             )
             secret = _INSECURE_FALLBACK
+        else:
+            self.logger.debug("aquilia.signing: secret resolved from %s", source)
 
         # Gather fallback secrets (for key rotation)
         fallback_secrets: list[str] = []
@@ -2482,98 +2520,150 @@ class AquiliaServer:
                 exc,
             )
 
-    def _create_auth_manager(self, auth_config: dict) -> AuthManager:
+    def _build_guard_pipeline(self, auth_settings: Any, auth_initialized: bool) -> Any:
         """
-        Create AuthManager from configuration.
+        Build the route-level guard pipeline.
 
-        Args:
-            auth_config: Auth configuration dictionary
+        Composition:
 
-        Returns:
-            Configured AuthManager
+        * ``Auth.global_guards`` — the NestJS ``APP_GUARD`` equivalent;
+        * an implicit ``AuthGuard`` when ``require_auth_by_default`` is on
+          but the auth middleware did not mount — protect-by-default must
+          survive "configure keys without HTTP middleware" deployments, with
+          ``@Public()`` as the per-route exemption.
+
+        The pipeline is passed to the ControllerEngine and executes for
+        every controller route (global → module → route guards). A guard
+        reference that cannot be resolved fails the boot in every mode —
+        a typo'd global guard must never silently disable protection.
         """
+        from aquilia.auth.guards import AuthGuard, GuardPipeline
 
-        # 1. Identity Store
-        store_config = auth_config.get("store", {})
-        store_type = store_config.get("type", "memory")
+        guards: list[Any] = []
 
-        if store_type == "memory":
-            identity_store = MemoryIdentityStore()
-            credential_store = MemoryCredentialStore()
+        for entry in auth_settings.global_guards:
+            guards.append(self._resolve_guard_reference(entry))
 
-            # Load initial users if configured in auth config
-            initial_users = auth_config.get("initial_users", [])
-            if initial_users:
-                import uuid
+        if auth_settings.require_auth_by_default and not auth_initialized:
+            if auth_settings.enabled:
+                self.logger.warning(
+                    "auth.require_auth_by_default is set but the auth middleware failed to "
+                    "initialize; an implicit AuthGuard still enforces it at the route level."
+                )
+            else:
+                self.logger.info(
+                    "auth.require_auth_by_default is active without the framework auth "
+                    "pipeline: an implicit AuthGuard enforces it per-route (@Public() "
+                    "routes are exempt). Apps managing their own tokens should register "
+                    "their verifier via auth.global_guards instead."
+                )
+            guards.append(AuthGuard())
 
-                hasher = PasswordHasher()
-                for user_cfg in initial_users:
-                    try:
-                        user_id = user_cfg.get("id", str(uuid.uuid4()))
+        return GuardPipeline(guards)
 
-                        # Build attributes dict from config fields
-                        attributes = user_cfg.get("attributes", {})
-                        if "email" in user_cfg:
-                            attributes.setdefault("email", user_cfg["email"])
-                        if "display_name" in user_cfg or "username" in user_cfg:
-                            attributes.setdefault(
-                                "display_name", user_cfg.get("display_name", user_cfg.get("username", ""))
-                            )
-                        if "roles" in user_cfg:
-                            attributes.setdefault("roles", list(user_cfg["roles"]))
-                        if "scopes" in user_cfg:
-                            attributes.setdefault("scopes", list(user_cfg["scopes"]))
+    def _resolve_guard_reference(self, entry: Any) -> Any:
+        """
+        Resolve a guard reference (``module.Class``, ``module:Class``,
+        ComponentRef, class, or instance).
 
-                        identity = Identity(
-                            id=user_id,
-                            type=IdentityType(user_cfg.get("type", "user")),
-                            status=IdentityStatus(user_cfg.get("status", "active")),
-                            attributes=attributes,
-                            tenant_id=user_cfg.get("tenant_id"),
-                        )
-                        identity_store._identities[user_id] = identity
+        Raises:
+            ConfigInvalidFault: The reference is a string that does not
+                resolve — with the expected ``module.Class`` form spelled
+                out, since bare class names are the common mistake.
+        """
+        if isinstance(entry, str):
+            import importlib
 
-                        # Hash and store password credential if provided
-                        password = user_cfg.get("password")
-                        if password:
-                            hashed = hasher.hash(password)
-                            credential = PasswordCredential(
-                                identity_id=user_id,
-                                password_hash=hashed,
-                            )
-                            credential_store._passwords[user_id] = credential
+            if ":" in entry:
+                module_path, attr = entry.split(":", 1)
+            elif "." in entry:
+                module_path, attr = entry.rsplit(".", 1)
+            else:
+                raise ConfigInvalidFault(
+                    key="guards",
+                    reason=(
+                        f"Guard reference {entry!r} must be a dotted path "
+                        "('module.Class' or 'module:Class'), a class, or an instance."
+                    ),
+                )
+            try:
+                module = importlib.import_module(module_path)
+                resolved = getattr(module, attr)
+            except (ValueError, ImportError, AttributeError) as err:
+                raise ConfigInvalidFault(
+                    key="guards",
+                    reason=f"Could not import guard {entry!r}: {err}",
+                ) from err
+            return resolved
 
-                    except Exception as e:
-                        self.logger.warning(f"Failed to load initial user: {e}")
-        else:
-            self.logger.warning(f"Unknown auth store type '{store_type}', using memory store")
-            identity_store = MemoryIdentityStore()
-            credential_store = MemoryCredentialStore()
+        # ComponentRef: "module.path:ClassName"
+        class_path = getattr(entry, "class_path", None)
+        if class_path and ":" in class_path:
+            import importlib
 
-        # 2. Token Manager
-        token_config = auth_config.get("tokens", {})
-        secret = token_config.get("secret_key", "dev_secret")
+            module_path, attr = class_path.split(":", 1)
+            try:
+                module = importlib.import_module(module_path)
+                return getattr(module, attr)
+            except (ImportError, AttributeError) as err:
+                raise ConfigInvalidFault(
+                    key="guards",
+                    reason=f"Could not import guard {class_path!r}: {err}",
+                ) from err
 
-        _INSECURE_SECRETS = {"aquilia_insecure_dev_secret", "dev_secret", "", None}
+        return entry
+
+    def _create_auth_manager(self, auth_settings: Any) -> AuthManager:
+        """
+        Create AuthManager from the canonical :class:`AuthSettings`.
+
+        Every configurable concern is wired here — stores (memory / database
+        / redis tokens / ready-made objects), the password hasher, the rate
+        limiter, the principal factory, and the token engine constructed
+        from the same settings the config layer resolved (one TTL unit, one
+        issuer/audience, one secret — no divergent constructor defaults).
+        """
+        from aquilia.auth.manager import AuthManager, RateLimiter
+        from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenManager
+
+        # ── 1. Stores ─────────────────────────────────────────────────────
+        identity_store = self._resolve_identity_store(auth_settings)
+        credential_store = self._resolve_credential_store(auth_settings)
+        token_store = self._resolve_token_store(auth_settings)
+
+        # ── 2. Token engine (single source: AuthSettings) ─────────────────
+        from aquilia.auth.config import RETIRED_INSECURE_SECRETS
+
+        secret = auth_settings.secret_key
         is_dev = (
             self.mode == RegistryMode.DEV
             or self.config.get("mode", "") == "dev"
             or self.config.get("server.mode", "") == "dev"
             or self._is_debug()
         )
-        if secret in _INSECURE_SECRETS and not is_dev:
+        if secret in RETIRED_INSECURE_SECRETS and not is_dev:
             raise ConfigInvalidFault(
                 key="auth.tokens.secret_key",
                 reason=(
                     "Auth secret_key is insecure or unset in non-DEV mode. "
-                    "Set a strong secret via AQ_AUTH__TOKENS__SECRET_KEY or config."
+                    "Set a strong secret via AQ_SECRET_KEY, AquilaConfig.Auth.secret_key, "
+                    "or AQ_AUTH__TOKENS__SECRET_KEY."
                 ),
             )
 
-        # Generate KeyRing — algorithm is read from config, default HS256 (stdlib, no extra deps).
-        # Asymmetric algorithms (RS256, ES256, EdDSA) require ``pip install cryptography``
-        # and must be opted in explicitly via AquilaConfig.Auth.algorithm.
-        algorithm = token_config.get("algorithm", "HS256")
+        # Generate KeyRing — algorithm is read from config, default HS256
+        # (stdlib, no extra deps). Asymmetric algorithms (RS256, ES256,
+        # EdDSA) require ``pip install cryptography``.
+        algorithm = auth_settings.algorithm
+        if secret is None:
+            # DEV (or tests): ephemeral per-process secret. Warned — tokens
+            # do not survive restarts and cannot be verified by other
+            # processes.
+            self.logger.warning(
+                "auth: no secret_key configured — generated an ephemeral signing secret. "
+                "Tokens will not validate after restart; set Auth.secret_key for anything "
+                "beyond local development."
+            )
         key = KeyDescriptor.generate(
             kid="active",
             algorithm=algorithm,
@@ -2581,26 +2671,257 @@ class AquiliaServer:
         )
         key_ring = KeyRing([key])
 
-        token_store = MemoryTokenStore()
-
         token_manager = TokenManager(
             key_ring=key_ring,
             token_store=token_store,
-            config=TokenConfig(
-                # secret_key no longer needed for JWT with RS256, but maybe for HS256 if supported
-                issuer=token_config.get("issuer", "aquilia"),
-                audience=[token_config.get("audience", "aquilia-app")],  # Audience is list in new config
-                access_token_ttl=token_config.get("access_token_ttl_minutes", 60) * 60,
-                refresh_token_ttl=token_config.get("refresh_token_ttl_days", 30) * 86400,
-            ),
+            config=auth_settings.to_token_config(),
         )
 
-        return AuthManager(
+        # ── 3. Password hasher (wired from config, was previously dropped) ──
+        password_hasher = self._build_password_hasher(auth_settings.password_hasher)
+
+        # ── 4. Rate limiter ───────────────────────────────────────────────
+        rate_limiter = RateLimiter(
+            max_attempts=auth_settings.rate_limit_max_attempts,
+            window_seconds=auth_settings.rate_limit_window_seconds,
+            lockout_duration=auth_settings.rate_limit_lockout_seconds,
+        )
+
+        # ── 5. Principal factory ──────────────────────────────────────────
+        principal_builder = None
+        if auth_settings.principal_factory:
+            principal_builder = self._resolve_guard_reference(auth_settings.principal_factory)
+            if not callable(principal_builder):
+                raise ConfigInvalidFault(
+                    key="auth.security.principal_factory",
+                    reason=f"principal_factory {auth_settings.principal_factory!r} did not resolve to a callable",
+                )
+
+        manager = AuthManager(
             identity_store=identity_store,
             credential_store=credential_store,
             token_manager=token_manager,
-            password_hasher=None,  # Uses default (Argon2 via Passlib)
+            password_hasher=password_hasher,
+            rate_limiter=rate_limiter,
+            principal_builder=principal_builder,
         )
+
+        # ── 6. Initial users (memory store bootstrap) ─────────────────────
+        self._seed_initial_users(auth_settings, manager)
+        return manager
+
+    def _seed_initial_users(self, auth_settings: Any, manager: AuthManager) -> None:
+        """
+        Seed ``auth.initial_users`` into the identity/credential stores.
+
+        Supported on the memory stores (the bootstrap use-case: dev/test
+        users defined directly in config). Durable stores should manage
+        users through their own migration/provisioning path — attempting to
+        seed them logs a clear warning instead of silently no-op'ing.
+        """
+        initial_users = getattr(auth_settings, "initial_users", None)
+        if not initial_users:
+            return
+
+        from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore
+
+        if not isinstance(manager.identity_store, MemoryIdentityStore) or not isinstance(
+            manager.credential_store, MemoryCredentialStore
+        ):
+            self.logger.warning(
+                "auth.initial_users is only supported with the memory identity/credential "
+                "stores; durable stores must provision users themselves (skipping %d users).",
+                len(initial_users),
+            )
+            return
+
+        import uuid
+
+        hasher = manager.password_hasher
+        for user_cfg in initial_users:
+            try:
+                user_id = user_cfg.get("id", str(uuid.uuid4()))
+
+                attributes = dict(user_cfg.get("attributes", {}))
+                if "email" in user_cfg:
+                    attributes.setdefault("email", user_cfg["email"])
+                if "display_name" in user_cfg or "username" in user_cfg:
+                    attributes.setdefault(
+                        "display_name", user_cfg.get("display_name", user_cfg.get("username", ""))
+                    )
+                if "roles" in user_cfg:
+                    attributes.setdefault("roles", list(user_cfg["roles"]))
+                if "scopes" in user_cfg:
+                    attributes.setdefault("scopes", list(user_cfg["scopes"]))
+
+                from aquilia.auth.core import Identity, IdentityStatus, IdentityType
+
+                identity = Identity(
+                    id=user_id,
+                    type=IdentityType(user_cfg.get("type", "user")),
+                    status=IdentityStatus(user_cfg.get("status", "active")),
+                    attributes=attributes,
+                    tenant_id=user_cfg.get("tenant_id"),
+                )
+                manager.identity_store._identities[user_id] = identity
+                manager.identity_store._reindex(user_id, attributes)
+
+                password = user_cfg.get("password")
+                if password:
+                    from aquilia.auth.core import PasswordCredential
+
+                    credential = PasswordCredential(
+                        identity_id=user_id,
+                        password_hash=hasher.hash(password),
+                    )
+                    manager.credential_store._passwords[user_id] = credential
+            except Exception as e:
+                self.logger.warning(f"Failed to load initial user: {e}")
+
+    def _build_password_hasher(self, hasher_cfg: Any) -> Any:
+        """Build a ``PasswordHasher`` from config (dict / HasherConfig / instance)."""
+        from aquilia.auth.hashing import HasherConfig, PasswordHasher
+
+        if hasher_cfg is None:
+            return PasswordHasher()
+        if isinstance(hasher_cfg, PasswordHasher):
+            return hasher_cfg
+        if isinstance(hasher_cfg, HasherConfig):
+            return PasswordHasher.from_config(hasher_cfg)
+        if isinstance(hasher_cfg, dict):
+            return PasswordHasher.from_config(HasherConfig.from_dict(hasher_cfg))
+        if hasattr(hasher_cfg, "algorithm") and not isinstance(hasher_cfg, str):
+            # HasherConfig-shaped object (e.g. legacy pyconfig builder)
+            return PasswordHasher.from_config(HasherConfig.from_dict(vars(hasher_cfg)))
+        return PasswordHasher()
+
+    def _resolve_identity_store(self, auth_settings: Any) -> Any:
+        """Identity store from settings: object, dict spec, or store shorthand."""
+        from aquilia.auth.stores import MemoryIdentityStore
+        from aquilia.auth.stores_db import DatabaseIdentityStore
+
+        spec = auth_settings.identity_store
+        if spec is None:
+            spec = {"type": auth_settings.store_type or "memory"}
+
+        if isinstance(spec, dict):
+            store_type = (spec.get("type") or "memory").lower()
+            if store_type in ("memory", "mem", "in-memory"):
+                return MemoryIdentityStore()
+            if store_type in ("database", "db", "sql"):
+                return DatabaseIdentityStore(self._auth_database(spec.get("url")))
+            raise ConfigInvalidFault(
+                key="auth.identity_store",
+                reason=(
+                    f"Unknown identity store type {store_type!r}. "
+                    "Available: memory, database (or pass a ready-made store object)."
+                ),
+            )
+        return spec
+
+    def _resolve_credential_store(self, auth_settings: Any) -> Any:
+        """Credential store from settings: object, dict spec, or store shorthand."""
+        from aquilia.auth.stores import MemoryCredentialStore
+        from aquilia.auth.stores_db import DatabaseCredentialStore
+
+        spec = auth_settings.credential_store
+        if spec is None:
+            spec = {"type": auth_settings.store_type or "memory"}
+
+        if isinstance(spec, dict):
+            store_type = (spec.get("type") or "memory").lower()
+            if store_type in ("memory", "mem", "in-memory"):
+                return MemoryCredentialStore()
+            if store_type in ("database", "db", "sql"):
+                return DatabaseCredentialStore(self._auth_database(spec.get("url")))
+            raise ConfigInvalidFault(
+                key="auth.credential_store",
+                reason=(
+                    f"Unknown credential store type {store_type!r}. "
+                    "Available: memory, database (or pass a ready-made store object)."
+                ),
+            )
+        return spec
+
+    def _resolve_token_store(self, auth_settings: Any) -> Any:
+        """Token store from settings: object or dict spec (memory/redis/database)."""
+        from aquilia.auth.stores import MemoryTokenStore, RedisTokenStore
+        from aquilia.auth.stores_db import DatabaseTokenStore
+
+        spec = auth_settings.token_store
+        if spec is None:
+            return MemoryTokenStore()
+
+        if isinstance(spec, dict):
+            store_type = (spec.get("type") or "memory").lower()
+            if store_type in ("memory", "mem", "in-memory"):
+                return MemoryTokenStore()
+            if store_type == "redis":
+                redis_url = spec.get("url") or spec.get("redis_url") or "redis://localhost:6379/0"
+                try:
+                    import redis.asyncio as aioredis
+                except ImportError as err:
+                    raise ConfigInvalidFault(
+                        key="auth.token_store",
+                        reason="Redis token store requires the 'redis' package (pip install redis).",
+                    ) from err
+                prefix = spec.get("key_prefix", "aquilauth:")
+                return RedisTokenStore(aioredis.from_url(redis_url), key_prefix=prefix)
+            if store_type in ("database", "db", "sql"):
+                return DatabaseTokenStore(self._auth_database(spec.get("url")))
+            raise ConfigInvalidFault(
+                key="auth.token_store",
+                reason=f"Unknown token store type {store_type!r}. Available: memory, redis, database.",
+            )
+        return spec
+
+    def _auth_database(self, url: str | None = None):
+        """
+        The database handle for auth stores.
+
+        Prefers the shared application database (single connection pool);
+        falls back to configuring one from *url* (or the database config)
+        when the app has none. Resolution is deferred to first query — the
+        app database is configured later in startup than auth wiring.
+        """
+        from aquilia.db.engine import AquiliaDatabase
+
+        db_url = url
+        if db_url is None:
+            db_cfg = self.config.get_database_config() or {}
+            db_url = db_cfg.get("url") or "sqlite:///aquilia_auth.sqlite3"
+
+        class _SharedOrOwn:
+            """Use the app's configured database when it exists; else our own lazy instance."""
+
+            def __init__(self, fallback_url: str):
+                self._fallback = AquiliaDatabase(fallback_url)
+                self._own = False
+
+            def _db(self):
+                if self._own:
+                    return self._fallback
+                from aquilia.db.engine import get_database
+
+                try:
+                    return get_database()
+                except Exception:
+                    self._own = True
+                    return self._fallback
+
+            async def execute(self, sql, params=None, model=""):
+                return await self._db().execute(sql, params, model=model)
+
+            async def execute_many(self, sql, params_list, model=""):
+                return await self._db().execute_many(sql, params_list, model=model)
+
+            async def fetch_all(self, sql, params=None, model=""):
+                return await self._db().fetch_all(sql, params, model=model)
+
+            async def fetch_one(self, sql, params=None, model=""):
+                return await self._db().fetch_one(sql, params, model=model)
+
+        return _SharedOrOwn(db_url)
 
     async def _load_controllers(self):
         """Load and compile controllers from all apps."""
@@ -2637,8 +2958,19 @@ class AquiliaServer:
                     )
 
                     # Inject app context info for DI resolution
+                    manifest_guards = getattr(app_ctx.manifest, "guards", None)
+                    resolved_module_guards = (
+                        [self._resolve_guard_reference(g) for g in manifest_guards] if manifest_guards else []
+                    )
                     for route in compiled.routes:
                         route.app_name = app_ctx.name
+                        # ── Manifest guards → route-level pipeline ──
+                        # AppManifest.guards applies to every route of the
+                        # module's controllers; resolved once per app at load
+                        # time (dotted paths / ComponentRefs / classes /
+                        # instances) and stamped on each compiled route.
+                        if resolved_module_guards:
+                            route.module_guards = list(resolved_module_guards)
 
                     # ── VERSIONING: Register controller & route versions ──
                     if self._version_strategy is not None:

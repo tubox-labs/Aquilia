@@ -305,3 +305,137 @@ class FileStore:
             "total_size_bytes": sum(p.stat().st_size for p in files),
             "directory": str(self.directory),
         }
+
+
+# ============================================================================
+# RedisStore - Redis-backed storage (production, multi-process)
+# ============================================================================
+
+
+class RedisStore:
+    """
+    Redis-backed session storage.
+
+    The sessions subsystem's documentation always claimed a ``"redis"`` store
+    type; until now the name silently fell back to MemoryStore. This is the
+    real implementation: one key per session (JSON), a Redis-managed TTL
+    aligned to the session's own expiry, and a per-principal set index for
+    ``list_by_principal``.
+
+    Layout::
+
+        <prefix>sess:<id>             → JSON session document
+        <prefix>principal:<pid>       → SET of session ids for the principal
+
+    Args:
+        redis_client: An async Redis client (``redis.asyncio.Redis``).
+        key_prefix:   Prefix for all keys (default ``"aquilia:session:"``).
+    """
+
+    def __init__(self, redis_client: Any, key_prefix: str = "aquilia:session:"):
+        self.redis = redis_client
+        self.prefix = key_prefix
+
+    def _session_key(self, session_id: SessionID) -> str:
+        return f"{self.prefix}sess:{session_id}"
+
+    def _principal_key(self, principal_id: str) -> str:
+        return f"{self.prefix}principal:{principal_id}"
+
+    @staticmethod
+    def _decode(raw: Any) -> str:
+        return raw.decode() if isinstance(raw, bytes) else raw
+
+    async def load(self, session_id: SessionID) -> Session | None:
+        try:
+            raw = await self.redis.get(self._session_key(session_id))
+        except Exception as e:
+            raise SessionStoreUnavailableFault(store_name="redis", cause=str(e))
+        if raw is None:
+            return None
+        try:
+            return Session.from_dict(json.loads(self._decode(raw)))
+        except SessionStoreCorruptedFault:
+            raise
+        except Exception as e:
+            raise SessionStoreCorruptedFault(message=f"Redis session corrupted: {e}", session_id=str(session_id))
+
+    async def save(self, session: Session) -> None:
+        try:
+            data = json.dumps(session.to_dict())
+            ttl = int((session.expires_at - datetime.now(timezone.utc)).total_seconds())
+            key = self._session_key(session.id)
+
+            async with self.redis.pipeline(transaction=True) as pipe:
+                pipe.set(key, data, ex=max(1, ttl))
+                principal = getattr(session, "principal", None)
+                if principal is not None:
+                    pipe.sadd(self._principal_key(principal.id), str(session.id))
+                    pipe.expire(self._principal_key(principal.id), max(1, ttl) + 3600)
+                await pipe.execute()
+            session.mark_clean()
+        except SessionStoreUnavailableFault:
+            raise
+        except Exception as e:
+            raise SessionStoreUnavailableFault(store_name="redis", cause=str(e))
+
+    async def delete(self, session_id: SessionID) -> None:
+        try:
+            raw = await self.redis.get(self._session_key(session_id))
+            await self.redis.delete(self._session_key(session_id))
+            if raw is not None:
+                try:
+                    doc = json.loads(self._decode(raw))
+                    principal = doc.get("principal")
+                    if principal and principal.get("id"):
+                        await self.redis.srem(self._principal_key(principal["id"]), str(session_id))
+                except Exception:
+                    pass
+        except SessionStoreUnavailableFault:
+            raise
+        except Exception as e:
+            raise SessionStoreUnavailableFault(store_name="redis", cause=str(e))
+
+    async def exists(self, session_id: SessionID) -> bool:
+        try:
+            return bool(await self.redis.exists(self._session_key(session_id)))
+        except Exception as e:
+            raise SessionStoreUnavailableFault(store_name="redis", cause=str(e))
+
+    async def list_by_principal(self, principal_id: str) -> list[Session]:
+        try:
+            ids = await self.redis.smembers(self._principal_key(principal_id))
+            sessions: list[Session] = []
+            for raw in ids or []:
+                session_id = self._decode(raw)
+                session = await self.load(session_id)
+                if session is not None:
+                    sessions.append(session)
+            return sessions
+        except SessionStoreUnavailableFault:
+            raise
+        except Exception as e:
+            raise SessionStoreUnavailableFault(store_name="redis", cause=str(e))
+
+    async def count_by_principal(self, principal_id: str) -> int:
+        try:
+            return int(await self.redis.scard(self._principal_key(principal_id)))
+        except Exception as e:
+            raise SessionStoreUnavailableFault(store_name="redis", cause=str(e))
+
+    async def cleanup_expired(self) -> int:
+        """Redis evicts expired keys natively — nothing to sweep."""
+        return 0
+
+    async def shutdown(self) -> None:
+        close = getattr(self.redis, "aclose", None) or getattr(self.redis, "close", None)
+        if close is not None:
+            try:
+                result = close()
+                if hasattr(result, "__await__"):
+                    await result
+            except Exception:
+                pass
+
+    def get_stats(self) -> dict[str, Any]:
+        return {"store": "redis", "prefix": self.prefix}

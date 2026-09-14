@@ -26,7 +26,7 @@ from aquilia.auth.audit import (
 # Authorization engines (legacy — use PermissionEngine for new code)
 from aquilia.auth.authz import ABACEngine, AuthzEngine, RBACEngine
 
-# Pluggable backends (new, strategy-free)
+# Pluggable backends (strategy-registry driven)
 from aquilia.auth.backends import (
     ApiKeyBackend,
     AuthBackend,
@@ -35,6 +35,7 @@ from aquilia.auth.backends import (
     TokenBackend,
     resolve_backend,
 )
+from aquilia.auth.backends.token import StatelessTokenBackend
 
 # Clearance System
 from aquilia.auth.clearance import (
@@ -53,8 +54,17 @@ from aquilia.auth.clearance import (
     require_attribute,
     within_quota,
 )
+
+# Unified configuration model (single source of truth)
+from aquilia.auth.config import (
+    RETIRED_INSECURE_SECRETS,
+    AuthSettings,
+    normalize_auth_config,
+    resolve_signing_secret,
+)
 from aquilia.auth.core import (
     ApiKeyCredential,
+    Authentication,
     AuthResult,
     Credential,
     CredentialStatus,
@@ -115,7 +125,18 @@ from aquilia.auth.faults import (
 )
 
 # New guard system
-from aquilia.auth.guards import AuthGuard, Guard, PolicyGuard, RoleGuard, ScopeGuard, requires
+from aquilia.auth.guards import (
+    AuthGuard,
+    Guard,
+    GuardContext,
+    GuardPipeline,
+    PolicyGuard,
+    RoleGuard,
+    ScopeGuard,
+    is_authentication_guard,
+    requires,
+    run_guard,
+)
 
 # Password hashing
 from aquilia.auth.hashing import (
@@ -142,15 +163,36 @@ from aquilia.auth.oauth import OAuth2Manager
 # New unified permission engine
 from aquilia.auth.permissions import PermissionEngine
 
+# Principal injection (@CurrentUser)
+from aquilia.auth.principals import CurrentUser, Principal, find_current_user_marker
+
+# Canonical request auth state
+from aquilia.auth.state import AuthState, apply_auth_state_views, route_is_public
+
 # Stores
 from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
 
+# Durable database stores
+from aquilia.auth.stores_db import DatabaseCredentialStore, DatabaseIdentityStore, DatabaseTokenStore
+
+# Strategy registry (Passport-style extensibility)
+from aquilia.auth.strategies import (
+    AuthStrategyRegistry,
+    create_default_registry,
+    get_default_registry,
+    register_strategy,
+    reset_default_registry,
+    set_default_registry,
+)
+
 # Token management
 from aquilia.auth.tokens import (
+    RESERVED_CLAIMS,
     KeyAlgorithm,
     KeyDescriptor,
     KeyRing,
     KeyStatus,
+    RotatingTokenStore,
     TokenConfig,
     TokenManager,
     TokenStore,
@@ -177,6 +219,20 @@ __all__ = [
     "MFACredential",
     "TokenClaims",
     "AuthResult",
+    "Authentication",
+    # Auth configuration (single source of truth)
+    "AuthSettings",
+    "normalize_auth_config",
+    "resolve_signing_secret",
+    "RETIRED_INSECURE_SECRETS",
+    # Canonical request state
+    "AuthState",
+    "apply_auth_state_views",
+    "route_is_public",
+    # Principal injection
+    "CurrentUser",
+    "Principal",
+    "find_current_user_marker",
     # Password hashing
     "PasswordHasher",
     "PasswordPolicy",
@@ -192,22 +248,42 @@ __all__ = [
     "TokenManager",
     "TokenConfig",
     "TokenStore",
-    # Backends
+    "RotatingTokenStore",
+    "RESERVED_CLAIMS",
+    # Backends / strategies
     "AuthBackend",
     "PasswordBackend",
     "TokenBackend",
+    "StatelessTokenBackend",
     "ApiKeyBackend",
     "SessionBackend",
     "resolve_backend",
+    "AuthStrategyRegistry",
+    "register_strategy",
+    "get_default_registry",
+    "set_default_registry",
+    "reset_default_registry",
+    "create_default_registry",
     # Permissions
     "PermissionEngine",
     # Guards
     "Guard",
+    "GuardContext",
+    "GuardPipeline",
     "AuthGuard",
     "RoleGuard",
     "ScopeGuard",
     "PolicyGuard",
     "requires",
+    "run_guard",
+    "is_authentication_guard",
+    # Stores
+    "MemoryIdentityStore",
+    "MemoryCredentialStore",
+    "MemoryTokenStore",
+    "DatabaseIdentityStore",
+    "DatabaseCredentialStore",
+    "DatabaseTokenStore",
     # Decorators
     "authenticated",
     "optional_auth",

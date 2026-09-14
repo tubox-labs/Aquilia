@@ -52,7 +52,7 @@ from aquilia.sessions.policy import (
     TransportPolicy,
 )
 from aquilia.sessions.state import CartState, Field, SessionState, UserPreferencesState
-from aquilia.sessions.store import FileStore, MemoryStore, SessionStore
+from aquilia.sessions.store import FileStore, MemoryStore, RedisStore, SessionStore
 from aquilia.sessions.transport import CookieTransport, HeaderTransport, SessionTransport, create_transport
 
 __all__ = [
@@ -78,6 +78,7 @@ __all__ = [
     "SessionStore",
     "MemoryStore",
     "FileStore",
+    "RedisStore",
     # Transport
     "SessionTransport",
     "CookieTransport",
