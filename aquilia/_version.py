@@ -23,7 +23,7 @@ numeric version and appear in CLI banners, docs, and metadata.
 __version__: str = "1.4.1"
 
 #: Version tuple for programmatic comparison.
-VERSION: tuple[int, int, int] = (1, 4, 0)
+VERSION: tuple[int, int, int] = (1, 4, 1)
 
 #: Human-friendly release name (pirate-themed).
 RELEASE_NAME: str = "Safe Harbor"

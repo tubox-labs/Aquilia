@@ -5,9 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.1] — 2026-09-14 — "Safe Harbor"
+## [1.4.1] — 2026-09-15 — "Safe Harbor"
 
-Aquilia v1.4.1 is a **hardening and repair release**: it resolves two admin-subsystem defects reported from production use, and lands the framework's response to a full 27-finding migration audit performed while porting a real NestJS backend to native Aquilia. Every fix was independently reproduced before being fixed and is covered by permanent regression tests. See [`releases/1.4.1/`](releases/1.4.1/README.md) for full documentation and [`docs/AQUILIA_MIGRATION_AUDIT.md`](docs/AQUILIA_MIGRATION_AUDIT.md) §7 for the complete per-finding report.
+Aquilia v1.4.1 is a **hardening and repair release**: it resolves two admin-subsystem defects reported from production use, lands the framework's response to a full 27-finding migration audit performed while porting a real NestJS backend to native Aquilia, and — following a second, auth-focused gap analysis — **rebuilds the authentication & authorization architecture** end-to-end (configuration, strategies, guards, principals, tokens, stores, middleware). Every fix was independently reproduced before being fixed and is covered by permanent regression tests. See [`releases/1.4.1/`](releases/1.4.1/README.md) for full documentation, [`docs/AQUILIA_MIGRATION_AUDIT.md`](docs/AQUILIA_MIGRATION_AUDIT.md) §7 for the audit report, and [`docs/AUTH_ARCHITECTURE.md`](docs/AUTH_ARCHITECTURE.md) for the auth architecture reference.
+
+### Added — Authentication & Authorization architecture rebuild (2026-09-15)
+
+The rebuild closes every finding of the auth gap analysis
+([`docs/AQUILIA_AUTH_VS_NESTJS_GAPS.md`](docs/AQUILIA_AUTH_VS_NESTJS_GAPS.md) §11)
+and brings the guard/principal plumbing to NestJS parity while keeping Aquilia's
+advantages (in-framework MFA, OAuth server, key rotation, argon2 hashing).
+
+#### Unified configuration model
+- **`AuthSettings`** (`aquilia/auth/config.py`) — one frozen, typed view of auth configuration; every supported spelling (pyconfig env-class flat attributes, typed `Integration.auth(...)`, raw dicts, `AQ_AUTH__*` environment overrides, minute/day TTL aliases) normalizes onto it. Nested values win over flat; `*_seconds` TTLs win over aliases; audience is always `list[str]`; malformed sections warn and degrade instead of crashing.
+- **Signing-secret precedence fixed (AG-13, Critical)** — the loader no longer injects any values (the `"aquilia_insecure_dev_secret"` default that silently outranked operator configuration is gone); `resolve_signing_secret` implements the documented order (Signing.secret → Auth.secret_key → `AQ_SECRET_KEY` → `SECRET_KEY`), and retired insecure secrets are treated as *unset*. The scaffold's documented `Auth.secret_key` path now actually keys both the token engine and the signing engine (it previously never reached either — and crashed the prod boot).
+- **Source merging** — the `auth` section and `integrations.auth` merge (integration keys win; an explicit `enabled: true` anywhere wins) instead of first-wins shadowing; an env var can no longer silently disable a configured integration.
+- **TTLs, audience, dead config** — seconds canonical everywhere (typed layers no longer emit defaults that masked `refresh_token_ttl_days = 7` as 30 days); audience default unified to `["api"]`; the dead bcrypt-era `hash_rounds` knob removed; the configured password hasher and rate limiter are actually wired into the `AuthManager`.
+
+#### Request pipeline
+- **Authenticate, then enforce** — credential resolution never raises; faults are recorded on the canonical **`AuthState`** and enforcement (the global `require_auth` flag honoring `@Public()`, or guards) decides what a failure means per route. **Invalid tokens on public routes degrade to anonymous** instead of rejecting (AG-02); protected routes keep precise 401 reason codes.
+- **One canonical request state (MS-8/9)** — `AuthState` (`ctx.auth_state` / `request.state["auth_state"]`) is the single truth; every legacy mirror (`ctx.identity`, `request.state["identity"/"authenticated"/"principal"/"token_claims"]`, the request-scoped DI registrations) is a derived view written by one function.
+- **Auth errors through the error contract (AG-08, N-7)** — enforcement raises faults rendered by the exception middleware through the pluggable `error_renderer`; the session's `Set-Cookie` rides the denial fault so rejected requests still establish/rotate their session cookie.
+- **Correct status codes (N-2)** — authentication faults render **401** (were 403): `AUTH_001..015/2xx/3xx` → 401, rate-limit-style (`AUTH_008/009/304`) → 429, password-policy (`AUTH_1xx`) → 400, `AUTHZ_*` → 403. Auth faults are `public = True` (production renders the real message, was "Internal server error").
+- **Session middleware deduplicated (MS-7)** — exactly one session lifecycle per app (`AquilAuthMiddleware` owns sessions when auth is mounted, the builtin `SessionMiddleware` otherwise); the fourth duplicate in the auth integration layer is a deprecated alias. Sessions are force-enabled only when the `session` strategy is explicitly configured.
+
+#### Guards (AG-04/09/11/18, M-2/3/5)
+- **Async guard protocol** — `async def can_activate(ctx: GuardContext) -> bool` (the NestJS `CanActivate` contract; guards can finally do JWT verification, permission-table lookups, and policy-service calls); legacy sync `check()` guards run through the same pipeline.
+- **Global + module + route guards** — `Auth.global_guards` (the `APP_GUARD` equivalent) → `AppManifest.guards` (now actually consumed for HTTP routes) → `@UseGuards(...)` on controller class or method, executed by the controller engine for every route shape.
+- **`@Public()`** — exempts a route (or controller) from protect-by-default and skips *authentication* guards; authorization guards (roles/scopes/policies) still run. `require_auth_by_default` works with or without the auth middleware (an implicit `AuthGuard` enforces it at the route level when the middleware is off — own-token apps register their verifier as a global guard instead of bypassing the framework).
+
+#### Strategies, principals, tokens
+- **Passport-style strategy registry (M-1)** — `register_strategy("google", factory_or_class_or_instance)`; names first-class in `backends`. Built-ins: `token`, `jwt-stateless`, `session`, `api_key`, `password`.
+- **Stateless JWT mode (AG-03, M-6)** — the `jwt-stateless` strategy verifies claims and builds the principal without any per-request identity lookup (passport-jwt's default posture); `stateless: true` swaps it in automatically.
+- **`@CurrentUser()` principal injection (AG-10, M-4)** — `Annotated[AppUser, CurrentUser]` (or a `current_user` parameter), with the `Auth.principal_factory` config hook (`(identity, claims) -> principal`), type-aware resolution, and `CurrentUser(optional=True)` for maybe-user routes.
+- **Extra JWT claims (AG-07)** — `issue_access_token(..., extra_claims={...})` with reserved-claim protection at issue time; `scopes` optional; `TokenClaims.extra` carries arbitrary claims through verification.
+- **`collapse_token_errors` (AG-08)** — every token failure becomes one generic 401 (`AUTH_002`, "Invalid or expired access token"; a *missing* header stays `AUTH_010`) — the anti-enumeration posture.
+- **Refresh rotation with reuse detection (AG-05, M-10)** — hash-keyed session *families* with current+previous credentials; presenting a rotated-away token **revokes the whole session family** (stolen-token tripwire). Rotation is atomic per store (asyncio lock / Redis Lua CAS / SQL `UPDATE … WHERE current_hash = ?`), so concurrent refresh races produce exactly one winner. `device_metadata` is recorded per family; revocation by identity/session reaches family credentials.
+- **Token hardening** — malformed base64/JSON is a 401 `AUTH_TOKEN_INVALID` (was an uncaught 500); the verification algorithm always comes from the key descriptor, never the token header (algorithm-confusion guard, now documented and tested).
+
+#### Durable stores (AG-06, N-1/N-4/N-6)
+- **`DatabaseIdentityStore` / `DatabaseCredentialStore` / `DatabaseTokenStore`** (`aquilia/auth/stores_db.py`) — full store protocols on any Aquilia-supported database (SQLite/PostgreSQL/MySQL), auto-DDL, sharing the app database by default; restart-persistence and cross-process CAS rotation verified.
+- **Store configuration** — `store_type: "memory" | "database"` plus per-store overrides (`identity_store`/`credential_store`/`token_store` as dict specs or ready-made objects; `token_store={"type": "redis", "url": ...}` constructs a real `RedisTokenStore`).
+- **Redis session store** — `sessions` store `"redis"` now actually uses Redis (JSON sessions, Redis-managed TTLs, per-principal index); it previously fell back to memory with a warning.
+
+#### Production posture
+- **Fail-closed auth bootstrap** — outside dev/test, an auth construction error (insecure secret, unknown store type, bad `principal_factory`) crashes the boot instead of silently serving without auth; unresolvable guard references fail the boot in every mode with a clear "must be a dotted path" message.
+
+### Changed (auth rebuild — review on upgrade)
+- `AquilaConfig.Auth` field set extended (`access_token_ttl_seconds`, `refresh_token_ttl_seconds`, `stateless`, `collapse_token_errors`, `global_guards`, `principal_factory`); audience default unified to `["api"]` (was `"aquilia-app"` in config layers — **re-issue tokens or pin the audience for one TTL window**); legacy minute/day aliases still convert.
+- Auth faults render **401** (was 403) with real messages in production.
+- `AuthMiddleware`/`AquilAuthMiddleware` with `require_auth=True` now *raise* a fault (rendered through the `error_renderer`) instead of returning a hand-built 401 body — custom middleware stacks need a fault-handling middleware (server stacks always have one).
+- `TokenBackend.authenticate` may return an `Authentication` (identity + claims + principal) instead of a bare `Identity` — custom backends may adopt the richer result.
+- `workspace.AuthConfig` is deprecated (aligned defaults + `DeprecationWarning`); migrate to `AquilaConfig.Auth` or `Integration.auth(...)`.
+- `aquilia.auth.integration.middleware.SessionMiddleware` is a deprecated alias of the canonical builtin.
+
+### Verified (auth rebuild)
+- 151 new adversarial tests across 7 new files: configuration precedence from every mechanism (including env-created sections and malformed values), forged/algorithm-confusion/malformed/expired/boundary-condition JWTs, public-route token tolerance, nested/global/per-route guard combinations, async authorization, 8-way concurrent refresh races (repeated; exactly one winner), reuse→family revocation, restart persistence, fail-closed boot, collapse-mode 401 matrices, a 120-request mixed-traffic soak, and live-Redis verification of the Lua CAS rotation and the Redis session store.
+- A second independent hostile audit of the rebuilt code found a critical default-shape crash (dict claims into the attribute-reading session binder — the first e2e pass had only exercised stateless mode) plus ~20 further defects (config source shadowing, TTL-alias masking, fail-open bootstrap, cookie loss on 401 denials, guard-contract holes); every one is fixed and pinned by `tests/test_auth_second_audit.py`.
 
 ### Fixed
 
@@ -54,10 +108,11 @@ Aquilia v1.4.1 is a **hardening and repair release**: it resolves two admin-subs
 - **GUIDE.md** matches the generator again (no phantom `config/*.yaml`; `aq serve` for production); the composed cache-key layout is documented on `CacheService`.
 
 ### Verified
-- Complete suite: **9488 passed, 0 failed** (87 new regression tests across 12 new test files).
+- Complete suite: **9646 passed, 0 failed** (238 new tests this release: 87 audit regressions across 12 files + 151 auth-rebuild tests across 7 files).
 - Live PostgreSQL 16: UUID-FK migration applies; zero false schema drift (true drift still detected); 10/50/100-writer concurrency stress (1 row, 1 creator, 0 exceptions).
 - Live loopback HTTP: multi `Set-Cookie` (comma-bearing `Expires`) preserved; body readable after client close; connection reuse; concurrent requests.
 - Admin: login issues the session cookie and the dashboard renders; the no-cookie guard still redirects; auth-enabled path unchanged.
+- Live Redis: Lua-CAS refresh rotation (exactly one winner under 8-way concurrency), reuse→family revocation, session-store round-trips and TTLs.
 
 ## [1.4.0] — 2026-08-23 — "Grand Armada"
 

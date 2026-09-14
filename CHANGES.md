@@ -292,3 +292,67 @@ Summary:
 - 87 new regression tests across 12 new test files; complete suite
   9488 passed / 0 failed; live PostgreSQL and live HTTP verifications.
 - Version bumped to 1.4.1; releases/1.4.1/ and CHANGELOG.md updated.
+
+## Session 2026-09-15 — v1.4.1 auth architecture rebuild
+
+Timestamp: 2026-09-15T23:00:00Z
+
+Agent: Aquilia auth-architecture rebuild session
+
+Files Modified (framework):
+- aquilia/auth/config.py (NEW — AuthSettings, normalize_auth_config,
+  resolve_signing_secret, RETIRED_INSECURE_SECRETS)
+- aquilia/auth/strategies.py (NEW — Passport-style strategy registry)
+- aquilia/auth/principals.py (NEW — CurrentUser marker, principal helpers)
+- aquilia/auth/state.py (NEW — canonical AuthState, route_is_public)
+- aquilia/auth/stores_db.py (NEW — Database identity/credential/token
+  stores with SQL-CAS rotation)
+- aquilia/auth/{tokens,core,stores,manager,faults,guards}.py (collapse
+  errors; extra claims; malformed-token hardening; rotation families in
+  memory+redis; Authentication result; principal_builder; async
+  can_activate + GuardContext + GuardPipeline; public faults)
+- aquilia/auth/{middleware,integration/middleware}.py (authenticate-then-
+  enforce; AuthState canonical views; @Public tolerance; Set-Cookie rides
+  denial faults; deprecated session-middleware alias; dedup)
+- aquilia/auth/backends/{base,token}.py (registry-driven resolve_backend;
+  StatelessTokenBackend; Authentication results)
+- aquilia/auth/__init__.py (new exports)
+- aquilia/server.py (AuthSettings bootstrap; secret precedence; store
+  wiring incl. database/redis; guard pipeline + manifest guard stamping;
+  principal_factory; stateless swap; fail-closed auth init outside
+  dev/test; redis session store resolution)
+- aquilia/config/_loader.py (get_auth_config: no injected defaults, merge
+  auth+integrations.auth, normalization, opt-in enabled)
+- aquilia/{pyconfig,integrations/auth,workspace,testing/config}.py
+  (canonical Auth fields; None-able TTLs; deprecated AuthConfig; aligned
+  test config)
+- aquilia/controller/{decorators,metadata,compiler,engine,__init__}.py
+  (@Public/@UseGuards; route metadata; module_guards; guard pipeline hook;
+  CurrentUser binding)
+- aquilia/{__init__,middleware/utils/status,middleware/builtin/exceptions}.py
+  (top-level Public/UseGuards exports; 401/429/400 auth status map;
+  metadata headers on rendered faults)
+- aquilia/sessions/{store,__init__}.py (RedisStore)
+
+Tests: 151 new adversarial tests in 7 files
+(test_auth_config_precedence, test_auth_guard_pipeline,
+test_auth_strategies_stateless, test_auth_durable_stores,
+test_auth_principal_e2e, test_auth_redis_integration [live Redis],
+test_auth_second_audit) + updated test_integration_configs.
+
+Summary:
+- Verified every finding of docs/AQUILIA_AUTH_VS_NESTJS_GAPS.md against
+  master; fixed AG-02..AG-18 (except by-design AG-12), M-1..M-8/M-10,
+  MS-1..MS-9, and eleven newly discovered defects (N-1..N-11), including
+  the still-live Critical AG-13 signing-secret precedence bug and the
+  scaffold pyconfig path that never reached the auth machinery.
+- A second independent hostile audit found a critical default-shape crash
+  (dict claims into the attribute-reading session binder) plus ~20 further
+  defects (config source shadowing, TTL-alias masking, fail-open bootstrap,
+  cookie loss on 401s, guard-contract holes) — all fixed and pinned by
+  tests/test_auth_second_audit.py.
+- Full suite 9646 passed / 0 failed; ruff clean; live Redis verification
+  of the Lua CAS rotation and session store.
+- docs/AUTH_ARCHITECTURE.md written (authoritative reference); gaps doc
+  §11 fix report; GUIDE.md §7 rewritten; scaffold template updated;
+  CHANGELOG/RELEASE_NOTES/releases-1.4.1 extended under v1.4.1.

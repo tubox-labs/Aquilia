@@ -1,9 +1,10 @@
 # Aquilia v1.4.1 Release Notes — "Safe Harbor"
 
 Aquilia v1.4.1 is a **hardening and repair release** that follows v1.4.0 "Grand Armada".
-It resolves two admin-subsystem defects reported from production use, and lands the
+It resolves two admin-subsystem defects reported from production use, lands the
 framework's response to a full 27-finding migration audit performed while porting a
-real NestJS backend (AniWave) to native Aquilia.
+real NestJS backend (AniWave) to native Aquilia, and **rebuilds the authentication &
+authorization architecture** end-to-end following a second, auth-focused gap analysis.
 
 ```bash
 pip install --upgrade aquilia==1.4.1
@@ -23,7 +24,25 @@ pip install --upgrade aquilia==1.4.1
 └──────────────────────────────┘  └──────────────────────────────────────────┘
 ```
 
-1. **Admin login redirect loop (silent, credentials valid)** — with sessions
+1. **Authentication & authorization architecture rebuild** — every finding
+   of the auth gap analysis is resolved: one unified configuration model
+   (`AuthSettings` — the loader no longer injects a secret default that
+   outranked operator configuration), an authenticate-then-enforce request
+   pipeline with a canonical `AuthState` (invalid tokens on public routes
+   degrade to anonymous; protected routes keep precise 401s), a route-level
+   **async guard pipeline** with `Auth.global_guards` (the `APP_GUARD`
+   equivalent), `@UseGuards`, and `@Public()`, a **Passport-style strategy
+   registry** with a **stateless JWT mode**, **`@CurrentUser()` principal
+   injection** for application-defined types, **refresh-token rotation with
+   reuse detection** (replaying a rotated-away token revokes the whole
+   session family; concurrent refreshes yield exactly one winner),
+   **durable database stores**, a real **Redis session store**, exact 401
+   error contracts rendered through the app's `error_renderer`, and a
+   fail-closed auth bootstrap outside dev/test. Full report:
+   [`auth_architecture.md`](auth_architecture.md); architecture reference:
+   [`docs/AUTH_ARCHITECTURE.md`](../../docs/AUTH_ARCHITECTURE.md).
+
+2. **Admin login redirect loop (silent, credentials valid)** — with sessions
    enabled and framework auth disabled (the standard shape for apps that
    manage their own Bearer tokens), `SessionMiddleware` was never mounted
    and the `SessionEngine` was never registered in DI: both were nested
@@ -33,14 +52,14 @@ pip install --upgrade aquilia==1.4.1
    gated on the session engine existing; `AquilAuthMiddleware` still owns
    sessions whenever auth initializes. See [`admin.md`](admin.md).
 
-2. **Admin security DI provider registration (`ValueProvider … missing
+3. **Admin security DI provider registration (`ValueProvider … missing
    argument: 'token'`)** — the 1.4.0 registration sites passed
    `ValueProvider(value)` without the required `token`, and inverted the
    `(provider, tag)` argument order of `Container.register`. All admin
    security and subsystem providers now register and resolve cleanly.
    See [`admin.md`](admin.md).
 
-3. **Migration-system audit response** — `ArrayField` cannot serialize into
+4. **Migration-system audit response** — `ArrayField` cannot serialize into
    migrations (F-01, Critical) and generated FK migrations typed UUID-keyed
    columns as `INTEGER`, producing un-appliable DDL (F-02, Critical), are
    fixed along with 25 further findings: composite primary keys wired
@@ -60,8 +79,10 @@ pip install --upgrade aquilia==1.4.1
 
 ## Verification
 
-- **Complete test suite: 9488 passed, 0 failed** (plus 87 new regression
-  tests across 12 new test files added by this release).
+- **Complete test suite: 9646 passed, 0 failed** (238 new tests added by
+  this release: 87 audit regressions across 12 files + 151 auth-rebuild
+  adversarial tests across 7 files, including live-Redis CAS-rotation
+  races and a 120-request mixed-traffic auth soak).
 - The migration fixes were verified against **live PostgreSQL 16** (UUID FK
   applies, zero false schema drift, 10/50/100-writer concurrency stress:
   exactly one row, one creator, zero exceptions) and the HTTP-client fixes
@@ -86,6 +107,18 @@ changes to review:
 2. **Contract validation faults now return HTTP 400** instead of 500 (a
    client payload rejection is a client error). Consumers keying on the
    status code should note the change; the response body shape is unchanged.
+
+3. **Authentication changes to review** (full list in
+   [`docs/AUTH_ARCHITECTURE.md`](../../docs/AUTH_ARCHITECTURE.md) §11):
+   auth faults now return **401** (was 403) with their real message in
+   production; the token **audience default is unified to `["api"]`**
+   (framework-issued tokens with the old `"aquilia-app"` default stop
+   validating — re-issue them or pin the audience explicitly for one TTL
+   window); TTL minute/day aliases you set now actually apply (typed
+   layers no longer mask them with defaults); `require_auth` raises a
+   fault (rendered through the configured `error_renderer`) instead of
+   returning a hand-built 401 body; auth bootstrap fails closed outside
+   dev/test; `workspace.AuthConfig` is deprecated.
 
 Everything else — including the multi-header and body-lifecycle changes in
 the HTTP client — is backward compatible. The `NativeTransport`
