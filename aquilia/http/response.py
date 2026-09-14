@@ -139,6 +139,11 @@ class HTTPClientResponse:
     _body: bytes | None = field(default=None, repr=False)
     _stream: AsyncIterator[bytes] | None = field(default=None, repr=False)
     _body_consumed: bool = field(default=False, repr=False)
+    # Raw field lines in arrival order. ``headers`` above collapses
+    # duplicates into one comma-joined entry for convenience, which is
+    # lossy for the fields that must not be combined (``Set-Cookie``);
+    # ``get_headers()`` and ``cookies`` read from this list instead.
+    _raw_headers: list[tuple[str, str]] = field(default_factory=list, repr=False)
 
     @property
     def reason(self) -> str:
@@ -244,28 +249,44 @@ class HTTPClientResponse:
 
     @property
     def cookies(self) -> dict[str, str]:
-        """Parse Set-Cookie headers into dict."""
+        """Parse Set-Cookie headers into dict.
+
+        Every ``Set-Cookie`` field line is parsed -- a response that sets
+        several cookies (a session plus a CSRF token, say) yields all of
+        them, not only the last one to arrive.
+        """
         result: dict[str, str] = {}
-        for key, value in self.headers.items():
-            if key.lower() == "set-cookie":
-                cookie: SimpleCookie[str] = SimpleCookie()
-                cookie.load(value)
-                for morsel in cookie.values():
-                    result[morsel.key] = morsel.value
+        for _, value in self._header_lines("set-cookie"):
+            cookie: SimpleCookie[str] = SimpleCookie()
+            cookie.load(value)
+            for morsel in cookie.values():
+                result[morsel.key] = morsel.value
         return result
+
+    def _header_lines(self, name: str) -> list[tuple[str, str]]:
+        """Return the raw ``(name, value)`` lines whose name matches *name* (case-insensitive)."""
+        name_lower = name.lower()
+        if self._raw_headers:
+            return [(k, v) for k, v in self._raw_headers if k.lower() == name_lower]
+        # Responses built directly with a plain dict (no raw list) fall back
+        # to the collapsed view.
+        return [(k, v) for k, v in self.headers.items() if k.lower() == name_lower]
 
     def get_header(self, name: str, default: str | None = None) -> str | None:
         """Get header by name (case-insensitive)."""
-        name_lower = name.lower()
-        for key, value in self.headers.items():
-            if key.lower() == name_lower:
-                return value
+        lines = self._header_lines(name)
+        if lines:
+            return lines[0][1]
         return default
 
     def get_headers(self, name: str) -> list[str]:
-        """Get all values for a header (for multi-value headers)."""
-        name_lower = name.lower()
-        return [value for key, value in self.headers.items() if key.lower() == name_lower]
+        """Get every value received for a header, in arrival order.
+
+        Multi-value headers are preserved verbatim -- no comma-joining, no
+        loss of the values a collapsed dict cannot hold (``Set-Cookie``
+        above all).
+        """
+        return [value for _, value in self._header_lines(name)]
 
     async def read(self) -> bytes:
         """Read entire response body as bytes."""
@@ -472,10 +493,19 @@ def create_response(
 
     Returns:
         HTTPClientResponse instance.
+
+    Note:
+        A list of raw field lines preserves every duplicate as its own
+        entry in ``_raw_headers`` (what ``get_headers()`` returns), while
+        the convenience ``headers`` dict joins duplicates with ``", "``
+        (RFC 9110 field-line combining). ``Set-Cookie`` is the documented
+        exception that must not be combined -- use ``get_headers()`` or the
+        ``cookies`` property for it.
     """
     # Normalize headers to dict
     if headers is None:
         headers_dict: dict[str, str] = {}
+        raw_lines: list[tuple[str, str]] = []
     elif isinstance(headers, list):
         headers_dict = {}
         for name, value in headers:
@@ -484,8 +514,10 @@ def create_response(
                 headers_dict[name] = f"{headers_dict[name]}, {value}"
             else:
                 headers_dict[name] = value
+        raw_lines = list(headers)
     else:
         headers_dict = dict(headers)
+        raw_lines = list(headers_dict.items())
 
     return HTTPClientResponse(
         status_code=status_code,
@@ -499,4 +531,5 @@ def create_response(
         _body=body,
         _stream=stream,
         _body_consumed=body is not None,
+        _raw_headers=raw_lines,
     )

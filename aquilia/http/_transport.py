@@ -96,6 +96,7 @@ class ConnectionPool:
         "_max_per_host",
         "_keepalive_expiry",
         "_lock",
+        "_closed",
     )
 
     def __init__(
@@ -109,6 +110,7 @@ class ConnectionPool:
         self._max_per_host = max_per_host
         self._keepalive_expiry = keepalive_expiry
         self._lock = asyncio.Lock()
+        self._closed = False
 
     def _make_key(self, host: str, port: int, ssl: bool) -> str:
         return f"{'https' if ssl else 'http'}://{host}:{port}"
@@ -141,8 +143,18 @@ class ConnectionPool:
             return None
 
     async def put_connection(self, conn: ConnectionInfo) -> bool:
-        """Return connection to pool if we have room."""
-        key = self._make_key(conn.host, conn.port, conn.ssl)
+        """Return connection to pool if we have room.
+
+        A closed pool takes ownership of nothing: the connection is closed
+        instead, so a response finishing its body after the client was shut
+        down cannot resurrect an open connection inside a dead pool.
+        """
+        async with self._lock:
+            if self._closed:
+                await conn.close()
+                return False
+
+            key = self._make_key(conn.host, conn.port, conn.ssl)
 
         async with self._lock:
             if key not in self._connections:
@@ -164,6 +176,7 @@ class ConnectionPool:
 
     async def close_all(self) -> None:
         async with self._lock:
+            self._closed = True
             for connections in self._connections.values():
                 for conn in connections:
                     await conn.close()
@@ -493,7 +506,16 @@ class NativeTransport(HTTPTransport):
         self,
         reader: asyncio.StreamReader,
         timeout: float | None = None,
-    ) -> tuple[str, int, str, dict[str, str]]:
+    ) -> tuple[str, int, str, list[tuple[str, str]]]:
+        """Read the status line and header block.
+
+        Returns the raw ``(name, value)`` field lines in arrival order.
+        Multi-value headers (notably repeated ``Set-Cookie``) are preserved
+        as separate entries -- collapsing them into a dict here is lossy,
+        since ``Set-Cookie`` must not be combined (RFC 9110 §5.2) and a
+        cookie jar that only ever sees the last line silently loses
+        sessions.
+        """
         status_line = await self._read_line(reader, timeout)
         if not status_line:
             raise ConnectionClosedFault("Connection closed while reading response")
@@ -509,7 +531,7 @@ class NativeTransport(HTTPTransport):
         status_code = int(match.group(2))
         reason = match.group(3)
 
-        headers: dict[str, str] = {}
+        headers: list[tuple[str, str]] = []
         header_count = 0
 
         while True:
@@ -528,7 +550,7 @@ class NativeTransport(HTTPTransport):
                 raise InvalidResponseFault(f"Invalid header: {line_str}")
 
             name, value = line_str.split(":", 1)
-            headers[name.strip()] = value.strip()
+            headers.append((name.strip(), value.strip()))
 
         return http_version, status_code, reason, headers
 
@@ -605,9 +627,10 @@ class NativeTransport(HTTPTransport):
         headers: dict[str, str],
         timeout: float | None = None,
     ) -> AsyncIterator[bytes]:
-        transfer_encoding = headers.get("Transfer-Encoding", "").lower()
-        content_length = headers.get("Content-Length")
-        content_encoding = headers.get("Content-Encoding", "")
+        # ``headers`` arrives with lower-cased field names (see send()).
+        transfer_encoding = headers.get("transfer-encoding", "").lower()
+        content_length = headers.get("content-length")
+        content_encoding = headers.get("content-encoding", "")
 
         if transfer_encoding == "chunked":
             body = await self._read_body_chunked(reader, timeout)
@@ -656,6 +679,7 @@ class NativeTransport(HTTPTransport):
         start_time = time.monotonic()
         conn: ConnectionInfo | None = None
         keep_connection = True
+        response_created = False
 
         try:
             conn = await self._get_connection(host, port, use_ssl, connect_timeout)
@@ -664,21 +688,38 @@ class NativeTransport(HTTPTransport):
             conn.writer.write(request_bytes)
             await asyncio.wait_for(conn.writer.drain(), timeout=timeout_config.write or 30.0)
 
-            http_version, status_code, reason, headers = await self._read_response_head(conn.reader, read_timeout)
+            http_version, status_code, reason, raw_headers = await self._read_response_head(conn.reader, read_timeout)
 
             elapsed = time.monotonic() - start_time
 
-            connection_header = headers.get("Connection", "").lower()
+            # Header field names are case-insensitive; the pool decision must
+            # not depend on the server's casing.
+            headers_lower = {name.lower(): value for name, value in raw_headers}
+            connection_header = headers_lower.get("connection", "").lower()
             if connection_header == "close" or http_version == "1.0":
                 keep_connection = False
 
             async def body_stream() -> AsyncIterator[bytes]:
-                async for chunk in self._create_body_stream(conn.reader, headers, read_timeout):
-                    yield chunk
+                # Ownership of ``conn`` transfers from the transport to this
+                # response: the pool must never hold a connection whose body
+                # has not been read, or a later request can be served the
+                # leftover bytes -- and closing the client recycles the
+                # connection under an in-flight reader. The connection goes
+                # back to the pool (or is closed) exactly once, when the
+                # body is fully consumed or the stream is closed.
+                try:
+                    async for chunk in self._create_body_stream(conn.reader, headers_lower, read_timeout):
+                        yield chunk
+                finally:
+                    if keep_connection and conn.is_alive():
+                        await self._pool.put_connection(conn)
+                    else:
+                        await conn.close()
 
+            response_created = True
             return create_response(
                 status_code=status_code,
-                headers=headers,
+                headers=raw_headers,
                 stream=body_stream(),
                 url=request.url,
                 http_version=http_version,
@@ -724,7 +765,11 @@ class NativeTransport(HTTPTransport):
             raise TransportFault(f"Transport error: {e}", url=request.url, cause=str(e)) from e
 
         finally:
-            if conn:
+            # Release the connection here only when no response took
+            # ownership of it (an error was raised before the body stream
+            # was created). A created response releases it itself once its
+            # body has been consumed.
+            if conn and not response_created:
                 if keep_connection and conn.is_alive():
                     await self._pool.put_connection(conn)
                 else:
