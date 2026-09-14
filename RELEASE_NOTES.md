@@ -1,3 +1,29 @@
+# Aquilia v1.4.1
+
+Release date: 2026-09-14
+Release Name: "Safe Harbor"
+
+## Summary
+
+Aquilia v1.4.1 is a hardening and repair release. It fixes the silent admin login redirect loop (sessions were only wired when framework auth was enabled), the admin security DI provider registration failure (`ValueProvider ... missing argument: 'token'`), and lands the framework's response to a 27-finding migration audit: two Critical migration defects (`ArrayField` serialization, UUID foreign keys typed as INTEGER), eight Major fixes (composite primary keys, atomic upserts, multi-value response headers, response body lifecycle, route `status_code`, bare `Annotated` facets, `depends_on`/`imports` parity, workspace-config preservation), and the full minor/observation tail — each independently reproduced, fixed, and covered by regression tests verified against live PostgreSQL and live HTTP.
+
+## Key Changes
+
+- **Admin**: session middleware + SessionEngine DI now gated on the session engine, not on `use_auth`; admin DI providers register correctly.
+- **Migrations**: self-contained FK column types (`Reference.to_field`), `ArrayField` round-trips, wired `CompositePrimaryKey`, honest `--dry-run`, drift-free `aq db diff`.
+- **ORM**: atomic `get_or_create`/`update_or_create` (100-writer stress verified), `create()` dirty-snapshot fix, FK `<attr>_id` accessors.
+- **HTTP client**: multi-value headers preserved (`get_headers()`, `cookies`), response-owned connections (read-after-close works).
+- **Contracts**: bare facet classes validate; `SealFault.errors` alias; contract faults map to 400; pluggable error renderer.
+- **Behavioral changes to review on upgrade**: `AquilaConfig.Auth.enabled` now defaults to `False` (opt-in); contract validation faults return 400 (was 500); `NativeTransport._read_response_head` returns raw header lists.
+
+## Verification
+
+Complete suite 9488 passed / 0 failed; 87 new regression tests; live PostgreSQL (migration applies, zero false drift, concurrency stress), live loopback HTTP (multi `Set-Cookie`, read-after-close, reuse), admin login end-to-end (cookie issued, dashboard 200, guard intact).
+
+Full documentation: [`releases/1.4.1/`](releases/1.4.1/README.md) · Audit report: [`docs/AQUILIA_MIGRATION_AUDIT.md`](docs/AQUILIA_MIGRATION_AUDIT.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+
+---
+
 # Aquilia v1.3.0
 
 Release date: 2026-07-11

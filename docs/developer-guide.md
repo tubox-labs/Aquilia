@@ -211,6 +211,32 @@ Templates rendered for mail autoescape by default through the sandboxed Jinja en
 
 Use `aquilia.testing` for `TestClient`, `TestServer`, base test cases, config overrides, DI mocks, effect mocks, mail outbox helpers, and request factories. The CLI command `aq test` sets `AQUILIA_ENV=test` and delegates to pytest with Aquilia-aware defaults.
 
+### Booting the app once per session (pooled DB/Redis)
+
+An app holding pooled async resources (asyncpg pools, redis clients) binds them to the event loop where startup ran. A function-scoped app fixture gives every test a new loop, and the second test fails with `got Future ... attached to a different loop`. The supported pattern is one session-scoped boot with session-scoped loops:
+
+```toml
+# pyproject.toml
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+```
+
+```python
+# conftest.py
+import pytest_asyncio
+from aquilia.testing.fixtures import aquilia_fixtures, session_test_server
+
+aquilia_fixtures()
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def app_server(session_test_server):
+    from myapp.manifests import MY_MANIFEST
+    return await session_test_server(MY_MANIFEST)
+```
+
+The first caller's manifests configure the server; every test then requests `app_server` and builds `TestClient(app_server)` clients against it. The server starts on the session's event loop and stops when the session ends.
+
 ## Change Checklist
 
 1. Update `workspace.py` when the workspace should know about a module or integration.

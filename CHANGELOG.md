@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-09-14 — "Safe Harbor"
+
+Aquilia v1.4.1 is a **hardening and repair release**: it resolves two admin-subsystem defects reported from production use, and lands the framework's response to a full 27-finding migration audit performed while porting a real NestJS backend to native Aquilia. Every fix was independently reproduced before being fixed and is covered by permanent regression tests. See [`releases/1.4.1/`](releases/1.4.1/README.md) for full documentation and [`docs/AQUILIA_MIGRATION_AUDIT.md`](docs/AQUILIA_MIGRATION_AUDIT.md) §7 for the complete per-finding report.
+
+### Fixed
+
+#### Admin subsystem
+- **Admin login redirect loop (silent)** — with sessions enabled and framework auth disabled, `SessionMiddleware` was never mounted and the `SessionEngine` was never registered in DI (both were nested inside `if use_auth:`). Login with valid superuser credentials returned `302 → /admin/` with **no `Set-Cookie`**, and the dashboard bounced back to `/admin/login` forever. Middleware mounting and DI registration are now gated on the session engine existing; `AquilAuthMiddleware` still owns sessions when auth initializes. Also removed a latent `UnboundLocalError` (function-local `ValueProvider` import shadowing the module-level one) that crashed the session-DI block when auth was disabled. (`aquilia/server.py`)
+- **Admin security DI provider registration** — `ValueProvider(...) missing 1 required positional argument: 'token'` and inverted `Container.register(provider, tag)` argument order made all admin security/subsystem providers fail with a single boot warning. All sites now construct `ValueProvider(value=…, token=…, name=…)` correctly; a repository-wide AST sweep confirms no malformed registrations remain. (`aquilia/admin/security.py`, `aquilia/admin/di_providers.py`)
+
+#### Migration system (audit F-01, F-02 — Critical)
+- **`ArrayField` migration serialization** — `base_field`/`size` are now serialized (nested deconstruct form), rendered into migration files, and rebuilt; a generated migration no longer contains a bare `ArrayField()` that fails to import.
+- **Self-contained FK column types** — `Reference` now carries the referenced PK's field spec (`to_field`), captured at generation time. Migrations apply correctly under `aq db migrate` (empty model registry): UUID-keyed FK columns render as `UUID`, not `INTEGER`. The new fields are excluded from `Reference` equality so pre-existing snapshots do not diff as changed.
+
+#### ORM (audit F-03, F-09, F-25)
+- **`CompositePrimaryKey` wired end-to-end** — `Meta.primary_key = CompositePrimaryKey(fields=[...])` is honored: no surrogate `id`, table-level `PRIMARY KEY` in DDL and migrations, tuple `pk`, composite WHERE clauses in save/get/delete/refresh, and drift-free introspection. Mixed field-PK/composite declarations and unknown field names are definition-time errors. (Foreign keys cannot reference composite PKs — a clear fault is raised.)
+- **Atomic `get_or_create`/`update_or_create`** — both delegate to `INSERT … ON CONFLICT DO NOTHING` when the lookup fields carry a unique constraint (exactly one concurrent creator; the rest take the update path). Non-unique lookups keep the legacy path behind a `RuntimeWarning`. Also fixed two latent bugs: created-detection keyed on stale `lastrowid` (now `rowcount`), and the PostgreSQL adapter hardcoding `rowcount=1` for every INSERT.
+- **`Model.create()` snapshot** — dirty-tracking state is now snapshotted after insert; create → modify → `save()` takes the UPDATE path instead of re-INSERTing and violating the PK.
+- **FK raw-id ergonomics** — `instance.<fk>_id` reads/writes the raw column value beside the relation descriptor (`session.user_id == session.user.pk`); `filter(<fk_column>=<UUID>)` now converts values through `to_db`.
+
+#### HTTP client (audit F-07, F-08)
+- **Multi-value response headers preserved** — the transport returns raw `(name, value)` field lines; `get_headers()` returns every value in arrival order; the `cookies` property parses every `Set-Cookie` line (RFC 9110 field-combining still applies to the convenience `headers` dict, with `Set-Cookie` documented as the exception). *Extension point change:* `NativeTransport._read_response_head` returns a raw list instead of a dict.
+- **Response body/connection lifecycle** — a response now owns its connection until the body is consumed (single release point; pools never hold connections with unread bodies and never resurrect into a closed pool). `await res.text()` after the client context exits returns the body instead of raising SSL/truncation errors. `Connection: close` detection is case-insensitive.
+
+#### Controllers & contracts (audit F-06, F-10, F-16)
+- **Route `status_code=` honored** — declared statuses apply to dict/list/str/None returns; explicit `Response`/SSE results are untouched; `None` keeps 204 unless the route declares otherwise.
+- **Bare facet classes validate** — `Annotated[str, EmailFacet]` instantiates the facet instead of silently dropping the constraint; constructor-requiring facets raise a clear definition-time `CastFault`.
+- **Stable contract fault surface** — `ContractFault.errors` is a documented alias of `field_errors`; `[BP1xx]` fault-code prefixes no longer leak into per-field messages; **contract validation faults now render HTTP 400 instead of 500**.
+- **Pluggable error renderer** — `ExceptionMiddleware(error_renderer=…)` / `FaultHandlingIntegration(error_renderer=…)` customize the JSON error body without replacing the middleware; the middleware keeps status codes and headers, and a failing renderer falls back to the default envelope.
+
+#### CLI & tooling (audit F-04, F-05, F-13, F-14, user-reported)
+- **Workspace configuration preservation** — `.module()` blocks are extracted format-independently (paren-balanced), never regenerated when preserved, and blocks for undiscovered or unreadable modules are emitted verbatim. Marker-less workspaces get an AST-based insertion instead of a silent no-op.
+- **`aq add module --route-prefix` honored** — the requested prefix reaches the generated workspace block.
+- **Honest `makemigrations --dry-run`** — reports the operations it would write instead of "No model changes detected".
+- **Drift-free `aq db diff`** — introspection keys columns by model attribute names, reconciles storage-equivalent field vocabularies, reconstructs PK/unique constraints, and normalizes defaults. PostgreSQL `get_indexes` now reports columns + constraint-backing; `get_columns` reports PK membership and true array types. Zero false drift on identical schemas (verified on SQLite and live PostgreSQL); genuine drift is still detected.
+- **`_detect_workspace_db_url`** — no longer reads commented-out configuration (the source of `postgresql://:5432/` connecting as the OS user); resolution order is now env override → import the real workspace (resolves `Env(...)` defaults and `DatabaseIntegration`) → comment-stripped static scan.
+
+#### Runtime, testing & observability (audit F-11, F-12, F-15, F-17, F-18, F-19, F-22, F-23, F-24, F-27)
+- **HTTP auth enforcement is opt-in** — `AquilaConfig.Auth.enabled` defaults to `False`; defining the auth config section no longer mounts the framework's middleware against application-managed Bearer tokens. `.integrate(Integration.auth(...))` still enables explicitly.
+- **`depends_on`/`imports` unified** — both spellings create identical DI container links (verified end-to-end); the misleading per-boot deprecation warning is withdrawn.
+- **Late task registration** — `@task.delay()` lazily binds to the running process-wide `TaskManager`; only the no-manager case raises.
+- **TestClient inline query URLs** — `client.get("/search?q=x")` splits the query instead of 404ing (redirect locations too).
+- **Session-scoped app testing** — new `session_test_server` fixture (`loop_scope="session"`) plus the documented pyproject/conftest pattern for pooled apps.
+- **redis-py 8 compatibility** — `aclose()` / `set(ex=…)`; `Secret.resolve()` alias for `reveal()`.
+- **Quieter, honest boots** — the admin "Sessions are NOT configured" banner fires only when admin was explicitly integrated; the signing length warning no longer measures the dev fallback it just told you about; Specula's boot line counts application routes, not its own doc endpoints.
+- **nanobind shutdown leaks** — native plan caches are cleared at interpreter exit.
+- **GUIDE.md** matches the generator again (no phantom `config/*.yaml`; `aq serve` for production); the composed cache-key layout is documented on `CacheService`.
+
+### Verified
+- Complete suite: **9488 passed, 0 failed** (87 new regression tests across 12 new test files).
+- Live PostgreSQL 16: UUID-FK migration applies; zero false schema drift (true drift still detected); 10/50/100-writer concurrency stress (1 row, 1 creator, 0 exceptions).
+- Live loopback HTTP: multi `Set-Cookie` (comma-bearing `Expires`) preserved; body readable after client close; connection reuse; concurrent requests.
+- Admin: login issues the session cookie and the dashboard renders; the no-cookie guard still redirects; auth-enabled path unchanged.
+
 ## [1.4.0] — 2026-08-23 — "Grand Armada"
 
 Aquilia v1.4.0 is the **flagship milestone release** of the framework, consolidating seven beta cycles (`v1.4.0b0`–`v1.4.0b6`) into a production-grade, hardened, stable release. It introduces optional native C++ acceleration extensions (`_core`, `_dataengine`, `_json`), the embedded `aquilia.vectordb` vector search subsystem, the native ASGI Development Platform (`aquilia.devplatform`), a complete restructuring of the HTTP middleware package, a dedicated WebSocket middleware pipeline, a modernized CLI architecture with unified health checks, complete CPython 3.10–3.14 compatibility with multi-platform binary wheels, and 100% typed static exports for seamless IDE autocomplete and developer ergonomics. See [`releases/1.4.0/`](releases/1.4.0/README.md) for full documentation.

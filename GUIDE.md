@@ -53,13 +53,12 @@ This generates:
 
 ```
 myapp/
-├── workspace.py          # Workspace structure (modules, integrations)
+├── workspace.py          # Workspace structure + AquilaConfig environment classes
 ├── starter.py            # Welcome page (auto-loaded in debug mode)
-├── config/
-│   ├── base.yaml         # Shared defaults
-│   ├── dev.yaml          # Development settings
-│   └── prod.yaml         # Production settings
+├── .env.example          # Environment variable template
+├── requirements.txt      # Project dependencies
 ├── modules/              # Application modules
+├── tests/                # Test suite
 ├── templates/            # Jinja2 templates
 ├── artifacts/            # Build artifacts
 └── runtime/              # Runtime state
@@ -467,53 +466,50 @@ test_registry.register(MockProvider(UserRepository, mock_repo))
 
 ## 5. Configuration
 
-### YAML Configuration
+Generated workspaces configure everything in `workspace.py` through
+`AquilaConfig` environment classes -- typed, IDE-complete, and layered by
+`AQ_ENV` (base → environment class → environment variables). `ConfigLoader`
+remains available for apps that prefer explicit file-based configuration
+(see below).
 
-**`config/base.yaml`** — Shared defaults:
+### Environment Classes (what `aq init workspace` generates)
 
-```yaml
-app:
-  name: myapp
-  version: "0.1.0"
+```python
+from aquilia import AquilaConfig, Env, Secret
 
-database:
-  driver: sqlite
-  name: myapp.db
+
+class BaseEnv(AquilaConfig):
+    class server(AquilaConfig.Server):
+        host = Env("AQ_HOST", default="127.0.0.1")
+        port = Env("AQ_PORT", default=8000, cast=int)
+        debug = True
+
+
+class DevEnv(BaseEnv):
+    class server(BaseEnv.server):
+        reload = True
+
+
+class ProdEnv(BaseEnv):
+    class server(BaseEnv.server):
+        host = Env("AQ_HOST", default="0.0.0.0")
+        workers = Env("AQ_WORKERS", default=4, cast=int)
+        debug = False
+
+    class auth(BaseEnv.auth):
+        secret_key = Secret(env="AQ_SECRET_KEY", required=True)
 ```
 
-**`config/dev.yaml`** — Development overrides:
+`AQ_ENV=dev` selects `DevEnv`, `AQ_ENV=prod` selects `ProdEnv`; a `.env`
+file is loaded automatically.
 
-```yaml
-server:
-  mode: dev
-  debug: true
-  host: 127.0.0.1
-  port: 8000
-  reload: true
-  workers: 1
-  access_log: true
-```
-
-**`config/prod.yaml`** — Production:
-
-```yaml
-server:
-  mode: prod
-  debug: false
-  host: 0.0.0.0
-  port: 8000
-  workers: 4
-  access_log: false
-```
-
-### Accessing Configuration
+### File-based Configuration (optional)
 
 ```python
 from aquilia.config import ConfigLoader
 
 config = ConfigLoader()
-config.load("config/base.yaml")
-config.load("config/dev.yaml")
+config.load("config/myapp.yaml")  # your own file-based config, if used
 
 # Dot-path access
 debug = config.get("server.debug")        # True
@@ -1663,8 +1659,9 @@ aq init workspace <name>
 aq add module <name>
 
 # Run server
-aq run dev                # Development mode
-aq run prod               # Production mode
+aq run                    # Development mode (default)
+aq run --mode test        # Test mode
+aq serve                  # Production server
 
 # Generate components
 aq generate controller <module> <name>
@@ -1748,7 +1745,7 @@ server:
 uvicorn myapp.asgi:app --host 0.0.0.0 --port 8000 --workers 4
 
 # Via CLI
-aq run prod
+aq serve
 ```
 
 ### Docker
