@@ -1168,6 +1168,7 @@ def configure(
     fallback_secrets: Sequence[str | bytes] | None = None,
     algorithm: str = "HS256",
     salt: str = "aquilia.signing",
+    _skip_length_check: bool = False,
 ) -> None:
     """
     Configure the global signing secret used by module-level helpers.
@@ -1181,6 +1182,10 @@ def configure(
         fallback_secrets: Retired secrets kept for backward compatibility.
         algorithm:        Default HMAC algorithm.
         salt:             Default namespace salt.
+        _skip_length_check: Internal. Suppress the short-key warning for
+            callers that have already announced they are using a known
+            dev fallback (warning about the fallback's own length would
+            only add noise).
 
     Example::
 
@@ -1188,7 +1193,8 @@ def configure(
         configure(secret=os.environ["SECRET_KEY"])
     """
     global _GLOBAL_SECRETS, _GLOBAL_ALGORITHM, _GLOBAL_SALT
-    _check_key_length(secret, "signing secret")
+    if not _skip_length_check:
+        _check_key_length(secret, "signing secret")
     secrets_list: list[str | bytes] = [secret]
     if fallback_secrets:
         secrets_list.extend(fallback_secrets)

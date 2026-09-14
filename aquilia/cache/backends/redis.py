@@ -191,7 +191,10 @@ class RedisBackend(CacheBackend):
     async def shutdown(self) -> None:
         """Close Redis connection pool."""
         if self._redis:
-            await self._redis.close()
+            # redis-py 8 deprecates close() in favour of aclose(); support
+            # both so a redis-py 5 install keeps working.
+            closer = getattr(self._redis, "aclose", None) or self._redis.close
+            await closer()
             self._redis = None
         self._initialized = False
 
@@ -313,7 +316,7 @@ class RedisBackend(CacheBackend):
             pipe = self._redis.pipeline()
 
             if ttl and ttl > 0:
-                pipe.setex(full_key, ttl, serialized)
+                pipe.set(full_key, serialized, ex=ttl)
             else:
                 pipe.set(full_key, serialized)
 
@@ -614,7 +617,7 @@ class RedisBackend(CacheBackend):
                 serialized = self._serializer.serialize(value)
 
                 if ttl and ttl > 0:
-                    pipe.setex(full_key, ttl, serialized)
+                    pipe.set(full_key, serialized, ex=ttl)
                 else:
                     pipe.set(full_key, serialized)
 

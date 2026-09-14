@@ -1216,14 +1216,14 @@ class AppManifest:
             )
             self.faults = FaultHandlingConfig(default_domain=self.default_fault_domain)
 
-        # v2: Migrate depends_on → imports (with warning)
+        # depends_on/imports are aliases, kept in sync bidirectionally:
+        # whichever one a manifest sets, the other mirrors it, and both
+        # create the same cross-app DI container links at runtime. The
+        # former deprecation warning was withdrawn: it recommended
+        # 'imports' at a time when only 'depends_on' actually wired DI,
+        # and firing it per module on every boot produced warnings for
+        # configuration that was working exactly as documented.
         if self.depends_on and not self.imports:
-            warnings.warn(
-                f"AppManifest({self.name!r}).depends_on is deprecated. "
-                "Use 'imports' instead for cross-module dependencies.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             self.imports = list(self.depends_on)
 
         # BUG FIX (audit §3.4): Sync imports → depends_on so the legacy field

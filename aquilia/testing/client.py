@@ -268,6 +268,13 @@ class TestClient:
         self._history.clear()
         should_follow = follow_redirects if follow_redirects is not None else self._follow_redirects
 
+        # Conventional URLs may carry their query inline ("/search?q=x").
+        # The router matches on the raw path, so an unsplit URL 404s -- split
+        # it here and merge with any explicitly-passed query_string.
+        if "?" in path:
+            path, _, inline_query = path.partition("?")
+            query_string = f"{query_string}&{inline_query}" if query_string else inline_query
+
         resp = await self._single_request(
             method,
             path,
@@ -314,6 +321,11 @@ class TestClient:
         client: tuple | None = None,
     ) -> TestResponse:
         """Issue a single ASGI request (no redirect following)."""
+        # Redirect targets may carry an inline query; split like _request.
+        if "?" in path:
+            path, _, inline_query = path.partition("?")
+            query_string = f"{query_string}&{inline_query}" if query_string else inline_query
+
         # Build combined headers
         combined_headers: list[tuple[str, str]] = []
         for k, v in self._default_headers.items():

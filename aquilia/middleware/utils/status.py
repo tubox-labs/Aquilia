@@ -38,6 +38,11 @@ CONFLICT_CODES: frozenset[str] = frozenset(
 DOMAIN_STATUS: dict[str, int] = {
     "routing": 404,
     "security": 403,
+    # Contract faults (cast/seal/imprint) reject the *request payload* --
+    # the client sent data the contract refused. Reporting these as 500
+    # made every validation failure look like a server bug and hid the
+    # per-field details behind an error clients treat as transient.
+    "contract": 400,
     "io": 502,
     "effect": 503,
     "model": 404,  # usually a DB row that was not found

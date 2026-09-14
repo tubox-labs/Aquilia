@@ -230,3 +230,64 @@ def settings_override():
                 pass
     """
     return override_settings
+
+
+# ── Session-scoped app boot (pooled resources on one loop) ──────────────
+#
+# An application holding pooled async resources (asyncpg pools, redis
+# clients) binds them to the event loop where startup ran. A
+# function-scoped app fixture therefore breaks on the second test with
+# ``got Future ... attached to a different loop`` -- an error that says
+# nothing about its actual cause. The supported "boot once, test many"
+# pattern is the pair of fixtures below plus session-scoped loops:
+#
+#     # pyproject.toml
+#     [tool.pytest.ini_options]
+#     asyncio_default_fixture_loop_scope = "session"
+#     asyncio_default_test_loop_scope = "session"
+#
+#     # conftest.py
+#     import pytest_asyncio
+#     from aquilia.testing.fixtures import aquilia_fixtures
+#
+#     aquilia_fixtures()
+#
+#     @pytest_asyncio.fixture(scope="session", loop_scope="session")
+#     async def app_server(session_test_server):
+#         from myapp.manifests import MY_MANIFEST
+#         return await session_test_server(MY_MANIFEST)
+#
+#     # tests then request `app_server` and build clients from it.
+
+try:
+    import pytest_asyncio  # noqa: F401
+
+    _HAS_PYTEST_ASYNCIO = True
+except ImportError:  # pragma: no cover -- pytest-asyncio is a test extra
+    _HAS_PYTEST_ASYNCIO = False
+
+if _HAS_PYTEST_ASYNCIO:
+
+    @pytest_asyncio.fixture(scope="session", loop_scope="session")
+    async def session_test_server():
+        """Boot ONE :class:`TestServer` for the whole test session.
+
+        Returns an async factory: the first caller's manifests and keyword
+        arguments configure the server; every later call returns the same
+        running instance. The server is started on the session's event
+        loop (see ``loop_scope`` above) and stopped when the session ends,
+        so pooled resources bound at startup stay valid for every test.
+        """
+        state: dict = {"server": None}
+
+        async def _boot(*manifests, **kwargs):
+            if state["server"] is None:
+                server = TestServer(manifests=list(manifests), **kwargs)
+                await server.start()
+                state["server"] = server
+            return state["server"]
+
+        yield _boot
+
+        if state["server"] is not None:
+            await state["server"].stop()

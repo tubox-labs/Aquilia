@@ -64,6 +64,19 @@ class CacheService:
             loader=lambda: repo.find(123),
             ttl=300,
         )
+
+    Key layout -- what actually lands in Redis:
+
+        {key_prefix}{version}:{namespace}:{key}
+
+        e.g. with ``key_prefix="backend:"``, ``key_version=1``,
+        ``namespace="default"`` and ``key="cache:home:v1"`` the stored
+        key is ``backend:v1:default:cache:home:v1``. A backend that
+        applies its *own* ``key_prefix`` (see
+        :class:`aquilia.cache.backends.redis.RedisBackend`) composes it in
+        front, yielding ``backend:backend:v1:...`` -- two independent
+        dials, both documented here so an operator clearing keys by hand
+        knows the full composed form.
     """
 
     __slots__ = (

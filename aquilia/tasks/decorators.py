@@ -104,10 +104,20 @@ class _TaskDescriptor:
             )
 
         Raises:
-            RuntimeError: If no TaskManager is bound (server not started).
+            TaskNotBoundFault: If no TaskManager is running in this process.
         """
         if self._manager is None:
-            raise TaskNotBoundFault(self.task_name)
+            # Lazy binding: a task module imported after TaskManager.start()
+            # was never bound by _bind_task_descriptors(), but a running
+            # manager can still dispatch it. Failing here made late-imported
+            # tasks permanently undispatchable (and fire-and-forget callers
+            # never saw the fault).
+            from aquilia.tasks.engine import get_task_manager
+
+            manager = get_task_manager()
+            if manager is None:
+                raise TaskNotBoundFault(self.task_name)
+            self.bind(manager)
         return await self._manager.enqueue(self, *args, **kwargs)
 
     async def send(self, *args, **kwargs) -> str:

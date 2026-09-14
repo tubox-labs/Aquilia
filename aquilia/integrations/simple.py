@@ -44,18 +44,28 @@ class RoutingIntegration:
 
 @dataclass
 class FaultHandlingIntegration:
-    """Fault handling configuration."""
+    """Fault handling configuration.
+
+    ``error_renderer`` customizes the JSON error body without replacing the
+    exception middleware: a dotted import path resolving to a callable
+    ``(fault, status, request) -> dict | None``. A dict replaces the
+    default ``{"error": {...}}`` envelope; ``None`` (or a renderer that
+    raises) falls back to it. The middleware keeps ownership of status
+    codes and headers either way.
+    """
 
     _integration_type: str = field(default="fault_handling", init=False, repr=False)
 
     default_strategy: str = "propagate"
     enabled: bool = True
+    error_renderer: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "_integration_type": "fault_handling",
             "enabled": self.enabled,
             "default_strategy": self.default_strategy,
+            "error_renderer": self.error_renderer,
         }
 
 

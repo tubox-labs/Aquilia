@@ -224,6 +224,16 @@ class Secret:
             )
         return None
 
+    def resolve(self) -> str | None:
+        """
+        Alias for :meth:`reveal` -- the same verb ``Env`` uses.
+
+        ``Env.resolve()`` and ``Secret.reveal()`` describe the identical
+        operation; naming them differently sent developers to
+        ``AttributeError`` when muscle memory crossed the two.
+        """
+        return self.reveal()
+
     @property
     def env_name(self) -> str | None:
         """Return the environment variable name, if any."""
@@ -1129,7 +1139,14 @@ class AquilaConfig:
                 audit_enabled = True
         """
 
-        enabled: bool = True
+        # HTTP auth enforcement is opt-in. Merely defining this config
+        # section (to set a secret_key or a password hasher, say) must not
+        # mount the framework's own auth middleware against every Bearer
+        # token -- an application that manages its own tokens was silently
+        # intercepted and rejected (403 AUTH_002) by a keyring it never
+        # configured. Use ``.integrate(Integration.auth(...))`` or set
+        # ``enabled = True`` here to turn the framework pipeline on.
+        enabled: bool = False
         #: Identity/credential store backend: ``"memory"`` | ``"redis"``.
         store_type: str = "memory"
         #: Secret key used for HMAC algorithms.  ``None`` auto-generates a

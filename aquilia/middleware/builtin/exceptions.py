@@ -10,7 +10,8 @@ constructing a request and reusable by the fault engine.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from aquilia.debug.pages import render_debug_exception_page, render_http_error_page
 from aquilia.faults import Fault, FaultDomain
@@ -52,14 +53,35 @@ class ExceptionMiddleware(Middleware):
     Tracebacks and exception messages never appear in JSON, even in debug mode.
     They are rendered only into the HTML debug pages, which are useful locally
     and are not what an automated scanner scrapes.
+
+    ``error_renderer`` customizes the JSON *body* without replacing this
+    middleware: a callable ``(fault, status, request) -> dict | None``.
+    Returning a dict replaces the default ``{"error": {...}}`` envelope
+    (the middleware still owns the status code and headers); returning
+    ``None`` falls back to the default envelope. A renderer that itself
+    raises falls back too — the error path must never error.
     """
 
     name = "exception"
     priority = Priority.EXCEPTION
 
-    def __init__(self, debug: bool = False):
+    def __init__(self, debug: bool = False, error_renderer: Callable[[Any, int, Any], dict | None] | None = None):
         self.debug = debug
+        self.error_renderer = error_renderer
         self.logger = logging.getLogger("aquilia.exceptions")
+
+    def _render_json_body(self, fault: Any, status: int, request: Any, default_body: dict) -> dict:
+        """Apply the configured ``error_renderer`` over the default body."""
+        if self.error_renderer is None:
+            return default_body
+        try:
+            rendered = self.error_renderer(fault, status, request)
+        except Exception:  # noqa: BLE001 -- the error path must never error
+            self.logger.warning("error_renderer raised; falling back to default envelope", exc_info=True)
+            return default_body
+        if isinstance(rendered, dict):
+            return rendered
+        return default_body
 
     # ── Rendering helpers ─────────────────────────────────────────────────
 
@@ -147,6 +169,7 @@ class ExceptionMiddleware(Middleware):
             body: dict = {"error": {"code": exc.code, "message": reason, "status": status}}
             if exc.public and exc.detail:
                 body["error"]["detail"] = exc.detail
+            body = self._render_json_body(exc, status, request, body)
             response = Response.json(body, status=status)
 
         for key, value in extra_headers.items():
@@ -184,7 +207,8 @@ class ExceptionMiddleware(Middleware):
             if details:
                 error["details"] = details
 
-        return Response.json({"error": error}, status=status)
+        body = self._render_json_body(exc, status, request, {"error": error})
+        return Response.json(body, status=status)
 
     def _handle_unexpected(self, exc: Exception, request: Request) -> Response:
         from aquilia.response import Response

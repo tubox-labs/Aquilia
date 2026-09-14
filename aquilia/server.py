@@ -320,6 +320,34 @@ class AquiliaServer:
 
         return Container(scope="app")
 
+    def _load_error_renderer(self):
+        """Resolve the configured custom error renderer, if any.
+
+        Reads ``integrations.fault_handling.error_renderer`` (a dotted
+        import path set by ``FaultHandlingIntegration``) and imports it.
+        A missing or broken path logs a warning and disables the hook --
+        the default error envelope is always available.
+        """
+        fault_cfg = self.config.get("integrations", {}).get("fault_handling", {}) if hasattr(self.config, "get") else {}
+        renderer_path = fault_cfg.get("error_renderer") if isinstance(fault_cfg, dict) else None
+        if not renderer_path:
+            return None
+        try:
+            module_path, attr = renderer_path.rsplit(".", 1)
+            module = importlib.import_module(module_path)
+            renderer = getattr(module, attr)
+        except Exception as exc:
+            self.logger.warning(
+                "Could not import error_renderer %r: %s -- using the default error envelope.",
+                renderer_path,
+                exc,
+            )
+            return None
+        if not callable(renderer):
+            self.logger.warning("error_renderer %r is not callable -- using the default envelope.", renderer_path)
+            return None
+        return renderer
+
     def _setup_middleware(self):
         """Setup middleware stack from workspace config or built-in defaults.
 
@@ -366,7 +394,10 @@ class AquiliaServer:
             # Legacy fallback: hardcoded defaults for backward compat
 
             self.middleware_stack.add(
-                ExceptionMiddleware(debug=self._is_debug()),
+                ExceptionMiddleware(
+                    debug=self._is_debug(),
+                    error_renderer=self._load_error_renderer(),
+                ),
                 scope="global",
                 priority=Priority.EXCEPTION,
                 name="exception",
@@ -444,8 +475,12 @@ class AquiliaServer:
                         name="auth",
                     )
 
+                    # NOTE: ValueProvider/SessionEngine come from the
+                    # module-level imports -- a local import here shadowed
+                    # them for the whole function and blew up with
+                    # UnboundLocalError on the session-DI block below when
+                    # auth was disabled.
                     from aquilia.auth.hashing import PasswordPolicy
-                    from aquilia.di.providers import ValueProvider
 
                     security_cfg = auth_config.get("security", {}) if isinstance(auth_config, dict) else {}
                     policy_cfg = security_cfg.get("password_policy", {}) if isinstance(security_cfg, dict) else {}
@@ -505,25 +540,31 @@ class AquiliaServer:
                     )
                     self._auth_manager = None
 
-            # Fallback: add session-only middleware if auth wasn't initialized
-            if not auth_initialized and self._session_engine is not None:
-                self.middleware_stack.add(
-                    SessionMiddleware(self._session_engine),
-                    scope="global",
-                    priority=_AUTH_PRIORITY,
-                    name="session",
-                )
+        # Session middleware and SessionEngine DI registration are gated on
+        # the session ENGINE existing -- not on auth being enabled. Nesting
+        # them inside `if use_auth:` meant an app with sessions enabled and
+        # framework auth off (it manages its own tokens) never ran
+        # SessionMiddleware and never registered the engine in DI: the admin
+        # dashboard authenticated its login correctly, issued no session
+        # cookie, and bounced between /admin/login and /admin/ forever.
+        # AquilAuthMiddleware owns session handling when auth initialized,
+        # so session-only middleware is skipped in that case.
+        if not auth_initialized and self._session_engine is not None:
+            self.middleware_stack.add(
+                SessionMiddleware(self._session_engine),
+                scope="global",
+                priority=_AUTH_PRIORITY,
+                name="session",
+            )
 
-            # Register SessionEngine in DI (if engine was created)
-            if self._session_engine is not None:
-                engine_provider = ValueProvider(
-                    token=SessionEngine, value=self._session_engine, scope="app", name="session_engine_instance"
-                )
+        # Register SessionEngine in DI (if engine was created)
+        if self._session_engine is not None:
+            engine_provider = ValueProvider(
+                token=SessionEngine, value=self._session_engine, scope="app", name="session_engine_instance"
+            )
 
-                for container in self.runtime.di_containers.values():
-                    container.register(engine_provider)
-        else:
-            pass
+            for container in self.runtime.di_containers.values():
+                container.register(engine_provider)
 
         # Add template engine integration
         template_config = self.config.get_template_config()
@@ -1271,6 +1312,13 @@ class AquiliaServer:
         # Auto-inject debug flag for exception-rendering middleware when not explicit
         if class_name in ("ExceptionMiddleware", "SocketFaultMiddleware") and "debug" not in kwargs:
             kwargs["debug"] = self._is_debug()
+
+        # Auto-inject the configured error renderer so a FaultHandlingIntegration
+        # customizes the config-driven chain's exception middleware too.
+        if class_name == "ExceptionMiddleware" and "error_renderer" not in kwargs:
+            renderer = self._load_error_renderer()
+            if renderer is not None:
+                kwargs["error_renderer"] = renderer
 
         # Auto-inject effect_registry for EffectMiddleware / FlowContextMiddleware when not explicit
         if class_name in ("EffectMiddleware", "FlowContextMiddleware") and "effect_registry" not in kwargs:
@@ -2384,19 +2432,13 @@ class AquiliaServer:
             secret = os.environ.get("AQ_SECRET_KEY") or os.environ.get("SECRET_KEY")
 
         _INSECURE_FALLBACK = "aquilia-dev-secret-key-CHANGEME"
-        is_dev = (
-            self.mode == RegistryMode.DEV
-            or self.config.get("mode", "") in ("dev", "development")
-            or self.config.get("server.mode", "") in ("dev", "development")
-        )
 
         if not secret:
-            if not is_dev:
-                self.logger.warning(
-                    "aquilia.signing: no secret_key configured — using insecure "
-                    "dev fallback.  Set AQ_SECRET_KEY or AquilaConfig.Signing.secret "
-                    "before going to production."
-                )
+            self.logger.warning(
+                "aquilia.signing: no secret_key configured — using insecure "
+                "dev fallback.  Set AQ_SECRET_KEY or AquilaConfig.Signing.secret "
+                "before going to production."
+            )
             secret = _INSECURE_FALLBACK
 
         # Gather fallback secrets (for key rotation)
@@ -2414,12 +2456,25 @@ class AquiliaServer:
             salt = signing_cfg.get("salt", "aquilia.signing") or "aquilia.signing"
 
         try:
-            _signing.configure(
-                secret=secret,
-                fallback_secrets=fallback_secrets or None,
-                algorithm=algorithm,
-                salt=salt,
-            )
+            if secret == _INSECURE_FALLBACK:
+                # Skip the length warning for the known dev fallback: it is
+                # short by construction, so "signing secret is only N bytes"
+                # measured against it is unexplained noise -- the fallback
+                # notice above already says what to do.
+                _signing.configure(
+                    secret=secret,
+                    fallback_secrets=fallback_secrets or None,
+                    algorithm=algorithm,
+                    salt=salt,
+                    _skip_length_check=True,
+                )
+            else:
+                _signing.configure(
+                    secret=secret,
+                    fallback_secrets=fallback_secrets or None,
+                    algorithm=algorithm,
+                    salt=salt,
+                )
         except Exception as exc:
             self.logger.warning(
                 "aquilia.signing: configuration failed (%s) — signing will be "
@@ -2755,6 +2810,12 @@ class AquiliaServer:
         # Instantiate the controller (holds the service directly)
         controller = SpeculaController(service=specula_svc, config=config)
 
+        # The application's route count, captured before Specula registers
+        # its own documentation endpoints -- reporting those here made the
+        # boot line claim the app had ~4 routes when `aq inspect routes`
+        # correctly reported dozens.
+        app_route_count = sum(len(routes) for routes in self.controller_router.routes_by_method.values())
+
         pc = PatternCompiler()
         registered = 0
         for method, path, handler_name in specula_route_table(config):
@@ -2789,11 +2850,11 @@ class AquiliaServer:
 
         self._specula_service = specula_svc
         self.logger.info(
-            "Specula API Observatory active: UI=%s  JSON=%s  YAML=%s  (%d routes)",
+            "Specula API Observatory active: UI=%s  JSON=%s  YAML=%s  (documenting %d application routes)",
             config.ui_path,
             config.json_path,
             config.yaml_path,
-            registered,
+            app_route_count,
         )
 
     def _wire_admin_integration(self):
@@ -2822,6 +2883,12 @@ class AquiliaServer:
             _inspector_enabled = True
 
         admin_config = self.config.get("integrations", {}).get("admin")
+        # Distinguish an explicit AdminIntegration from the debug-inspector
+        # fallback below: the sessions banner is only actionable when the
+        # developer actually asked for the admin dashboard. Auto-mounted
+        # admin (dev inspector) made every plain dev boot print a scary
+        # "Sessions are NOT configured" box for a feature nobody enabled.
+        self._admin_explicitly_configured = admin_config is not None
         if admin_config is None:
             if not _inspector_enabled:
                 return
@@ -3340,6 +3407,13 @@ class AquiliaServer:
         Run ``aq admin check`` before ``aq run`` to catch this early.
         """
         has_session_engine = getattr(self, "_session_engine", None) is not None
+
+        # Only warn when the admin dashboard was explicitly integrated. An
+        # admin site auto-mounted for the debug inspector is not something
+        # the developer configured, so "sessions not configured" advice for
+        # it is boot noise, not a warning.
+        if not getattr(self, "_admin_explicitly_configured", False):
+            return
 
         existing_names = {getattr(desc, "name", None) for desc in getattr(self.middleware_stack, "middlewares", [])}
         has_session_mw = "session" in existing_names or "auth" in existing_names
