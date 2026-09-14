@@ -9,8 +9,8 @@ and the session store's key layout / TTL behavior.
 from __future__ import annotations
 
 import asyncio
-import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 
@@ -21,7 +21,6 @@ from aquilia.auth.tokens import (
     KeyRing,
     TokenConfig,
     TokenManager,
-    hash_token,
 )
 from aquilia.sessions.core import Session
 from aquilia.sessions.store import RedisStore
@@ -42,7 +41,11 @@ async def _redis():
         return _clients_by_loop[id(loop)]
     if _unavailable:
         return None
-    import redis.asyncio as aioredis
+    try:
+        import redis.asyncio as aioredis
+    except (ImportError, ModuleNotFoundError):
+        _unavailable = True
+        return None
 
     for url in REDIS_URL_CANDIDATES:
         try:
