@@ -29,7 +29,7 @@ from aquilia.contracts.annotations import (
     _ComputedMarker,
     introspect_annotations,
 )
-from aquilia.contracts.exceptions import CastFault, ContractAsyncMismatchFault, ImprintFault, SealFault
+from aquilia.contracts.exceptions import CastFault, ContractAsyncMismatchFault, ImprintFault, SealFault, fault_message
 from aquilia.contracts.facets import UNSET, Computed, Constant, Facet, Inject, derive_facet
 from aquilia.contracts.lenses import Lens, _ProjectedRef
 from aquilia.contracts.messages import contract_message
@@ -2030,11 +2030,11 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             try:
                 wm.fn(inst, data_obj)
             except CastFault as exc:
-                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                msg = exc.field_errors.get(exc.field, [fault_message(exc)])[0]
                 if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
                     inst._errors.setdefault(exc.field, []).append(msg)
             except Exception as exc:
-                inst._errors.setdefault("__all__", []).append(str(exc))
+                inst._errors.setdefault("__all__", []).append(fault_message(exc))
 
             if inst._errors and fail_fast:
                 return
@@ -2080,11 +2080,11 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
                 else:
                     wm.fn(inst, data_obj)
             except CastFault as exc:
-                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                msg = exc.field_errors.get(exc.field, [fault_message(exc)])[0]
                 if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
                     inst._errors.setdefault(exc.field, []).append(msg)
             except Exception as exc:
-                inst._errors.setdefault("__all__", []).append(str(exc))
+                inst._errors.setdefault("__all__", []).append(fault_message(exc))
 
             if inst._errors and fail_fast:
                 return
@@ -2113,7 +2113,7 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         try:
             return inst.validate(validated)
         except CastFault as exc:
-            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+            msg = exc.field_errors.get(exc.field, [fault_message(exc)])[0]
             if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
                 inst._errors.setdefault(exc.field, []).append(msg)
         except SealFault as exc:
@@ -2121,9 +2121,9 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
                 for field, msgs in exc.field_errors.items():
                     inst._errors.setdefault(field, []).extend(msgs)
             else:
-                inst._errors.setdefault("__all__", []).append(str(exc))
+                inst._errors.setdefault("__all__", []).append(fault_message(exc))
         except Exception as exc:
-            inst._errors.setdefault("__all__", []).append(str(exc))
+            inst._errors.setdefault("__all__", []).append(fault_message(exc))
         return validated
 
     @classmethod

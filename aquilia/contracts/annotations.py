@@ -1019,6 +1019,20 @@ def _build_facet_from_annotation_raw(
         for meta in metadata:
             if isinstance(meta, Facet):
                 target_facet = meta
+            elif isinstance(meta, type) and issubclass(meta, Facet):
+                # A bare facet class -- ``Annotated[str, EmailFacet]`` -- is
+                # the natural spelling and must validate like an instance.
+                # Previously it matched nothing and the constraint silently
+                # disappeared: invalid data was accepted with no warning.
+                try:
+                    target_facet = meta()
+                except TypeError as exc:
+                    raise CastFault(
+                        name,
+                        f"{meta.__name__} cannot be used bare in Annotated (its "
+                        f"constructor requires arguments): {exc}. Instantiate it: "
+                        f"Annotated[..., {meta.__name__}(...)]",
+                    ) from exc
             elif isinstance(meta, Pipeline):
                 pipeline = meta
                 if pipeline.runes and pipeline.runes[0].is_facet:

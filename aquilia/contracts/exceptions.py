@@ -84,6 +84,17 @@ class ContractFault(Fault):
             metadata={**(metadata or {}), "field_errors": self.field_errors},
         )
 
+    @property
+    def errors(self) -> dict[str, list[str]]:
+        """Alias for :attr:`field_errors`.
+
+        The constructor keyword is ``errors=``; consumers reading the fault
+        should not have to know the attribute is spelled differently. This
+        is the stable, documented surface -- ``field_errors`` remains for
+        backward compatibility.
+        """
+        return self.field_errors
+
     def as_response_body(self) -> dict[str, Any]:
         """Structured error payload dictionary for HTTP API responses."""
         body: dict[str, Any] = {
@@ -358,3 +369,18 @@ class StubGenerationFault(ContractFault):
     code = "BP600"
     public = False
     severity = Severity.WARN
+
+
+def fault_message(exc: BaseException) -> str:
+    """Return an exception's user-facing message without the fault-code prefix.
+
+    ``str(fault)`` renders as ``"[BP100] Cast failed for 'x': ..."`` -- the
+    bracketed code is server-side diagnostics, not something an API client
+    should see repeated inside every per-field error. Contract error
+    collection uses this helper so field messages stay clean regardless of
+    how many layers re-wrapped the original fault.
+    """
+    message = getattr(exc, "message", None)
+    if isinstance(message, str) and message:
+        return message
+    return str(exc)

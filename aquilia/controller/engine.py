@@ -210,7 +210,7 @@ class ControllerEngine:
                     result = await route.handler(request, ctx, **extra)
                 else:
                     result = await route.handler(request, ctx)
-                return self._to_response(result)
+                return self._to_response(result, status_code=getattr(route_metadata, "status_code", None))
             finally:
                 _reset_current_request_ctx(ctx_token)
 
@@ -398,7 +398,7 @@ class ControllerEngine:
                     for interceptor in reversed(interceptors):
                         result = await self._safe_call(interceptor.after, ctx, result)
 
-                    return self._to_response(result)
+                    return self._to_response(result, status_code=getattr(route_metadata, "status_code", None))
                 except Exception as e:
                     # Try exception filters first
                     filtered = await self._apply_exception_filters(e, controller_class, route_metadata, ctx)
@@ -459,7 +459,7 @@ class ControllerEngine:
                 result = self._apply_response_contract(result, route_metadata, ctx)
                 response = self._apply_content_negotiation(result, route_metadata, request)
                 if response is None:
-                    response = self._to_response(result)
+                    response = self._to_response(result, status_code=getattr(route_metadata, "status_code", None))
 
                 if has_on_response:
                     await self._safe_call(controller.on_response, ctx, response)
@@ -1825,11 +1825,18 @@ class ControllerEngine:
         cls._clearance_cache_refs.clear()
         cls._type_hints_cache.clear()
 
-    def _to_response(self, result: Any) -> Response:
+    def _to_response(self, result: Any, *, status_code: int | None = None) -> Response:
         """Convert handler result to Response.
 
         SEC-CTRL-03: no longer uses str(result) fallback which could
         leak internal object representations.
+
+        *status_code* is the route decorator's declared status (``@POST(...,
+        status_code=201)``). It applies to the *implicit* conversions here --
+        a handler returning a dict/list/str/None gets the declared status
+        instead of a hard-coded 200. An explicit ``Response`` (or SSE) is
+        returned untouched: a handler that builds the response itself has
+        already said everything there is to say about the status.
         """
         if isinstance(result, Response):
             return result
@@ -1838,16 +1845,18 @@ class ControllerEngine:
             return Response.sse(result._resolve_source(), status=result._status)
 
         if isinstance(result, (dict, list, tuple)):
-            return Response.json(result)
+            return Response.json(result, status=status_code or 200)
         elif isinstance(result, str):
             stripped = result.lstrip()
             if stripped.startswith("<"):
-                return Response(result, media_type="text/html; charset=utf-8")
-            return Response(result, media_type="text/plain")
+                return Response(result, media_type="text/html; charset=utf-8", status=status_code or 200)
+            return Response(result, media_type="text/plain", status=status_code or 200)
         elif result is None:
-            return Response("", status=204)
+            # 204 is the no-content default; a route that declares its own
+            # status for a None return keeps it.
+            return Response("", status=status_code or 204)
         elif isinstance(result, (int, float, bool)):
-            return Response.json({"result": result})
+            return Response.json({"result": result}, status=status_code or 200)
         else:
             # SEC-CTRL-03: Do NOT serialize unknown types via str().
             # Log the type server-side and return a generic error.

@@ -39,6 +39,7 @@ Two independent layers of conservatism remain:
 
 from __future__ import annotations
 
+import atexit
 import sys
 from typing import Any, NamedTuple
 
@@ -74,6 +75,16 @@ _PLAN_CACHE: dict[type, CompiledPlan | None] = {}
 def plan_cache_size() -> int:
     """Number of contracts analysed. Used by the plan-cache-bound test."""
     return len(_PLAN_CACHE)
+
+
+def _clear_plan_cache() -> None:
+    """Drop cached native plans at interpreter shutdown.
+
+    The plans hold nanobind objects; leaving them referenced past
+    interpreter finalization makes nanobind report "leaked function"
+    warnings at exit. Purely teardown hygiene -- no runtime effect.
+    """
+    _PLAN_CACHE.clear()
 
 
 def _facet_type_code(facet: Any, tc: Any, ck: Any) -> tuple[int | None, int]:
@@ -588,3 +599,5 @@ def field_plan_for(contract_cls: type) -> CompiledPlan | None:
     # lock is needed (03 §11).
     _PLAN_CACHE[contract_cls] = plan
     return plan
+
+atexit.register(_clear_plan_cache)

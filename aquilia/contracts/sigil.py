@@ -17,7 +17,7 @@ from decimal import Decimal
 from typing import Any
 
 from aquilia.contracts._native_plan import field_plan_for
-from aquilia.contracts.exceptions import MAX_NESTING_DEPTH, CastFault
+from aquilia.contracts.exceptions import MAX_NESTING_DEPTH, CastFault, fault_message
 from aquilia.contracts.facets import (
     UNSET,
     BoolFacet,
@@ -387,10 +387,10 @@ class Sigil:
                         try:
                             validated[fname] = facet.seal(list_validated)
                         except CastFault as exc:
-                            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                            msg = exc.field_errors.get(exc.field, [fault_message(exc)])[0]
                             errors.setdefault(fname, []).append(msg)
                         except Exception as exc:
-                            errors.setdefault(fname, []).append(str(exc))
+                            errors.setdefault(fname, []).append(fault_message(exc))
                 else:
                     raw = adapt_input(raw)
                     if not is_mapping_like(raw):
@@ -412,10 +412,10 @@ class Sigil:
                         try:
                             validated[fname] = facet.seal(sub_validated)
                         except CastFault as exc:
-                            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                            msg = exc.field_errors.get(exc.field, [fault_message(exc)])[0]
                             errors.setdefault(fname, []).append(msg)
                         except Exception as exc:
-                            errors.setdefault(fname, []).append(str(exc))
+                            errors.setdefault(fname, []).append(fault_message(exc))
                 continue
 
             # Strict mode vs Normal mode
@@ -435,7 +435,7 @@ class Sigil:
                     try:
                         sealed_value = facet.seal(raw)
                     except Exception as exc:
-                        errors.setdefault(fname, []).append(str(exc))
+                        errors.setdefault(fname, []).append(fault_message(exc))
                         continue
             else:
                 if spec.pipeline is not None:
@@ -449,7 +449,7 @@ class Sigil:
                         cast_value = facet.cast(raw)
                         sealed_value = facet.seal(cast_value)
                     except Exception as exc:
-                        errors.setdefault(fname, []).append(str(exc))
+                        errors.setdefault(fname, []).append(fault_message(exc))
                         continue
 
             validated[fname] = sealed_value
