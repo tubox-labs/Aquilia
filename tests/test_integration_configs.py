@@ -230,20 +230,42 @@ class TestDataclassConstruction:
 
         a = AuthIntegration()
         assert a.enabled is True
+        # Canonical TTL unit is seconds; unset (None) so the framework
+        # default applies after normalization — the minute/day aliases are
+        # never masked by a seconds default.
+        assert a.access_token_ttl_seconds is None
+        assert a.refresh_token_ttl_seconds is None
         assert a.access_token_ttl_minutes == 60
         assert a.refresh_token_ttl_days == 30
         assert a.algorithm == "HS256"
         assert a.store_type == "memory"
+        assert a.audience == ["api"]
+        assert a.backends == ["token", "session"]
+        assert a.require_auth_by_default is False
 
     def test_auth_custom(self):
+        from aquilia.auth.config import AuthSettings
         from aquilia.integrations import AuthIntegration
 
         a = AuthIntegration(access_token_ttl_minutes=120, algorithm="RS256")
+        # The alias round-trips and — critically — is not masked by a
+        # seconds default during normalization.
         assert a.access_token_ttl_minutes == 120
         assert a.algorithm == "RS256"
         d = a.to_dict()
+        assert "access_token_ttl_seconds" not in d["tokens"]
         assert d["tokens"]["access_token_ttl_minutes"] == 120
-        assert d["tokens"]["algorithm"] == "RS256"
+        settings = AuthSettings.from_config(d)
+        assert settings.access_token_ttl == 120 * 60  # alias wins
+        assert settings.algorithm == "RS256"
+
+    def test_auth_seconds_overrides_alias(self):
+        from aquilia.auth.config import AuthSettings
+        from aquilia.integrations import AuthIntegration
+
+        a = AuthIntegration(access_token_ttl_minutes=99, access_token_ttl_seconds=600)
+        settings = AuthSettings.from_config(a.to_dict())
+        assert settings.access_token_ttl == 600
 
     def test_database_url(self):
         from aquilia.integrations import DatabaseIntegration

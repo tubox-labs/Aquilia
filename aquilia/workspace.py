@@ -550,54 +550,67 @@ class AuthConfig:
     """
     Global authentication configuration parameters.
 
-    Defines token storage backend, cryptographic hashing algorithms, TTLs, issuer,
-    audience, and default security guards for the workspace.
+    .. deprecated::
+        Use :class:`aquilia.pyconfig.AquilaConfig.Auth` (env classes) or
+        ``Integration.auth(...)`` — both feed the canonical
+        :class:`aquilia.auth.config.AuthSettings` model. This legacy
+        dataclass is kept for source compatibility; its defaults now match
+        the canonical model (``enabled=False`` opt-in, audience
+        ``["api"]``, seconds TTLs available) and ``to_dict()`` emits a
+        ``DeprecationWarning``.
 
     Parameters:
-        enabled: If `True` (default), enables authentication middleware.
-        store_type: Token storage backend. Must be `"memory"`, `"redis"`, `"database"`, or `"custom"`.
+        enabled: If `True`, enables authentication middleware.  Defaults to
+            `False` (opt-in — the canonical posture).
+        store_type: Identity/credential store: `"memory"` or `"database"`.
         secret_key: Cryptographic key used to sign and verify JSON Web Tokens (JWT).
-        algorithm: Hashing algorithm for tokens (e.g. `"HS256"`).
+        algorithm: Signing algorithm for tokens (e.g. `"HS256"`).
         issuer: Token issuer claim (`iss`). Defaults to `"aquilia"`.
-        audience: Token audience claim (`aud`). Defaults to `"aquilia-app"`.
-        access_token_ttl_minutes: Lifespan of access tokens in minutes. Defaults to `60`.
-        refresh_token_ttl_days: Lifespan of refresh tokens in days. Defaults to `30`.
-        require_auth_by_default: If `True`, all controller routes require authentication unless marked public.
-
-    Examples:
-        ```python
-        config = AuthConfig(
-            secret_key="my-super-secret-key",
-            store_type="redis",
-            require_auth_by_default=True
-        )
-        ```
+        audience: Token audience claim (`aud`). Defaults to `["api"]`.
+        access_token_ttl_minutes: Lifespan of access tokens in minutes.
+        refresh_token_ttl_days: Lifespan of refresh tokens in days.
+        require_auth_by_default: If `True`, all controller routes require authentication unless marked `@Public()`.
     """
 
-    enabled: bool = True
+    enabled: bool = False
     store_type: str = "memory"
     secret_key: str | None = None
     algorithm: str = "HS256"
     issuer: str = "aquilia"
-    audience: str = "aquilia-app"
-    access_token_ttl_minutes: int = 60
-    refresh_token_ttl_days: int = 30
+    audience: list[str] = None  # type: ignore[assignment]  # default below
+    access_token_ttl_minutes: int | None = 60
+    refresh_token_ttl_days: int | None = 30
     require_auth_by_default: bool = False
 
+    def __post_init__(self) -> None:
+        import warnings
+
+        warnings.warn(
+            "workspace.AuthConfig is deprecated; use AquilaConfig.Auth or "
+            "Integration.auth(...) — both normalize onto aquilia.auth.config.AuthSettings.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if self.audience is None:
+            self.audience = ["api"]
+
     def to_dict(self) -> dict[str, Any]:
+        tokens: dict[str, Any] = {
+            "secret_key": self.secret_key,
+            "algorithm": self.algorithm,
+            "issuer": self.issuer,
+            "audience": list(self.audience),
+        }
+        if self.access_token_ttl_minutes is not None:
+            tokens["access_token_ttl_minutes"] = self.access_token_ttl_minutes
+        if self.refresh_token_ttl_days is not None:
+            tokens["refresh_token_ttl_days"] = self.refresh_token_ttl_days
         return {
             "enabled": self.enabled,
             "store": {
                 "type": self.store_type,
             },
-            "tokens": {
-                "secret_key": self.secret_key,
-                "algorithm": self.algorithm,
-                "issuer": self.issuer,
-                "audience": self.audience,
-                "access_token_ttl_minutes": self.access_token_ttl_minutes,
-                "refresh_token_ttl_days": self.refresh_token_ttl_days,
-            },
+            "tokens": tokens,
             "security": {
                 "require_auth_by_default": self.require_auth_by_default,
             },

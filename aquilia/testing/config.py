@@ -123,7 +123,17 @@ class TestConfig:
         return self.get("integrations.sessions", {}) or self.get("sessions", {})
 
     def get_auth_config(self) -> dict:
-        return self.get("integrations.auth", {}) or self.get("auth", {})
+        """Auth config through the same normalization as production."""
+        from aquilia.auth.config import normalize_auth_config
+
+        flat = self.get("auth", {}) or {}
+        integration = self.get("integrations.auth", {}) or {}
+        merged = dict(flat)
+        if integration:
+            for key, value in integration.items():
+                if key not in merged or isinstance(value, dict):
+                    merged[key] = value
+        return normalize_auth_config(merged)
 
     def get_mail_config(self) -> dict:
         return self.get("integrations.mail", {}) or self.get("mail", {})

@@ -710,32 +710,66 @@ class ConfigLoader:
         return merged
 
     def get_auth_config(self) -> dict:
-        return self.get_subsystem_config(
-            "auth",
-            {
-                "enabled": False,
-                "store": {
-                    "type": "memory",
-                    "db_url": None,
-                },
-                "tokens": {
-                    "secret_key": "aquilia_insecure_dev_secret",
-                    "algorithm": "HS256",
-                    "issuer": "aquilia",
-                    "audience": "aquilia-app",
-                    "access_token_ttl_minutes": 60,
-                    "refresh_token_ttl_days": 30,
-                },
-                "security": {
-                    "require_auth_by_default": False,
-                    "hash_rounds": 12,
-                    "backends": [
-                        "aquilia.auth.backends.TokenBackend",
-                        "aquilia.auth.backends.SessionBackend",
-                    ],
-                },
-            },
-        )
+        """
+        Auth configuration in the canonical normalized shape.
+
+        Historically this method injected *value* defaults — most infamously
+        ``tokens.secret_key = "aquilia_insecure_dev_secret"`` — which, through
+        the precedence order in the signing bootstrap, silently outranked the
+        operator's ``Auth.secret_key`` and both secret environment variables.
+        Every default-configured deployment signed with the same publicly
+        known key.
+
+        Defaults now live exclusively on
+        :class:`~aquilia.auth.config.AuthSettings` (applied by its consumers);
+        this loader injects no values. The section is additionally
+        normalized by :func:`~aquilia.auth.config.normalize_auth_config` so
+        that every supported spelling — flat pyconfig attributes
+        (``secret_key``, ``backends``, ``access_token_ttl_minutes`` …), the
+        nested loader shape, and minute/day TTL aliases — maps onto one
+        canonical shape.
+
+        Source merging: the ``auth`` section (env classes / raw dicts) and
+        ``integrations.auth`` (the typed ``Integration.auth(...)`` path) are
+        **merged, not shadowed** — an ``AQ_AUTH__TOKENS__SECRET_KEY``
+        environment variable creating an ``auth`` section no longer
+        discards a configured integration wholesale. On key conflicts the
+        typed integration wins. For ``enabled``, an explicit ``True`` in
+        either source wins (adding ``.integrate(Integration.auth(...))`` is
+        deliberate opt-in and must not be shadowed by a pyconfig class
+        default).
+
+        Enforcement is opt-in: a merged configuration that never explicitly
+        set ``enabled`` does NOT enable the HTTP auth pipeline (configuring
+        a secret or a hasher is not consent to intercept every Bearer
+        token).
+        """
+        flat_section = self.get("auth", {}) or {}
+        integration_section = self.get("integrations.auth", {}) or {}
+
+        if flat_section and integration_section:
+            # Merge both sources — integration keys win on conflict. For the
+            # on/off switch, explicit True anywhere wins.
+            merged_user = dict(flat_section)
+            self._merge_dict(merged_user, integration_section)
+            if flat_section.get("enabled") is True or integration_section.get("enabled") is True:
+                merged_user["enabled"] = True
+            user_config = merged_user
+            enabled_explicit = True
+        else:
+            user_config = flat_section or integration_section
+            enabled_explicit = bool(user_config) and "enabled" in user_config
+
+        merged = {"enabled": False}
+        if user_config:
+            merged["enabled"] = user_config.get("enabled", True)
+            self._merge_dict(merged, user_config)
+        if user_config and not enabled_explicit:
+            merged["enabled"] = False
+
+        from aquilia.auth.config import normalize_auth_config
+
+        return normalize_auth_config(merged)
 
     def get_template_config(self) -> dict:
         return self.get_subsystem_config(

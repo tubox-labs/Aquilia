@@ -1100,28 +1100,49 @@ class AquilaConfig:
 
         **Store types** (``store_type``)
 
-          * ``"memory"`` — in-process; ephemeral across restarts (default, good for dev/tests)
-          * ``"redis"``  — Redis-backed via the cache integration; required for multi-process prod
+          * ``"memory"``   — in-process; ephemeral across restarts (default, good for dev/tests)
+          * ``"database"`` — durable identity/credential stores on any
+            Aquilia-supported database (shares the app database by default)
+
+          The *token* store is configured separately via
+          ``token_store={"type": "redis" | "memory" | "database", "url": ...}``
+          — Redis-backed refresh/revocation state for multi-process prod.
 
         **Backends** (``backends``)
 
-          Ordered list of active identity-resolution backends per request:
+          Registry names (preferred) or dotted paths, tried in order:
 
-          * ``"aquilia.auth.backends.TokenBackend"``   — Bearer JWT in ``Authorization`` header
-          * ``"aquilia.auth.backends.SessionBackend"`` — session cookie managed by ``SessionEngine``
+          * ``"token"``      — Bearer JWT in ``Authorization`` header
+          * ``"session"``    — session cookie managed by ``SessionEngine``
+          * ``"api_key"``    — ``X-Api-Key`` / ``ApiKey`` header
+          * ``"password"``   — credential login (programmatic)
+          * any name registered via
+            :func:`aquilia.auth.register_strategy <aquilia.auth.strategies.register_strategy>`
+
+        **Stateless verification** (``stateless = True``)
+
+          Bearer tokens are verified cryptographically and the principal is
+          built from the verified claims — **no identity-store lookup per
+          request** (the passport-jwt default posture). Revocation is bounded
+          by the token TTL.
+
+        **Protect-by-default** (``require_auth_by_default = True``)
+
+          Every route requires authentication unless marked ``@Public()``.
+          Combine with ``global_guards`` for the NestJS ``APP_GUARD`` pattern.
 
         Example::
 
             class auth(AquilaConfig.Auth):
-                secret_key               = Secret(env="AQ_SECRET_KEY", required=True)
-                algorithm                = "HS256"   # or "RS256", "EdDSA"
-                access_token_ttl_minutes = 15
-                refresh_token_ttl_days   = 30
-                require_auth_by_default  = False
-                backends                 = [
-                    "aquilia.auth.backends.TokenBackend",
-                    "aquilia.auth.backends.SessionBackend",
-                ]
+                secret_key                = Secret(env="AQ_SECRET_KEY", required=True)
+                algorithm                 = "HS256"   # or "RS256", "EdDSA"
+                access_token_ttl_seconds  = 1800      # canonical unit: seconds
+                refresh_token_ttl_days    = 30        # alias — converted
+                stateless                 = True      # no per-request identity lookup
+                collapse_token_errors     = True      # one generic 401 (anti-enumeration)
+                require_auth_by_default   = True      # protect-by-default + @Public()
+                backends                  = ["token"] # registry names
+                global_guards             = ["app.auth.TenantGuard"]
 
                 # Rate limiting (brute-force protection)
                 rate_limit_max_attempts    = 5
@@ -1137,6 +1158,10 @@ class AquilaConfig:
 
                 # Audit trail
                 audit_enabled = True
+
+        All attributes serialize onto the canonical auth config shape —
+        ``secret_key`` configures the token engine *and* (unless
+        ``AquilaConfig.Signing.secret`` is set) the signing engine.
         """
 
         # HTTP auth enforcement is opt-in. Merely defining this config
@@ -1147,7 +1172,9 @@ class AquilaConfig:
         # configured. Use ``.integrate(Integration.auth(...))`` or set
         # ``enabled = True`` here to turn the framework pipeline on.
         enabled: bool = False
-        #: Identity/credential store backend: ``"memory"`` | ``"redis"``.
+        #: Identity/credential store backend: ``"memory"`` | ``"database"``.
+        #: (Redis applies to the *token* store — configure
+        #: ``token_store={"type": "redis", "url": ...}`` separately.)
         store_type: str = "memory"
         #: Secret key used for HMAC algorithms.  ``None`` auto-generates a
         #: 256-bit ephemeral secret (insecure across restarts — always set in prod).
@@ -1155,19 +1182,40 @@ class AquilaConfig:
         #: JWT signing algorithm.  See class docstring for valid values.
         algorithm: str = "HS256"
         issuer: str = "aquilia"
-        audience: str = "aquilia-app"
-        #: Access token lifetime in minutes.
-        access_token_ttl_minutes: int = 60
-        #: Refresh token lifetime in days.
-        refresh_token_ttl_days: int = 30
+        #: Audience claim.  ``str`` or ``list[str]`` (always normalized to a list).
+        audience: str | list[str] = ["api"]
+        #: Access token lifetime in seconds (canonical unit).  ``None``
+        #: derives from ``access_token_ttl_minutes`` when set, else the
+        #: framework default (3600).
+        access_token_ttl_seconds: int | None = None
+        #: Refresh token lifetime in seconds (canonical unit).  ``None``
+        #: derives from ``refresh_token_ttl_days`` when set, else default.
+        refresh_token_ttl_seconds: int | None = None
+        #: Access token lifetime in minutes (legacy alias —
+        #: ``access_token_ttl_seconds`` wins when both are set).
+        access_token_ttl_minutes: int | None = 60
+        #: Refresh token lifetime in days (legacy alias).
+        refresh_token_ttl_days: int | None = 30
         #: When ``True`` all routes require authentication unless explicitly
-        #: marked public.  Defaults to ``False`` (opt-in per route).
+        #: marked public (``@Public()``).  Defaults to ``False`` (opt-in per route).
         require_auth_by_default: bool = False
-        #: Ordered list of identity-resolution backends per request.
-        backends: list[str] = [
-            "aquilia.auth.backends.TokenBackend",
-            "aquilia.auth.backends.SessionBackend",
-        ]
+        #: Ordered list of identity-resolution strategies per request:
+        #: registry names (``"token"``, ``"session"``, ``"api_key"`` …),
+        #: registered custom names, or dotted paths.
+        backends: list[str] = ["token", "session"]
+        #: Guards applied to every route in the application (NestJS
+        #: ``APP_GUARD`` equivalent).  Registry/dotted names or instances.
+        global_guards: list = []
+        #: Dotted path to a callable ``(identity, claims) -> principal``
+        #: yielding an application-defined principal type, injectable via
+        #: ``Annotated[MyPrincipal, CurrentUser]``.
+        principal_factory: str | None = None
+        #: Verify Bearer tokens statelessly — build the principal from
+        #: verified claims without a per-request identity-store lookup.
+        stateless: bool = False
+        #: Collapse every access-token failure into one generic 401 so an
+        #: attacker learns nothing about which check fired.
+        collapse_token_errors: bool = False
 
         # ── Rate limiting ────────────────────────────────────────────────────
         #: Maximum failed authentication attempts before lockout.
