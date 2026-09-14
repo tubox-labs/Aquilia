@@ -207,9 +207,7 @@ class AquilAuthMiddleware(Middleware):
                             getattr(e, "code", e),
                         )
                         continue
-                    self.logger.warning(
-                        "Backend %s failed authentication: %s", backend.__class__.__name__, e
-                    )
+                    self.logger.warning("Backend %s failed authentication: %s", backend.__class__.__name__, e)
                     continue
 
                 if result is None:
@@ -251,11 +249,7 @@ class AquilAuthMiddleware(Middleware):
                 break
 
             # Phase 3: Application principal factory.
-            if (
-                auth_state.principal is None
-                and self.principal_factory is not None
-                and auth_state.identity is not None
-            ):
+            if auth_state.principal is None and self.principal_factory is not None and auth_state.identity is not None:
                 try:
                     auth_state.principal = self.principal_factory(auth_state.identity, auth_state.claims)
                 except Exception as e:

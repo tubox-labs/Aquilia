@@ -435,9 +435,7 @@ class MemoryTokenStore:
 
             # Expired rotation families go too.
             expired_families = [
-                fid
-                for fid, fam in self._families.items()
-                if datetime.fromisoformat(str(fam["expires_at"])) < now
+                fid for fid, fam in self._families.items() if datetime.fromisoformat(str(fam["expires_at"])) < now
             ]
             for fid in expired_families:
                 self._drop_family(fid)

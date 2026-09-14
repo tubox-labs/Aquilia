@@ -2540,8 +2540,8 @@ async def _introspect_table(
         name = str(entry.get("name", ""))
         unique = bool(entry.get("unique"))
         origin = str(entry.get("origin", "c") or "c")
-        constraint_backed = bool(entry.get("constraint_backed")) or origin in ("u", "pk") or name.startswith(
-            "sqlite_autoindex_"
+        constraint_backed = (
+            bool(entry.get("constraint_backed")) or origin in ("u", "pk") or name.startswith("sqlite_autoindex_")
         )
         is_pk_index = origin == "pk" or bool(entry.get("primary"))
 

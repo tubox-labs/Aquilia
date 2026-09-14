@@ -110,8 +110,7 @@ def resolve_backend(b: Any, auth_manager: Any) -> Any:
             return resolve_backend(backend_cls, auth_manager)
         else:
             raise ValueError(
-                f"Unknown authentication backend name: {b}. Registered strategies: "
-                f"{', '.join(registry.names())}"
+                f"Unknown authentication backend name: {b}. Registered strategies: {', '.join(registry.names())}"
             )
 
     if inspect.isclass(b):

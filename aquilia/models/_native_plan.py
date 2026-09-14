@@ -219,4 +219,5 @@ def row_plan_for(model_cls: type, row_keys: tuple[str, ...]) -> Any:
     _PLAN_CACHE[cache_key] = plan
     return plan
 
+
 atexit.register(_clear_plan_cache)

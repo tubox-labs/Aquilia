@@ -600,4 +600,5 @@ def field_plan_for(contract_cls: type) -> CompiledPlan | None:
     _PLAN_CACHE[contract_cls] = plan
     return plan
 
+
 atexit.register(_clear_plan_cache)

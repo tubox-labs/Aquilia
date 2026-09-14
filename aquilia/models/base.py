@@ -462,8 +462,7 @@ class Model(metaclass=ModelMeta):
                     model=self.__class__.__name__,
                     operation="pk",
                     reason=(
-                        f"Composite primary key expects a sequence of "
-                        f"{len(self._pk_composite)} values, got {value!r}"
+                        f"Composite primary key expects a sequence of {len(self._pk_composite)} values, got {value!r}"
                     ),
                 )
             for attr, part in zip(self._pk_composite, value, strict=True):
@@ -629,8 +628,7 @@ class Model(metaclass=ModelMeta):
                         model=cls.__name__,
                         operation="get",
                         reason=(
-                            f"Composite primary key expects a sequence of "
-                            f"{len(cls._pk_composite)} values, got {pk!r}"
+                            f"Composite primary key expects a sequence of {len(cls._pk_composite)} values, got {pk!r}"
                         ),
                     )
                 filters = dict(zip(cls._pk_composite, pk, strict=True))

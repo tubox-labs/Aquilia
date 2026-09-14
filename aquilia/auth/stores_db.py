@@ -141,9 +141,7 @@ class DatabaseIdentityStore:
     async def _reindex_attributes(self, identity_id: str, attributes: dict[str, Any]) -> None:
         await self.db.execute(f"DELETE FROM {self.attr_table} WHERE identity_id = ?", [identity_id])
         rows = [
-            (key, str(value), identity_id)
-            for key, value in attributes.items()
-            if isinstance(value, (str, int, bool))
+            (key, str(value), identity_id) for key, value in attributes.items() if isinstance(value, (str, int, bool))
         ]
         for key, value, ident in rows:
             await self.db.execute(
@@ -365,9 +363,7 @@ class DatabaseCredentialStore:
 
     async def get_password(self, identity_id: str) -> PasswordCredential | None:
         await self._ensure_schema()
-        row = await self.db.fetch_one(
-            f"SELECT * FROM {self.password_table} WHERE identity_id = ?", [identity_id]
-        )
+        row = await self.db.fetch_one(f"SELECT * FROM {self.password_table} WHERE identity_id = ?", [identity_id])
         if not row:
             return None
         return PasswordCredential(
@@ -383,9 +379,7 @@ class DatabaseCredentialStore:
 
     async def delete_password(self, identity_id: str) -> bool:
         await self._ensure_schema()
-        cursor = await self.db.execute(
-            f"DELETE FROM {self.password_table} WHERE identity_id = ?", [identity_id]
-        )
+        cursor = await self.db.execute(f"DELETE FROM {self.password_table} WHERE identity_id = ?", [identity_id])
         return bool(getattr(cursor, "rowcount", 0))
 
     # ── API keys ─────────────────────────────────────────────────────────
@@ -453,16 +447,12 @@ class DatabaseCredentialStore:
 
     async def get_api_key_by_hash(self, key_hash: str) -> ApiKeyCredential | None:
         await self._ensure_schema()
-        row = await self.db.fetch_one(
-            f"SELECT * FROM {self.api_key_table} WHERE key_hash = ?", [key_hash]
-        )
+        row = await self.db.fetch_one(f"SELECT * FROM {self.api_key_table} WHERE key_hash = ?", [key_hash])
         return self._row_to_api_key(row) if row else None
 
     async def get_api_key_by_prefix(self, prefix: str) -> ApiKeyCredential | None:
         await self._ensure_schema()
-        row = await self.db.fetch_one(
-            f"SELECT * FROM {self.api_key_table} WHERE prefix = ? LIMIT 1", [prefix]
-        )
+        row = await self.db.fetch_one(f"SELECT * FROM {self.api_key_table} WHERE prefix = ? LIMIT 1", [prefix])
         return self._row_to_api_key(row) if row else None
 
     async def list_api_keys(self, identity_id: str) -> list[ApiKeyCredential]:
@@ -535,9 +525,7 @@ class DatabaseCredentialStore:
                 [identity_id, mfa_type],
             )
         else:
-            rows = await self.db.fetch_all(
-                f"SELECT * FROM {self.mfa_table} WHERE identity_id = ?", [identity_id]
-            )
+            rows = await self.db.fetch_all(f"SELECT * FROM {self.mfa_table} WHERE identity_id = ?", [identity_id])
         return [
             MFACredential(
                 identity_id=r["identity_id"],
@@ -563,9 +551,7 @@ class DatabaseCredentialStore:
                 [identity_id, mfa_type],
             )
         else:
-            cursor = await self.db.execute(
-                f"DELETE FROM {self.mfa_table} WHERE identity_id = ?", [identity_id]
-            )
+            cursor = await self.db.execute(f"DELETE FROM {self.mfa_table} WHERE identity_id = ?", [identity_id])
         return bool(getattr(cursor, "rowcount", 0))
 
 
@@ -701,9 +687,7 @@ class DatabaseTokenStore:
 
     async def revoke_tokens_by_identity(self, identity_id: str) -> None:
         await self._ensure_schema()
-        rows = await self.db.fetch_all(
-            f"SELECT token_id FROM {self.token_table} WHERE identity_id = ?", [identity_id]
-        )
+        rows = await self.db.fetch_all(f"SELECT token_id FROM {self.token_table} WHERE identity_id = ?", [identity_id])
         for row in rows:
             await self.revoke_refresh_token(row["token_id"])
         await self.db.execute(

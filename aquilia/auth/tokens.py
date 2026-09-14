@@ -613,9 +613,7 @@ class TokenManager:
         if extra_claims:
             clash = RESERVED_CLAIMS.intersection(extra_claims)
             if clash:
-                raise ValueError(
-                    f"extra_claims cannot override reserved claim(s): {sorted(clash)}"
-                )
+                raise ValueError(f"extra_claims cannot override reserved claim(s): {sorted(clash)}")
             payload.update(extra_claims)
 
         # Sign token

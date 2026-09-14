@@ -312,9 +312,7 @@ def normalize_auth_config(cfg: dict[str, Any] | None) -> dict[str, Any]:
             out_extra[key] = value
 
     out = {
-        k: v
-        for k, v in cfg.items()
-        if k not in _FLAT_TO_NESTED and k not in _FLAT_TTL_ALIASES and k not in out_extra
+        k: v for k, v in cfg.items() if k not in _FLAT_TO_NESTED and k not in _FLAT_TTL_ALIASES and k not in out_extra
     }
     out["tokens"] = tokens
     out["security"] = security
@@ -407,7 +405,9 @@ class AuthSettings:
             logger.warning("auth config: access_token_ttl_seconds must be positive (got %s) — using 3600", access_ttl)
             access_ttl = 3600
         if refresh_ttl <= 0:
-            logger.warning("auth config: refresh_token_ttl_seconds must be positive (got %s) — using default", refresh_ttl)
+            logger.warning(
+                "auth config: refresh_token_ttl_seconds must be positive (got %s) — using default", refresh_ttl
+            )
             refresh_ttl = 2_592_000
 
         return cls(

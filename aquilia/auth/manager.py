@@ -1028,9 +1028,7 @@ class AuthManager:
             AUTH_TOKEN_REVOKED: Refresh token revoked (including reuse
                 detection revoking the session family)
         """
-        return await self.token_manager.refresh_access_token(
-            refresh_token, device_metadata=device_metadata
-        )
+        return await self.token_manager.refresh_access_token(refresh_token, device_metadata=device_metadata)
 
     async def revoke_token(self, token: str, token_type: str = "refresh") -> None:
         """

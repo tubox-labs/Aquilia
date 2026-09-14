@@ -2746,9 +2746,7 @@ class AquiliaServer:
                 if "email" in user_cfg:
                     attributes.setdefault("email", user_cfg["email"])
                 if "display_name" in user_cfg or "username" in user_cfg:
-                    attributes.setdefault(
-                        "display_name", user_cfg.get("display_name", user_cfg.get("username", ""))
-                    )
+                    attributes.setdefault("display_name", user_cfg.get("display_name", user_cfg.get("username", "")))
                 if "roles" in user_cfg:
                     attributes.setdefault("roles", list(user_cfg["roles"]))
                 if "scopes" in user_cfg:
