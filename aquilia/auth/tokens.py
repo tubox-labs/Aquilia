@@ -405,6 +405,19 @@ class TokenConfig:
         clock_skew_seconds:  Tolerance applied to ``nbf`` and ``exp`` checks.
                              Accommodates clock drift between distributed nodes.
                              Defaults to ``0`` (strict timing).
+        collapse_errors:     Collapse every access-token failure (invalid /
+                             expired / revoked) into one generic
+                             ``AUTH_TOKEN_INVALID`` so an attacker learns
+                             nothing about which check fired
+                             (anti-enumeration posture).  Defaults to
+                             ``False`` (distinct, precise faults).
+        refresh_rotation:    Rotate refresh tokens on every exchange and
+                             detect **reuse** of a rotated-away token: the
+                             replay revokes the whole session family
+                             (a stolen-token tripwire).  Only effective when
+                             the token store implements the rotation
+                             protocol (:class:`RotatingTokenStore`).
+                             Defaults to ``True``.
     """
 
     issuer: str = "aquilia"
@@ -412,6 +425,14 @@ class TokenConfig:
     access_token_ttl: int = 3600  # 1 hour
     refresh_token_ttl: int = 2592000  # 30 days
     clock_skew_seconds: int = 0
+    collapse_errors: bool = False
+    refresh_rotation: bool = True
+
+
+#: Claims owned by the token engine — ``extra_claims`` may not override them.
+RESERVED_CLAIMS: frozenset[str] = frozenset(
+    {"iss", "sub", "aud", "exp", "iat", "nbf", "jti", "scopes", "roles", "sid", "tenant_id"}
+)
 
 
 class TokenStore(Protocol):
@@ -451,6 +472,58 @@ class TokenStore(Protocol):
         ...
 
 
+class RotatingTokenStore(Protocol):
+    """
+    Optional protocol for stores supporting atomic refresh rotation.
+
+    A store implementing these methods enables reuse detection: refresh
+    credentials are looked up by SHA-256 hash; each *session family* tracks
+    its current and previous hashes; presenting the previous (rotated-away)
+    hash marks the whole family revoked.
+    """
+
+    async def create_refresh_family(
+        self,
+        token_hash: str,
+        *,
+        identity_id: str,
+        scopes: list[str],
+        expires_at: datetime,
+        session_id: str | None = None,
+        roles: list[str] | None = None,
+        tenant_id: str | None = None,
+        device_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Create a new refresh family whose current credential is *token_hash*."""
+        ...
+
+    async def get_refresh_family(self, token_hash: str) -> dict[str, Any] | None:
+        """Look up a refresh family by credential hash (current or previous)."""
+        ...
+
+    async def rotate_refresh_family(
+        self,
+        token_hash: str,
+        new_hash: str,
+        *,
+        expires_at: datetime,
+    ) -> dict[str, Any] | None:
+        """
+        Atomically rotate a family's credential.
+
+        Returns the family record when *token_hash* matches the current
+        credential (the rotation succeeded); returns ``{"reuse": True, ...}``
+        when it matches the *previous* (already rotated away) credential —
+        the family is revoked by the store; returns ``None`` when the hash is
+        unknown.
+        """
+        ...
+
+    async def revoke_refresh_family(self, session_id: str, reason: str = "revoked") -> None:
+        """Revoke every credential in a session family."""
+        ...
+
+
 class TokenManager:
     """
     Token lifecycle manager.
@@ -475,11 +548,12 @@ class TokenManager:
     async def issue_access_token(
         self,
         identity_id: str,
-        scopes: list[str],
+        scopes: list[str] | None = None,
         roles: list[str] | None = None,
         session_id: str | None = None,
         tenant_id: str | None = None,
         ttl: int | None = None,
+        extra_claims: dict[str, Any] | None = None,
     ) -> str:
         """
         Issue signed access token.
@@ -488,6 +562,26 @@ class TokenManager:
         - header: {"alg": "RS256", "kid": "key_001", "typ": "JWT"}
         - payload: {"iss": "aquilia", "sub": "user_123", ...}
         - signature: RS256(header + payload, private_key)
+
+        Args:
+            identity_id:  Subject (``sub``) claim.
+            scopes:       Scope strings written to the ``scopes`` claim.
+                          Defaults to an empty list.
+            roles:        Optional role strings written to the ``roles`` claim.
+            session_id:   Optional session id written to the ``sid`` claim.
+            tenant_id:    Optional tenant written to the ``tenant_id`` claim.
+            ttl:          Lifetime in seconds (defaults to the configured
+                          access-token TTL).
+            extra_claims: Arbitrary additional claims merged into the payload.
+                          May not override engine-owned claims (``iss``,
+                          ``sub``, ``aud``, ``exp``, ``iat``, ``nbf``,
+                          ``jti``, ``scopes``, ``roles``, ``sid``,
+                          ``tenant_id``) — attempting to raises
+                          ``ValueError`` at issue time rather than silently
+                          dropping the value.
+
+        Raises:
+            ValueError: ``extra_claims`` attempts to override a reserved claim.
         """
         now = int(time.time())
         ttl = ttl or self.config.access_token_ttl
@@ -504,7 +598,7 @@ class TokenManager:
             "iat": now,
             "nbf": now,
             "jti": token_id,
-            "scopes": scopes,
+            "scopes": list(scopes or []),
         }
 
         if roles:
@@ -516,31 +610,58 @@ class TokenManager:
         if tenant_id:
             payload["tenant_id"] = tenant_id
 
+        if extra_claims:
+            clash = RESERVED_CLAIMS.intersection(extra_claims)
+            if clash:
+                raise ValueError(
+                    f"extra_claims cannot override reserved claim(s): {sorted(clash)}"
+                )
+            payload.update(extra_claims)
+
         # Sign token
         return self._sign_token(payload)
 
     async def issue_refresh_token(
         self,
         identity_id: str,
-        scopes: list[str],
+        scopes: list[str] | None = None,
         session_id: str | None = None,
         roles: list[str] | None = None,
         tenant_id: str | None = None,
+        device_metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Issue opaque refresh token.
 
         Refresh tokens are stored in token_store (stateful).
         Format: rt_<random>
+
+        When the store supports rotation (:class:`RotatingTokenStore`) and
+        ``TokenConfig.refresh_rotation`` is enabled, the credential is
+        registered as a rotating *family* keyed by its SHA-256 hash —
+        enabling reuse detection on exchange.
         """
         token_id = f"rt_{secrets.token_urlsafe(32)}"
 
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.config.refresh_token_ttl)
 
+        if self._rotation_enabled():
+            await self.token_store.create_refresh_family(  # type: ignore[attr-defined]
+                hash_token(token_id),
+                identity_id=identity_id,
+                scopes=list(scopes or []),
+                expires_at=expires_at,
+                session_id=session_id,
+                roles=roles,
+                tenant_id=tenant_id,
+                device_metadata=device_metadata,
+            )
+            return token_id
+
         await self.token_store.save_refresh_token(
             token_id=token_id,
             identity_id=identity_id,
-            scopes=scopes,
+            scopes=list(scopes or []),
             expires_at=expires_at,
             session_id=session_id,
             roles=roles,
@@ -548,6 +669,40 @@ class TokenManager:
         )
 
         return token_id
+
+    def _rotation_enabled(self) -> bool:
+        """True when the store supports rotation and config enables it."""
+        return self.config.refresh_rotation and all(
+            hasattr(self.token_store, m)
+            for m in (
+                "create_refresh_family",
+                "get_refresh_family",
+                "rotate_refresh_family",
+                "revoke_refresh_family",
+            )
+        )
+
+    def _raise_token_fault(self, fault_cls: type) -> None:
+        """Raise a token fault, honoring the collapse-errors posture."""
+        from aquilia.auth.faults import AUTH_TOKEN_INVALID
+
+        fault = fault_cls()
+        if self.config.collapse_errors:
+            # Anti-enumeration: every failure reason maps to one generic
+            # invalid-token fault with a single public message.
+            fault = AUTH_TOKEN_INVALID()
+            fault.message = "Invalid or expired access token"
+            fault.public_message = "Invalid or expired access token"
+        raise fault
+
+    def _decode_part(self, data: str) -> dict[str, Any]:
+        """Decode a base64url JSON part; any malformation is an invalid token."""
+        from aquilia.auth.faults import AUTH_TOKEN_INVALID
+
+        try:
+            return self._base64_decode_json(data)
+        except Exception:
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
     async def validate_access_token(self, token: str) -> dict[str, Any]:
         """
@@ -567,47 +722,59 @@ class TokenManager:
             AUTH_TOKEN_INVALID: Malformed or invalid token
             AUTH_TOKEN_EXPIRED: Token has expired
             AUTH_TOKEN_REVOKED: Token has been revoked
+
+        With ``TokenConfig.collapse_errors = True`` all three surface as one
+        generic ``AUTH_TOKEN_INVALID`` so callers cannot distinguish the
+        failure reason.
         """
         from aquilia.auth.faults import AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
 
         # Parse token
         try:
             header_b64, payload_b64, signature_b64 = token.split(".")
-        except ValueError:
-            raise AUTH_TOKEN_INVALID()
+        except (ValueError, AttributeError):
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
-        # Decode header
-        header = self._base64_decode_json(header_b64)
+        # Decode header (malformed base64/JSON → invalid token, never a 500)
+        try:
+            header = self._decode_part(header_b64)
+        except AUTH_TOKEN_INVALID:
+            raise
         kid = header.get("kid")
         alg = header.get("alg", "")
 
         if not kid:
-            raise AUTH_TOKEN_INVALID()
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
         # Reject 'none' algorithm (OWASP JWT Cheat Sheet)
         if alg.lower() == "none":
-            raise AUTH_TOKEN_INVALID()
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
         # Get verification key
         key = self.key_ring.get_verification_key(kid)
 
         if not key:
-            raise AUTH_TOKEN_INVALID()
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
-        # Verify signature
+        # Verify signature. The algorithm is taken from the *key descriptor*,
+        # never from the token header — a forged header claiming a different
+        # algorithm cannot redirect verification (algorithm-confusion guard).
         message = f"{header_b64}.{payload_b64}".encode()
-        signature = self._base64_decode(signature_b64)
+        try:
+            signature = self._base64_decode(signature_b64)
+        except Exception:
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
         if not self._verify_signature(message, signature, key):
-            raise AUTH_TOKEN_INVALID()
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
         # Decode payload
-        payload = self._base64_decode_json(payload_b64)
+        payload = self._decode_part(payload_b64)
 
         # Check issuer (OWASP: always validate iss)
         iss = payload.get("iss")
         if iss != self.config.issuer:
-            raise AUTH_TOKEN_INVALID()
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
         # Check audience (OWASP: always validate aud)
         aud = payload.get("aud")
@@ -615,7 +782,7 @@ class TokenManager:
             # aud can be a string or list
             token_audiences = aud if isinstance(aud, list) else [aud]
             if not any(a in self.config.audience for a in token_audiences):
-                raise AUTH_TOKEN_INVALID()
+                self._raise_token_fault(AUTH_TOKEN_INVALID)
 
         # Check expiration
         now = int(time.time())
@@ -623,17 +790,17 @@ class TokenManager:
         skew = self.config.clock_skew_seconds
 
         if not exp or exp < (now - skew):
-            raise AUTH_TOKEN_EXPIRED()
+            self._raise_token_fault(AUTH_TOKEN_EXPIRED)
 
         # Check not before
         nbf = payload.get("nbf", 0)
         if nbf > (now + skew):
-            raise AUTH_TOKEN_INVALID()
+            self._raise_token_fault(AUTH_TOKEN_INVALID)
 
         # Check revocation
         jti = payload.get("jti")
         if jti and await self.token_store.is_token_revoked(jti):
-            raise AUTH_TOKEN_REVOKED()
+            self._raise_token_fault(AUTH_TOKEN_REVOKED)
 
         return payload
 
@@ -649,6 +816,17 @@ class TokenManager:
             AUTH_TOKEN_REVOKED: Refresh token revoked
         """
         from aquilia.auth.faults import AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
+
+        if self._rotation_enabled():
+            family = await self.token_store.get_refresh_family(hash_token(token))  # type: ignore[attr-defined]
+            if family is None:
+                raise AUTH_TOKEN_INVALID()
+            if family.get("revoked"):
+                raise AUTH_TOKEN_REVOKED()
+            expires_at = family.get("expires_at")
+            if expires_at and datetime.fromisoformat(str(expires_at)) < datetime.now(timezone.utc):
+                raise AUTH_TOKEN_EXPIRED()
+            return family
 
         data = await self.token_store.get_refresh_token(token)
 
@@ -666,13 +844,53 @@ class TokenManager:
 
         return data
 
-    async def refresh_access_token(self, refresh_token: str) -> tuple[str, str]:
+    async def refresh_access_token(
+        self,
+        refresh_token: str,
+        *,
+        device_metadata: dict[str, Any] | None = None,
+    ) -> tuple[str, str]:
         """
         Exchange refresh token for new access + refresh tokens.
 
         Implements refresh token rotation (security best practice).
+
+        **Rotation + reuse detection** (default when the store supports it):
+        the exchange atomically rotates the family's credential hash. If the
+        presented token matches the *previous* (already rotated-away) hash,
+        the credential has been replayed — likely stolen — and the entire
+        session family is revoked before ``AUTH_TOKEN_REVOKED`` is raised.
+        Every other legitimately-issued token in that family dies with it.
         """
-        # Validate refresh token
+        from aquilia.auth.faults import AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
+
+        if self._rotation_enabled():
+            store = self.token_store  # type: ignore[attr-defined]
+            token_hash = hash_token(refresh_token)
+            new_token = f"rt_{secrets.token_urlsafe(32)}"
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.config.refresh_token_ttl)
+
+            family = await store.rotate_refresh_family(token_hash, hash_token(new_token), expires_at=expires_at)
+
+            if family is None:
+                raise AUTH_TOKEN_INVALID()
+            if family.get("reuse"):
+                # Replay of a rotated-away credential: revoke the family.
+                session_id = family.get("session_id")
+                if session_id:
+                    await store.revoke_refresh_family(session_id, reason="reuse_detected")
+                raise AUTH_TOKEN_REVOKED()
+
+            access_token = await self.issue_access_token(
+                identity_id=family["identity_id"],
+                scopes=family.get("scopes") or [],
+                roles=family.get("roles"),
+                session_id=family.get("session_id"),
+                tenant_id=family.get("tenant_id"),
+            )
+            return (access_token, new_token)
+
+        # Legacy (non-rotating) store path: validate, revoke, re-issue.
         data = await self.validate_refresh_token(refresh_token)
 
         # Revoke old refresh token
@@ -693,6 +911,7 @@ class TokenManager:
             session_id=data.get("session_id"),
             roles=data.get("roles"),
             tenant_id=data.get("tenant_id"),
+            device_metadata=device_metadata,
         )
 
         return (access_token, new_refresh_token)
@@ -958,7 +1177,9 @@ __all__ = [
     "KeyRing",
     "TokenConfig",
     "TokenStore",
+    "RotatingTokenStore",
     "TokenManager",
+    "RESERVED_CLAIMS",
     # Utility functions
     "constant_time_compare",
     "generate_secure_token",

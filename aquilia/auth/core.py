@@ -455,6 +455,9 @@ class TokenClaims:
     sid: str | None = None  # Session ID
     roles: list[str] = field(default_factory=list)
     tenant_id: str | None = None
+    #: Arbitrary application claims issued via ``extra_claims`` — everything
+    #: the token carries beyond the standard set.
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def is_expired(self) -> bool:
         """Check if token has expired."""
@@ -466,9 +469,15 @@ class TokenClaims:
         """Check if token has scope."""
         return scope in self.scopes or "*" in self.scopes
 
+    def get_claim(self, name: str, default: Any = None) -> Any:
+        """Read any claim — standard or ``extra`` — by name."""
+        if hasattr(self, name) and name not in ("extra",):
+            return getattr(self, name)
+        return self.extra.get(name, default)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict (JWT payload)."""
-        return {
+        result = {
             "iss": self.iss,
             "sub": self.sub,
             "aud": self.aud,
@@ -481,28 +490,61 @@ class TokenClaims:
             "roles": self.roles,
             "tenant_id": self.tenant_id,
         }
+        result.update(self.extra)
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TokenClaims:
         """Deserialize from dict (JWT payload)."""
+        known = {
+            "iss",
+            "sub",
+            "aud",
+            "exp",
+            "iat",
+            "nbf",
+            "jti",
+            "scopes",
+            "sid",
+            "roles",
+            "tenant_id",
+        }
         return cls(
             iss=data["iss"],
             sub=data["sub"],
-            aud=data["aud"],
+            aud=data.get("aud") or [],
             exp=data["exp"],
-            iat=data["iat"],
-            nbf=data["nbf"],
-            jti=data["jti"],
+            iat=data.get("iat", data["exp"]),
+            nbf=data.get("nbf", data.get("iat", data["exp"])),
+            jti=data.get("jti", ""),
             scopes=data.get("scopes", []),
             sid=data.get("sid"),
             roles=data.get("roles", []),
             tenant_id=data.get("tenant_id"),
+            extra={k: v for k, v in data.items() if k not in known},
         )
 
 
 # ============================================================================
 # Authentication Result
 # ============================================================================
+
+
+@dataclass
+class Authentication:
+    """
+    Rich result a strategy may return from ``authenticate()``.
+
+    Backends may keep returning a bare :class:`Identity` (back-compatible);
+    returning this richer result lets the pipeline carry the verified token
+    claims and an application-defined principal alongside the framework
+    identity — the canonical data that ends up on :class:`AuthState`.
+    """
+
+    identity: Identity
+    claims: dict[str, Any] | None = None
+    principal: Any = None
+    strategy: str | None = None
 
 
 @dataclass

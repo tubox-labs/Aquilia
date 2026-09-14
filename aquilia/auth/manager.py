@@ -197,6 +197,7 @@ class AuthManager:
         password_hasher: PasswordHasher | None = None,
         rate_limiter: RateLimiter | None = None,
         login_identifier_attributes: tuple[str, ...] | list[str] | None = None,
+        principal_builder: Any | None = None,
     ):
         # Auto-provision default in-memory stores when callers omit explicit storage wiring.
         # This keeps sign_in ergonomic in tests, scripts, and lightweight setups.
@@ -205,6 +206,10 @@ class AuthManager:
         self.token_manager = token_manager
         self.password_hasher = password_hasher or PasswordHasher()
         self.rate_limiter = rate_limiter or RateLimiter()
+        #: ``callable(identity, claims) -> principal`` — the application's
+        #: principal factory (``Auth.principal_factory``). Strategies (e.g.
+        #: ``jwt-stateless``) use it to produce app principals directly.
+        self.principal_builder = principal_builder
         default_identifiers = ("email", "username", "login", "identity_id")
         attrs = tuple(login_identifier_attributes or default_identifiers)
         if not attrs:
@@ -1000,12 +1005,19 @@ class AuthManager:
             },
         )
 
-    async def refresh_access_token(self, refresh_token: str) -> tuple[str, str]:
+    async def refresh_access_token(
+        self,
+        refresh_token: str,
+        *,
+        device_metadata: dict[str, Any] | None = None,
+    ) -> tuple[str, str]:
         """
         Refresh access token using refresh token.
 
         Args:
             refresh_token: Current refresh token
+            device_metadata: Optional device metadata recorded with the
+                rotated credential (family) where the store supports it.
 
         Returns:
             Tuple of (new_access_token, new_refresh_token)
@@ -1013,9 +1025,12 @@ class AuthManager:
         Raises:
             AUTH_TOKEN_INVALID: Invalid refresh token
             AUTH_TOKEN_EXPIRED: Refresh token expired
-            AUTH_TOKEN_REVOKED: Refresh token revoked
+            AUTH_TOKEN_REVOKED: Refresh token revoked (including reuse
+                detection revoking the session family)
         """
-        return await self.token_manager.refresh_access_token(refresh_token)
+        return await self.token_manager.refresh_access_token(
+            refresh_token, device_metadata=device_metadata
+        )
 
     async def revoke_token(self, token: str, token_type: str = "refresh") -> None:
         """
@@ -1290,7 +1305,7 @@ class AuthManager:
             access_token: JWT access token
 
         Returns:
-            Token claims
+            Token claims (arbitrary ``extra_claims`` ride on ``claims.extra``)
 
         Raises:
             AUTH_TOKEN_INVALID: Invalid token format
@@ -1298,20 +1313,7 @@ class AuthManager:
             AUTH_TOKEN_REVOKED: Token revoked
         """
         claims = await self.token_manager.validate_access_token(access_token)
-
-        return TokenClaims(
-            iss=claims["iss"],
-            sub=claims["sub"],
-            aud=claims["aud"],
-            exp=claims["exp"],
-            iat=claims["iat"],
-            nbf=claims.get("nbf", claims["iat"]),
-            jti=claims.get("jti", ""),
-            scopes=claims.get("scopes", []),
-            roles=claims.get("roles", []),
-            sid=claims.get("sid"),
-            tenant_id=claims.get("tenant_id"),
-        )
+        return TokenClaims.from_dict(claims)
 
     async def get_identity_from_token(self, access_token: str) -> Identity | None:
         """

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
@@ -29,6 +30,7 @@ from aquilia.auth.core import (
     OAuthClient,
     PasswordCredential,
 )
+from aquilia.auth.tokens import hash_token as _sha256
 from aquilia.faults.domains import ConflictFault, NotFoundFault
 
 # ============================================================================
@@ -62,6 +64,23 @@ class MemoryIdentityStore:
     async def get(self, identity_id: str) -> Identity | None:
         """Get identity by ID."""
         return self._identities.get(identity_id)
+
+    def _reindex(self, identity_id: str, attributes: dict[str, Any]) -> None:
+        """Rebuild the attribute index for one identity (seed/bootstrap path).
+
+        Clears the identity's previous index entries first so re-seeding
+        with changed attributes cannot leave stale lookups behind.
+        """
+        # Remove the identity from every value-set it belongs to…
+        for key in list(self._by_attribute.keys()):
+            for value in list(self._by_attribute[key].keys()):
+                self._by_attribute[key][value].discard(identity_id)
+                if not self._by_attribute[key][value]:
+                    del self._by_attribute[key][value]
+        # …then add the current attributes.
+        for key, value in attributes.items():
+            if isinstance(value, (str, int, bool)):
+                self._by_attribute[key][str(value)].add(identity_id)
 
     async def get_by_attribute(self, attribute: str, value: Any) -> Identity | None:
         """Get identity by attribute value."""
@@ -294,7 +313,13 @@ class MemoryOAuthClientStore:
 
 
 class MemoryTokenStore:
-    """In-memory token storage for development/testing."""
+    """
+    In-memory token storage for development/testing.
+
+    Implements both the base :class:`~aquilia.auth.tokens.TokenStore` protocol
+    and the :class:`~aquilia.auth.tokens.RotatingTokenStore` rotation
+    protocol, so refresh rotation with reuse detection works out of the box.
+    """
 
     def __init__(self):
         self._refresh_tokens: dict[str, dict[str, Any]] = {}
@@ -302,6 +327,10 @@ class MemoryTokenStore:
         self._revoked_by_identity: dict[str, set[str]] = defaultdict(set)
         self._revoked_by_session: dict[str, set[str]] = defaultdict(set)
         self._lock = asyncio.Lock()
+        # Rotation families: family_id -> record; hash index for O(1) lookup.
+        self._families: dict[str, dict[str, Any]] = {}
+        self._families_by_hash: dict[str, str] = {}
+        self._families_by_session: dict[str, list[str]] = defaultdict(list)
 
     async def save_refresh_token(
         self,
@@ -335,7 +364,7 @@ class MemoryTokenStore:
         return self._refresh_tokens.get(token_id)
 
     async def revoke_refresh_token(self, token_id: str) -> None:
-        """Revoke single refresh token."""
+        """Revoke single refresh token (token-id path *and* rotation family)."""
         async with self._lock:
             self._revoked_tokens.add(token_id)
 
@@ -344,23 +373,50 @@ class MemoryTokenStore:
                 data = self._refresh_tokens[token_id]
                 self._revoked_by_identity[data["identity_id"]].add(token_id)
 
+            # Rotation-family credentials are keyed by hash: revoke the
+            # owning family so the raw token dies too.
+            family_id = self._families_by_hash.get(_sha256(token_id))
+            if family_id is not None:
+                fam = self._families.get(family_id)
+                if fam is not None and not fam.get("revoked"):
+                    fam["revoked"] = True
+                    fam["revocation_reason"] = "revoked"
+
     async def revoke_tokens_by_identity(self, identity_id: str) -> None:
-        """Revoke all tokens for identity."""
+        """Revoke all tokens for identity (token-ids *and* rotation families)."""
         async with self._lock:
             for token_id, data in self._refresh_tokens.items():
                 if data["identity_id"] == identity_id:
                     self._revoked_tokens.add(token_id)
                     self._revoked_by_identity[identity_id].add(token_id)
 
+            for fam in self._families.values():
+                if fam.get("identity_id") == identity_id and not fam.get("revoked"):
+                    fam["revoked"] = True
+                    fam["revocation_reason"] = "identity_revoked"
+
     async def revoke_tokens_by_session(self, session_id: str) -> None:
-        """Revoke all tokens for session."""
+        """Revoke all tokens for session (token-ids *and* rotation families)."""
         async with self._lock:
             token_ids = self._revoked_by_session.get(session_id, set())
             self._revoked_tokens.update(token_ids)
 
+            for family_id in list(self._families_by_session.get(session_id, [])):
+                fam = self._families.get(family_id)
+                if fam is not None and not fam.get("revoked"):
+                    fam["revoked"] = True
+                    fam["revocation_reason"] = "session_revoked"
+
     async def is_token_revoked(self, token_id: str) -> bool:
-        """Check if token is revoked."""
-        return token_id in self._revoked_tokens
+        """Check if token is revoked (revocation set *or* revoked rotation family)."""
+        if token_id in self._revoked_tokens:
+            return True
+        family_id = self._families_by_hash.get(_sha256(token_id))
+        if family_id is not None:
+            fam = self._families.get(family_id)
+            if fam is not None and fam.get("revoked"):
+                return True
+        return False
 
     async def cleanup_expired(self) -> int:
         """Remove expired tokens (returns count removed)."""
@@ -377,7 +433,125 @@ class MemoryTokenStore:
                 del self._refresh_tokens[token_id]
                 self._revoked_tokens.discard(token_id)
 
-            return len(expired)
+            # Expired rotation families go too.
+            expired_families = [
+                fid
+                for fid, fam in self._families.items()
+                if datetime.fromisoformat(str(fam["expires_at"])) < now
+            ]
+            for fid in expired_families:
+                self._drop_family(fid)
+
+            return len(expired) + len(expired_families)
+
+    # ── RotatingTokenStore protocol ─────────────────────────────────────
+
+    def _drop_family(self, family_id: str) -> None:
+        fam = self._families.pop(family_id, None)
+        if fam is None:
+            return
+        self._families_by_hash.pop(fam.get("current_hash"), None)
+        self._families_by_hash.pop(fam.get("previous_hash"), None)
+        session_id = fam.get("session_id")
+        if session_id:
+            siblings = self._families_by_session.get(session_id)
+            if siblings and family_id in siblings:
+                siblings.remove(family_id)
+
+    async def create_refresh_family(
+        self,
+        token_hash: str,
+        *,
+        identity_id: str,
+        scopes: list[str],
+        expires_at: datetime,
+        session_id: str | None = None,
+        roles: list[str] | None = None,
+        tenant_id: str | None = None,
+        device_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Create a new refresh family whose current credential is *token_hash*."""
+        async with self._lock:
+            family_id = f"rf_{secrets.token_hex(16)}"
+            self._families[family_id] = {
+                "family_id": family_id,
+                "identity_id": identity_id,
+                "scopes": list(scopes),
+                "roles": list(roles or []),
+                "tenant_id": tenant_id,
+                "session_id": session_id or family_id,
+                "current_hash": token_hash,
+                "previous_hash": None,
+                "rotated_at": None,
+                "device_metadata": device_metadata or {},
+                "expires_at": expires_at.isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "revoked": False,
+                "revocation_reason": None,
+            }
+            self._families_by_hash[token_hash] = family_id
+            session = session_id or family_id
+            self._families_by_session[session].append(family_id)
+
+    async def get_refresh_family(self, token_hash: str) -> dict[str, Any] | None:
+        """Look up a refresh family by credential hash (current or previous)."""
+        family_id = self._families_by_hash.get(token_hash)
+        if family_id is None:
+            return None
+        return self._families.get(family_id)
+
+    async def rotate_refresh_family(
+        self,
+        token_hash: str,
+        new_hash: str,
+        *,
+        expires_at: datetime,
+    ) -> dict[str, Any] | None:
+        """
+        Atomically rotate a family's credential under the store lock.
+
+        Returns the family record on success, ``{"reuse": True, ...}`` when
+        the hash matches the rotated-away previous credential (the family is
+        revoked), or ``None`` when unknown.
+        """
+        async with self._lock:
+            family_id = self._families_by_hash.get(token_hash)
+            if family_id is None:
+                return None
+            fam = self._families.get(family_id)
+            if fam is None:
+                return None
+
+            if fam.get("revoked"):
+                return {"reuse": True, **fam}
+
+            if token_hash == fam.get("current_hash"):
+                # Winner: current credential rotates forward. The old hash
+                # STAYS in the index — it is now the previous credential, and
+                # its lookup is what makes reuse detection work.
+                fam["previous_hash"] = fam["current_hash"]
+                fam["current_hash"] = new_hash
+                fam["rotated_at"] = datetime.now(timezone.utc).isoformat()
+                fam["expires_at"] = expires_at.isoformat()
+                self._families_by_hash[new_hash] = family_id
+                return dict(fam)
+
+            if token_hash == fam.get("previous_hash"):
+                # Replay of a rotated-away credential: revoke the family.
+                fam["revoked"] = True
+                fam["revocation_reason"] = "reuse_detected"
+                return {"reuse": True, **fam}
+
+            return None
+
+    async def revoke_refresh_family(self, session_id: str, reason: str = "revoked") -> None:
+        """Revoke every credential in a session family."""
+        async with self._lock:
+            for family_id in list(self._families_by_session.get(session_id, [])):
+                fam = self._families.get(family_id)
+                if fam is not None and not fam.get("revoked"):
+                    fam["revoked"] = True
+                    fam["revocation_reason"] = reason
 
 
 # ============================================================================
@@ -474,35 +648,257 @@ class RedisTokenStore:
         }
 
     async def revoke_refresh_token(self, token_id: str) -> None:
-        """Revoke single refresh token."""
+        """Revoke single refresh token (token-id path *and* rotation family)."""
         # Add to revoked set (bloom filter alternative)
         await self.redis.sadd(self._key("revoked"), token_id)
 
         # Set expiration on revoked set (cleanup after 30 days)
         await self.redis.expire(self._key("revoked"), 30 * 86400)
 
+        # Rotation-family credentials: revoke the owning family so the raw
+        # token dies too.
+        family_id = await self.redis.get(self._key("famidx", _sha256(token_id)))
+        if family_id:
+            if isinstance(family_id, bytes):
+                family_id = family_id.decode()
+            await self.redis.hset(
+                self._key("family", family_id),
+                mapping={"revoked": "1", "revocation_reason": "revoked"},
+            )
+
     async def revoke_tokens_by_identity(self, identity_id: str) -> None:
-        """Revoke all tokens for identity."""
+        """Revoke all tokens for identity (token-ids *and* rotation families)."""
         token_ids = await self.redis.smembers(self._key("identity", identity_id, "tokens"))
 
         if token_ids:
             # Add all to revoked set
             await self.redis.sadd(self._key("revoked"), *[t.decode() for t in token_ids])
 
+        for family_id in await self._family_ids_by("identity_id", identity_id):
+            await self.redis.hset(
+                self._key("family", family_id),
+                mapping={"revoked": "1", "revocation_reason": "identity_revoked"},
+            )
+
     async def revoke_tokens_by_session(self, session_id: str) -> None:
-        """Revoke all tokens for session."""
+        """Revoke all tokens for session (token-ids *and* rotation families)."""
         token_ids = await self.redis.smembers(self._key("session", session_id, "tokens"))
 
         if token_ids:
             await self.redis.sadd(self._key("revoked"), *[t.decode() for t in token_ids])
+        await self.revoke_refresh_family(session_id, reason="session_revoked")
+
+    async def _family_ids_by(self, field: str, value: str) -> list[str]:
+        """Scan families for ``field == value`` (families are few; promote to a
+        secondary index only if profiling ever demands it)."""
+        family_ids: list[str] = []
+        keys = await self.redis.keys(self._key("family", "*"))
+        for raw_key in keys or []:
+            key = raw_key.decode() if isinstance(raw_key, bytes) else raw_key
+            fam = await self.redis.hgetall(key)
+            if not fam:
+                continue
+
+            def _dec(v: Any) -> str:
+                return v.decode() if isinstance(v, bytes) else v
+
+            if _dec(fam.get(field, "")) == value and _dec(fam.get("revoked", "0")) != "1":
+                family_ids.append(key.rsplit(":", 1)[-1])
+        return family_ids
 
     async def is_token_revoked(self, token_id: str) -> bool:
-        """Check if token is revoked (fast check using Redis set)."""
-        return await self.redis.sismember(self._key("revoked"), token_id)
+        """Check if token is revoked (set membership *or* revoked rotation family)."""
+        if await self.redis.sismember(self._key("revoked"), token_id):
+            return True
+        family_id = await self.redis.get(self._key("famidx", _sha256(token_id)))
+        if family_id:
+            if isinstance(family_id, bytes):
+                family_id = family_id.decode()
+            revoked = await self.redis.hget(self._key("family", family_id), "revoked")
+            if revoked is not None:
+                revoked = revoked.decode() if isinstance(revoked, bytes) else revoked
+                if revoked == "1":
+                    return True
+        return False
 
     async def cleanup_expired(self) -> int:
         """Redis handles expiration automatically, return 0."""
         return 0
+
+    # ── RotatingTokenStore protocol ─────────────────────────────────────
+    #
+    # Layout:
+    #   <prefix>family:<family_id>       — hash: family record
+    #   <prefix>famidx:<token_hash>      — string: family_id (current+previous)
+    #   <prefix>famsess:<session_id>     — set: family_ids in the session
+
+    _ROTATE_LUA = """
+    local famkey = KEYS[1]
+    local idxkey_current = KEYS[2]
+    local idxkey_new = KEYS[3]
+    local new_hash = ARGV[1]
+    local expires_at = ARGV[2]
+    local now = ARGV[3]
+
+    local fam = redis.call('HGETALL', famkey)
+    if #fam == 0 then
+        return {'0', 'unknown'}
+    end
+    local record = {}
+    for i = 1, #fam, 2 do record[fam[i]] = fam[i+1] end
+
+    if record['revoked'] == '1' then
+        return {'1', 'reuse'}
+    end
+
+    if record['current_hash'] == ARGV[4] then
+        redis.call('HSET', famkey,
+            'previous_hash', record['current_hash'],
+            'current_hash', new_hash,
+            'rotated_at', now,
+            'expires_at', expires_at)
+        -- The old hash's index entry STAYS: lookups of the rotated-away
+        -- credential must still reach this family (reuse detection).
+        redis.call('SET', idxkey_new, record['family_id'])
+        return {'1', 'ok'}
+    end
+
+    if record['previous_hash'] == ARGV[4] then
+        redis.call('HSET', famkey, 'revoked', '1',
+            'revocation_reason', 'reuse_detected')
+        return {'1', 'reuse'}
+    end
+
+    return {'0', 'unknown'}
+    """
+
+    async def create_refresh_family(
+        self,
+        token_hash: str,
+        *,
+        identity_id: str,
+        scopes: list[str],
+        expires_at: datetime,
+        session_id: str | None = None,
+        roles: list[str] | None = None,
+        tenant_id: str | None = None,
+        device_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Create a new refresh family whose current credential is *token_hash*."""
+        family_id = f"rf_{secrets.token_hex(16)}"
+        session = session_id or family_id
+        record = {
+            "family_id": family_id,
+            "identity_id": identity_id,
+            "scopes": json.dumps(list(scopes)),
+            "roles": json.dumps(list(roles or [])),
+            "tenant_id": tenant_id or "",
+            "session_id": session,
+            "current_hash": token_hash,
+            "previous_hash": "",
+            "rotated_at": "",
+            "device_metadata": json.dumps(device_metadata or {}),
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "revoked": "0",
+            "revocation_reason": "",
+        }
+        ttl = max(1, int((expires_at - datetime.now(timezone.utc)).total_seconds()))
+
+        async with self.redis.pipeline(transaction=True) as pipe:
+            pipe.hset(self._key("family", family_id), mapping=record)
+            pipe.set(self._key("famidx", token_hash), family_id, ex=ttl + 86400)
+            pipe.sadd(self._key("famsess", session), family_id)
+            pipe.expire(self._key("family", family_id), ttl + 86400)
+            pipe.expire(self._key("famsess", session), ttl + 86400)
+            await pipe.execute()
+
+    async def get_refresh_family(self, token_hash: str) -> dict[str, Any] | None:
+        """Look up a refresh family by credential hash (current or previous)."""
+        family_id = await self.redis.get(self._key("famidx", token_hash))
+        if not family_id:
+            return None
+        if isinstance(family_id, bytes):
+            family_id = family_id.decode()
+        data = await self.redis.hgetall(self._key("family", family_id))
+        if not data:
+            return None
+
+        def _get(key: str) -> Any:
+            raw = data.get(key, data.get(key.encode(), b""))
+            return raw.decode() if isinstance(raw, bytes) else raw
+
+        return {
+            "family_id": family_id,
+            "identity_id": _get("identity_id"),
+            "scopes": json.loads(_get("scopes") or "[]"),
+            "roles": json.loads(_get("roles") or "[]"),
+            "tenant_id": _get("tenant_id") or None,
+            "session_id": _get("session_id") or None,
+            "current_hash": _get("current_hash"),
+            "previous_hash": _get("previous_hash") or None,
+            "rotated_at": _get("rotated_at") or None,
+            "device_metadata": json.loads(_get("device_metadata") or "{}"),
+            "expires_at": _get("expires_at"),
+            "created_at": _get("created_at"),
+            "revoked": _get("revoked") == "1",
+            "revocation_reason": _get("revocation_reason") or None,
+        }
+
+    async def rotate_refresh_family(
+        self,
+        token_hash: str,
+        new_hash: str,
+        *,
+        expires_at: datetime,
+    ) -> dict[str, Any] | None:
+        """
+        Atomically rotate a family's credential via a server-side Lua script.
+
+        The compare-and-set runs inside Redis, so two concurrent refreshes
+        with the same credential are serialized: exactly one wins, the loser
+        observes the rotated-away hash and triggers family revocation.
+        """
+        family_id = await self.redis.get(self._key("famidx", token_hash))
+        if not family_id:
+            return None
+        if isinstance(family_id, bytes):
+            family_id = family_id.decode()
+
+        now = datetime.now(timezone.utc).isoformat()
+        result = await self.redis.eval(
+            self._ROTATE_LUA,
+            3,
+            self._key("family", family_id),
+            self._key("famidx", token_hash),
+            self._key("famidx", new_hash),
+            new_hash,
+            expires_at.isoformat(),
+            now,
+            token_hash,
+        )
+        status = result[1].decode() if isinstance(result[1], bytes) else result[1]
+        if status == "unknown":
+            return None
+
+        family = await self.get_refresh_family(new_hash if status == "ok" else token_hash)
+        if family is None:
+            # Family record vanished between the CAS and the read.
+            return None
+        if status == "reuse":
+            family["reuse"] = True
+        return family
+
+    async def revoke_refresh_family(self, session_id: str, reason: str = "revoked") -> None:
+        """Revoke every credential in a session family."""
+        family_ids = await self.redis.smembers(self._key("famsess", session_id))
+        if not family_ids:
+            return
+        async with self.redis.pipeline(transaction=True) as pipe:
+            for raw in family_ids:
+                fid = raw.decode() if isinstance(raw, bytes) else raw
+                pipe.hset(self._key("family", fid), mapping={"revoked": "1", "revocation_reason": reason})
+            await pipe.execute()
 
 
 # ============================================================================
