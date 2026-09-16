@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import TYPE_CHECKING
 
 from aquilia.middleware.core.base import Middleware
@@ -15,6 +16,11 @@ if TYPE_CHECKING:
     from aquilia.response import Response
 
 __all__ = ["RequestIdMiddleware"]
+
+# Inbound request IDs are echoed into a response header, so they must be
+# constrained to a safe charset/length before they ever reach the wire —
+# a client-supplied "abc\r\nX-Injected: 1" must not survive the round trip.
+_SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 
 
 class RequestIdMiddleware(Middleware):
@@ -46,7 +52,9 @@ class RequestIdMiddleware(Middleware):
         target = self._header_name_bytes
         for header_name, value in request.scope.get("headers", ()):
             if header_name == target:
-                request_id = value.decode("latin-1")
+                candidate = value.decode("latin-1")
+                if _SAFE_REQUEST_ID.match(candidate):
+                    request_id = candidate
                 break
 
         if not request_id:

@@ -1878,6 +1878,12 @@ class Request:
     # Legacy Compatibility
     # ========================================================================
 
+    @property
     def path_params(self) -> dict[str, Any]:
-        """Get path parameters (set by router via state)."""
+        """Path parameters (set by router via state).
+
+        Historical note: this was a method until 1.4.x, which silently broke
+        every ``isinstance(request.path_params, dict)`` consumer (contract
+        path binding, guards, clearance); it is a property now.
+        """
         return cast(dict[str, Any], self.state.get("path_params", {}))

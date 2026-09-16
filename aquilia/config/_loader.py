@@ -191,11 +191,27 @@ class ConfigLoader:
 
         # Step 4: Native dotenv auto-load for default/legacy flows.
         # For AquilaConfig users, this is typically already resolved by
-        # pyconfig class policy and remains idempotent here.
+        # pyconfig class policy and remains idempotent here. Pass the .env
+        # candidates NEXT TO THE LOADED CONFIG FILES so a bare
+        # ensure_loaded() with default (cwd-relative) paths cannot freeze
+        # the policy before the app's dotenv configuration runs. Absolute
+        # paths are used verbatim by the loader.
         try:
             from aquilia.dotenv import DotEnvLoader
 
-            DotEnvLoader.ensure_loaded()
+            dotenv_search: list[str] | None = None
+            config_dirs = {
+                Path(pattern).resolve().parent
+                for pattern in (paths or [])
+                if pattern.endswith(".py")
+            }
+            if config_dirs:
+                dotenv_search = sorted(
+                    str(directory / candidate)
+                    for directory in config_dirs
+                    for candidate in (".env", ".env.local")
+                )
+            DotEnvLoader.ensure_loaded(search_paths=dotenv_search)
         except ImportError:
             pass
 
@@ -222,13 +238,28 @@ class ConfigLoader:
 
         config_path = Path(path)
         if not config_path.exists():
+            # Relative paths resolve against the process cwd; a missing file
+            # used to be a silent skip, which masks misconfiguration (the
+            # app boots with defaults). Warn so the operator can see it.
+            log.warning("Config path not found (skipping): %s", config_path)
             return
 
         # Load Python module
         spec = importlib.util.spec_from_file_location("aquilia_config", config_path)
         if spec and spec.loader:
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            try:
+                spec.loader.exec_module(module)
+            except ConfigFault:
+                raise
+            except Exception as e:
+                # Semantic errors inside workspace.py (e.g. .integrate(None))
+                # used to escape as opaque AttributeErrors from deep inside
+                # the loader; re-raise with file context instead.
+                raise ConfigInvalidFault(
+                    key=str(config_path),
+                    reason=f"Failed to load config file {config_path}: {e}",
+                ) from e
 
             # Get workspace object
             if hasattr(module, "workspace"):
@@ -643,12 +674,28 @@ class ConfigLoader:
         return False
 
     def get_subsystem_config(self, name: str, defaults: dict) -> dict:
-        """Generic subsystem config reader with standard merge pattern."""
-        user_config = self.get(name, {}) or self.get(f"integrations.{name}", {})
+        """Generic subsystem config reader with standard merge pattern.
+
+        Root-level sections (often populated from ``AQ_<SUBSYSTEM>__*`` env
+        vars) and the typed ``integrations.<name>`` section are MERGED, not
+        ``or``-shadowed: an env var creating a one-key root dict used to
+        wholesale-replace the typed integration config (dropping e.g. a
+        configured Redis URL). The typed integration wins on conflicts;
+        ``enabled: True`` anywhere wins.
+        """
+        root_config = self.get(name, {})
+        integration_config = self.get(f"integrations.{name}", {})
+        user_config: dict = {}
+        if isinstance(root_config, dict):
+            self._merge_dict(user_config, root_config)
+        if isinstance(integration_config, dict):
+            self._merge_dict(user_config, integration_config)
         merged = defaults.copy()
         if user_config:
             merged["enabled"] = user_config.get("enabled", True)
             self._merge_dict(merged, user_config)
+        if isinstance(root_config, dict) and root_config.get("enabled") is True:
+            merged["enabled"] = True
         return merged
 
     def get_session_config(self) -> dict:

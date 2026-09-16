@@ -4,10 +4,13 @@ Route Compiler - Extracts routes from controllers and compiles route table.
 
 import importlib
 import inspect
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from aquilia.aquilary.handler_wrapper import wrap_handler
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -171,17 +174,22 @@ class RouteCompiler:
             controllers = manifest.get("controllers", [])
 
             for controller_path in controllers:
-                # If relative import, make absolute based on app structure
-                if not controller_path.startswith("."):
-                    # Assume pattern: apps.<app_name>.controllers
-                    if "." not in controller_path:
-                        controller_path = f"apps.{app_name}.controllers"
+                # The canonical ref grammar is "module.path:ClassName" (what
+                # the server requires) or dotted "module.path.ClassName".
+                # A bare ":ClassName" ref is app-qualified via the manifest's
+                # module; do NOT rewrite module refs to a fabricated
+                # "apps.<name>.controllers" module — that never imports and
+                # silently dropped those routes.
+                if ":" not in controller_path and "." not in controller_path:
+                    controller_path = f"modules.{app_name}.controllers:{controller_path}"
 
                 try:
                     routes = self.compile_controller(controller_path, config)
                     all_routes.extend(routes)
                 except Exception as e:
-                    print(f"Warning: Failed to compile controller {controller_path}: {e}")
+                    _log.warning(
+                        "Failed to compile controller %s: %s", controller_path, e
+                    )
 
         self.routes = all_routes
 

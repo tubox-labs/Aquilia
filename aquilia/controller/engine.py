@@ -48,6 +48,34 @@ except ImportError:  # pragma: no cover - sse is an optional subsystem
     _SSEResponse = None
 
 
+def _merge_contract_errors(
+    target: dict[str, list[str]], errors: dict[str, Any]
+) -> None:
+    """Merge a contract's error mapping into ``target``.
+
+    Nested-contract failures surface as ``{field: {child: [messages]}}`` —
+    flattening them with ``list(dict)`` would yield the child *field names*
+    as messages. Recurse instead so nested errors land under dotted paths
+    (``device.deviceId``) with their real messages intact.
+    """
+    for field, field_errors in errors.items():
+        if isinstance(field_errors, dict):
+            for child_field, child_errors in field_errors.items():
+                key = f"{field}.{child_field}"
+                if isinstance(child_errors, dict):
+                    _merge_contract_errors(target, {key: child_errors})
+                    continue
+                bucket = target.setdefault(key, [])
+                for err in child_errors:
+                    if err not in bucket:
+                        bucket.append(err)
+            continue
+        bucket = target.setdefault(field, [])
+        for err in field_errors:
+            if err not in bucket:
+                bucket.append(err)
+
+
 class LazyServiceProxy:
     """Lazy proxy that resolves a DI service asynchronously on method invocation or fallback to cached instance."""
 
@@ -900,11 +928,14 @@ class ControllerEngine:
                 if parsed_ct:
                     media_type = parsed_ct.media_type
                     if media_type in ("application/json", "application/x-json", "text/json"):
-                        try:
-                            _body_cache = await request.json()
-                            return _body_cache
-                        except Exception:
-                            pass
+                        # An explicitly-declared JSON content type that fails
+                        # to parse is a client error: swallow it here and the
+                        # contract reports per-field "This field is required"
+                        # for what is actually an unparseable body. Let
+                        # InvalidJSON (and body-size faults) propagate so the
+                        # client sees the real cause.
+                        _body_cache = await request.json()
+                        return _body_cache
                     elif media_type == "application/x-www-form-urlencoded":
                         try:
                             _body_cache = await request.form()
@@ -1009,13 +1040,7 @@ class ControllerEngine:
                     is_ok = bp_instance.is_sealed(raise_fault=False)
 
                 if not is_ok:
-                    for field, field_errors in bp_instance.errors.items():
-                        if field in all_contract_errors:
-                            for err in field_errors:
-                                if err not in all_contract_errors[field]:
-                                    all_contract_errors[field].append(err)
-                        else:
-                            all_contract_errors[field] = list(field_errors)
+                    _merge_contract_errors(all_contract_errors, bp_instance.errors)
 
                 # Inject the FULL Contract instance if:
                 # 1. The parameter is explicitly typed as a Contract subclass
@@ -1630,7 +1655,15 @@ class ControllerEngine:
                         ordering_fields=ordering_fields,
                     )
                 except Exception as e:
-                    self.logger.warning(f"QuerySet filtering failed: {e}")
+                    # Fail CLOSED: returning the unfiltered queryset would
+                    # silently strip ownership/tenant filters (a broken
+                    # FilterSet must not become an ACL bypass).
+                    self.logger.error(f"QuerySet filtering failed: {e}", exc_info=True)
+                    from aquilia.faults.domains import InternalServerErrorFault
+
+                    raise InternalServerErrorFault(
+                        detail="Request filtering failed"
+                    ) from e
             elif is_list:
                 result = _filter_data(
                     list(result),

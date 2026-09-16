@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from aquilia.contracts import UNSET, Contract, Field
+from aquilia.contracts import UNSET, Contract, Field, ward
 
 
 def _normalize_data(value: Any) -> Any:
@@ -1181,23 +1181,27 @@ class RenderDeployConfig(Contract):
                 self._validated_data[name] = value
             self.__dict__[name] = value
 
+    @ward
     def seal_port(self, data):
         port = data.get("port")
         if port is not None:
             if not isinstance(port, int) or not (1 <= port <= 65535):
                 self.reject("port", "Port must be a valid integer between 1 and 65535")
 
+    @ward
     def seal_health_check_path(self, data):
         path = data.get("health_check_path")
         if path is not None and not path.startswith("/"):
             self.reject("health_check_path", "Health check path must start with '/'")
 
+    @ward
     def seal_num_instances(self, data):
         instances = data.get("num_instances")
         if instances is not None:
             if not isinstance(instances, int) or instances < 1:
                 self.reject("num_instances", "Number of instances must be at least 1")
 
+    @ward
     def seal_auto_deploy(self, data):
         auto = data.get("auto_deploy")
         if auto is not None and auto not in ("yes", "no"):

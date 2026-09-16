@@ -353,8 +353,14 @@ class AquiliaRuntime:
             }
             overrides.update(self.config.config_overrides)
 
+            # The workspace file was verified above via its ABSOLUTE path —
+            # pass that path through. A relative "workspace.py" resolves
+            # against the process cwd, so booting from any other directory
+            # would silently skip the file (modules still load via the
+            # absolute workspace_root, masking the loss) and serve an
+            # unconfigured app.
             self._config_loader = ConfigLoader.load(
-                paths=["workspace.py"],
+                paths=[str(self.config.workspace_file)],
                 overrides=overrides,
             )
 

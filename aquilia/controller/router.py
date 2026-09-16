@@ -14,6 +14,7 @@ Performance (v3 — scalability):
 - Path normalisation happens once at registration time, not per request.
 """
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -870,8 +871,6 @@ class ControllerRouter:
                         break
                 if not replaced:
                     # Try <param:type> pattern
-                    import re
-
                     typed_re = re.compile(rf"<{re.escape(k)}:[^>]+>")
                     new_path = typed_re.sub(str(v), path)
                     if new_path != path:

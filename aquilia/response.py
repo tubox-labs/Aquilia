@@ -364,8 +364,13 @@ class Response:
         if headers:
             for key, value in headers.items():
                 if isinstance(value, (list, tuple)):
+                    if validate_headers:
+                        for item in value:
+                            self._validate_header(key, str(item))
                     self._headers[key.lower()] = list(value)
                 else:
+                    if validate_headers:
+                        self._validate_header(key, str(value))
                     self._headers[key.lower()] = value
 
         # Set content-type

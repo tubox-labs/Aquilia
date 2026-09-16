@@ -65,7 +65,7 @@ class ControllerFactory:
             ScopeViolationError: If injecting request-scoped into singleton
         """
         if mode == InstantiationMode.SINGLETON:
-            return await self._create_singleton(controller_class, ctx)
+            return await self._create_singleton(controller_class, ctx, request_container)
         else:
             return await self._create_per_request(
                 controller_class,
@@ -77,6 +77,7 @@ class ControllerFactory:
         self,
         controller_class: type,
         ctx: Any | None = None,
+        request_container: Any | None = None,
     ) -> Any:
         """Create or return singleton instance."""
         if controller_class in self._singletons:
@@ -85,10 +86,17 @@ class ControllerFactory:
         # Validate scope safety before instantiation
         self.validate_scope(controller_class, InstantiationMode.SINGLETON)
 
-        # Resolve constructor dependencies from app container
+        # Resolve constructor dependencies from the OWNING module's container
+        # when the request scope carries one (its parent IS the owning app
+        # container); module-scoped services are invisible to the base
+        # container, so resolving there fails with PROVIDER_NOT_FOUND for
+        # any non-first module. Fall back to the base container otherwise.
+        owner_container = getattr(request_container, "_parent", None) if request_container is not None else None
+        container = owner_container if owner_container is not None else self.app_container
+
         instance = await self._resolve_and_instantiate(
             controller_class,
-            self.app_container,
+            container,
         )
 
         # Call on_startup hook once
