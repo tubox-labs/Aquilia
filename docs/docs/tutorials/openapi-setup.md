@@ -6,11 +6,18 @@ icon: lucide/workflow
 
 This tutorial guides you through configuring, generating, and serving **Swagger UI** and **ReDoc** documentation interfaces inside an Aquilia app.
 
+> **Note — historical document.** The `OpenAPIConfig` /
+> `OpenAPIGenerator` classes described in this tutorial came from the former
+> `aquilia/controller/openapi.py` module, which no longer exists in the
+> current source tree. OpenAPI 3.1.0 generation is now provided by the
+> **Specula API Observatory** (`aquilia/specula/`, configured via
+> `Integration.specula(title=..., version=...)`, served at `/specula`).
+
 ---
 
 ### Step 1: OpenAPIConfig Setup
 
-The first step in generating documentation is defining your API's metadata and serving paths using [OpenAPIConfig](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L578) (defined in [openapi.py:L578-L633](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L578-L633)).
+The first step in generating documentation is defining your API's metadata and serving paths using `OpenAPIConfig` (defined in `openapi.py:L578-L633`).
 
 You can instantiate this configuration class with your API's basic details:
 
@@ -28,14 +35,14 @@ config = OpenAPIConfig(
 ```
 
 !!! info
-    By default, `OpenAPIConfig` serves Swagger UI at `/docs`, ReDoc at `/redoc`, and the raw specification at `/openapi.json` (as documented in [openapi.py:L72-L86](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L72-L86)).
+    By default, `OpenAPIConfig` serves Swagger UI at `/docs`, ReDoc at `/redoc`, and the raw specification at `/openapi.json` (as documented in `openapi.py:L72-L86`).
 
 
 ---
 
 ### Step 2: Generate Specification with `OpenAPIGenerator`
 
-The [OpenAPIGenerator](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L638) class (defined in [openapi.py:L638-L961](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L638-L961)) is the core compiler. It scans an active [ControllerRouter](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/router.py) and compiles all route definitions into a compliant OpenAPI 3.1.0 schema dictionary.
+The `OpenAPIGenerator` class (defined in `openapi.py:L638-L961`) is the core compiler. It scans an active [ControllerRouter](../../../aquilia/controller/router.py) and compiles all route definitions into a compliant OpenAPI 3.1.0 schema dictionary.
 
 Pass your `OpenAPIConfig` to the generator and call `generate()`:
 
@@ -51,13 +58,13 @@ generator = OpenAPIGenerator(config=config)
 openapi_spec = generator.generate(router)
 ```
 
-The returned `openapi_spec` is a dictionary conforming to the OpenAPI 3.1.0 standard, complete with `paths`, `components`, `tags`, and `security` mappings (documented in [openapi.py:L711-L755](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L711-L755)).
+The returned `openapi_spec` is a dictionary conforming to the OpenAPI 3.1.0 standard, complete with `paths`, `components`, `tags`, and `security` mappings (documented in `openapi.py:L711-L755`).
 
 ---
 
 ### Step 3: Mount Routes to Serve Swagger UI
 
-Aquilia provides [generate_swagger_html()](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1027) (defined in [openapi.py:L1027-L1055](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1027-L1055)) to render a complete HTML page including Swagger UI Javascript and CSS fetched from high-speed CDNs.
+Aquilia provides `generate_swagger_html()` (defined in `openapi.py:L1027-L1055`) to render a complete HTML page including Swagger UI Javascript and CSS fetched from high-speed CDNs.
 
 To serve this page, set up a route inside a documentation controller:
 
@@ -76,13 +83,13 @@ class DocsController(Controller):
 ```
 
 > [!TIP]
-> You can toggle a sleek dark theme easily by setting `swagger_ui_theme="dark"` inside `OpenAPIConfig` ([openapi.py:L122-L125](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L122-L125)).
+> You can toggle a sleek dark theme easily by setting `swagger_ui_theme="dark"` inside `OpenAPIConfig` (`openapi.py:L122-L125`).
 
 ---
 
 ### Step 4: Mount Routes to Serve ReDoc
 
-Similarly, Aquilia offers a minimalist, multi-panel documentation style via [generate_redoc_html()](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1084) (defined in [openapi.py:L1084-L1089](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1084-L1089)).
+Similarly, Aquilia offers a minimalist, multi-panel documentation style via `generate_redoc_html()` (defined in `openapi.py:L1084-L1089`).
 
 Mount it under your configured `redoc_path`:
 
@@ -106,8 +113,8 @@ class DocsController(Controller):
 
 You can customize how your endpoints look and group in the interactive UIs by supplying docstrings and route metadata parameters:
 
-1. **Summary & Description**: The generator looks at the route's explicit metadata or parses the handler's docstrings (as shown in [openapi.py:L846-L847](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L846-L847)). The first line maps to the **Summary**, and the remaining lines map to the **Description**.
-2. **Tags**: Organize operations into sections. The generator fallbacks from route-level `route_meta.tags` to controller-level `tags` class properties (documented in [openapi.py:L858-L863](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L858-L863)).
+1. **Summary & Description**: The generator looks at the route's explicit metadata or parses the handler's docstrings (as shown in `openapi.py:L846-L847`). The first line maps to the **Summary**, and the remaining lines map to the **Description**.
+2. **Tags**: Organize operations into sections. The generator fallbacks from route-level `route_meta.tags` to controller-level `tags` class properties (documented in `openapi.py:L858-L863`).
 3. **Deprecated**: Mark routes as outdated or retired using the `deprecated=True` attribute inside the route handler parameters or metadata.
 
 ```python
@@ -136,7 +143,7 @@ class UserController(Controller):
 
 To enforce structure validation and compile precise JSON schemas automatically, you can explicitly configure `request_contract` and `response_contract` within your route decorators. 
 
-Rather than relying purely on docstring comments, using request and response contracts allows the `OpenAPIGenerator` to parse class properties directly and populate schema structures under `components/schemas` (similar to standard dataclass translation described in [openapi.py:L486-L491](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L486-L491)).
+Rather than relying purely on docstring comments, using request and response contracts allows the `OpenAPIGenerator` to parse class properties directly and populate schema structures under `components/schemas` (similar to standard dataclass translation described in `openapi.py:L486-L491`).
 
 ```python
 from dataclasses import dataclass

@@ -15,7 +15,7 @@ All validation and execution errors in Contracts participate in Aquilia's unifie
     Evidence: `aquilia/contracts/exceptions.py:16-19`
 
 
-Aquilia groups Contract-related errors under a single fault domain [CONTRACT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L16-L19).
+Aquilia groups Contract-related errors under a single fault domain [CONTRACT](../../../aquilia/contracts/exceptions.py#L16-L19).
 
 ```python
 CONTRACT = FaultDomain(
@@ -32,8 +32,8 @@ CONTRACT = FaultDomain(
     Evidence: `aquilia/contracts/exceptions.py:25-57`
 
 
-[ContractFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L25-L57) is the base exception class for all Contract errors. It inherits from `Fault` and exposes the following settings:
-- **Domain**: [CONTRACT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L16-L19)
+[ContractFault](../../../aquilia/contracts/exceptions.py#L25-L57) is the base exception class for all Contract errors. It inherits from `Fault` and exposes the following settings:
+- **Domain**: [CONTRACT](../../../aquilia/contracts/exceptions.py#L16-L19)
 - **Severity**: `Severity.ERROR`
 - **Default Code**: `"BP000"`
 - **Public**: `True` (meaning it is safe to return to API clients)
@@ -51,7 +51,7 @@ def __init__(
 ```
 
 ### JSON Response Format
-The [as_response_body](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L48-L56) method converts the exception into a structured payload for HTTP responses:
+The [as_response_body](../../../aquilia/contracts/exceptions.py#L48-L56) method converts the exception into a structured payload for HTTP responses:
 ```json
 {
   "fault": "BP000",

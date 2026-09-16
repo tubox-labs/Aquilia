@@ -3,13 +3,19 @@ title: "Controller API Reference"
 description: "Comprehensive reference of all public symbols exported by the aquilia.controller module."
 icon: lucide/terminal
 ---
-This page documents all public symbols exported by the [aquilia.controller](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py) module.
+This page documents all public symbols exported by the [aquilia.controller](../../../aquilia/controller/__init__.py) module.
+
+> **Note:** the former `aquilia/controller/openapi.py` module referenced in
+> some entries below no longer exists. OpenAPI 3.1.0 generation is now
+> provided by the Specula API Observatory (`aquilia/specula/`, configured
+> via `Integration.specula(...)`, served at `/specula`), with low-level
+> helpers in [`aquilia/patterns/openapi.py`](../../../aquilia/patterns/openapi.py).
 
 ---
 
 ## Base Architecture
 
-### [Controller](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L497-L662)
+### [Controller](../../../aquilia/controller/base.py#L497-L662)
 
 Base Controller class. Replaces function-based handlers with class-based routing, lifecycle hooks, and dependency injection.
 
@@ -56,11 +62,11 @@ class Controller(metaclass=_ControllerMeta):
 - **`on_response(self, ctx: RequestCtx, response: Response) -> Response`**
   - Asynchronous lifecycle hook called to post-process the response before sending it.
 
-* **Evidence**: [aquilia/controller/base.py:L497-L662](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L497-L662)
+* **Evidence**: [aquilia/controller/base.py:L497-L662](../../../aquilia/controller/base.py#L497-L662)
 
 ---
 
-### [RequestCtx](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L55-L168)
+### [RequestCtx](../../../aquilia/controller/base.py#L55-L168)
 
 Request context provided to controller handlers. Uses `__slots__` and object pooling for maximum performance.
 
@@ -91,11 +97,11 @@ class RequestCtx:
 | `request_id` | `str \| None` | `None` | Unique request ID for tracing. |
 
 
-* **Evidence**: [aquilia/controller/base.py:L55-L168](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L55-L168)
+* **Evidence**: [aquilia/controller/base.py:L55-L168](../../../aquilia/controller/base.py#L55-L168)
 
 ---
 
-### [ExceptionFilter](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L260-L296)
+### [ExceptionFilter](../../../aquilia/controller/base.py#L260-L296)
 
 Base class for exception filters to convert unhandled exceptions into HTTP responses.
 
@@ -119,11 +125,11 @@ class ExceptionFilter:
 
 
 * **Returns**: `Optional[Response]` - Return `None` to let the exception propagate, or a `Response` to short-circuit.
-* **Evidence**: [aquilia/controller/base.py:L260-L296](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L260-L296)
+* **Evidence**: [aquilia/controller/base.py:L260-L296](../../../aquilia/controller/base.py#L260-L296)
 
 ---
 
-### [Interceptor](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L303-L348)
+### [Interceptor](../../../aquilia/controller/base.py#L303-L348)
 
 Base class for interceptors to wrap handler execution with before/after logic.
 
@@ -133,11 +139,11 @@ class Interceptor:
     async def after(self, ctx: RequestCtx, result: Any) -> Any: ...
 ```
 
-* **Evidence**: [aquilia/controller/base.py:L303-L348](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L303-L348)
+* **Evidence**: [aquilia/controller/base.py:L303-L348](../../../aquilia/controller/base.py#L303-L348)
 
 ---
 
-### [Throttle](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L355-L461)
+### [Throttle](../../../aquilia/controller/base.py#L355-L461)
 
 Simple in-memory sliding-window rate limiter with LRU eviction and expired entry cleanup to prevent memory growth.
 
@@ -160,21 +166,21 @@ class Throttle:
 | `max_clients` | `int` | `10000` | Maximum number of client IPs tracked concurrently. |
 
 
-* **Evidence**: [aquilia/controller/base.py:L355-L461](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L355-L461)
+* **Evidence**: [aquilia/controller/base.py:L355-L461](../../../aquilia/controller/base.py#L355-L461)
 
 ---
 
 ## Route Decorators
 
-### [GET](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L180-L227)
-### [POST](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L230-L277)
-### [PUT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L280-L327)
-### [PATCH](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L330-L377)
-### [DELETE](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L380-L427)
-### [HEAD](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L430-L477)
-### [OPTIONS](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L480-L527)
-### [TRACE](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L530-L577)
-### [WS](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L580-L627)
+### [GET](../../../aquilia/controller/decorators.py#L180-L227)
+### [POST](../../../aquilia/controller/decorators.py#L230-L277)
+### [PUT](../../../aquilia/controller/decorators.py#L280-L327)
+### [PATCH](../../../aquilia/controller/decorators.py#L330-L377)
+### [DELETE](../../../aquilia/controller/decorators.py#L380-L427)
+### [HEAD](../../../aquilia/controller/decorators.py#L430-L477)
+### [OPTIONS](../../../aquilia/controller/decorators.py#L480-L527)
+### [TRACE](../../../aquilia/controller/decorators.py#L530-L577)
+### [WS](../../../aquilia/controller/decorators.py#L580-L627)
 
 HTTP and WebSocket decorators for routing controller methods. They attach metadata to handlers without import-time side effects.
 
@@ -231,11 +237,11 @@ class GET(RouteDecorator):
 | `version` | `str \| list[str] \| None` | `None` | Version string constraints. |
 
 
-* **Evidence**: [aquilia/controller/decorators.py:L180-L627](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L180-L627)
+* **Evidence**: [aquilia/controller/decorators.py:L180-L627](../../../aquilia/controller/decorators.py#L180-L627)
 
 ---
 
-### [route](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L630-L739)
+### [route](../../../aquilia/controller/decorators.py#L630-L739)
 
 Generic decorator supporting multiple HTTP methods and paths.
 
@@ -248,21 +254,21 @@ def route(
 ) -> Callable[[F], F]
 ```
 
-* **Evidence**: [aquilia/controller/decorators.py:L630-L739](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L630-L739)
+* **Evidence**: [aquilia/controller/decorators.py:L630-L739](../../../aquilia/controller/decorators.py#L630-L739)
 
 ---
 
-### [VALID_HTTP_METHODS](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L15-L27)
+### [VALID_HTTP_METHODS](../../../aquilia/controller/decorators.py#L15-L27)
 
 Frozenset of valid HTTP/WebSocket method tokens: `{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "WS"}`.
 
-* **Evidence**: [aquilia/controller/decorators.py:L15-L27](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/decorators.py#L15-L27)
+* **Evidence**: [aquilia/controller/decorators.py:L15-L27](../../../aquilia/controller/decorators.py#L15-L27)
 
 ---
 
 ## Static Metadata Extraction
 
-### [ParameterMetadata](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L14-L36)
+### [ParameterMetadata](../../../aquilia/controller/metadata.py#L14-L36)
 
 Dataclass storing parameters extracted during compilation.
 
@@ -277,11 +283,11 @@ class ParameterMetadata:
     pattern: str | None = None
 ```
 
-* **Evidence**: [aquilia/controller/metadata.py:L14-L36](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L14-L36)
+* **Evidence**: [aquilia/controller/metadata.py:L14-L36](../../../aquilia/controller/metadata.py#L14-L36)
 
 ---
 
-### [RouteMetadata](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L40-L121)
+### [RouteMetadata](../../../aquilia/controller/metadata.py#L40-L121)
 
 Introspection metadata for a single route method.
 
@@ -304,11 +310,11 @@ class RouteMetadata:
     version: Any | None = None
 ```
 
-* **Evidence**: [aquilia/controller/metadata.py:L40-L121](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L40-L121)
+* **Evidence**: [aquilia/controller/metadata.py:L40-L121](../../../aquilia/controller/metadata.py#L40-L121)
 
 ---
 
-### [ControllerMetadata](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L125-L168)
+### [ControllerMetadata](../../../aquilia/controller/metadata.py#L125-L168)
 
 Introspection metadata for an entire Controller class.
 
@@ -326,11 +332,11 @@ class ControllerMetadata:
     version: Any | None = None
 ```
 
-* **Evidence**: [aquilia/controller/metadata.py:L125-L168](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L125-L168)
+* **Evidence**: [aquilia/controller/metadata.py:L125-L168](../../../aquilia/controller/metadata.py#L125-L168)
 
 ---
 
-### [extract_controller_metadata](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L171-L242)
+### [extract_controller_metadata](../../../aquilia/controller/metadata.py#L171-L242)
 
 Extracts metadata from a Controller class for static analysis compiling without importing runtime dependencies.
 
@@ -341,13 +347,13 @@ def extract_controller_metadata(
 ) -> ControllerMetadata
 ```
 
-* **Evidence**: [aquilia/controller/metadata.py:L171-L242](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L171-L242)
+* **Evidence**: [aquilia/controller/metadata.py:L171-L242](../../../aquilia/controller/metadata.py#L171-L242)
 
 ---
 
 ## Dependency Injection & Assembly Factory
 
-### [InstantiationMode](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/factory.py#L17-L21)
+### [InstantiationMode](../../../aquilia/controller/factory.py#L17-L21)
 
 Enum defining the lifecycle instantiation modes.
 
@@ -357,11 +363,11 @@ class InstantiationMode(str, Enum):
     SINGLETON = "singleton"
 ```
 
-* **Evidence**: [aquilia/controller/factory.py:L17-L21](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/factory.py#L17-L21)
+* **Evidence**: [aquilia/controller/factory.py:L17-L21](../../../aquilia/controller/factory.py#L17-L21)
 
 ---
 
-### [ControllerFactory](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/factory.py#L24-L402)
+### [ControllerFactory](../../../aquilia/controller/factory.py#L24-L402)
 
 Factory class responsible for instantiating Controller classes, resolving constructor parameters from DI containers, validating scope boundaries, and invoking startup/shutdown lifecycles.
 
@@ -379,13 +385,13 @@ class ControllerFactory:
 - **`shutdown(self) -> None`**
   - Asynchronously destroys all singletons created by this factory.
 
-* **Evidence**: [aquilia/controller/factory.py:L24-L402](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/factory.py#L24-L402)
+* **Evidence**: [aquilia/controller/factory.py:L24-L402](../../../aquilia/controller/factory.py#L24-L402)
 
 ---
 
 ## Execution Engine
 
-### [ControllerEngine](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/engine.py#L103-L1756)
+### [ControllerEngine](../../../aquilia/controller/engine.py#L103-L1756)
 
 Runtime execution engine for controllers. Handles route dispatching, dependency parameters binding, rate limiting, and response format serialization.
 
@@ -401,13 +407,13 @@ class ControllerEngine:
     )
 ```
 
-* **Evidence**: [aquilia/controller/engine.py:L103-L1756](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/engine.py#L103-L1756)
+* **Evidence**: [aquilia/controller/engine.py:L103-L1756](../../../aquilia/controller/engine.py#L103-L1756)
 
 ---
 
 ## Router & Compiler
 
-### [CompiledRoute](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/compiler.py#L28-L52)
+### [CompiledRoute](../../../aquilia/controller/compiler.py#L28-L52)
 
 Wrapper containing route patterns and static metadata.
 
@@ -426,11 +432,11 @@ class CompiledRoute:
     bound_version: Any | None = None
 ```
 
-* **Evidence**: [aquilia/controller/compiler.py:L28-L52](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/compiler.py#L28-L52)
+* **Evidence**: [aquilia/controller/compiler.py:L28-L52](../../../aquilia/controller/compiler.py#L28-L52)
 
 ---
 
-### [CompiledController](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/compiler.py#L56-L69)
+### [CompiledController](../../../aquilia/controller/compiler.py#L56-L69)
 
 Fully compiled controller class packaging its routing configurations.
 
@@ -442,11 +448,11 @@ class CompiledController:
     routes: list[CompiledRoute]
 ```
 
-* **Evidence**: [aquilia/controller/compiler.py:L56-L69](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/compiler.py#L56-L69)
+* **Evidence**: [aquilia/controller/compiler.py:L56-L69](../../../aquilia/controller/compiler.py#L56-L69)
 
 ---
 
-### [ControllerCompiler](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/compiler.py#L72-L611)
+### [ControllerCompiler](../../../aquilia/controller/compiler.py#L72-L611)
 
 Compiles Controllers into optimized executable route specifications.
 
@@ -462,11 +468,11 @@ class ControllerCompiler:
 - **`validate_route_tree(self, compiled_controllers: list[CompiledController]) -> list[dict[str, Any]]`**
   - Audits prefix paths across compiled controllers for collisions.
 
-* **Evidence**: [aquilia/controller/compiler.py:L72-L611](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/compiler.py#L72-L611)
+* **Evidence**: [aquilia/controller/compiler.py:L72-L611](../../../aquilia/controller/compiler.py#L72-L611)
 
 ---
 
-### [ControllerRouter](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/router.py#L66-L677)
+### [ControllerRouter](../../../aquilia/controller/router.py#L66-L677)
 
 Pattern-matching route router using O(1) hash maps for static paths and O(k) segment trie/regex searches for dynamic parameters.
 
@@ -484,13 +490,13 @@ class ControllerRouter:
 - **`match(self, path: str, method: str, query_params: dict[str, str] | None = None, api_version: Any | None = None) -> ControllerRouteMatch | None`**
   - Matches paths to handlers.
 
-* **Evidence**: [aquilia/controller/router.py:L66-L677](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/router.py#L66-L677)
+* **Evidence**: [aquilia/controller/router.py:L66-L677](../../../aquilia/controller/router.py#L66-L677)
 
 ---
 
 ## Validation Systems
 
-### [validate_body](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L50-L122)
+### [validate_body](../../../aquilia/controller/validation.py#L50-L122)
 
 Decorator: parses and validates request bodies against an Aquilia Contract.
 
@@ -502,29 +508,29 @@ def validate_body(
 ) -> Any
 ```
 
-* **Evidence**: [aquilia/controller/validation.py:L50-L122](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L50-L122)
+* **Evidence**: [aquilia/controller/validation.py:L50-L122](../../../aquilia/controller/validation.py#L50-L122)
 
 ---
 
-### [ValidationFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L35-L37)
+### [ValidationFault](../../../aquilia/controller/validation.py#L35-L37)
 
 Base class for request data validation errors.
 
-* **Evidence**: [aquilia/controller/validation.py:L35-L37](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L35-L37)
+* **Evidence**: [aquilia/controller/validation.py:L35-L37](../../../aquilia/controller/validation.py#L35-L37)
 
 ---
 
-### [RequestBodyValidationFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L40-L42)
+### [RequestBodyValidationFault](../../../aquilia/controller/validation.py#L40-L42)
 
 Fault raised when Contract constraints fail.
 
-* **Evidence**: [aquilia/controller/validation.py:L40-L42](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L40-L42)
+* **Evidence**: [aquilia/controller/validation.py:L40-L42](../../../aquilia/controller/validation.py#L40-L42)
 
 ---
 
 ## OpenAPI Integration
 
-### [OpenAPIConfig](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L578-L632)
+### `OpenAPIConfig`
 
 Dataclass configuring OpenAPI 3.1.0 specifications generators.
 
@@ -556,11 +562,11 @@ class OpenAPIConfig:
     enabled: bool = True
 ```
 
-* **Evidence**: [aquilia/controller/openapi.py:L578-L632](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L578-L632)
+* **Evidence**: `aquilia/controller/openapi.py:L578-L632`
 
 ---
 
-### [OpenAPIGenerator](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L638-L960)
+### `OpenAPIGenerator`
 
 Generates complete OpenAPI 3.1.0 documents.
 
@@ -574,11 +580,11 @@ class OpenAPIGenerator:
     )
 ```
 
-* **Evidence**: [aquilia/controller/openapi.py:L638-L960](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L638-L960)
+* **Evidence**: `aquilia/controller/openapi.py:L638-L960`
 
 ---
 
-### [generate_swagger_html](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1027-L1055)
+### `generate_swagger_html`
 
 Generates Swagger UI HTML pages.
 
@@ -586,11 +592,11 @@ Generates Swagger UI HTML pages.
 def generate_swagger_html(config: OpenAPIConfig) -> str
 ```
 
-* **Evidence**: [aquilia/controller/openapi.py:L1027-L1055](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1027-L1055)
+* **Evidence**: `aquilia/controller/openapi.py:L1027-L1055`
 
 ---
 
-### [generate_redoc_html](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1084-L1089)
+### `generate_redoc_html`
 
 Generates ReDoc HTML pages.
 
@@ -598,13 +604,13 @@ Generates ReDoc HTML pages.
 def generate_redoc_html(config: OpenAPIConfig) -> str
 ```
 
-* **Evidence**: [aquilia/controller/openapi.py:L1084-L1089](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L1084-L1089)
+* **Evidence**: `aquilia/controller/openapi.py:L1084-L1089`
 
 ---
 
 ## Filtering, Ordering & Search
 
-### [BaseFilterBackend](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L525-L549)
+### [BaseFilterBackend](../../../aquilia/controller/filters.py#L525-L549)
 
 Base class for custom filter backends.
 
@@ -614,19 +620,19 @@ class BaseFilterBackend:
     async def filter_queryset(self, queryset: Any, request: Any, **options: Any) -> Any: ...
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L525-L549](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L525-L549)
+* **Evidence**: [aquilia/controller/filters.py:L525-L549](../../../aquilia/controller/filters.py#L525-L549)
 
 ---
 
-### [FilterSetMeta](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L372-L408)
+### [FilterSetMeta](../../../aquilia/controller/filters.py#L372-L408)
 
 Metaclass collecting declared `Meta.fields` criteria.
 
-* **Evidence**: [aquilia/controller/filters.py:L372-L408](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L372-L408)
+* **Evidence**: [aquilia/controller/filters.py:L372-L408](../../../aquilia/controller/filters.py#L372-L408)
 
 ---
 
-### [FilterSet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L411-L517)
+### [FilterSet](../../../aquilia/controller/filters.py#L411-L517)
 
 Declarative filter parser resolving field lookups from query strings.
 
@@ -640,11 +646,11 @@ class FilterSet(metaclass=FilterSetMeta):
     )
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L411-L517](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L411-L517)
+* **Evidence**: [aquilia/controller/filters.py:L411-L517](../../../aquilia/controller/filters.py#L411-L517)
 
 ---
 
-### [SearchFilter](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L557-L619)
+### [SearchFilter](../../../aquilia/controller/filters.py#L557-L619)
 
 Filter backend applying substring text searches across multiple fields.
 
@@ -653,11 +659,11 @@ class SearchFilter(BaseFilterBackend):
     search_param: str = "search"
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L557-L619](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L557-L619)
+* **Evidence**: [aquilia/controller/filters.py:L557-L619](../../../aquilia/controller/filters.py#L557-L619)
 
 ---
 
-### [OrderingFilter](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L622-L677)
+### [OrderingFilter](../../../aquilia/controller/filters.py#L622-L677)
 
 Filter backend sorting results dynamically based on a query parameter.
 
@@ -666,11 +672,11 @@ class OrderingFilter(BaseFilterBackend):
     ordering_param: str = "ordering"
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L622-L677](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L622-L677)
+* **Evidence**: [aquilia/controller/filters.py:L622-L677](../../../aquilia/controller/filters.py#L622-L677)
 
 ---
 
-### [filter_queryset](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L685-L724)
+### [filter_queryset](../../../aquilia/controller/filters.py#L685-L724)
 
 Applies FilterSet, SearchFilter, and OrderingFilter to ORM querysets.
 
@@ -686,11 +692,11 @@ async def filter_queryset(
 ) -> Any
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L685-L724](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L685-L724)
+* **Evidence**: [aquilia/controller/filters.py:L685-L724](../../../aquilia/controller/filters.py#L685-L724)
 
 ---
 
-### [filter_data](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L727-L766)
+### [filter_data](../../../aquilia/controller/filters.py#L727-L766)
 
 Applies FilterSet, SearchFilter, and OrderingFilter to lists in memory.
 
@@ -706,11 +712,11 @@ def filter_data(
 ) -> list[Any]
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L727-L766](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L727-L766)
+* **Evidence**: [aquilia/controller/filters.py:L727-L766](../../../aquilia/controller/filters.py#L727-L766)
 
 ---
 
-### [apply_filters_to_list](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L284-L311)
+### [apply_filters_to_list](../../../aquilia/controller/filters.py#L284-L311)
 
 Filters lists by evaluation dictionary matching.
 
@@ -721,11 +727,11 @@ def apply_filters_to_list(
 ) -> list[Any]
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L284-L311](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L284-L311)
+* **Evidence**: [aquilia/controller/filters.py:L284-L311](../../../aquilia/controller/filters.py#L284-L311)
 
 ---
 
-### [apply_search_to_list](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L314-L328)
+### [apply_search_to_list](../../../aquilia/controller/filters.py#L314-L328)
 
 Performs search queries across list dict keys.
 
@@ -737,11 +743,11 @@ def apply_search_to_list(
 ) -> list[Any]
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L314-L328](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L314-L328)
+* **Evidence**: [aquilia/controller/filters.py:L314-L328](../../../aquilia/controller/filters.py#L314-L328)
 
 ---
 
-### [apply_ordering_to_list](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L331-L364)
+### [apply_ordering_to_list](../../../aquilia/controller/filters.py#L331-L364)
 
 Orders lists based on configuration key directives.
 
@@ -752,13 +758,13 @@ def apply_ordering_to_list(
 ) -> list[Any]
 ```
 
-* **Evidence**: [aquilia/controller/filters.py:L331-L364](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/filters.py#L331-L364)
+* **Evidence**: [aquilia/controller/filters.py:L331-L364](../../../aquilia/controller/filters.py#L331-L364)
 
 ---
 
 ## Pagination Systems
 
-### [BasePagination](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L104-L137)
+### [BasePagination](../../../aquilia/controller/pagination.py#L104-L137)
 
 Base class for pagination engines.
 
@@ -768,19 +774,19 @@ class BasePagination:
     async def paginate_queryset(self, queryset: Any, request: Any) -> dict[str, Any]: ...
 ```
 
-* **Evidence**: [aquilia/controller/pagination.py:L104-L137](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L104-L137)
+* **Evidence**: [aquilia/controller/pagination.py:L104-L137](../../../aquilia/controller/pagination.py#L104-L137)
 
 ---
 
-### [NoPagination](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L140-L149)
+### [NoPagination](../../../aquilia/controller/pagination.py#L140-L149)
 
 Passthrough pagination wrapper.
 
-* **Evidence**: [aquilia/controller/pagination.py:L140-L149](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L140-L149)
+* **Evidence**: [aquilia/controller/pagination.py:L140-L149](../../../aquilia/controller/pagination.py#L140-L149)
 
 ---
 
-### [PageNumberPagination](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L157-L298)
+### [PageNumberPagination](../../../aquilia/controller/pagination.py#L157-L298)
 
 Standard page numbers pagination resolver.
 
@@ -798,11 +804,11 @@ class PageNumberPagination(BasePagination):
     )
 ```
 
-* **Evidence**: [aquilia/controller/pagination.py:L157-L298](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L157-L298)
+* **Evidence**: [aquilia/controller/pagination.py:L157-L298](../../../aquilia/controller/pagination.py#L157-L298)
 
 ---
 
-### [LimitOffsetPagination](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L306-L425)
+### [LimitOffsetPagination](../../../aquilia/controller/pagination.py#L306-L425)
 
 Offset constraints paginator.
 
@@ -820,11 +826,11 @@ class LimitOffsetPagination(BasePagination):
     )
 ```
 
-* **Evidence**: [aquilia/controller/pagination.py:L306-L425](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L306-L425)
+* **Evidence**: [aquilia/controller/pagination.py:L306-L425](../../../aquilia/controller/pagination.py#L306-L425)
 
 ---
 
-### [CursorPagination](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L433-L675)
+### [CursorPagination](../../../aquilia/controller/pagination.py#L433-L675)
 
 Keyset seek-based paginator using signed opaque HMAC base64 cursors for fast paging.
 
@@ -843,13 +849,13 @@ class CursorPagination(BasePagination):
     )
 ```
 
-* **Evidence**: [aquilia/controller/pagination.py:L433-L675](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/pagination.py#L433-L675)
+* **Evidence**: [aquilia/controller/pagination.py:L433-L675](../../../aquilia/controller/pagination.py#L433-L675)
 
 ---
 
 ## Renderers & Content Negotiation
 
-### [BaseRenderer](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L119-L144)
+### [BaseRenderer](../../../aquilia/controller/renderers.py#L119-L144)
 
 Base renderer class.
 
@@ -869,11 +875,11 @@ class BaseRenderer:
     ) -> str | bytes
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L119-L144](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L119-L144)
+* **Evidence**: [aquilia/controller/renderers.py:L119-L144](../../../aquilia/controller/renderers.py#L119-L144)
 
 ---
 
-### [JSONRenderer](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L152-L179)
+### [JSONRenderer](../../../aquilia/controller/renderers.py#L152-L179)
 
 Renders responses to JSON formatted strings.
 
@@ -890,11 +896,11 @@ class JSONRenderer(BaseRenderer):
     )
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L152-L179](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L152-L179)
+* **Evidence**: [aquilia/controller/renderers.py:L152-L179](../../../aquilia/controller/renderers.py#L152-L179)
 
 ---
 
-### [XMLRenderer](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L187-L228)
+### [XMLRenderer](../../../aquilia/controller/renderers.py#L187-L228)
 
 Renders dictionary structures into valid XML outputs.
 
@@ -911,11 +917,11 @@ class XMLRenderer(BaseRenderer):
     )
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L187-L228](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L187-L228)
+* **Evidence**: [aquilia/controller/renderers.py:L187-L228](../../../aquilia/controller/renderers.py#L187-L228)
 
 ---
 
-### [YAMLRenderer](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L246-L289)
+### [YAMLRenderer](../../../aquilia/controller/renderers.py#L246-L289)
 
 Renders structures into YAML representations.
 
@@ -925,11 +931,11 @@ class YAMLRenderer(BaseRenderer):
     format_suffix = "yaml"
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L246-L289](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L246-L289)
+* **Evidence**: [aquilia/controller/renderers.py:L246-L289](../../../aquilia/controller/renderers.py#L246-L289)
 
 ---
 
-### [PlainTextRenderer](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L297-L308)
+### [PlainTextRenderer](../../../aquilia/controller/renderers.py#L297-L308)
 
 Renders structures into raw plain strings.
 
@@ -939,11 +945,11 @@ class PlainTextRenderer(BaseRenderer):
     format_suffix = "text"
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L297-L308](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L297-L308)
+* **Evidence**: [aquilia/controller/renderers.py:L297-L308](../../../aquilia/controller/renderers.py#L297-L308)
 
 ---
 
-### [HTMLRenderer](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L316-L331)
+### [HTMLRenderer](../../../aquilia/controller/renderers.py#L316-L331)
 
 Renders raw HTML pages or wraps items inside HTML boxes.
 
@@ -953,11 +959,11 @@ class HTMLRenderer(BaseRenderer):
     format_suffix = "html"
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L316-L331](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L316-L331)
+* **Evidence**: [aquilia/controller/renderers.py:L316-L331](../../../aquilia/controller/renderers.py#L316-L331)
 
 ---
 
-### [MessagePackRenderer](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L339-L359)
+### [MessagePackRenderer](../../../aquilia/controller/renderers.py#L339-L359)
 
 Renders structured payloads as binary MessagePack.
 
@@ -968,11 +974,11 @@ class MessagePackRenderer(BaseRenderer):
     charset = None
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L339-L359](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L339-L359)
+* **Evidence**: [aquilia/controller/renderers.py:L339-L359](../../../aquilia/controller/renderers.py#L339-L359)
 
 ---
 
-### [ContentNegotiator](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L367-L418)
+### [ContentNegotiator](../../../aquilia/controller/renderers.py#L367-L418)
 
 Audits accept-headers and format variables to match appropriate renderers.
 
@@ -981,11 +987,11 @@ class ContentNegotiator:
     def __init__(self, renderers: Sequence[BaseRenderer] | None = None)
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L367-L418](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L367-L418)
+* **Evidence**: [aquilia/controller/renderers.py:L367-L418](../../../aquilia/controller/renderers.py#L367-L418)
 
 ---
 
-### [negotiate](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L426-L453)
+### [negotiate](../../../aquilia/controller/renderers.py#L426-L453)
 
 Helper running Content Negotiation and output formatting.
 
@@ -1000,4 +1006,4 @@ def negotiate(
 ) -> tuple[str | bytes, str, int]
 ```
 
-* **Evidence**: [aquilia/controller/renderers.py:L426-L453](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/renderers.py#L426-L453)
+* **Evidence**: [aquilia/controller/renderers.py:L426-L453](../../../aquilia/controller/renderers.py#L426-L453)

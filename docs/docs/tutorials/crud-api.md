@@ -34,7 +34,7 @@ We are building a robust Product Catalog API. The system exposes the following R
 A **Contract** is a first-class primitive in Aquilia that acts as a contract between your database models and the outside world. It governs both inbound data handling (casting, sealing, and imprinting) and outbound serialization (molding).
 
 !!! info
-    📎 [core.py:L826](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L826)
+    📎 [core.py:L826](../../../aquilia/contracts/core.py#L826)
 
 
 First, let's assume a basic `Product` database model is declared in your application (using Aquilia's ORM or an integrated ORM):
@@ -93,14 +93,14 @@ class ProductContract(Contract):
 1. **`Spec` Configuration**: Configurations are declared in the inner `Spec` class. 
    !!! warning
     Always name this inner class `Spec`. Using the traditional name `Meta` will raise a `ContractFault` during class compilation.
-    📎 [core.py:L305-309](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L305-L309)
+    📎 [core.py:L305-309](../../../aquilia/contracts/core.py#L305-L309)
 
 2. **Projections**: Slicing the contract via subscript syntax (e.g., `ProductContract["summary"]`) extracts a restricted projection containing only selected facets. 
-   📎 [core.py:L609-L624](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L609-L624)
+   📎 [core.py:L609-L624](../../../aquilia/contracts/core.py#L609-L624)
 3. **`DecimalFacet`**: Used for exact-precision currency representations to prevent float conversion rounding errors. 
-   📎 [facets.py:L729-L784](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L729-L784)
+   📎 [facets.py:L729-L784](../../../aquilia/contracts/facets.py#L729-L784)
 4. **`Computed`**: A read-only facet populated on outbound rendering by calling a method on the contract or model. 
-   📎 [facets.py:L1522-L1580](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1522-L1580)
+   📎 [facets.py:L1522-L1580](../../../aquilia/contracts/facets.py#L1522-L1580)
 
 ---
 
@@ -118,7 +118,7 @@ class ProductsController(Controller):
 ```
 
 !!! info
-    📎 [base.py:L497](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L497)
+    📎 [base.py:L497](../../../aquilia/controller/base.py#L497)
 
 
 The `prefix = "/products"` attribute prepends `/products` to all endpoint routes declared within this controller.
@@ -189,11 +189,11 @@ graph TD
 
 When processing inbound payloads:
 1. **Cast**: Raw request data is passed into the contract. Simple coercion is applied (e.g., matching string numbers to integers/decimals). 
-   📎 [core.py:L1083-L1090](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1083-L1090)
+   📎 [core.py:L1083-L1090](../../../aquilia/contracts/core.py#L1083-L1090)
 2. **Seal**: Synchronous and asynchronous validation gates verify the coerced values. Calling `bp.is_sealed()` triggers this validation and seals the data container. 
-   📎 [core.py:L1014](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1014)
+   📎 [core.py:L1014](../../../aquilia/contracts/core.py#L1014)
 3. **Imprint**: The sealed contract applies changes to the underlying model. Calling `await bp.imprint()` instantiates a new model and writes it to the database. 
-   📎 [core.py:L1287](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1287)
+   📎 [core.py:L1287](../../../aquilia/contracts/core.py#L1287)
 
 Here is how to implement the endpoint:
 
@@ -252,7 +252,7 @@ from aquilia import PUT
 
 !!! info
     By binding the model instance (`instance=product`), `bp.imprint()` automatically invokes `_imprint_update` to update modified fields on the database model.
-    📎 [core.py:L1362-1380](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1362-L1380)
+    📎 [core.py:L1362-1380](../../../aquilia/contracts/core.py#L1362-L1380)
 
 
 ---
@@ -345,7 +345,7 @@ class ProductsController(Controller):
 
 !!! info
     The `Throttle` constructor accepts a request `limit` and sliding `window` in seconds. It automatically tracks IP addresses and clients.
-    📎 [base.py:L355-460](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L355-L460)
+    📎 [base.py:L355-460](../../../aquilia/controller/base.py#L355-L460)
 
 
 For sensitive endpoints (like creating new products), you can override the class-level throttling directly on the route decorator:

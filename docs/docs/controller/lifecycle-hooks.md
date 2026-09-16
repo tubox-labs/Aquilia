@@ -19,7 +19,7 @@ These hooks are executed when the controller itself starts up or shuts down.
 
 ### on_startup
 
-[on_startup](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L615-L621) is called when the controller is initialized. 
+[on_startup](../../../aquilia/controller/base.py#L615-L621) is called when the controller is initialized. 
 
 > [!NOTE]
 > This hook is executed **only in singleton instantiation mode**.
@@ -29,7 +29,7 @@ These hooks are executed when the controller itself starts up or shuts down.
 
 ### on_shutdown
 
-[on_shutdown](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L623-L629) is called when the controller is destroyed.
+[on_shutdown](../../../aquilia/controller/base.py#L623-L629) is called when the controller is destroyed.
 
 > [!NOTE]
 > This hook is executed **only in singleton instantiation mode**.
@@ -49,14 +49,14 @@ These hooks execute on every HTTP request processed by the controller's route ha
 
 ### on_request
 
-[on_request](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L631-L637) is called immediately before the matched handler method is executed.
+[on_request](../../../aquilia/controller/base.py#L631-L637) is called immediately before the matched handler method is executed.
 
 - **Signature**: `async def on_request(self, ctx: RequestCtx) -> None`
 - **Use Case**: Setting request-scoped parameters in `ctx.state`, logging request entry, or executing controller-wide preprocessing.
 
 ### on_response
 
-[on_response](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/base.py#L639-L652) is called after the handler method has successfully executed and returned a `Response` object.
+[on_response](../../../aquilia/controller/base.py#L639-L652) is called after the handler method has successfully executed and returned a `Response` object.
 
 - **Signature**: `async def on_response(self, ctx: RequestCtx, response: "Response") -> "Response"`
 - **Use Case**: Modifying headers (e.g., adding caching headers or security headers), logging execution time, or transforming response payloads.

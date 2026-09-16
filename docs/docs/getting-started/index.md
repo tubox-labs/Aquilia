@@ -6,7 +6,7 @@ icon: lucide/book-marked
 
 Aquilia is a **production-ready async Python web framework** designed for seamless developer experience. It provides deep, complete integration of several advanced components to build robust applications.
 
-As defined in the framework initialization ([aquilia/__init__.py](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/__init__.py#L2-L15)), Aquilia integrates the following modules:
+As defined in the framework initialization ([aquilia/__init__.py](../../../aquilia/__init__.py#L2-L15)), Aquilia integrates the following modules:
 *   **Aquilary**: Manifest-driven app registry with dependency resolution.
 *   **Flow**: Typed flow-first routing with composable pipelines.
 *   **DI**: Scoped dependency injection with lifecycle management.
@@ -23,20 +23,20 @@ As defined in the framework initialization ([aquilia/__init__.py](file:///Users/
 These documentation sections focus specifically on two core modules of the Aquilia ecosystem:
 
 ### 1. Controllers (First-Class Class-Based Routing)
-The **Controller System** introduces a class-based architecture that replaces function-based `@flow` handlers ([aquilia/controller/__init__.py](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L2-L6)).
+The **Controller System** introduces a class-based architecture that replaces function-based `@flow` handlers ([aquilia/controller/__init__.py](../../../aquilia/controller/__init__.py#L2-L6)).
 
 Key features of Aquilia Controllers include:
-*   **Manifest-first**: Declared in `module.aq` ([aquilia/controller/__init__.py:8](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L8)).
-*   **DI-first**: Class constructor and method parameter dependency injection ([aquilia/controller/__init__.py:9](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L9)).
-*   **Pipeline-first**: Class-level and method-level pipelines ([aquilia/controller/__init__.py:10](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L10)).
-*   **Static-first**: Metadata extraction at compile time with zero import-time side effects ([aquilia/controller/__init__.py:11-12](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L11-L12)).
+*   **Manifest-first**: Declared in `module.aq` ([aquilia/controller/__init__.py:8](../../../aquilia/controller/__init__.py#L8)).
+*   **DI-first**: Class constructor and method parameter dependency injection ([aquilia/controller/__init__.py:9](../../../aquilia/controller/__init__.py#L9)).
+*   **Pipeline-first**: Class-level and method-level pipelines ([aquilia/controller/__init__.py:10](../../../aquilia/controller/__init__.py#L10)).
+*   **Static-first**: Metadata extraction at compile time with zero import-time side effects ([aquilia/controller/__init__.py:11-12](../../../aquilia/controller/__init__.py#L11-L12)).
 
 !!! info
-    Class-based Controllers leverage HTTP verb decorators like `@GET`, `@POST`, and `@PUT` for explicit endpoint definitions ([aquilia/controller/__init__.py:40-52](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L40-L52)).
+    Class-based Controllers leverage HTTP verb decorators like `@GET`, `@POST`, and `@PUT` for explicit endpoint definitions ([aquilia/controller/__init__.py:40-52](../../../aquilia/controller/__init__.py#L40-L52)).
 
 
 ### 2. Contracts (Model ↔ World Contracts)
-The **Contracts System** provides first-class contracts between internal models and the outside world ([aquilia/contracts/__init__.py](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/__init__.py#L2-L8)). 
+The **Contracts System** provides first-class contracts between internal models and the outside world ([aquilia/contracts/__init__.py](../../../aquilia/contracts/__init__.py#L2-L8)). 
 
 A Contract specifies:
 *   **Facets**: What the world sees (e.g. `TextFacet`, `IntFacet`, `BoolFacet`).

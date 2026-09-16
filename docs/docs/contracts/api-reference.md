@@ -11,7 +11,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ## 1. Core Classes & Schemas
 
-### [Contract](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L826-L2075)
+### [Contract](../../../aquilia/contracts/core.py#L826-L2075)
 
 - **Summary**: The core contract definition class mapping model data to the outside world.
 - **Evidence Citation**: `aquilia/contracts/core.py:826-2075`
@@ -44,13 +44,13 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 - **Return Type**: `Contract`
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): When input values cannot be cast to target facet types.
-  - [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L82-L108): When field or cross-field validation rules fail.
-  - [ProjectionFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L117-L126): When an unknown projection name is requested.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): When input values cannot be cast to target facet types.
+  - [SealFault](../../../aquilia/contracts/exceptions.py#L82-L108): When field or cross-field validation rules fail.
+  - [ProjectionFault](../../../aquilia/contracts/exceptions.py#L117-L126): When an unknown projection name is requested.
 
 ---
 
-### [ContractMeta](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L239-L644)
+### [ContractMeta](../../../aquilia/contracts/core.py#L239-L644)
 
 - **Summary**: Metaclass for Contract classes handling Spec parsing, Facet collection, and model field derivation.
 - **Evidence Citation**: `aquilia/contracts/core.py:239-644`
@@ -70,7 +70,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ward](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/ward.py#L57-L110)
+### [ward](../../../aquilia/contracts/ward.py#L57-L110)
 
 - **Summary**: Decorator/decorator-factory for registering cross-field validator methods on a Contract.
 - **Evidence Citation**: `aquilia/contracts/ward.py:57-110`
@@ -91,7 +91,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [WardMethod](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/ward.py#L42-L47)
+### [WardMethod](../../../aquilia/contracts/ward.py#L42-L47)
 
 - **Summary**: Dataclass descriptor representing a registered cross-field validator.
 - **Evidence Citation**: `aquilia/contracts/ward.py:42-47`
@@ -111,7 +111,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [Sigil](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/sigil.py#L101-L498)
+### [Sigil](../../../aquilia/contracts/sigil.py#L101-L498)
 
 - **Summary**: Immutable compiled representation of a Contract's validation schema.
 - **Evidence Citation**: `aquilia/contracts/sigil.py:101-498`
@@ -135,7 +135,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [FieldSpec](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/sigil.py#L63-L98)
+### [FieldSpec](../../../aquilia/contracts/sigil.py#L63-L98)
 
 - **Summary**: Compiled field specification inside a Sigil schema.
 - **Evidence Citation**: `aquilia/contracts/sigil.py:63-98`
@@ -160,7 +160,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [SealOutcome](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L2086-L2090)
+### [SealOutcome](../../../aquilia/contracts/core.py#L2086-L2090)
 
 - **Summary**: Dataclass representing the validation outcome of a single row in batch validation.
 - **Evidence Citation**: `aquilia/contracts/core.py:2086-2090`
@@ -180,7 +180,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ColumnarReport](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L2094-L2096)
+### [ColumnarReport](../../../aquilia/contracts/core.py#L2094-L2096)
 
 - **Summary**: Columnar error summary for high-performance batch validation.
 - **Evidence Citation**: `aquilia/contracts/core.py:2094-2096`
@@ -198,7 +198,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ContractUnion](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L676-L787)
+### [ContractUnion](../../../aquilia/contracts/core.py#L676-L787)
 
 - **Summary**: Compiled wrapper for polymorphic discriminated contract unions constructed via standard OR `|` operator.
 - **Evidence Citation**: `aquilia/contracts/core.py:676-787`
@@ -217,7 +217,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ## 2. Facet Base & Built-in Facets
 
-### [Facet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L228-L457)
+### [Facet](../../../aquilia/contracts/facets.py#L228-L457)
 
 - **Summary**: Abstract base class representing a single field data contract point.
 - **Evidence Citation**: `aquilia/contracts/facets.py:228-457`
@@ -260,7 +260,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [UNSET](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L88)
+### [UNSET](../../../aquilia/contracts/facets.py#L88)
 
 - **Summary**: Sentinel constant used to distinguish between a field explicitly passed as `None` vs. a field omitted entirely.
 - **Evidence Citation**: `aquilia/contracts/facets.py:88`
@@ -271,7 +271,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [TextFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L463-L540)
+### [TextFacet](../../../aquilia/contracts/facets.py#L463-L540)
 
 - **Summary**: String facet with length limits and regex pattern checking.
 - **Evidence Citation**: `aquilia/contracts/facets.py:463-540`
@@ -288,11 +288,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `pattern` | `str \| None` | `None` | Regex validation pattern (maximum length: 500). |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If value is not a string/primitive, or if regex pattern fails safety checks (ReDoS protection).
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If value is not a string/primitive, or if regex pattern fails safety checks (ReDoS protection).
 
 ---
 
-### [EmailFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L543-L560)
+### [EmailFacet](../../../aquilia/contracts/facets.py#L543-L560)
 
 - **Summary**: String facet with RFC email validation.
 - **Evidence Citation**: `aquilia/contracts/facets.py:543-560`
@@ -301,11 +301,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class EmailFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
 
 ---
 
-### [URLFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L563-L582)
+### [URLFacet](../../../aquilia/contracts/facets.py#L563-L582)
 
 - **Summary**: String facet with standard URL scheme check.
 - **Evidence Citation**: `aquilia/contracts/facets.py:563-582`
@@ -314,11 +314,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class URLFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
 
 ---
 
-### [SlugFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L585-L602)
+### [SlugFacet](../../../aquilia/contracts/facets.py#L585-L602)
 
 - **Summary**: String facet matching lowercase alphanumeric and hyphens.
 - **Evidence Citation**: `aquilia/contracts/facets.py:585-602`
@@ -327,11 +327,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class SlugFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
 
 ---
 
-### [IPFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L605-L620)
+### [IPFacet](../../../aquilia/contracts/facets.py#L605-L620)
 
 - **Summary**: String facet validating IPv4 or IPv6 format.
 - **Evidence Citation**: `aquilia/contracts/facets.py:605-620`
@@ -340,11 +340,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class IPFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If address is invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If address is invalid.
 
 ---
 
-### [IntFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L626-L670)
+### [IntFacet](../../../aquilia/contracts/facets.py#L626-L670)
 
 - **Summary**: Integer facet with range limits and multipleOf validation.
 - **Evidence Citation**: `aquilia/contracts/facets.py:626-670`
@@ -360,11 +360,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `multiple_of` | `int \| None` | `None` | Enforces value % multiple_of == 0. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If integer coercion fails or constraints are violated.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If integer coercion fails or constraints are violated.
 
 ---
 
-### [FloatFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L673-L726)
+### [FloatFacet](../../../aquilia/contracts/facets.py#L673-L726)
 
 - **Summary**: Float facet with NaN/Infinity control.
 - **Evidence Citation**: `aquilia/contracts/facets.py:673-726`
@@ -382,11 +382,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `multiple_of` | `float \| None` | `None` | Multiple of constraint. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If parsing fails, or NaN/Infinity values are illegal.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If parsing fails, or NaN/Infinity values are illegal.
 
 ---
 
-### [DecimalFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L729-L783)
+### [DecimalFacet](../../../aquilia/contracts/facets.py#L729-L783)
 
 - **Summary**: Decimal facet enforcing digit and decimal place constraints.
 - **Evidence Citation**: `aquilia/contracts/facets.py:729-783`
@@ -403,11 +403,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `max_value` | `Decimal \| float \| None` | `None` | Max decimal value. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If invalid decimal input is passed, or precision constraints fail.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If invalid decimal input is passed, or precision constraints fail.
 
 ---
 
-### [BoolFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L789-L811)
+### [BoolFacet](../../../aquilia/contracts/facets.py#L789-L811)
 
 - **Summary**: Boolean facet coercing common truthy/falsy values.
 - **Evidence Citation**: `aquilia/contracts/facets.py:789-811`
@@ -416,11 +416,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class BoolFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If input is not cleanly coercible to bool.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If input is not cleanly coercible to bool.
 
 ---
 
-### [DateFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L817-L844)
+### [DateFacet](../../../aquilia/contracts/facets.py#L817-L844)
 
 - **Summary**: ISO 8601 YYYY-MM-DD date facet.
 - **Evidence Citation**: `aquilia/contracts/facets.py:817-844`
@@ -429,11 +429,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class DateFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
 
 ---
 
-### [TimeFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L847-L872)
+### [TimeFacet](../../../aquilia/contracts/facets.py#L847-L872)
 
 - **Summary**: ISO 8601 HH:MM:SS time facet.
 - **Evidence Citation**: `aquilia/contracts/facets.py:847-872`
@@ -442,11 +442,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class TimeFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
 
 ---
 
-### [DateTimeFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L875-L903)
+### [DateTimeFacet](../../../aquilia/contracts/facets.py#L875-L903)
 
 - **Summary**: ISO 8601 datetime facet.
 - **Evidence Citation**: `aquilia/contracts/facets.py:875-903`
@@ -455,11 +455,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class DateTimeFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
 
 ---
 
-### [DurationFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L906-L947)
+### [DurationFacet](../../../aquilia/contracts/facets.py#L906-L947)
 
 - **Summary**: Timedelta facet parsing float seconds or HH:MM:SS format.
 - **Evidence Citation**: `aquilia/contracts/facets.py:906-947`
@@ -468,11 +468,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class DurationFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If parsing fails.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If parsing fails.
 
 ---
 
-### [UUIDFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L950-L971)
+### [UUIDFacet](../../../aquilia/contracts/facets.py#L950-L971)
 
 - **Summary**: UUID parsing facet.
 - **Evidence Citation**: `aquilia/contracts/facets.py:950-971`
@@ -481,11 +481,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
   class UUIDFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If value cannot be parsed as UUID.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If value cannot be parsed as UUID.
 
 ---
 
-### [ListFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L977-L1040)
+### [ListFacet](../../../aquilia/contracts/facets.py#L977-L1040)
 
 - **Summary**: Array facet delegating elements validation to a child facet.
 - **Evidence Citation**: `aquilia/contracts/facets.py:977-1040`
@@ -501,11 +501,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `max_items` | `int \| None` | `None` | Maximum items count. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If input is not list/tuple or if element validation fails.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If input is not list/tuple or if element validation fails.
 
 ---
 
-### [SetFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1043-L1107)
+### [SetFacet](../../../aquilia/contracts/facets.py#L1043-L1107)
 
 - **Summary**: Array facet with unique element checking.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1043-1107`
@@ -518,7 +518,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [TupleFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1110-L1173)
+### [TupleFacet](../../../aquilia/contracts/facets.py#L1110-L1173)
 
 - **Summary**: Tuple array facet.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1110-1173`
@@ -531,7 +531,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [DictFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1176-L1258)
+### [DictFacet](../../../aquilia/contracts/facets.py#L1176-L1258)
 
 - **Summary**: Key-value map facet, optionally validating all values against a value facet.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1176-1258`
@@ -546,11 +546,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `max_keys` | `int \| None` | `1000` | Maximum permitted dictionary keys (protects against hash-collision DoS). |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If value is not a dict, key limit is exceeded, or key types are invalid.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If value is not a dict, key limit is exceeded, or key types are invalid.
 
 ---
 
-### [JSONFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1261-L1313)
+### [JSONFacet](../../../aquilia/contracts/facets.py#L1261-L1313)
 
 - **Summary**: Arbitrary JSON blob facet with maximum nesting depth safety check.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1261-1313`
@@ -565,11 +565,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `allowed_types` | `tuple` | `(str, int, float, bool, NoneType, list, dict)` | Allowed primitive JSON types. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If depth limit or disallowed types are detected.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If depth limit or disallowed types are detected.
 
 ---
 
-### [FileFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1319-L1336)
+### [FileFacet](../../../aquilia/contracts/facets.py#L1319-L1336)
 
 - **Summary**: Base reference facet validating file pathways/URLs.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1319-1336`
@@ -585,7 +585,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ChoiceFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1342-L1378)
+### [ChoiceFacet](../../../aquilia/contracts/facets.py#L1342-L1378)
 
 - **Summary**: Facet validating that values belong to a static choices collection.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1342-1378`
@@ -599,11 +599,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `choices` | `Sequence` | `(None)` | A list/tuple of choices, or dictionary of keys. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): When validation value is not in permitted set.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): When validation value is not in permitted set.
 
 ---
 
-### [LiteralFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1381-L1386)
+### [LiteralFacet](../../../aquilia/contracts/facets.py#L1381-L1386)
 
 - **Summary**: Facet restricting validation to a single exact literal value.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1381-1386`
@@ -619,7 +619,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [EnumFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1389-L1455)
+### [EnumFacet](../../../aquilia/contracts/facets.py#L1389-L1455)
 
 - **Summary**: Facet validating and mapping values to Python Enum members.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1389-1455`
@@ -633,11 +633,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `enum_class` | `type` | `(None)` | Python Enum class definition. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If casting to enum fails.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): If casting to enum fails.
 
 ---
 
-### [UploadFileFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1745-L1817)
+### [UploadFileFacet](../../../aquilia/contracts/facets.py#L1745-L1817)
 
 - **Summary**: Facet wrapping uploaded file buffers with size and type checks.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1745-1817`
@@ -652,11 +652,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 | `allowed_types` | `list[str] \| None` | `None` | Allowed mime type patterns (e.g. image/*). |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): When input is not `UploadFile`, exceeds max_size, or violates MIME rules.
+  - [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79): When input is not `UploadFile`, exceeds max_size, or violates MIME rules.
 
 ---
 
-### [FormDataFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1820-L1866)
+### [FormDataFacet](../../../aquilia/contracts/facets.py#L1820-L1866)
 
 - **Summary**: Facet parsing data fields from URL-encoded or multi-part payloads.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1820-1866`
@@ -672,7 +672,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [Computed](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1522-L1579)
+### [Computed](../../../aquilia/contracts/facets.py#L1522-L1579)
 
 - **Summary**: Read-only facet whose value is calculated dynamically on serialization.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1522-1579`
@@ -688,7 +688,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [Constant](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1582-L1607)
+### [Constant](../../../aquilia/contracts/facets.py#L1582-L1607)
 
 - **Summary**: Read-only facet returning a fixed preconfigured constant value.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1582-1607`
@@ -704,7 +704,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [WriteOnly](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1610-L1621)
+### [WriteOnly](../../../aquilia/contracts/facets.py#L1610-L1621)
 
 - **Summary**: Convenience subclass of `TextFacet` marked write-only.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1610-1621`
@@ -715,7 +715,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ReadOnly](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1624-L1647)
+### [ReadOnly](../../../aquilia/contracts/facets.py#L1624-L1647)
 
 - **Summary**: Read-only passthrough facet auto-serializing standard primitives.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1624-1647`
@@ -726,7 +726,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [Hidden](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1650-L1662)
+### [Hidden](../../../aquilia/contracts/facets.py#L1650-L1662)
 
 - **Summary**: Facet hidden from input and output, used internally or populated via DI.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1650-1662`
@@ -737,7 +737,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [Inject](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1668-L1742)
+### [Inject](../../../aquilia/contracts/facets.py#L1668-L1742)
 
 - **Summary**: Read-only facet resolving its value from the DI container or thread context.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1668-1742`
@@ -755,7 +755,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [derive_facet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1917-L1986)
+### [derive_facet](../../../aquilia/contracts/facets.py#L1917-L1986)
 
 - **Summary**: Derive a Facet instance from an Aquilia Model field definition.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1917-1986`
@@ -772,7 +772,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [MODEL_FIELD_TO_FACET](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1872-L1914)
+### [MODEL_FIELD_TO_FACET](../../../aquilia/contracts/facets.py#L1872-L1914)
 
 - **Summary**: Dictionary mapping model database field names to corresponding facet classes.
 - **Evidence Citation**: `aquilia/contracts/facets.py:1872-1914`
@@ -785,7 +785,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ## 3. Annotation & Decorator Helpers
 
-### [Field](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/annotations.py#L111-L260)
+### [Field](../../../aquilia/contracts/annotations.py#L111-L260)
 
 - **Summary**: Constraint descriptor specifying validations and defaults for annotation-driven fields.
 - **Evidence Citation**: `aquilia/contracts/annotations.py:111-260`
@@ -858,7 +858,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [computed](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/annotations.py#L568-L585)
+### [computed](../../../aquilia/contracts/annotations.py#L568-L585)
 
 - **Summary**: Decorator marking a Contract method as a computed read-only output field.
 - **Evidence Citation**: `aquilia/contracts/annotations.py:568-585`
@@ -875,7 +875,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [NestedContractFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/annotations.py#L310-L473)
+### [NestedContractFacet](../../../aquilia/contracts/annotations.py#L310-L473)
 
 - **Summary**: Facet that delegates validation to another Contract class.
 - **Evidence Citation**: `aquilia/contracts/annotations.py:310-473`
@@ -898,7 +898,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ## 4. Relation Traversal & Projections
 
-### [Lens](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L26-L184)
+### [Lens](../../../aquilia/contracts/lenses.py#L26-L184)
 
 - **Summary**: A relational facet viewing sub-objects through another Contract, with recursion guards and PK fallback.
 - **Evidence Citation**: `aquilia/contracts/lenses.py:26-184`
@@ -918,7 +918,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ProjectionRegistry](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L26-L146)
+### [ProjectionRegistry](../../../aquilia/contracts/projections.py#L26-L146)
 
 - **Summary**: Registry compiling and managing named subsets of field selections (projections) on a Contract.
 - **Evidence Citation**: `aquilia/contracts/projections.py:26-146`
@@ -932,7 +932,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ## 5. Schema & OpenAPI Compilation
 
-### [generate_schema](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/schema.py#L19-L36)
+### [generate_schema](../../../aquilia/contracts/schema.py#L19-L36)
 
 - **Summary**: Generate JSON Schema for a Contract class projection.
 - **Evidence Citation**: `aquilia/contracts/schema.py:19-36`
@@ -956,7 +956,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [generate_component_schemas](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/schema.py#L39-L68)
+### [generate_component_schemas](../../../aquilia/contracts/schema.py#L39-L68)
 
 - **Summary**: Compile OpenAPI components section dictionary for multiple Contracts.
 - **Evidence Citation**: `aquilia/contracts/schema.py:39-68`
@@ -979,7 +979,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ## 6. Integration Hooks
 
-### [is_contract_class](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L46-L48)
+### [is_contract_class](../../../aquilia/contracts/integration.py#L46-L48)
 
 - **Summary**: Utility checker verifying an object is a subclass of `Contract`.
 - **Evidence Citation**: `aquilia/contracts/integration.py:46-48`
@@ -996,7 +996,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [is_projected_contract](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L51-L53)
+### [is_projected_contract](../../../aquilia/contracts/integration.py#L51-L53)
 
 - **Summary**: Utility checker verifying an object is a subscripted `ProjectedRef` class.
 - **Evidence Citation**: `aquilia/contracts/integration.py:51-53`
@@ -1013,7 +1013,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [resolve_contract_from_annotation](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L56-L76)
+### [resolve_contract_from_annotation](../../../aquilia/contracts/integration.py#L56-L76)
 
 - **Summary**: Resolve Contract class and projection string from standard controller type annotations.
 - **Evidence Citation**: `aquilia/contracts/integration.py:56-76`
@@ -1030,7 +1030,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [bind_contract_to_request](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L298-L538)
+### [bind_contract_to_request](../../../aquilia/contracts/integration.py#L298-L538)
 
 - **Summary**: Instantiate and validate (seal) a Contract directly from an incoming request payload.
 - **Evidence Citation**: `aquilia/contracts/integration.py:298-538`
@@ -1056,11 +1056,11 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 - **Return Type**: `Contract`
 - **Raises**:
-  - [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L82-L108): If validation fails.
+  - [SealFault](../../../aquilia/contracts/exceptions.py#L82-L108): If validation fails.
 
 ---
 
-### [render_contract_response](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L541-L581)
+### [render_contract_response](../../../aquilia/contracts/integration.py#L541-L581)
 
 - **Summary**: Serialize database models or lists of database models through a Contract for JSON outputs.
 - **Evidence Citation**: `aquilia/contracts/integration.py:541-581`
@@ -1088,7 +1088,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ## 7. Exception Hierarchy & Fault Domain
 
-### [ContractFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L25-L56)
+### [ContractFault](../../../aquilia/contracts/exceptions.py#L25-L56)
 
 - **Summary**: Unified base exception class for all Contract errors.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py:25-56`
@@ -1108,7 +1108,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79)
+### [CastFault](../../../aquilia/contracts/exceptions.py#L62-L79)
 
 - **Summary**: Raised during the casting phase when inputs cannot be coerced.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py:62-79`
@@ -1127,7 +1127,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L82-L108)
+### [SealFault](../../../aquilia/contracts/exceptions.py#L82-L108)
 
 - **Summary**: Raised when field or cross-field validation rules fail.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py:82-108`
@@ -1140,7 +1140,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ImprintFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L111-L114)
+### [ImprintFault](../../../aquilia/contracts/exceptions.py#L111-L114)
 
 - **Summary**: Raised when persistent model mapping back-writes (imprinting) fail.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py:111-114`
@@ -1152,7 +1152,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [ProjectionFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L117-L126)
+### [ProjectionFault](../../../aquilia/contracts/exceptions.py#L117-L126)
 
 - **Summary**: Raised when an unknown or invalid projection is requested.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py:117-126`
@@ -1170,7 +1170,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [LensDepthFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L129-L138)
+### [LensDepthFault](../../../aquilia/contracts/exceptions.py#L129-L138)
 
 - **Summary**: Raised when relation traversal depth limits are exceeded.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py:129-138`
@@ -1188,7 +1188,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [LensCycleFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L141-L150)
+### [LensCycleFault](../../../aquilia/contracts/exceptions.py#L141-L150)
 
 - **Summary**: Raised when infinite circular relational Lens loops are detected.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py#L141-L150`
@@ -1205,7 +1205,7 @@ This is the comprehensive API reference for the `aquilia.contracts` package. It 
 
 ---
 
-### [CONTRACT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L16)
+### [CONTRACT](../../../aquilia/contracts/exceptions.py#L16)
 
 - **Summary**: Fault domain namespace constant registering Contract validation errors.
 - **Evidence Citation**: `aquilia/contracts/exceptions.py:16`

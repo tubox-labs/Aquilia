@@ -15,7 +15,7 @@ An Aquilia Contract declares the data contract between a data model and the outs
 
 ## Core Concepts
 
-- **[Defining Contracts](defining-contracts.md)**: Creating classes inheriting from `Contract` with a nested `Spec` configuration class.
+- **[Defining Contracts](defining-blueprints.md)**: Creating classes inheriting from `Contract` with a nested `Spec` configuration class.
 - **[Facets](facets.md)**: Declaring field types and validation rules using built-in validators like `TextFacet`, `IntFacet`, `DateTimeFacet`, and `Computed`.
 - **[Field Annotations](field-annotations.md)**: Using type annotations with `Field()` and `@computed` for a clean, descriptor-driven coding style.
 - **[Projections](projections.md)**: Defining named subsets of fields (e.g., `"summary"`, `"detail"`) to serialize different shapes of the same contract.
@@ -25,7 +25,7 @@ An Aquilia Contract declares the data contract between a data model and the outs
 - **[Validation Control & Data Sources](validation-control.md)**: Ward ordering, conditions, groups, fail-fast, localized messages, and building Contracts from environment variables or CLI arguments.
 - **[Lifecycle: Cast, Seal & Imprint](casting-sealing.md)**: Understanding how data moves through casting (type checking), sealing (integrity checks), and imprinting (saving).
 - **[Sigil & FieldSpec](sigil.md)**: Declaring low-level field spec templates and structural mapping rules.
-- **[Contract Unions](contract-union.md)**: Supporting discriminated unions and polymorphic API responses.
+- **[Contract Unions](blueprint-union.md)**: Supporting discriminated unions and polymorphic API responses.
 - **[Integration Helpers](integration.md)**: Resolving and binding Contracts to HTTP requests and controller responses.
 - **[Schema Generation](schema-generation.md)**: Compiling Contracts into JSON Schema and OpenAPI schemas.
 - **[Contract Exceptions](exceptions.md)**: Troubleshooting cast, seal, imprint, projection, and lens failures.

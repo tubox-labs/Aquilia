@@ -2,7 +2,7 @@
 title: "Integration Helpers"
 description: "Helper functions to integrate Contracts with the Aquilia Controller framework"
 icon: lucide/cable
----Aquilia provides a set of integration helpers in [integration.py](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py) to bridge the gap between Contract definitions, request/response lifecycle hooks, dependency injection (DI), and the Controller engine.
+---Aquilia provides a set of integration helpers in [integration.py](../../../aquilia/contracts/integration.py) to bridge the gap between Contract definitions, request/response lifecycle hooks, dependency injection (DI), and the Controller engine.
 
 ---
 
@@ -30,7 +30,7 @@ def is_contract_class(obj: Any) -> bool:
 Use this function during route initialization, dependency injection container setup, or annotation parsing to detect whether a route parameter is typed as a Contract class.
 
 > [!NOTE]
-> Defined in [integration.py:L46-49](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L46-L49).
+> Defined in [integration.py:L46-49](../../../aquilia/contracts/integration.py#L46-L49).
 
 ---
 
@@ -56,7 +56,7 @@ def is_projected_contract(obj: Any) -> bool:
 Use this function when verifying type annotations to identify if a specific projection of a Contract class is being requested.
 
 > [!NOTE]
-> Defined in [integration.py:L51-54](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L51-L54).
+> Defined in [integration.py:L51-54](../../../aquilia/contracts/integration.py#L51-L54).
 
 ---
 
@@ -89,7 +89,7 @@ Use this helper during controller configuration to extract Contract schema detai
 - Non-contract types (&rarr; `(None, None)`)
 
 > [!NOTE]
-> Defined in [integration.py:L56-76](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L56-L76).
+> Defined in [integration.py:L56-76](../../../aquilia/contracts/integration.py#L56-L76).
 
 ---
 
@@ -130,7 +130,7 @@ This is the core integration point between the controller execution engine and t
 > [!IMPORTANT]
 > The function implements security limits such as verifying the request content length against `MAX_BODY_SIZE` (default 10 MB, configurable via context) to prevent resource exhaustion attacks.
 > 
-> Defined in [integration.py:L298-538](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L298-538).
+> Defined in [integration.py:L298-538](../../../aquilia/contracts/integration.py#L298-538).
 
 ---
 
@@ -167,4 +167,4 @@ Use this function in controller action responses (or route response formatters) 
 - Passing in a class/projected reference (creates an instance and accesses `.data`).
 
 > [!NOTE]
-> Defined in [integration.py:L541-581](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L541-581).
+> Defined in [integration.py:L541-581](../../../aquilia/contracts/integration.py#L541-581).

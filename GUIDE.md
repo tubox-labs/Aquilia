@@ -1,6 +1,6 @@
 # Aquilia Framework — Complete Usage Guide
 
-> **Version:** 1.4.1
+> **Version:** 1.4.2
 > **Python:** 3.10–3.14
 > **Architecture:** ASGI-native, modular, DI-first
 
@@ -582,7 +582,7 @@ policy = SessionPolicy(
 ### Using Sessions in Controllers
 
 ```python
-from aquilia.sessions import session, authenticated, stateful
+from aquilia.sessions import session, stateful
 
 class CartController(Controller):
     prefix = "/cart"
@@ -624,19 +624,16 @@ class UserPreferences(SessionState):
 | Decorator | Effect |
 |-----------|--------|
 | `@session.require(authenticated=True)` | Requires an active, authenticated session |
+| `@session.require()` | Requires an active session |
 | `@session.ensure()` | Creates session if none exists |
-| `@authenticated` | Shortcut for requiring authentication |
 | `@stateful` | Marks handler as stateful (session-dependent) |
 
 ### Session Guards
 
-```python
-from aquilia.sessions import SessionGuard, AdminGuard, VerifiedEmailGuard
-
-# Built-in guards
-admin_guard = AdminGuard()             # Requires admin role in session
-email_guard = VerifiedEmailGuard()     # Requires verified email
-```
+For role/permission gating, use the auth guards from
+[`aquilia.auth`](#7-authentication--authorization) (e.g. `RoleGuard`,
+`AuthGuard`) — `aquilia.sessions` itself ships the session engine,
+stores, transports, policies, and decorators, not guard classes.
 
 ### Session Context Manager
 
@@ -1100,7 +1097,7 @@ from aquilia.models import UUIDField, BooleanField, FloatField, TextField
 
 class User(Model):
     id = UUIDField(primary_key=True, default=uuid4)
-    email = EmailField(unique=True, indexed=True)
+    email = EmailField(unique=True, db_index=True)
     name = CharField(max_length=255)
     password_hash = CharField(max_length=512)
     role = CharField(max_length=50, default="user")
@@ -1117,7 +1114,7 @@ class Post(Model):
     title = CharField(max_length=255)
     content = TextField()
     author = CharField(max_length=255)
-    published_at = DateTimeField(nullable=True)
+    published_at = DateTimeField(null=True)
 
     class Meta:
         table = "posts"
@@ -1146,30 +1143,32 @@ class Post(Model):
 |--------|--------|
 | `primary_key=True` | Primary key field |
 | `unique=True` | Unique constraint |
-| `indexed=True` | Database index |
-| `nullable=True` | Allow NULL |
-| `default=value` | Default value |
+| `db_index=True` | Database index |
+| `null=True` | Allow NULL |
+| `blank=True` | Allow empty string in validation |
+| `default=value` | Default value (or callable) |
 | `auto_now=True` | Set to current timestamp on every save |
 | `auto_now_add=True` | Set to current timestamp on creation |
 | `max_length=n` | Max length constraint |
+| `db_column="name"` | Override the database column name |
+| `choices=[...]` | Restrict to enumerated values |
+| `validators=[...]` | List of validation callables |
 
 ### CRUD Operations
 
 ```python
-from aquilia.models import Q
-
 # Create
 new_user = await User.objects.create(name="John", email="john@example.com")
 
 # Read
-user = await User.objects.get(id="uuid-here")
-user = await User.objects.get_by(email="john@example.com")
+user = await User.objects.get(id="uuid-here")        # by primary key...
+user = await User.objects.get(email="john@example.com")  # ...or by filters
 all_users = await User.objects.all()
 admins = await User.objects.filter(role="admin")
 
-# Query building
-recent = await User.objects.filter(
-    Q.eq("role", "admin") & Q.gt("created_at", cutoff)
+# Field-lookup filters (kwarg style)
+recent_admins = await User.objects.filter(
+    role="admin", created_at__gt=cutoff
 )
 
 # Update
@@ -1179,32 +1178,42 @@ await User.objects.filter(id="uuid-here").update(name="Jane")
 await User.objects.filter(id="uuid-here").delete()
 ```
 
-### Query Builder (Q)
+### Query Building (Q and QNode)
+
+Aquilia's query API has two building blocks:
+
+- **`Q`** — the QuerySet itself. Chainable and immutable (every chain
+  method returns a new `Q`), with async terminal methods (`all`, `first`,
+  `one`, `count`, ...) that execute the query.
+- **`QNode`** — a composable filter node for complex WHERE clauses, built
+  from the same field-lookup kwargs as `filter()` and combined with
+  `&` (AND), `|` (OR), and `~` (NOT).
 
 ```python
-from aquilia.models import Q
+from aquilia.models import Q, QNode
 
-# Comparison
-Q.eq("status", "active")       # ==
-Q.ne("status", "deleted")      # !=
-Q.gt("age", 18)                # >
-Q.gte("age", 18)               # >=
-Q.lt("price", 100)             # <
-Q.lte("price", 100)            # <=
+# Field-lookup filters on the QuerySet
+# exact, gt, gte, lt, lte, ne, contains, icontains,
+# startswith, endswith, in, isnull, range, regex, ...
+await User.objects.filter(role="admin")                  # exact
+await User.objects.filter(age__gt=18)                    # >
+await User.objects.filter(name__icontains="john")        # LIKE %john%
+await User.objects.filter(id__in=[1, 2, 3])              # IN clause
+await User.objects.filter(created_at__range=(a, b))      # BETWEEN
+await User.objects.exclude(role="banned")                # negated filter
 
-# String
-Q.contains("name", "john")     # LIKE %john%
-Q.starts_with("email", "admin")
-Q.ends_with("email", ".com")
+# Chaining, ordering, slicing
+await User.objects.filter(active=True).order("-created_at").limit(10).all()
+page = User.objects.order("id")[10:20]
 
-# Logical
-Q.eq("a", 1) & Q.eq("b", 2)   # AND
-Q.eq("a", 1) | Q.eq("b", 2)   # OR
-~Q.eq("status", "deleted")     # NOT
+# QNode composition for AND/OR/NOT trees
+q = QNode(name="Alice") | QNode(name="Bob")
+users = await User.objects.filter(q).all()
 
-# Collection
-Q.in_("role", ["admin", "mod"])
-Q.between("price", 10, 100)
+q = (QNode(active=True) & QNode(role="admin")) | QNode(is_superuser=True)
+users = await User.objects.apply_q(q).all()
+
+users = await User.objects.filter(~QNode(banned=True)).all()
 ```
 
 ### Relationships
@@ -1212,7 +1221,7 @@ Q.between("price", 10, 100)
 ```python
 class Profile(Model):
     id = UUIDField(primary_key=True, default=uuid4)
-    bio = TextField(nullable=True)
+    bio = TextField(null=True)
     user = UUIDField()  # Foreign key to User
 
     class Meta:
@@ -1221,7 +1230,7 @@ class Profile(Model):
 class Comment(Model):
     id = UUIDField(primary_key=True, default=uuid4)
     body = TextField()
-    post = UUIDField(indexed=True)  # Foreign key to Post
+    post = UUIDField(db_index=True)  # Foreign key to Post
     author = CharField(max_length=255)
 
     class Meta:
@@ -1230,29 +1239,40 @@ class Comment(Model):
 
 ### Migrations
 
-```python
-from aquilia.db import MigrationRunner, op
+The migration engine lives in `aquilia.models.migration` (class
+`MigrationEngine`). The `aq db` CLI wraps it:
 
-# Generate from models module
-# aq db makemigrations
-
-# Run migrations
-runner = MigrationRunner(db_url="sqlite:///myapp.db")
-await runner.migrate()
-
-# Manual migration
-class CreateUsersTable:
-    async def up(self):
-        op.create_table("users", [
-            op.column("id", "uuid", primary=True),
-            op.column("email", "string", unique=True),
-            op.column("name", "string"),
-            op.column("created_at", "datetime"),
-        ])
-
-    async def down(self):
-        op.drop_table("users")
+```bash
+aq db makemigrations   # autodetect model changes and write a migration
+aq db migrate          # apply pending migrations
+aq db showmigrations   # applied/pending overview
+aq db sqlmigrate <name>  # compile a migration to SQL without running it
+aq db rollback <target> # roll back to a revision
 ```
+
+Programmatic use:
+
+```python
+from aquilia.models.migration import MigrationEngine
+
+engine = MigrationEngine("migrations")
+
+# Generate a migration from the diff between the last schema snapshot
+# and the current models (returns a path, or None when already in sync)
+path = engine.make_migrations([User, Post], slug="add_bio")
+
+# Apply pending migrations (or roll back with target=...)
+results = await engine.migrate(db)
+
+# Inspect state
+status = await engine.status(db)   # MigrationStatus(applied, pending, leaves)
+sql = await engine.plan(db)        # compiled statements, nothing executed
+```
+
+Migrations are generated as Python files under the migrations directory;
+each one carries a revision, dependencies, and a list of operations
+(`CreateModel`, `AddField`, `AddIndex`, ...) that the executor applies
+against the database.
 
 ### Integration Configuration
 
@@ -1843,140 +1863,153 @@ es.addEventListener("complete", () => es.close());
 
 ## 22. OpenTelemetry
 
-Aquilia integrates with OpenTelemetry for distributed tracing and observability.
+Aquilia ships an optional OpenTelemetry tracing subsystem in
+`aquilia.otel` (install the extra with `pip install aquilia[otel]`).
+
+> **Note — manual/experimental wiring.** The `aquilia.otel` package is
+> currently an opt-in, manually-wired subsystem: it is not auto-configured
+> by the workspace `Integration` system. You call `setup()` yourself and
+> mount `OTelMiddleware` on your ASGI app if you want request spans.
+> Everything below is verified against `aquilia.otel`'s public exports.
 
 ### Configuration
 
 ```python
-from aquilia.otel import OTelConfig
-from aquilia import Workspace
+from aquilia.otel import OTelConfig, setup, shutdown, OTelMiddleware
 
-workspace = Workspace(name="myapp")
-workspace.open_telemetry(
-    OTelConfig(
-        service_name="myapp",
-        exporter_endpoint="http://localhost:4317",
-        exporter_protocol="grpc",
-        trace_sampling=1.0,            # 100% sample rate in dev
-        batch_export=True,
-    )
+config = OTelConfig(
+    service_name="my-api",
+    otlp_endpoint="http://otel-collector:4317",  # None disables export
 )
+setup(config)  # configure the global tracer + OTLP exporter
+
+# Optional: wrap your ASGI app so every HTTP request gets a span
+app = OTelMiddleware(app)
+
+# On process shutdown
+shutdown()
 ```
 
 ### Configuration Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `service_name` | Service name in traces | `"aquilia"` |
-| `exporter_endpoint` | Collector endpoint | `http://localhost:4317` |
-| `exporter_protocol` | `"grpc"` or `"http/protobuf"` | `"grpc"` |
-| `trace_sampling` | Sample rate (0.0–1.0) | `1.0` |
-| `batch_export` | Batch spans before sending | `True` |
-| `enabled` | Enable tracing | `True` |
+| `service_name` | Service name in traces | `"aquilia-app"` |
+| `service_version` | Service version string (defaults to the Aquilia version) | `""` |
+| `otlp_endpoint` | OTLP gRPC exporter endpoint; `None` disables export | `None` |
+| `trace_all` | Trace every request | `True` |
+| `propagators` | W3C propagator names (`"tracecontext"`, `"baggage"`) | `["tracecontext", "baggage"]` |
+| `resource_attrs` | Extra resource key/value pairs | `{}` |
 
 ### Accessing the Current Span
 
 ```python
-from aquilia.otel import current_span
+from aquilia.otel import get_current_span
 
 class OrderController(Controller):
     prefix = "/orders"
 
     @POST("/")
     async def create_order(self, ctx: RequestCtx):
-        span = current_span()
+        span = get_current_span()
 
-        # Add custom attributes
+        # Add custom attributes (no-op if OTel is not installed)
         span.set_attribute("order.customer_id", ctx.identity.id)
-
-        # Create child span for sub-operation
-        with span.start_span("db.insert_order") as child:
-            order = await self.db.create(data)
-            child.set_attribute("order.id", str(order["id"]))
-
-        return Response.json(order, status=201)
+        ...
 ```
+
+`get_current_span()` returns the currently active OTel span, or a no-op
+span when the `opentelemetry` SDK is not installed — so application code
+can call it unconditionally. `get_tracer()` is available for starting
+custom spans.
 
 ### Automatic Instrumentation
 
-When OTel is configured, Aquilia automatically instruments:
-- Incoming HTTP requests (span name: `HTTP {method} {route}`)
-- Controller handler execution
-- Middleware pipeline
-- Database queries (when using the ORM)
-
-Spans are automatically propagated via W3C Trace Context headers.
+`OTelMiddleware` creates a span for every HTTP (and WebSocket) request,
+following OpenTelemetry semantic conventions. Span attributes include
+`http.method`, `http.route` (the matched route pattern), `http.url`,
+`http.status_code`, `http.user_agent`, and `net.host.name`/`net.host.port`.
+Trace context is extracted from incoming W3C `traceparent`/`baggage`
+headers via the configured propagators.
 
 ---
 
 ## 23. Request Body Validation
 
-The `@validate_body` decorator validates incoming JSON request bodies against a Contract schema.
+The `@validate_body` decorator validates incoming JSON request bodies against a Contract class (see [`aquilia.contracts`](#quick-reference)). Contracts are declared declaratively with typed facets:
 
 ### Basic Usage
 
 ```python
-from aquilia.contract import Contract
+from aquilia.contracts import Contract, EmailFacet, IntFacet, TextFacet
 from aquilia.controller.validation import validate_body
 
-create_user_schema = Contract({
-    "email": str,
-    "name": str,
-    "role": str,
-})
+class CreateUserContract(Contract):
+    email = EmailFacet(required=True)
+    name = TextFacet(required=True, max_length=255)
+    role = TextFacet(required=False)
+    age = IntFacet(required=False, min_value=0, max_value=150)
+
+    class Spec:
+        projections = {"__all__": ["email", "name", "role", "age"]}
 
 class UsersController(Controller):
     prefix = "/users"
 
     @POST("/")
-    @validate_body(create_user_schema)
+    @validate_body(CreateUserContract)
     async def create(self, ctx: RequestCtx, body: dict):
         user = await self.service.create(body)
         return Response.json(user, status=201)
 ```
 
-### Contract with Constraints
+`validate_body` accepts the Contract class plus optional keyword
+arguments: `projection` (a named projection selecting the allowed fields,
+default `"__all__"`) and `param` (the handler parameter name the validated
+body is injected as, default `"body"`).
+
+### Facet Constraints
+
+Each facet type carries its own constraint keyword arguments:
 
 ```python
-from aquilia.contract import Contract, Required, MinLength, Email
+from aquilia.contracts import Contract, EmailFacet, IntFacet, ListFacet, TextFacet
 
-register_schema = Contract({
-    "email": [Required(), Email()],
-    "password": [Required(), MinLength(8)],
-    "name": [Required(), MinLength(2)],
-    "age": [int, Required()],
-})
-
-class AuthController(Controller):
-    prefix = "/auth"
-
-    @POST("/register")
-    @validate_body(register_schema)
-    async def register(self, ctx: RequestCtx, body: dict):
-        user = await self.auth.register(**body)
-        return Response.json({"id": user.id}, status=201)
+class RegisterContract(Contract):
+    email = EmailFacet(required=True)
+    password = TextFacet(required=True, min_length=8)
+    name = TextFacet(required=True, min_length=2)
+    tags = ListFacet(required=False)
 ```
+
+Common facets include `TextFacet`, `EmailFacet`, `IntFacet`, `FloatFacet`,
+`BoolFacet`, `DateFacet`, `DateTimeFacet`, `UUIDFacet`, `URLFacet`,
+`ListFacet`, `DictFacet`, `ChoiceFacet`, and `FileFacet`.
 
 ### Nested Contracts
 
-```python
-address_schema = Contract({
-    "street": [Required(), str],
-    "city": [Required(), str],
-    "zip": [Required(), str],
-})
+Nested structures are expressed with `NestedContractFacet`:
 
-order_schema = Contract({
-    "items": [Required(), list],
-    "shipping_address": [Required(), address_schema],
-    "notes": str,
-})
+```python
+from aquilia.contracts import Contract, NestedContractFacet, TextFacet, ListFacet
+
+class AddressContract(Contract):
+    street = TextFacet(required=True)
+    city = TextFacet(required=True)
+    zip = TextFacet(required=True)
+
+class OrderContract(Contract):
+    items = ListFacet(required=True)
+    shipping_address = NestedContractFacet(AddressContract, required=True)
+    notes = TextFacet(required=False)
 ```
 
 ### Validation Behavior
 
 - On success: the validated `body` is injected as a keyword argument into the handler
-- On failure: returns HTTP 422 with structured error details
+- On failure: the handler is never called; a structured error response is
+  returned — HTTP 400 when the body could not be parsed, HTTP 422 when it
+  parsed but failed validation
 
 ```json
 {
@@ -2077,7 +2110,7 @@ from aquilia.di import service, factory, inject, Inject, provides, auto_inject
 from aquilia.sessions import (
     SessionPolicy, PersistencePolicy, TransportPolicy,
     SessionState, Field,
-    session, authenticated, stateful,
+    session, stateful,
 )
 
 # Auth
@@ -2102,18 +2135,18 @@ from aquilia.sockets import (
 from aquilia.models import (
     Model, CharField, EmailField, IntegerField, FloatField,
     DateTimeField, DateField, UUIDField, BooleanField,
-    TextField, JSONField, BinaryField, Q,
-    MigrationRunner,
+    TextField, JSONField, BinaryField, Q, QNode,
 )
+from aquilia.models.migration import MigrationEngine
 
 # SSE
 from aquilia.sse import SSEResponse, SSEEvent
 
 # OpenTelemetry
-from aquilia.otel import OTelConfig, current_span
+from aquilia.otel import OTelConfig, get_current_span
 
 # Validation
-from aquilia.contract import Contract
+from aquilia.contracts import Contract
 from aquilia.controller.validation import validate_body
 
 # Templates
@@ -2140,4 +2173,4 @@ from aquilia.config import ConfigLoader
 
 ---
 
-*Built with ❤️ using Aquilia v1.1.0*
+*Built with ❤️ using Aquilia v1.4.2*

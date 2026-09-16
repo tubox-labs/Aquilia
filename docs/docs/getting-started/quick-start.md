@@ -137,12 +137,12 @@ All components used in this guide are built on top of Aquilia's verified, first-
 
 | Component / API | Verified Source & Module | Description / Reference |
 | :--- | :--- | :--- |
-| **`Controller`** | [aquilia/controller/\_\_init\_\_.py:L34](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L34) | Class-based handler base class (exported in [L105](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L105)). |
-| **`GET` / `POST` / `PUT` / `DELETE`** | [aquilia/controller/\_\_init\_\_.py:L41-47](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L41-L47) | Route decorator classes for handling HTTP verbs (exported in [L111-115](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L111-L115)). |
-| **`RequestCtx`** | [aquilia/controller/\_\_init\_\_.py:L34](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L34) | The request context object passed into every handler (exported in [L106](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L106)). |
+| **`Controller`** | [aquilia/controller/\_\_init\_\_.py:L34](../../../aquilia/controller/__init__.py#L34) | Class-based handler base class (exported in [L105](../../../aquilia/controller/__init__.py#L105)). |
+| **`GET` / `POST` / `PUT` / `DELETE`** | [aquilia/controller/\_\_init\_\_.py:L41-47](../../../aquilia/controller/__init__.py#L41-L47) | Route decorator classes for handling HTTP verbs (exported in [L111-115](../../../aquilia/controller/__init__.py#L111-L115)). |
+| **`RequestCtx`** | [aquilia/controller/\_\_init\_\_.py:L34](../../../aquilia/controller/__init__.py#L34) | The request context object passed into every handler (exported in [L106](../../../aquilia/controller/__init__.py#L106)). |
 | **`ctx.json()`** | `.cache/index_controller.json:L83-87` | Asynchronous method on `RequestCtx` to extract the parsed JSON body of a request. |
-| **`Contract`** | [aquilia/contracts/\_\_init\_\_.py:L41](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/__init__.py#L41) | Declares the serialization & validation contracts (exported in [L112](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/__init__.py#L112)). |
+| **`Contract`** | [aquilia/contracts/\_\_init\_\_.py:L41](../../../aquilia/contracts/__init__.py#L41) | Declares the serialization & validation contracts (exported in [L112](../../../aquilia/contracts/__init__.py#L112)). |
 | **`bp.is_sealed()`** | `.cache/index_contracts.json:L95-100` | Checks if inbound data conforms to the Contract constraint seals. |
 | **`bp.validated_data`** | `.cache/index_contracts.json:L130-135` | Property that yields fully validated and parsed inbound data. |
 | **`bp.errors`** | `.cache/index_contracts.json:L137-141` | Property yielding a dictionary of validation faults keyed by field name. |
-| **`response_contract`** | [aquilia/contracts/\_\_init\_\_.py:L35](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/__init__.py#L35) | Route-level integration parameter that binds a serializer contract directly to the endpoint response. |
+| **`response_contract`** | [aquilia/contracts/\_\_init\_\_.py:L35](../../../aquilia/contracts/__init__.py#L35) | Route-level integration parameter that binds a serializer contract directly to the endpoint response. |
