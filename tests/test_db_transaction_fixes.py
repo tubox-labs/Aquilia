@@ -47,9 +47,7 @@ def _probe_table(table: str) -> TableState:
         model="Probe",
         db_table=table,
         columns={
-            "id": ColumnState(
-                name="id", column="id", field_class="AutoField", primary_key=True, auto_increment=True
-            ),
+            "id": ColumnState(name="id", column="id", field_class="AutoField", primary_key=True, auto_increment=True),
             "name": ColumnState(name="name", column="name", field_class="CharField", null=True),
         },
     )
@@ -303,9 +301,7 @@ class TestRunPythonHistoryOrdering:
             assert applied == []
 
             # ...and the DDL must have been rolled back with it.
-            table = await db.fetch_one(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='txnfix_probe'"
-            )
+            table = await db.fetch_one("SELECT name FROM sqlite_master WHERE type='table' AND name='txnfix_probe'")
             assert table is None
         finally:
             await db.disconnect()
@@ -404,6 +400,10 @@ class TestCrossProcessMigrationLock:
             encoding="utf-8",
         )
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Cross-process SQLite migration lock requires fcntl (POSIX only)",
+    )
     async def test_concurrent_boots_both_succeed(self, tmp_path):
         """Three processes booting against the same DB file used to race:
         two failed with 'table already exists'. Under the migration lock
@@ -445,9 +445,7 @@ class TestCrossProcessMigrationLock:
         try:
             applied = await db.fetch_all(f"SELECT revision FROM {MIGRATION_TABLE}")
             assert [r["revision"] for r in applied] == ["20260901_000001"]
-            tables = await db.fetch_all(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='lockprobe'"
-            )
+            tables = await db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='lockprobe'")
             assert len(tables) == 1
         finally:
             await db.disconnect()
