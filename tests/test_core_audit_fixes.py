@@ -17,6 +17,7 @@ Covers:
 """
 
 import asyncio
+import re
 import warnings
 
 import pytest
@@ -375,7 +376,7 @@ class TestMalformedWorkspaceConfig:
             "workspace = Workspace('broken')\n"
             "workspace.integrate(None)\n"
         )
-        with pytest.raises(ConfigInvalidFault, match=str(bad)):
+        with pytest.raises(ConfigInvalidFault, match=re.escape(str(bad))):
             ConfigLoader.load(paths=[str(bad)])
 
     def test_syntax_error_wrapped_with_context(self, tmp_path):
@@ -386,7 +387,7 @@ class TestMalformedWorkspaceConfig:
         bad.write_text("def broken(:\n")
         # Syntax errors surface as ConfigInvalidFault carrying the file path
         # (the underlying SyntaxError chained as __cause__).
-        with pytest.raises(ConfigInvalidFault, match=str(bad)):
+        with pytest.raises(ConfigInvalidFault, match=re.escape(str(bad))):
             ConfigLoader.load(paths=[str(bad)])
 
 

@@ -1509,7 +1509,7 @@ class NativeTransport(HTTPTransport):
                 framing,
                 content_length=content_length,
                 content_encoding=headers_lower.get("content-encoding", "").lower(),
-                read_timeout=read_timeout,
+                read_timeout=timeout_config.read,
                 deadline=deadline,
                 max_size=self._config.max_response_size,
                 extensions=extensions,

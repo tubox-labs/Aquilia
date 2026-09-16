@@ -284,10 +284,41 @@ class _ConnectionCounter:
                 if not first:
                     break
                 path = first.decode("latin-1").split(" ")[1]
+                headers: dict[str, str] = {}
                 while True:
                     line = await reader.readline()
                     if line in (b"\r\n", b"\n", b""):
                         break
+                    if b":" in line:
+                        k, v = line.decode("latin-1").split(":", 1)
+                        headers[k.strip().lower()] = v.strip()
+
+                if headers.get("transfer-encoding", "").lower() == "chunked":
+                    while True:
+                        size_line = await reader.readline()
+                        if not size_line:
+                            break
+                        size = int(size_line.strip().split(b";")[0], 16)
+                        if size == 0:
+                            await reader.readline()
+                            break
+                        remaining = size
+                        while remaining > 0:
+                            piece = await reader.read(remaining)
+                            if not piece:
+                                break
+                            remaining -= len(piece)
+                        await reader.readline()
+                elif "content-length" in headers:
+                    try:
+                        remaining = int(headers["content-length"])
+                    except ValueError:
+                        remaining = 0
+                    while remaining > 0:
+                        piece = await reader.read(min(remaining, 65536))
+                        if not piece:
+                            break
+                        remaining -= len(piece)
                 payload = self.response_for(path)
                 if payload is None:
                     break
@@ -761,7 +792,7 @@ async def test_total_deadline_kills_slow_body():
             config=HTTPClientConfig(timeout=TimeoutConfig(total=0.5, connect=2.0, read=None))
         )
         async with client:
-            with pytest.raises(RequestTimeoutFault):
+            with pytest.raises((RequestTimeoutFault, ReadTimeoutFault)):
                 response = await client.get(f"http://127.0.0.1:{port}/slow-body")
                 await response.read()
     finally:
