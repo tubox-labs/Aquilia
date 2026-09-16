@@ -109,13 +109,13 @@ def add_module(
 
     # Parse existing workspace.py to find existing modules
     workspace_content = workspace_file.read_text(encoding="utf-8")
-    existing_modules = []
 
-    # Simple regex to find .module() calls -- match Module("name"...)
-    import re
+    # Shared scraper: strips comment lines first (the scaffold template's
+    # commented-out Module(...) examples must not count as registered
+    # modules) and accepts both quote styles.
+    from aquilia.cli.utils.manifest_scan import extract_registered_modules
 
-    module_pattern = r'Module\("([^"]+)"'
-    existing_modules = re.findall(module_pattern, workspace_content)
+    existing_modules = extract_registered_modules(workspace_content)
 
     # Validate dependencies
     for dep in depends_on:

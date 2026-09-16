@@ -84,6 +84,7 @@ manifest = AppManifest(
 
 import hashlib
 import json
+import re
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -93,6 +94,13 @@ from typing import Any, Literal, cast
 
 from aquilia.faults.domains import ManifestInvalidFault
 from aquilia.typing.manifest import ManifestMetadata
+
+# Valid manifest/module names: an ASCII identifier (letters, digits,
+# underscores; must not start with a digit), 1-64 characters.  The old
+# ``name.replace("_", "").isalnum()`` check accepted unicode word characters
+# (e.g. "café"), had no length cap, and rejected nothing else a Python
+# package name would reject (audit F-MAN-12).
+_MANIFEST_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
 
 # ============================================================================
 # Component Classification (v2)
@@ -1188,11 +1196,17 @@ class AppManifest:
                 errors=["Manifest must have a version"],
             )
 
-        # Validate name format (alphanumeric + underscore)
-        if not self.name.replace("_", "").isalnum():
+        # Validate name format: an ASCII identifier (letters, digits,
+        # underscore; must not start with a digit), 1-64 chars.  The old
+        # ``replace("_", "").isalnum()`` check accepted unicode word
+        # characters and had no length cap (audit F-MAN-12).
+        if _MANIFEST_NAME_RE.fullmatch(self.name) is None:
             raise ManifestInvalidFault(
                 manifest_name=self.name,
-                errors=[f"Invalid app name '{self.name}': must be alphanumeric with underscores"],
+                errors=[
+                    f"Invalid app name '{self.name}': must be an ASCII identifier "
+                    "(letters, digits, underscores; may not start with a digit; max 64 chars)"
+                ],
             )
 
         # Convert legacy middleware format to new format if needed
@@ -1235,6 +1249,18 @@ class AppManifest:
         if self.imports and not self.depends_on:
             self.depends_on = list(self.imports)
 
+        # F-MAN-09: when BOTH aliases are set and disagree, say so instead of
+        # silently keeping two different lists.  Neither value is rewritten
+        # here -- the developer must remove one to resolve the ambiguity.
+        if self.imports and self.depends_on and set(self.imports) != set(self.depends_on):
+            warnings.warn(
+                f"AppManifest({self.name!r}) sets both 'imports' ({self.imports}) and "
+                f"its alias 'depends_on' ({self.depends_on}) with different values. "
+                "Both are kept as declared; remove one so the dependency list is unambiguous.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # v2: Deprecate route_prefix in manifest (should be in workspace.py)
         if self.route_prefix != "/":
             warnings.warn(
@@ -1246,11 +1272,15 @@ class AppManifest:
             )
 
         # Deprecate manifest-level DB config and clear it so runtime behavior
-        # is always driven by workspace/integration config.
+        # is always driven by workspace/integration config.  The message
+        # states the discard explicitly -- the value is not merely "ignored",
+        # it is dropped (F-MAN-13).
         if self.database is not None:
             warnings.warn(
-                f"AppManifest({self.name!r}).database is deprecated and ignored at runtime. "
-                "Use Workspace.database() / Integration.database() instead.",
+                f"AppManifest({self.name!r}).database is deprecated. The value is "
+                "DISCARDED (reset to None) and has no effect at runtime. Database "
+                "configuration belongs in Workspace.database() / Integration.database() "
+                "in workspace.py instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -1312,6 +1342,7 @@ class AppManifest:
             "serializers": [_ref_to_str(s) for s in self.serializers],
             "services": [s.to_dict() if hasattr(s, "to_dict") else str(s) for s in self.services],
             "middleware": [m.to_dict() if hasattr(m, "to_dict") else str(m) for m in self.middleware],
+            "socket_middleware": [m.to_dict() if hasattr(m, "to_dict") else str(m) for m in self.socket_middleware],
             "guards": [_ref_to_str(g) for g in self.guards],
             "pipes": [_ref_to_str(p) for p in self.pipes],
             "interceptors": [_ref_to_str(i) for i in self.interceptors],
@@ -1321,8 +1352,27 @@ class AppManifest:
             "description": self.description,
             "author": self.author,
             "tags": self.tags,
+            "base_path": self.base_path,
             "auto_discover": self.auto_discover,
+            "discover_patterns": self.discover_patterns,
         }
+        # F-MAN-08: sessions, templates, features, versioning and
+        # config_schema used to be omitted entirely, so two manifests that
+        # differed only in those dimensions produced the SAME fingerprint.
+        # Every config dimension is now serialized so the fingerprint
+        # covers the full manifest.
+        if self.sessions:
+            result["sessions"] = [s.to_dict() for s in self.sessions]
+        if self.templates is not None:
+            result["templates"] = self.templates.to_dict()
+        if self.features:
+            result["features"] = [f.to_dict() for f in self.features]
+        if self.versioning is not None:
+            result["versioning"] = (
+                self.versioning.to_dict() if hasattr(self.versioning, "to_dict") else self.versioning
+            )
+        if self.config_schema is not None:
+            result["config_schema"] = self.config_schema
         if self.database:
             result["database"] = self.database.to_dict()
         if self.faults:

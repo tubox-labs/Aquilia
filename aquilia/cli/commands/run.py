@@ -197,13 +197,25 @@ def _build_adp_config(rt: dict[str, Any], *, overrides: dict[str, Any] | None = 
 
 def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> list[str]:
     """
-    Validate that all modules registered in workspace.py/manifest.py actually exist.
+    Validate that all modules registered in workspace.py exist and that
+    every component reference their manifests declare actually resolves.
 
     Checks:
     1. All registered module directories exist
-    2. All manifest.py files can be found
-    3. All controller/service imports are valid file paths
-    4. No circular or missing dependencies
+    2. All manifest.py files can be found and imported
+    3. Every declared controller/service/guard/... reference resolves via
+       importlib (exactly how the server resolves refs at runtime)
+
+    Manifests are *imported* (like ``aq doctor``), not regex-scraped: the
+    old text scrape mis-resolved framework references
+    (``aquilia.auth.guards:AuthGuard``) and cross-module references as file
+    paths inside the module's own directory, crashed on multi-colon strings
+    (``redis://localhost:6379``), and could not see programmatically-built
+    manifests at all (audit F-MAN-01/02/03).
+
+    Only references under the workspace's own ``modules.*`` package are hard
+    errors; framework/external refs that fail to resolve are reported as
+    warnings (they usually mean an uninstalled optional dependency).
 
     Args:
         workspace_root: Path to workspace root
@@ -212,120 +224,100 @@ def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> l
     Returns:
         List of error messages (empty if validation passes)
     """
-    errors = []
+    from aquilia.cli.utils.manifest_scan import (
+        extract_registered_modules,
+        load_manifest_object,
+        validate_component_refs,
+    )
+
+    errors: list[str] = []
+
+    workspace_py = workspace_root / "workspace.py"
+    if not workspace_py.exists():
+        # Standalone apps (main.py/app.py with an ASGI object) have no
+        # workspace to validate; app discovery handles them further below.
+        return errors
 
     try:
-        # Check if workspace.py exists and is valid
-        workspace_py = workspace_root / "workspace.py"
-        if not workspace_py.exists():
-            errors.append("workspace.py not found in workspace root")
-            return errors
-
-        # Read workspace.py to find registered modules
-        try:
-            workspace_content = workspace_py.read_text(encoding="utf-8")
-        except Exception as e:
-            errors.append(f"Cannot read workspace.py: {str(e)[:60]}")
-            return errors
-
-        # Remove comment lines to avoid matching commented-out modules
-        # This fixes the issue where default templates have commented-out 'auth' and 'users' modules
-        clean_content = "\n".join(line for line in workspace_content.splitlines() if not line.strip().startswith("#"))
-
-        # Extract module names from workspace.py
-        import re
-
-        module_matches = re.findall(r'Module\("([^"]+)"', clean_content)
-        module_names = list(set(module_matches))  # Deduplicate
-
-        # The "starter" pseudo-module lives in workspace root (starter.py),
-        # not under modules/.  Skip it during validation -- the server
-        # auto-loads it via _load_starter_controller().
-        module_names = [m for m in module_names if m != "starter"]
-
-        if not module_names:
-            # No modules registered - that's OK
-            return errors
-
-        modules_dir = workspace_root / "modules"
-        if not modules_dir.exists():
-            errors.append(f"modules directory not found at {modules_dir}")
-            return errors
-
-        # Validate each registered module
-        for module_name in module_names:
-            module_dir = modules_dir / module_name
-
-            # Check if module directory exists
-            if not module_dir.exists():
-                errors.append(f"Module directory not found: modules/{module_name}")
-                continue
-
-            # Check if manifest.py exists
-            manifest_path = module_dir / "manifest.py"
-            if not manifest_path.exists():
-                errors.append(f"Module manifest not found: modules/{module_name}/manifest.py")
-                continue
-
-            # Read manifest and validate imports
-            try:
-                manifest_content = manifest_path.read_text(encoding="utf-8")
-            except Exception as e:
-                errors.append(f"Cannot read manifest for {module_name}: {str(e)[:50]}")
-                continue
-
-            # Extract controller and service imports (skip commented lines)
-            # Format: "modules.mymodule.services:MymoduleService"
-            imports = []
-            for line in manifest_content.split("\n"):
-                # Skip lines that are comments
-                stripped = line.strip()
-                if stripped.startswith("#"):
-                    continue
-                # Extract quoted strings with ':' pattern from this line
-                line_imports = re.findall(r'"([^"]*:[\w]+)"', line)
-                imports.extend(line_imports)
-
-            # Validate each import can be resolved
-            for import_path in imports:
-                if ":" not in import_path:
-                    continue
-
-                module_path, class_name = import_path.split(":")
-
-                # Convert module path to file path
-                # Example: "modules.mymodule.services" -> "modules/mymodule/services.py"
-                parts = module_path.split(".")
-
-                # Skip 'modules' prefix and rebuild path starting from module_dir
-                if parts[0] == "modules" and len(parts) > 1:
-                    parts = parts[1:]  # Remove 'modules' prefix
-
-                # Skip module name itself (parts[0] is module_name)
-                if parts and parts[0] == module_name:
-                    parts = parts[1:]
-
-                # Build file path
-                try:
-                    base_path = module_dir
-                    for part in parts:
-                        base_path = base_path / part
-
-                    file_path = base_path.with_suffix(".py")
-                    package_init = base_path / "__init__.py"
-
-                    if not file_path.exists() and not package_init.exists():
-                        errors.append(
-                            f"Import error in {module_name}: {import_path} "
-                            f"(file not found: {file_path.relative_to(workspace_root)})"
-                        )
-                except Exception as e:
-                    errors.append(f"Cannot validate import {import_path} in {module_name}: {str(e)[:40]}")
-
+        workspace_content = workspace_py.read_text(encoding="utf-8")
     except Exception as e:
-        errors.append(f"Unexpected error during validation: {str(e)[:60]}")
+        errors.append(f"Cannot read workspace.py: {str(e)[:60]}")
+        return errors
+
+    # Extract module names from workspace.py (both quote styles; comments
+    # stripped).  The "starter" pseudo-module lives in workspace root
+    # (starter.py), not under modules/ -- the server auto-loads it via
+    # _load_starter_controller(), so skip it during validation.
+    module_names = [m for m in extract_registered_modules(workspace_content) if m != "starter"]
+
+    if not module_names:
+        # No modules registered - that's OK
+        return errors
+
+    modules_dir = workspace_root / "modules"
+    if not modules_dir.exists():
+        errors.append(f"modules directory not found at {modules_dir}")
+        return errors
+
+    # Component refs import through the workspace package itself.
+    ws_abs = str(workspace_root.resolve())
+    if ws_abs not in sys.path:
+        sys.path.insert(0, ws_abs)
+
+    for module_name in module_names:
+        module_dir = modules_dir / module_name
+
+        if not module_dir.exists():
+            errors.append(f"Module directory not found: modules/{module_name}")
+            continue
+
+        manifest_path = module_dir / "manifest.py"
+        if not manifest_path.exists():
+            errors.append(f"Module manifest not found: modules/{module_name}/manifest.py")
+            continue
+
+        try:
+            manifest_obj = load_manifest_object(module_name, manifest_path)
+        except Exception as e:
+            errors.append(f"Cannot import manifest for {module_name}: {str(e)[:80]}")
+            continue
+
+        if manifest_obj is None:
+            errors.append(f"No AppManifest instance found in modules/{module_name}/manifest.py")
+            continue
+
+        ref_errors, ref_warnings = validate_component_refs(manifest_obj, module_name=module_name)
+        errors.extend(ref_errors)
+        for warning in ref_warnings:
+            import click
+
+            click.secho(f"  ⚠  {warning}", fg="yellow")
 
     return errors
+
+
+def _print_validation_errors(validation_errors: list[str]) -> None:
+    """Render workspace validation failures in the ``aq run`` error style."""
+    import click
+
+    click.secho(
+        "\n  Workspace validation failed! Fix these issues before starting the server:\n", fg="red", bold=True
+    )
+    for error in validation_errors:
+        if "Import error" in error:
+            parts = error.split(": ", 1)
+            prefix = parts[0] + ": " if len(parts) > 1 else error
+            detail = parts[1] if len(parts) > 1 else ""
+            click.echo(
+                click.style("    - ", fg="red", bold=True)
+                + click.style(prefix, fg="yellow", bold=True)
+                + click.style(detail, fg="white")
+            )
+        elif "not found" in error or "Cannot read" in error or "Cannot import" in error:
+            click.echo(click.style("    - ", fg="red", bold=True) + click.style(error, fg="red"))
+        else:
+            click.echo(click.style("    - ", fg="red", bold=True) + click.style(error, fg="white"))
+    click.echo()
 
 
 def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) -> None:
@@ -356,6 +348,10 @@ def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) 
                         print(f"    + Added {action.component.name}")
                     for action in report.removed:
                         print(f"    - Removed {action.component.name}")
+                    # Stale refs are kept by default (audit F-MAN-07) --
+                    # surface them instead of silently dropping the info.
+                    for action in report.stale:
+                        print(f"    ! Stale (kept): {action.component.name}")
     except Exception as e:
         if verbose:
             print(f"  ! AST Discovery Engine sync failed: {e}")
@@ -689,36 +685,30 @@ def run_dev_server(
     os.environ["AQUILIA_ENV"] = mode
     os.environ["AQUILIA_WORKSPACE"] = str(workspace_root)
 
-    # ===== AUTO-DISCOVER & UPDATE MANIFESTS FIRST =====
-    _discover_and_update_manifests(workspace_root, verbose)
-
-    # VALIDATE WORKSPACE CONFIGURATION BEFORE PROCEEDING
+    # ── VALIDATE WORKSPACE CONFIGURATION BEFORE ANY FILE MUTATION ──────
+    # The old order (sync first, validate second) rewrote manifest.py and
+    # workspace.py before checking the workspace was even coherent, leaving
+    # mutated files behind on a failed launch with no rollback (audit
+    # F-MAN-04).  Validation here is cheap and structural; the expensive
+    # discovery/sync only runs once it passes.
+    workspace_config = workspace_root / "workspace.py"
     validation_errors = _validate_workspace_config(workspace_root, verbose)
     if validation_errors:
-        import click
+        _print_validation_errors(validation_errors)
+        raise SystemExit(1)
 
-        click.secho(
-            "\n  Workspace validation failed! Fix these issues before starting the server:\n", fg="red", bold=True
-        )
-        for error in validation_errors:
-            if "Import error" in error:
-                parts = error.split(": ", 1)
-                prefix = parts[0] + ": " if len(parts) > 1 else error
-                detail = parts[1] if len(parts) > 1 else ""
-                click.echo(
-                    click.style("    - ", fg="red", bold=True)
-                    + click.style(prefix, fg="yellow", bold=True)
-                    + click.style(detail, fg="white")
-                )
-            elif "not found" in error or "Cannot read" in error:
-                click.echo(click.style("    - ", fg="red", bold=True) + click.style(error, fg="red"))
-            else:
-                click.echo(click.style("    - ", fg="red", bold=True) + click.style(error, fg="white"))
-        click.echo()
-        return
+    # ===== AUTO-DISCOVER & UPDATE MANIFESTS (validation passed) =====
+    _discover_and_update_manifests(workspace_root, verbose)
+
+    # Re-validate after the sync: it may rewrite stale refs (good), but it
+    # must never leave the workspace in a state the server would reject.
+    if workspace_config.exists():
+        validation_errors = _validate_workspace_config(workspace_root, verbose)
+        if validation_errors:
+            _print_validation_errors(validation_errors)
+            raise SystemExit(1)
 
     # Strategy 1: Check for workspace configuration (workspace.py) and auto-create app
-    workspace_config = workspace_root / "workspace.py"
     if workspace_config.exists():
         if verbose:
             print("  Found workspace configuration: workspace.py")

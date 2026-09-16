@@ -8,6 +8,11 @@ Supports both manifest formats:
 
 This command scans for controllers/services, detects drift against
 what is declared in manifest.py, and optionally updates the file.
+
+Legacy ``Module``-builder manifests are rewritten to the modern
+``AppManifest`` syntax -- ``Module.register_controllers()`` is a
+deprecated no-op (audit F-MAN-10 / N-3), so syncing into those calls
+wrote dead code.
 """
 
 import ast
@@ -19,6 +24,167 @@ from pathlib import Path
 from aquilia.utils.scanner import PackageScanner
 
 logger = logging.getLogger("aquilia.cli.manifest")
+
+
+def _is_controller_class(cls: type) -> bool:
+    """Controller detection for ``aq manifest update`` scans.
+
+    The old check duck-typed on ``get``/``post``/``put``/``delete``
+    methods, which classified any service or model with a ``get`` method
+    as a controller (audit N-2).  Only explicit controller markers count:
+    subclassing the ``Controller`` base, the route metadata marker, or a
+    controller naming convention.
+    """
+    from aquilia.controller import Controller
+
+    try:
+        if issubclass(cls, Controller):
+            return True
+    except TypeError:
+        # Non-class objects slipped into the scan -- not a controller.
+        return False
+    return (
+        hasattr(cls, "__controller_routes__")
+        or hasattr(cls, "prefix")
+        or cls.__name__.endswith("Controller")
+        or cls.__name__.endswith("Handler")
+        or cls.__name__.endswith("View")
+    )
+
+
+def _replace_manifest_list(source: str, field_name: str, items: list[str]) -> str | None:
+    """Replace an ``AppManifest(...)`` keyword list in place using AST spans.
+
+    Returns the rewritten source, or ``None`` when the field is not
+    declared as a plain string list (missing, or holding ServiceConfig
+    objects) -- callers must leave those alone.
+
+    The old raw ``re.sub`` matched the first *textual*
+    ``controllers = [`` occurrence, which could be a commented-out list
+    (audit N-5).  AST spans always target the real declaration.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            func_name = func.id
+        elif isinstance(func, ast.Attribute):
+            func_name = func.attr
+        else:
+            continue
+        if func_name != "AppManifest":
+            continue
+
+        for kw in node.keywords:
+            if kw.arg != field_name or not isinstance(kw.value, ast.List):
+                continue
+            # Only rewrite lists of plain string refs; ServiceConfig-style
+            # entries carry configuration that a path-only rewrite drops.
+            if not all(isinstance(elt, ast.Constant) and isinstance(elt.value, str) for elt in kw.value.elts):
+                return None
+
+            lines = source.split("\n")
+            lst = kw.value
+            indent = " " * lst.col_offset
+            if items:
+                entries = "".join(f'\n{indent}    "{item}",' for item in items)
+                replacement = f"[{entries}\n{indent}]"
+            else:
+                replacement = "[]"
+
+            s_line, s_col = lst.lineno - 1, lst.col_offset
+            e_line, e_col = lst.end_lineno - 1, lst.end_col_offset
+            lines[s_line : e_line + 1] = [lines[s_line][:s_col] + replacement + lines[e_line][e_col:]]
+            return "\n".join(lines)
+
+    return None
+
+
+def _format_ref_list(items: list[str]) -> str:
+    """Render a list of refs as a multi-line Python list literal."""
+    if not items:
+        return "[]"
+    entries = "".join(f'\n        "{item}",' for item in items)
+    return f"[{entries}\n    ]"
+
+
+def _extract_module_builder_metadata(source: str, module_name: str) -> dict:
+    """Read identity metadata out of a legacy ``Module(...)`` builder manifest."""
+    version = "0.1.0"
+    description = f"{module_name.capitalize()} module"
+    depends_on: list[str] = []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return {"version": version, "description": description, "depends_on": depends_on}
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name) and node.func.id == "Module":
+            for kw in node.keywords:
+                if kw.arg == "version" and isinstance(kw.value, ast.Constant):
+                    version = str(kw.value.value)
+                elif kw.arg == "description" and isinstance(kw.value, ast.Constant):
+                    description = str(kw.value.value)
+        elif isinstance(node.func, ast.Attribute) and node.func.attr == "depends_on":
+            for arg in node.args:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    depends_on.append(arg.value)
+
+    return {"version": version, "description": description, "depends_on": depends_on}
+
+
+def _emit_modern_manifest(
+    module_name: str,
+    version: str,
+    description: str,
+    controllers: list[str],
+    services: list[str],
+    imports_list: list[str],
+    freeze: bool = False,
+) -> str:
+    """Render a modern ``AppManifest`` manifest.py (audit N-3).
+
+    ``Module.register_controllers()`` / ``register_services()`` are
+    deprecated no-ops -- syncing into them wrote dead code.  The modern
+    component declaration syntax is ``AppManifest(controllers=[...],
+    services=[...])``.
+
+    With ``freeze=True`` the emitted manifest declares
+    ``auto_discover=False``: the legacy builder syntax is being replaced,
+    so a post-hoc regex for ``.auto_discover(True)`` would find nothing to
+    rewrite and the freeze would silently not happen (audit N-4).
+    """
+    imports_line = ""
+    if imports_list:
+        deps = ", ".join(f'"{dep}"' for dep in imports_list)
+        imports_line = f"\n    imports=[{deps}],"
+    freeze_line = "\n    auto_discover=False," if freeze else ""
+
+    return (
+        f'"""\n'
+        f"Module Manifest: {module_name}\n"
+        f"Generated by: aq manifest update {module_name}\n"
+        f'"""\n\n'
+        f"from aquilia import AppManifest\n\n\n"
+        f"manifest = AppManifest(\n"
+        f'    name="{module_name}",\n'
+        f'    version="{version}",\n'
+        f'    description="{description}",\n'
+        f"    controllers={_format_ref_list(controllers)},\n"
+        f"    services={_format_ref_list(services)},"
+        f"{imports_line}"
+        f"{freeze_line}\n"
+        f")\n\n\n"
+        f'__all__ = ["manifest"]\n'
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -145,6 +311,23 @@ def update_manifest(
     scanner = PackageScanner()
     base_package = f"modules.{module_name}"
 
+    # N-1 (data-destruction guard): the package scans below swallow
+    # ImportError.  When the workspace package could not be imported, the
+    # scan "found" nothing, the diff classified every declared component as
+    # "extra", and the rewrite EMPTIED the manifest's lists.  Verify the
+    # package imports first and refuse to touch the manifest when it does
+    # not.
+    import importlib
+
+    ws_abs = str(workspace_root.resolve())
+    if ws_abs not in sys.path:
+        sys.path.insert(0, ws_abs)
+    try:
+        importlib.import_module(base_package)
+    except Exception as e:
+        print(f"Error: could not import {base_package} ({e}); refusing to update manifest")
+        sys.exit(1)
+
     # Enhanced Controller Discovery with Intelligence
     all_controllers = []
 
@@ -159,25 +342,13 @@ def update_manifest(
 
     for location in standard_locations:
         try:
-            controllers = scanner.scan_package(
-                location,
-                predicate=lambda cls: (
-                    cls.__name__.endswith("Controller")
-                    or cls.__name__.endswith("Handler")
-                    or cls.__name__.endswith("View")
-                    or hasattr(cls, "__controller_routes__")
-                    or hasattr(cls, "prefix")
-                ),
-            )
+            controllers = scanner.scan_package(location, predicate=_is_controller_class)
             all_controllers.extend(controllers)
         except ImportError:
             pass
 
     # Strategy 2: Enhanced individual file scanning
     try:
-        import importlib
-        from pathlib import Path
-
         module_package = importlib.import_module(base_package)
         if hasattr(module_package, "__path__"):
             module_dir = Path(module_package.__path__[0])
@@ -227,19 +398,7 @@ def update_manifest(
 
                 submodule_name = f"{base_package}.{py_file.stem}"
                 try:
-                    file_controllers = scanner.scan_package(
-                        submodule_name,
-                        predicate=lambda cls: (
-                            cls.__name__.endswith("Controller")
-                            or cls.__name__.endswith("Handler")
-                            or cls.__name__.endswith("View")
-                            or hasattr(cls, "__controller_routes__")
-                            or hasattr(cls, "prefix")
-                            or
-                            # Duck typing for controller-like classes
-                            any(hasattr(cls, method) for method in ["get", "post", "put", "delete"])
-                        ),
-                    )
+                    file_controllers = scanner.scan_package(submodule_name, predicate=_is_controller_class)
                     all_controllers.extend(file_controllers)
                 except Exception:
                     pass
@@ -266,13 +425,26 @@ def update_manifest(
     found_services = sorted(list(set(f"{s.__module__}:{s.__name__}" for s in services)))
 
     # 2. Parse Existing Manifest -- AST-based for both formats
-    content = manifest_path.read_text(encoding="utf-8")
+    original_content = manifest_path.read_text(encoding="utf-8")
+    content = original_content
 
     try:
         parser = _ManifestParser(content)
         existing_controllers, existing_services = parser.parse()
     except SyntaxError as e:
         print(f"Error: manifest.py has a syntax error at line {e.lineno}: {e.msg}")
+        sys.exit(1)
+
+    # N-1 (belt and braces): even when the package imports, a scan that
+    # found nothing while the manifest declares components is a failed
+    # scan (a submodule raising on import is swallowed too).  Never write
+    # a destructive diff from a failed scan.
+    if not found_controllers and not found_services and (existing_controllers or existing_services):
+        print(
+            f"Error: scan of modules.{module_name} found no controllers/services while the "
+            f"manifest declares {len(existing_controllers)} controller(s) and "
+            f"{len(existing_services)} service(s); refusing to write a destructive diff"
+        )
         sys.exit(1)
 
     manifest_format = _detect_manifest_format(content)
@@ -309,56 +481,74 @@ def update_manifest(
         return
 
     # ── Update based on detected format ──
+    freeze_applied = False
     if manifest_format == "module":
-        # Module builder: replace register_controllers/register_services calls
-        sync_marker = "# --- Synced Resources (aq manifest update) ---"
-
-        def generate_builder_block(method: str, items: list[str]) -> str:
-            if not items:
-                return ""
-            items_str = ",\n    ".join([f'"{item}"' for item in items])
-            return f"\nmanifest.{method}(\n    {items_str}\n)\n"
-
-        new_block = f"\n\n{sync_marker}"
-        new_block += generate_builder_block("register_controllers", found_controllers)
-        new_block += generate_builder_block("register_services", found_services)
-
-        if sync_marker in content:
-            parts = content.split(sync_marker)
-            content = parts[0].rstrip() + new_block
-        else:
-            content = content.rstrip() + new_block
+        # N-3: the Module builder's register_controllers()/register_services()
+        # are deprecated NO-OPs -- syncing into them wrote dead code.  Rewrite
+        # the manifest to the modern AppManifest syntax instead, preserving
+        # the identity metadata and dependencies of the legacy declaration.
+        # N-4: the rewrite drops the builder's `.auto_discover(True)` chain
+        # element, so the freeze is baked into the emitted manifest here --
+        # the regex below would otherwise find nothing and leave the
+        # rewritten manifest auto-discovering.
+        metadata = _extract_module_builder_metadata(content, module_name)
+        content = _emit_modern_manifest(
+            module_name=module_name,
+            version=metadata["version"],
+            description=metadata["description"],
+            controllers=found_controllers,
+            services=found_services,
+            imports_list=metadata["depends_on"],
+            freeze=freeze,
+        )
+        if freeze:
+            freeze_applied = True
+            print(" Freezing manifest (auto_discover=False)")
 
     else:
-        # AppManifest dataclass: update controllers=[...] and services=[...] lists in-place
-        # Use regex for targeted replacement of list contents
-        ctrl_items = ", ".join(f'"{c}"' for c in found_controllers)
-        svc_items = ", ".join(f'"{s}"' for s in found_services)
-
-        # Replace controllers list
-        content = re.sub(
-            r"(controllers\s*=\s*\[)[^\]]*(\])",
-            rf"\g<1>{ctrl_items}\2",
-            content,
-            count=1,
-        )
-
-        # Replace services list (only simple string lists -- ServiceConfig objects untouched)
-        # Only replace if services are plain strings, not ServiceConfig objects
-        if "ServiceConfig(" not in content:
-            content = re.sub(
-                r"(services\s*=\s*\[)[^\]]*(\])",
-                rf"\g<1>{svc_items}\2",
-                content,
-                count=1,
-            )
+        # AppManifest dataclass: update controllers=[...] and services=[...]
+        # lists in place via AST spans (N-5).  The old raw re.sub matched the
+        # first textual `controllers = [` occurrence, which can be a
+        # commented-out list.  Fields that are not plain string lists (e.g.
+        # ServiceConfig objects) are left untouched.
+        # Only a field that actually drifted is rewritten -- reformatting an
+        # in-sync list on every `--freeze` run rewrote (and reformatted) the
+        # file while claiming an "Updated" that changed nothing (audit N-4).
+        if missing_controllers or extra_controllers:
+            replaced = _replace_manifest_list(content, "controllers", found_controllers)
+            if replaced is not None:
+                content = replaced
+        if missing_services or extra_services:
+            replaced = _replace_manifest_list(content, "services", found_services)
+            if replaced is not None:
+                content = replaced
 
     # Handle Freeze Mode (Disable autodiscovery)
-    if freeze:
-        # Regex replace .auto_discover(True) -> .auto_discover(False)
-        content = re.sub(r"\.auto_discover\(True\)", ".auto_discover(False)", content)
-        # Also handle cases where it might be omitted or default (trickier, implying explicit True is best practice)
-        print(" Freezing manifest (auto_discover=False)")
+    if freeze and not freeze_applied:
+        # N-4: handle BOTH the builder form `.auto_discover(True)` and the
+        # AppManifest keyword form `auto_discover=True`; report honestly
+        # when neither is present.
+        frozen = re.sub(r"\.auto_discover\(True\)", ".auto_discover(False)", content)
+        frozen = re.sub(r"\bauto_discover\s*=\s*True\b", "auto_discover=False", frozen)
+        if frozen != content:
+            content = frozen
+            print(" Freezing manifest (auto_discover=False)")
+        else:
+            print(" Freeze: no auto_discover=True found -- nothing to disable")
+
+    # N-5: validate the rewritten manifest with the AST parser before
+    # committing it to disk; a failed write must never corrupt the file.
+    try:
+        ast.parse(content)
+    except SyntaxError as e:
+        print(f"Error: rewritten manifest.py has a syntax error at line {e.lineno}: {e.msg}; aborting write")
+        sys.exit(1)
+
+    # Honest reporting (F-MAN-05): only claim "Updated" when the content
+    # actually changed -- e.g. `--freeze` on an already-frozen manifest.
+    if content == original_content:
+        print(f"Manifest for '{module_name}' is already up to date.")
+        return
 
     manifest_path.write_text(content, encoding="utf-8")
     print(f"Updated {manifest_path.relative_to(workspace_root)}")

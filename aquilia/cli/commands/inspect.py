@@ -6,8 +6,6 @@ fault domains, and resolved configuration.
 """
 
 import importlib
-import importlib.util
-import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,20 +26,22 @@ def _ensure_workspace_root() -> Path:
 def _get_workspace_modules(workspace_root: Path) -> list[str]:
     """Extract module names from workspace.py.
 
-    Strips comment lines before scanning so that commented-out
-    ``Module(...)`` declarations are not picked up.
+    Uses the shared scraper: comment lines are stripped so commented-out
+    ``Module(...)`` declarations are not picked up, and both quote styles
+    are accepted.
     """
+    from aquilia.cli.utils.manifest_scan import extract_registered_modules
+
     ws_file = get_workspace_file(workspace_root)
     if not ws_file:
         return []
-    lines = ws_file.read_text(encoding="utf-8").splitlines()
-    active_lines = [ln for ln in lines if not ln.lstrip().startswith("#")]
-    content = "\n".join(active_lines)
-    return re.findall(r'Module\("([^"]+)"', content)
+    return extract_registered_modules(ws_file.read_text(encoding="utf-8"))
 
 
 def _load_manifest_instance(workspace_root: Path, module_name: str) -> Any | None:
     """Load the manifest instance from a module's manifest.py."""
+    from aquilia.cli.utils.manifest_scan import load_manifest_object
+
     ws_abs = str(workspace_root.resolve())
     if ws_abs not in sys.path:
         sys.path.insert(0, ws_abs)
@@ -51,25 +51,7 @@ def _load_manifest_instance(workspace_root: Path, module_name: str) -> Any | Non
         return None
 
     try:
-        spec = importlib.util.spec_from_file_location(f"_inspect_{module_name}_manifest", manifest_path)
-        if not spec or not spec.loader:
-            return None
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = mod
-        spec.loader.exec_module(mod)
-
-        # Try the conventional 'manifest' attribute first
-        manifest_obj = getattr(mod, "manifest", None)
-        if manifest_obj is not None:
-            return manifest_obj
-
-        # Fallback: look for any AppManifest instance
-        from aquilia.manifest import AppManifest
-
-        for _name, obj in vars(mod).items():
-            if isinstance(obj, AppManifest):
-                return obj
-        return None
+        return load_manifest_object(module_name, manifest_path)
     except Exception:
         return None
 

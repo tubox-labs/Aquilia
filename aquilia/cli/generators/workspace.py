@@ -241,6 +241,7 @@ class WorkspaceGenerator:
             return
 
         content = workspace_path.read_text(encoding="utf-8")
+        original_content = content
 
         # Extract existing module blocks to preserve them
         existing_blocks, unnamed_blocks = self._extract_existing_module_blocks(content)
@@ -274,6 +275,14 @@ class WorkspaceGenerator:
                     i += 1
                     if paren_depth <= 0:
                         break
+                # Swallow the single blank line that separated this block
+                # from the next chain element, so stripping does not leave
+                # runs of blank lines behind.  (The old rewrite patched
+                # those runs with a whole-file ``\n{3,}`` collapse, which
+                # also flattened the developer's own formatting elsewhere
+                # in workspace.py -- audit F-MAN-05.)
+                if i < len(lines) and not lines[i].strip():
+                    i += 1
             else:
                 new_lines.append(line)
                 i += 1
@@ -290,20 +299,24 @@ class WorkspaceGenerator:
         #   2. Any comment line containing "Integrations"
         #   3. First .integrate( call
 
+        # Note: the markers use ``[ \t]*`` rather than ``\s*`` -- ``\s``
+        # also matches newlines, which made the match start on the *blank
+        # line* before the marker and left stray blank lines behind on
+        # every rewrite (audit F-MAN-05 stability).
         insertion_re = re.search(
-            r"^(\s*# -+ Integrations)",
+            r"^([ \t]*# -+ Integrations)",
             content,
             re.MULTILINE,
         )
         if not insertion_re:
             insertion_re = re.search(
-                r"^(\s*#.*Integrations)",
+                r"^([ \t]*#.*Integrations)",
                 content,
                 re.MULTILINE,
             )
         if not insertion_re:
             insertion_re = re.search(
-                r"^(\s*\.integrate\()",
+                r"^([ \t]*\.integrate\()",
                 content,
                 re.MULTILINE,
             )
@@ -312,7 +325,15 @@ class WorkspaceGenerator:
             pos = insertion_re.start()
             # Build the modules section with its own header
             modules_section = "\n    # ---- Modules " + "-" * 57 + "\n\n" + new_config + "\n\n"
-            content = content[:pos] + modules_section + content[pos:]
+            # Re-attaching the section can double up the blank lines the
+            # Phase-1 strip left at this seam; the section carries its own
+            # blank-line separation, so collapse the seam to a single
+            # newline.  (The old rewrite patched blank-line runs with a
+            # whole-file ``\n{3,}`` collapse, which both flattened the
+            # developer's own formatting elsewhere in workspace.py and was
+            # still unstable across repeated runs -- audit F-MAN-05.)
+            before = re.sub(r"\n+$", "\n", content[:pos])
+            content = before + modules_section + content[pos:]
         else:
             # No integrations marker at all (a minimal workspace). Falling
             # through silently here meant "updated workspace.py" printed
@@ -327,10 +348,7 @@ class WorkspaceGenerator:
                 return
             content = rewritten
 
-        # --- Phase 4: Clean up excessive blank lines ---
-        content = re.sub(r"\n{3,}", "\n\n", content)
-
-        # --- Phase 5: Validate syntax before writing ---
+        # --- Phase 4: Validate syntax before writing ---
         import ast
 
         try:
@@ -342,7 +360,13 @@ class WorkspaceGenerator:
             )
             return
 
-        # Write back
+        # --- Phase 5: Write back -- only when the rewrite changed anything.
+        # "Updated workspace.py ..." used to print even for byte-identical
+        # rewrites (audit F-MAN-05). ---
+        if content == original_content:
+            print(f"\u2705 workspace.py already in sync ({len(discovered_modules)} module configurations)")
+            return
+
         workspace_path.write_text(content, encoding="utf-8")
         print(f"\u2705 Updated workspace.py with {len(discovered_modules)} module configurations")
 

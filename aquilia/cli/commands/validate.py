@@ -10,14 +10,16 @@ This replaces legacy regex-only validation with the real
 Aquilary compilation pipeline for accurate, production-grade checks.
 """
 
-import importlib.util
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from aquilia.cli.utils.manifest_scan import (
+    extract_registered_modules,
+    load_manifest_object,
+    validate_component_refs,
+)
 from aquilia.faults.domains import ConfigMissingFault
-from aquilia.manifest import AppManifest
 
 
 @dataclass
@@ -36,29 +38,14 @@ class ValidationResult:
 
 
 def _load_manifest_object(module_name: str, manifest_path: Path):
-    """Safely load an AppManifest instance from a manifest.py file."""
-    spec = importlib.util.spec_from_file_location(
-        f"_validate_{module_name}_manifest",
-        manifest_path,
-    )
-    if not spec or not spec.loader:
-        raise ImportError(f"Could not create spec for {manifest_path}")
+    """Safely load an AppManifest instance from a manifest.py file.
 
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-
-    manifest_obj = getattr(mod, "manifest", None)
-    if manifest_obj is None:
-        for _attr_name, obj in vars(mod).items():
-            if isinstance(obj, AppManifest):
-                manifest_obj = obj
-                break
-            if isinstance(obj, type) and issubclass(obj, AppManifest) and obj is not AppManifest:
-                manifest_obj = obj()
-                break
-
-    return manifest_obj
+    Thin wrapper kept for callers that imported this name; the
+    implementation lives in :mod:`aquilia.cli.utils.manifest_scan` so
+    ``aq run``/``aq doctor``/``aq validate`` all resolve manifests the
+    same way.
+    """
+    return load_manifest_object(module_name, manifest_path)
 
 
 def validate_workspace(
@@ -109,17 +96,7 @@ def validate_workspace(
     # ── Phase 1: Parse workspace.py for registered modules ──
     try:
         workspace_content = workspace_config.read_text(encoding="utf-8")
-        # Strip comment lines to avoid matching commented-out modules
-        clean_content = "\n".join(line for line in workspace_content.splitlines() if not line.strip().startswith("#"))
-        modules = re.findall(r'Module\("([^"]+)"', clean_content)
-        # Deduplicate preserving order
-        seen: set = set()
-        unique_modules: list = []
-        for m in modules:
-            if m not in seen:
-                seen.add(m)
-                unique_modules.append(m)
-        modules = unique_modules
+        modules = extract_registered_modules(workspace_content)
     except Exception as e:
         faults.append(f"Invalid workspace configuration: {e}")
         return ValidationResult(
@@ -189,43 +166,15 @@ def validate_workspace(
                 if dep not in modules:
                     faults.append(f"Module '{module_name}' depends on '{dep}' which is not registered")
 
-            # Controller/service import path validation
-            for ctrl_ref in controllers:
-                if isinstance(ctrl_ref, str) and ":" in ctrl_ref:
-                    mod_path, cls_name = ctrl_ref.rsplit(":", 1)
-                    parts = mod_path.split(".")
-                    if parts[0] == "modules" and len(parts) > 1:
-                        file_parts = parts[1:]
-                        file_path = workspace_root / "modules"
-                        for p in file_parts:
-                            file_path = file_path / p
-                        file_path = file_path.with_suffix(".py")
-                        if not file_path.exists():
-                            pkg_init = file_path.with_suffix("") / "__init__.py"
-                            if not pkg_init.exists():
-                                faults.append(
-                                    f"Module '{module_name}' controller not found: "
-                                    f"{ctrl_ref} (expected {file_path.relative_to(workspace_root)})"
-                                )
-
-            for svc_ref in services:
-                svc_str = svc_ref if isinstance(svc_ref, str) else getattr(svc_ref, "class_path", "")
-                if isinstance(svc_str, str) and ":" in svc_str:
-                    mod_path, cls_name = svc_str.rsplit(":", 1)
-                    parts = mod_path.split(".")
-                    if parts[0] == "modules" and len(parts) > 1:
-                        file_parts = parts[1:]
-                        file_path = workspace_root / "modules"
-                        for p in file_parts:
-                            file_path = file_path / p
-                        file_path = file_path.with_suffix(".py")
-                        if not file_path.exists():
-                            pkg_init = file_path.with_suffix("") / "__init__.py"
-                            if not pkg_init.exists():
-                                faults.append(
-                                    f"Module '{module_name}' service not found: "
-                                    f"{svc_str} (expected {file_path.relative_to(workspace_root)})"
-                                )
+            # Controller/service import path validation -- shared
+            # import-based resolver (same resolution the server performs
+            # at runtime; also covers guards, middleware, models, ...).
+            ref_faults, ref_warnings = validate_component_refs(manifest_obj, module_name=module_name)
+            for ref_fault in ref_faults:
+                faults.append(ref_fault)
+            for ref_warning in ref_warnings:
+                if ref_warning not in warnings:
+                    warnings.append(ref_warning)
 
             # Strict mode -- additional checks
             if strict:

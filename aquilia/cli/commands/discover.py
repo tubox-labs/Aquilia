@@ -46,6 +46,7 @@ class DiscoveryInspector:
         graph_path: str | None = None,
         as_json: bool = False,
         strict: bool = False,
+        prune: bool = False,
     ) -> None:
         """Run discovery inspection and optionally sync, validate, fix, or clean."""
         discovered = self.generator._discover_modules()
@@ -104,6 +105,7 @@ class DiscoveryInspector:
             clean=clean,
             fix=fix,
             strict=strict,
+            prune=prune,
         )
 
         if all_errors and (validate or sync or fix or clean):
@@ -132,6 +134,7 @@ class DiscoveryInspector:
         clean: bool = False,
         fix: bool = False,
         strict: bool = False,
+        prune: bool = False,
     ) -> None:
         """Run AST-based auto-discovery and sync/fix/clean operations."""
         import click
@@ -160,6 +163,11 @@ class DiscoveryInspector:
             manifest_path = modules_dir / module_name / "manifest.py"
             if not manifest_path.exists():
                 continue
+            # Modules that opted out of auto-discovery manage their
+            # manifests by hand (audit F-MAN-06) -- do not report their
+            # components as NEW/STALE.
+            if not engine.manifest_auto_discover(manifest_path):
+                continue
             manifest_refs = engine._parse_manifest_refs(manifest_path)
             module_prefix = f"{engine.differ.root_package}.{module_name}"
 
@@ -174,7 +182,10 @@ class DiscoveryInspector:
                 if not is_synced:
                     all_new.append((module_name, comp))
 
-            # Check stale/deleted components
+            # Check stale components.  Audit F-MAN-07: stale refs are only
+            # reported (and only removed with --prune, after an importlib
+            # verification) -- a discovery miss must never delete
+            # hand-written manifest entries.
             for field_name, existing in manifest_refs.items():
                 kind = None
                 for k, f in engine.differ.KIND_TO_FIELD.items():
@@ -193,7 +204,7 @@ class DiscoveryInspector:
                             class_name = ref.split(":", 1)[1] if ":" in ref else ref
                             is_moved = any(c.name == class_name for c in discovered_kind)
                             if not is_moved:
-                                rows.append((module_name, kind.value, class_name, "DELETED"))
+                                rows.append((module_name, kind.value, class_name, "STALE"))
                                 all_stale.append((module_name, ref))
 
         if rows:
@@ -208,7 +219,10 @@ class DiscoveryInspector:
             if all_new:
                 info(f"  Found {len(all_new)} new component(s).")
             if all_stale:
-                warning(f"  Found {len(all_stale)} stale/deleted component(s).")
+                warning(
+                    f"  Found {len(all_stale)} stale component ref(s) -- kept as-is "
+                    "(re-run with --prune to remove refs verified dead)."
+                )
 
             if sync:
                 if dry_run:
@@ -216,7 +230,9 @@ class DiscoveryInspector:
 
                 reports = []
                 for module_name in engine.scanner.discover_modules():
-                    reports.append(engine.sync_manifest(module_name, dry_run=dry_run, strict=strict))
+                    reports.append(
+                        engine.sync_manifest(module_name, dry_run=dry_run, strict=strict, prune=prune)
+                    )
 
                 for report in reports:
                     if report.has_changes:
@@ -228,6 +244,9 @@ class DiscoveryInspector:
                             warning(
                                 f"  {_CHECK} {report.manifest_path.name} -- {remove_action_str} {action.component.name}"
                             )
+                        stale_str = "would keep (stale)" if dry_run else "kept (stale)"
+                        for action in report.stale:
+                            dim(f"  {report.manifest_path.name} -- {stale_str} {action.component.name}")
 
                 if not dry_run:
                     # Sync workspace.py configurations as well

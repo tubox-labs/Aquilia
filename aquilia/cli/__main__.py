@@ -109,6 +109,7 @@ from aquilia.cli.commands.run import run_dev_server
 from aquilia.cli.commands.serve import serve_production
 from aquilia.cli.commands.test import run_tests
 from aquilia.cli.commands.ws import cmd_ws_broadcast, cmd_ws_gen_client, cmd_ws_inspect, cmd_ws_kick, cmd_ws_purge_room
+from aquilia.cli.core.exits import ExitCode
 from aquilia.cli.generators.controller import generate_controller as _generate_controller
 from aquilia.cli.utils.colors import (
     _BULLET,
@@ -134,7 +135,7 @@ from aquilia.cli.utils.colors import (
 from aquilia.cli.utils.prompts import ask, confirm, flow_header, multi_select, recap, select
 from aquilia.db.engine import configure_database
 from aquilia.di.cli import cmd_di_check, cmd_di_graph, cmd_di_manifest, cmd_di_profile, cmd_di_tree
-from aquilia.faults.domains import DatabaseConnectionFault
+from aquilia.faults.domains import ConfigMissingFault, DatabaseConnectionFault
 
 _DEFAULT_DB_URL = "sqlite:///db.sqlite3"
 
@@ -1341,6 +1342,20 @@ def run(ctx, mode: str, port, host, reload, uds, fd, http, ws, engine, dataengin
         if not ctx.obj["quiet"]:
             click.echo()
             info(f"  {_CHECK} Server stopped gracefully")
+    except ConfigMissingFault as e:
+        # No workspace.py and no standalone ASGI app -- mirror `aq doctor`:
+        # a missing workspace/config is exit code 3 (ExitCode.CONFIG), not a
+        # generic server failure (audit N-6).
+        error(f"  {_CROSS} {e}")
+        hint = (getattr(e, "metadata", None) or {}).get("hint")
+        if hint:
+            click.echo(hint)
+        sys.exit(int(ExitCode.CONFIG))
+    except SystemExit:
+        # run_dev_server raises SystemExit(1) on workspace validation
+        # failure -- the process must exit non-zero, not be swallowed as a
+        # generic server error (audit N-6).
+        raise
     except Exception as e:
         error(f"  {_CROSS} Server error: {e}")
         sys.exit(1)
@@ -1760,6 +1775,14 @@ def ws_kick(ctx, conn: str, reason: str, redis_url: str | None):
     is_flag=True,
     help="Use strict resolved-import discovery mode (slower but catches transitive inheritance and aliased imports)",
 )
+@click.option(
+    "--prune",
+    is_flag=True,
+    help=(
+        "With --sync: also remove manifest refs to components that no longer exist. "
+        "Each removal is first verified via importlib; without --prune stale refs are kept and only reported."
+    ),
+)
 @click.pass_context
 def discover(
     ctx,
@@ -1772,6 +1795,7 @@ def discover(
     clean: bool,
     graph_path: str | None,
     strict: bool,
+    prune: bool,
 ):
     """Inspect auto-discovered modules in workspace.
 
@@ -1779,6 +1803,7 @@ def discover(
       aq discover
       aq discover --sync
       aq discover --sync --dry-run
+      aq discover --sync --prune
       aq discover --json
       aq discover --validate
       aq discover --fix
@@ -1799,6 +1824,7 @@ def discover(
             graph_path=graph_path,
             as_json=as_json,
             strict=strict,
+            prune=prune,
         )
     except Exception as e:
         error(f"  {_CROSS} Discovery failed: {e}")
@@ -2994,9 +3020,11 @@ def admin_check(ctx, fix: bool, as_json: bool):
                         '            SessionPolicy(name="default",',
                         "                ttl=timedelta(days=7),",
                         "                idle_timeout=timedelta(hours=1),",
+                        '                path_prefix="/admin",',
+                        "                persist_anonymous=False,",
                         "                transport=TransportPolicy(",
                         '                    cookie_name="aquilia_admin_session",',
-                        "                    cookie_secure=False,",
+                        "                    cookie_secure=True,",
                         "                    cookie_httponly=True,",
                         '                    cookie_samesite="lax",',
                         "                ),",
@@ -3989,6 +4017,10 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
                     "            rotate_on_privilege_change=True,",
                     "            fingerprint_binding=False,",
                     '            scope="user",',
+                    "            # Admin-only sessions: no cookies on API routes,",
+                    "            # and no store entry per anonymous hit.",
+                    '            path_prefix="/admin",',
+                    "            persist_anonymous=False,",
                     "            persistence=PersistencePolicy(",
                     "                enabled=True,",
                     '                store_name="default",',
@@ -4001,7 +4033,7 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
                     "            ),",
                     "            transport=TransportPolicy(",
                     '                cookie_name="aquilia_admin_session",',
-                    "                cookie_secure=False,",
+                    "                cookie_secure=True,",
                     "                cookie_httponly=True,",
                     '                cookie_samesite="lax",',
                     "            ),",

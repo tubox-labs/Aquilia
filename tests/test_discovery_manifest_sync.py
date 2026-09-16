@@ -63,12 +63,31 @@ class TestManifestDifferDetectsRenamedComponent:
         # Rewritten in place, not appended as a second entry.
         assert new_source.count("UsersModel") == 1
 
-    def test_truly_deleted_class_still_produces_remove_action(self):
+    def test_truly_deleted_class_defaults_to_warn_stale_not_remove(self):
+        """F-MAN-07: a ref discovery can no longer find is never auto-removed.
+
+        The differ used to emit a "remove" action for any own-module ref
+        absent from the discovered paths, so a scan that missed a file
+        (syntax error, cache glitch) silently deleted the hand-written
+        manifest entry.  Removal is now opt-in via prune=True.
+        """
         differ = ManifestDiffer(root_package="modules")
         discovered: list[ClassifiedComponent] = []
         manifest_refs = {"models": ["modules.auth.models:DeletedModel"]}
 
         actions = differ.diff(discovered, manifest_refs, module_prefix="modules.auth")
+
+        assert len(actions) == 1
+        assert actions[0].action == "warn_stale"
+        assert actions[0].component.name == "DeletedModel"
+
+    def test_prune_opt_in_produces_remove_action(self):
+        """F-MAN-07: explicit prune=True restores remove actions."""
+        differ = ManifestDiffer(root_package="modules")
+        discovered: list[ClassifiedComponent] = []
+        manifest_refs = {"models": ["modules.auth.models:DeletedModel"]}
+
+        actions = differ.diff(discovered, manifest_refs, module_prefix="modules.auth", prune=True)
 
         assert len(actions) == 1
         assert actions[0].action == "remove"

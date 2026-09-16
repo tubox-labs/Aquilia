@@ -336,7 +336,7 @@ class DiscoveryResult:
 class SyncAction:
     """Describes a change to make to a manifest file."""
 
-    action: str  # "add" or "remove"
+    action: str  # "add", "remove", or "warn_stale"
     component: ClassifiedComponent
     field_name: str  # Manifest field (controllers, services, etc.)
 
@@ -357,6 +357,16 @@ class SyncReport:
     @property
     def removed(self) -> list[SyncAction]:
         return [a for a in self.actions if a.action == "remove"]
+
+    @property
+    def stale(self) -> list[SyncAction]:
+        """Refs that look dead but were NOT removed (audit F-MAN-07).
+
+        Removal is opt-in (``prune=True``); by default stale refs only
+        produce a warning so a scan hiccup can never delete hand-written
+        configuration.
+        """
+        return [a for a in self.actions if a.action == "warn_stale"]
 
     @property
     def has_changes(self) -> bool:
@@ -641,6 +651,51 @@ class FileScanner:
 
 
 # ============================================================================
+# Reference resolution
+# ============================================================================
+
+
+def _ref_target_exists(ref: str, workspace_root: Path | None = None) -> bool:
+    """Whether a ``module.path:Class`` (or dotted) reference resolves.
+
+    Imports the module part and checks the attribute, mirroring the
+    server's runtime reference resolution.  ``workspace_root`` (the parent
+    of ``modules/``) is put on ``sys.path`` when given so workspace-local
+    refs resolve.  Used as the safety net before any destructive manifest
+    edit: a ref whose target still exists must never be rewritten or
+    removed (audit F-MAN-07 / N-11).
+    """
+    import importlib
+    import sys
+
+    if ":" in ref:
+        module_path, attr = ref.split(":", 1)
+    elif "." in ref:
+        module_path, attr = ref.rsplit(".", 1)
+    else:
+        return False
+
+    added_path = False
+    if workspace_root is not None:
+        root_str = str(Path(workspace_root).resolve())
+        if root_str not in sys.path:
+            sys.path.insert(0, root_str)
+            added_path = True
+    try:
+        try:
+            module = importlib.import_module(module_path)
+        except Exception:
+            return False
+        return getattr(module, attr, None) is not None
+    finally:
+        if added_path:
+            try:
+                sys.path.remove(str(Path(workspace_root).resolve()))
+            except ValueError:
+                pass
+
+
+# ============================================================================
 # Manifest Differ
 # ============================================================================
 
@@ -668,8 +723,19 @@ class ManifestDiffer:
         discovered: list[ClassifiedComponent],
         manifest_refs: dict[str, list[str]],
         module_prefix: str | None = None,
+        prune: bool = False,
     ) -> list[SyncAction]:
-        """Calculate actions needed to sync manifest with discovered components."""
+        """Calculate actions needed to sync manifest with discovered components.
+
+        Refs to own-module components that discovery no longer finds are
+        never *removed* by default -- they produce a ``warn_stale`` action
+        (a warning, no file change).  A scan that misses a file (syntax
+        error, unreadable cache, changed patterns) used to silently delete
+        the corresponding hand-written manifest entries (audit F-MAN-07).
+        Actual removal requires ``prune=True`` and, even then, the engine
+        verifies with importlib that the target truly no longer exists
+        before writing.
+        """
         actions = []
 
         # 1. Additions
@@ -688,7 +754,7 @@ class ManifestDiffer:
                     )
                 )
 
-        # 2. Removals
+        # 2. Stale own-module refs
         if module_prefix:
             for field_name, existing in manifest_refs.items():
                 kind = None
@@ -717,7 +783,7 @@ class ManifestDiffer:
                                 )
                                 actions.append(
                                     SyncAction(
-                                        action="remove",
+                                        action="remove" if prune else "warn_stale",
                                         component=dummy_comp,
                                         field_name=field_name,
                                     )
@@ -761,7 +827,9 @@ class ManifestWriter:
 
         for action in actions:
             if action.action == "add":
-                new_source = self._add_component(source, action.field_name, action.component.import_path)
+                new_source = self._add_component(
+                    source, action.field_name, action.component.import_path, manifest_path=manifest_path
+                )
                 if new_source != source:
                     source = new_source
                     changes += 1
@@ -770,6 +838,14 @@ class ManifestWriter:
                 if new_source != source:
                     source = new_source
                     changes += 1
+            elif action.action == "warn_stale":
+                # Audit F-MAN-07: stale refs are reported, never auto-removed.
+                logger.warning(
+                    "Stale manifest ref in %s: %r was not found by discovery; keeping it "
+                    "(pass prune=True / `aq discover --sync --prune` to remove verified-dead refs)",
+                    manifest_path,
+                    action.component.import_path,
+                )
 
         if changes > 0 and not dry_run:
             # BUG FIX (audit \u00a711 #2): Validate the rewritten source with the
@@ -828,7 +904,13 @@ class ManifestWriter:
         new_list_content = list_content[:item_start] + list_content[item_end:]
         return source[:start_pos] + new_list_content + source[end_pos:]
 
-    def _add_component(self, source: str, field_name: str, import_path: str) -> str:
+    def _add_component(
+        self,
+        source: str,
+        field_name: str,
+        import_path: str,
+        manifest_path: Path | None = None,
+    ) -> str:
         """Add a component reference to a field's list in the manifest source."""
         pattern = rf"({field_name}\s*=\s*\[)(.*?)(\])"
         match = re.search(pattern, source, re.DOTALL)
@@ -844,6 +926,22 @@ class ManifestWriter:
         item_match = re.search(item_pattern, list_content)
         if item_match:
             old_item = item_match.group(0)
+            old_ref = old_item[1:-1]
+            # Audit N-11: only rewrite a same-class-name entry when the OLD
+            # ref no longer resolves.  Rewriting a live hand-written ref
+            # just because discovery found a same-named class in another
+            # (conventionally-named) file silently redirected the
+            # developer's configuration.
+            workspace_root = manifest_path.parent.parent if manifest_path is not None else None
+            if _ref_target_exists(old_ref, workspace_root):
+                logger.info(
+                    "ManifestWriter: keeping existing ref %r in %s (target still exists); "
+                    "not rewriting to %r",
+                    old_ref,
+                    manifest_path,
+                    import_path,
+                )
+                return source
             quote = old_item[0]
             new_item = f"{quote}{import_path}{quote}"
             new_list_content = list_content[: item_match.start()] + new_item + list_content[item_match.end() :]
@@ -854,7 +952,13 @@ class ManifestWriter:
 
         stripped = list_content.rstrip()
         if stripped:
-            insertion = f"\n{entry}"
+            # The existing last entry must end with a comma before the new
+            # one is appended -- without it, two adjacent string literals
+            # splice into a SINGLE element via implicit concatenation
+            # ("...LegacyHelper" "...FreshService"), silently destroying
+            # both refs while still parsing as valid Python.
+            needs_comma = not stripped.endswith(",")
+            insertion = f"{',' if needs_comma else ''}\n{entry}"
         else:
             insertion = f"\n{entry}\n    "
 
@@ -988,13 +1092,58 @@ class AutoDiscoveryEngine:
             return None
         return self._parse_manifest_refs(manifest_path).get("discover_patterns")
 
+    def manifest_auto_discover(self, manifest_path: Path) -> bool:
+        """Read a manifest.py's ``auto_discover`` setting (default ``True``).
+
+        The runtime scanner honors this flag (``aquilia.aquilary.core``
+        perform_autodiscovery) and so does the workspace generator; the
+        manifest sync must honor it too or it would rewrite the
+        hand-maintained component lists of a module that explicitly opted
+        out (audit F-MAN-06).  Unparseable manifests fail open (sync runs)
+        -- a broken manifest is surfaced by validation, not silently
+        skipped.
+        """
+        try:
+            source = manifest_path.read_text(encoding="utf-8")
+            tree = ast.parse(source)
+        except Exception as e:
+            logger.warning(f"Failed to parse {manifest_path} for auto_discover: {e}")
+            return True
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Name):
+                func_name = func.id
+            elif isinstance(func, ast.Attribute):
+                func_name = func.attr
+            else:
+                continue
+            if func_name != "AppManifest":
+                continue
+            for kw in node.keywords:
+                if kw.arg == "auto_discover" and isinstance(kw.value, ast.Constant):
+                    return bool(kw.value.value)
+        return True
+
     def sync_manifest(
         self,
         module_name: str,
         dry_run: bool = False,
         strict: bool = False,
+        prune: bool = False,
     ) -> SyncReport:
-        """Sync discovered components into the module's manifest.py."""
+        """Sync discovered components into the module's manifest.py.
+
+        Modules that declared ``auto_discover=False`` are skipped: their
+        component lists are hand-maintained by design (audit F-MAN-06).
+
+        ``prune`` opts in to removing stale own-module refs; without it a
+        stale ref only produces a ``warn_stale`` action (audit F-MAN-07).
+        Even with ``prune``, a ref is only removed after importlib confirms
+        its target module/class no longer exists.
+        """
         manifest_path = self.modules_dir / module_name / "manifest.py"
         report = SyncReport(
             module_name=module_name,
@@ -1006,11 +1155,34 @@ class AutoDiscoveryEngine:
             logger.warning(f"No manifest.py found for module '{module_name}'")
             return report
 
+        if not self.manifest_auto_discover(manifest_path):
+            logger.info(
+                "Module '%s' opted out of auto-discovery (auto_discover=False); skipping manifest sync",
+                module_name,
+            )
+            return report
+
         manifest_refs = self._parse_manifest_refs(manifest_path)
         discovery = self.discover(module_name, patterns=manifest_refs.get("discover_patterns"), strict=strict)
 
         module_prefix = f"{self.differ.root_package}.{module_name}"
-        actions = self.differ.diff(discovery.components, manifest_refs, module_prefix)
+        actions = self.differ.diff(discovery.components, manifest_refs, module_prefix, prune=prune)
+
+        # F-MAN-07 safety net: with prune=True, only remove refs whose
+        # target truly cannot be imported.  A discovery miss (unreadable
+        # file, changed patterns, cache glitch) must never delete a live
+        # component's ref.
+        if prune:
+            workspace_root = self.modules_dir.parent
+            for action in actions:
+                if action.action == "remove" and _ref_target_exists(action.component.import_path, workspace_root):
+                    logger.warning(
+                        "Prune refused to remove %r from %s: the target still exists",
+                        action.component.import_path,
+                        manifest_path,
+                    )
+                    action.action = "warn_stale"
+
         report.actions = actions
 
         if actions and not dry_run:
@@ -1018,11 +1190,11 @@ class AutoDiscoveryEngine:
 
         return report
 
-    def sync_all(self, dry_run: bool = False) -> list[SyncReport]:
+    def sync_all(self, dry_run: bool = False, prune: bool = False) -> list[SyncReport]:
         """Sync manifests for all discovered modules."""
         reports = []
         for module_name in self.scanner.discover_modules():
-            reports.append(self.sync_manifest(module_name, dry_run=dry_run))
+            reports.append(self.sync_manifest(module_name, dry_run=dry_run, prune=prune))
         return reports
 
     def _compute_import_path(

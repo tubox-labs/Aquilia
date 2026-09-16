@@ -11,7 +11,7 @@ every layer of the Manifest-First Architecture:
   Phase 6 -- Deployment:    Docker files, compose, Kubernetes manifests
 """
 
-import importlib.util
+import importlib
 import re
 import sys
 from dataclasses import dataclass, field
@@ -184,19 +184,15 @@ def _check_manifests(
     verbose: bool,
 ) -> tuple[list[str], list]:
     """Load and validate all module manifests."""
+    from aquilia.cli.utils.manifest_scan import (
+        extract_registered_modules,
+        load_manifest_object,
+        validate_component_refs,
+    )
+
     try:
         ws_content = ws_file.read_text(encoding="utf-8")
-        # Strip comments to avoid matching commented-out modules
-        clean = "\n".join(line for line in ws_content.splitlines() if not line.strip().startswith("#"))
-        registered_modules = re.findall(r'Module\("([^"]+)"', clean)
-        # Deduplicate
-        seen: set = set()
-        unique: list = []
-        for m in registered_modules:
-            if m not in seen:
-                seen.add(m)
-                unique.append(m)
-        registered_modules = unique
+        registered_modules = extract_registered_modules(ws_content)
     except Exception as e:
         report.add("Manifests", "Parse workspace.py", False, str(e)[:80])
         return [], []
@@ -242,23 +238,7 @@ def _check_manifests(
         # Load manifest
         manifest_obj = None
         try:
-            spec = importlib.util.spec_from_file_location(
-                f"_doctor_{mod_name}_manifest",
-                manifest_path,
-            )
-            if spec and spec.loader:
-                mod = importlib.util.module_from_spec(spec)
-                sys.modules[spec.name] = mod
-                spec.loader.exec_module(mod)
-
-                manifest_obj = getattr(mod, "manifest", None)
-                if manifest_obj is None:
-                    from aquilia.manifest import AppManifest
-
-                    for _n, obj in vars(mod).items():
-                        if isinstance(obj, AppManifest):
-                            manifest_obj = obj
-                            break
+            manifest_obj = load_manifest_object(mod_name, manifest_path)
 
             if manifest_obj is None:
                 report.add("Manifests", f"Module '{mod_name}' manifest", False, "No AppManifest instance found")
@@ -271,52 +251,14 @@ def _check_manifests(
             report.add("Manifests", f"Module '{mod_name}' manifest", False, f"Import error: {str(e)[:80]}")
             continue
 
-        # Validate controller references
-        controllers = getattr(manifest_obj, "controllers", []) or []
-        for ctrl_ref in controllers:
-            if not isinstance(ctrl_ref, str) or ":" not in ctrl_ref:
-                continue
-            mod_path, cls_name = ctrl_ref.rsplit(":", 1)
-            parts = mod_path.split(".")
-            if parts[0] == "modules" and len(parts) > 1:
-                file_parts = parts[1:]
-                file_path = workspace_root / "modules"
-                for p in file_parts:
-                    file_path = file_path / p
-                file_path = file_path.with_suffix(".py")
-                if not file_path.exists():
-                    pkg_path = file_path.with_suffix("") / "__init__.py"
-                    if not pkg_path.exists():
-                        report.add(
-                            "Manifests",
-                            f"Controller ref: {ctrl_ref}",
-                            False,
-                            f"File not found: {file_path.relative_to(workspace_root)}",
-                        )
-
-        # Validate service references
-        services = getattr(manifest_obj, "services", []) or []
-        for svc_ref in services:
-            svc_str = svc_ref if isinstance(svc_ref, str) else getattr(svc_ref, "class_path", "")
-            if not isinstance(svc_str, str) or ":" not in svc_str:
-                continue
-            mod_path, cls_name = svc_str.rsplit(":", 1)
-            parts = mod_path.split(".")
-            if parts[0] == "modules" and len(parts) > 1:
-                file_parts = parts[1:]
-                file_path = workspace_root / "modules"
-                for p in file_parts:
-                    file_path = file_path / p
-                file_path = file_path.with_suffix(".py")
-                if not file_path.exists():
-                    pkg_path = file_path.with_suffix("") / "__init__.py"
-                    if not pkg_path.exists():
-                        report.add(
-                            "Manifests",
-                            f"Service ref: {svc_str}",
-                            False,
-                            f"File not found: {file_path.relative_to(workspace_root)}",
-                        )
+        # Validate component references (controllers, services, guards, ...)
+        # via the shared import-based resolver -- the same resolution the
+        # server performs at runtime.
+        ref_errors, ref_warnings = validate_component_refs(manifest_obj, module_name=mod_name)
+        for err in ref_errors:
+            report.add("Manifests", f"Module '{mod_name}' component ref", False, err)
+        for warn_msg in ref_warnings:
+            report.warn(warn_msg)
 
         # Dependency check
         depends_on = getattr(manifest_obj, "depends_on", []) or []
