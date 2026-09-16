@@ -12,6 +12,7 @@ from typing import Any
 
 from aquilia.http.client import AsyncHTTPClient
 from aquilia.http.config import HTTPClientConfig, PoolConfig, ProxyConfig, RetryConfig, TimeoutConfig, TLSConfig
+from aquilia.http.cookies import CookieJar
 
 logger = logging.getLogger("aquilia.http.integration")
 
@@ -47,7 +48,7 @@ class HTTPClientProvider:
         ```
     """
 
-    __slots__ = ("_config", "_scope", "_client")
+    __slots__ = ("_config", "_scope", "_cookies", "_client")
 
     def __init__(
         self,
@@ -56,6 +57,7 @@ class HTTPClientProvider:
         config: HTTPClientConfig | None = None,
         timeout: float | None = None,
         headers: dict[str, str] | None = None,
+        cookies: CookieJar | None = None,
         scope: str = "singleton",
     ):
         """
@@ -66,6 +68,11 @@ class HTTPClientProvider:
             config: Full HTTP client configuration.
             timeout: Default request timeout.
             headers: Default headers.
+            cookies: Shared cookie jar. In the default "singleton" scope
+                the jar is shared by every resolve of this provider --
+                cookies set by one consumer are visible to all of them.
+                Pass a fresh ``CookieJar()`` per resolution (or use a
+                request-scoped provider) when isolation is required.
             scope: DI scope ("singleton", "app", or "request").
         """
         if config is None:
@@ -78,6 +85,7 @@ class HTTPClientProvider:
 
         self._config = config
         self._scope = scope
+        self._cookies = cookies
         self._client: AsyncHTTPClient | None = None
 
     @property
@@ -137,10 +145,12 @@ class HTTPClientProvider:
 
         if self._scope == "singleton":
             if self._client is None:
-                self._client = AsyncHTTPClient(config=self._config, middleware=mw_list)
+                self._client = AsyncHTTPClient(
+                    config=self._config, cookies=self._cookies, middleware=mw_list
+                )
             return self._client
 
-        return AsyncHTTPClient(config=self._config, middleware=mw_list)
+        return AsyncHTTPClient(config=self._config, cookies=self._cookies, middleware=mw_list)
 
     async def shutdown(self) -> None:
         """Shutdown the provider."""

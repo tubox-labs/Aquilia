@@ -116,6 +116,21 @@ class AsyncHTTPClient:
                         raise_for_status=raise_for_status,
                     )
 
+        # A custom transport ignores the timeout configuration in
+        # surprising ways (the native transport enforces it; a user
+        # transport owns its own timeouts), so warn rather than stay
+        # silent (A-02).
+        if transport is not None and timeout is not None:
+            import warnings
+
+            warnings.warn(
+                "AsyncHTTPClient(transport=..., timeout=...): the timeout "
+                "setting has no effect on a custom transport, which owns "
+                "its own timeout behavior",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         # Create session
         self._session = HTTPSession(
             config=config,
@@ -183,6 +198,7 @@ class AsyncHTTPClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float | TimeoutConfig | None = None,
+        follow_redirects: bool | None = None,
         **kwargs: Any,
     ) -> HTTPClientResponse:
         """
@@ -203,6 +219,7 @@ class AsyncHTTPClient:
             params=params,
             headers=headers,
             timeout=timeout,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 
@@ -216,6 +233,7 @@ class AsyncHTTPClient:
         data: dict[str, Any] | str | bytes | None = None,
         files: MultipartFormData | None = None,
         timeout: float | TimeoutConfig | None = None,
+        follow_redirects: bool | None = None,
         **kwargs: Any,
     ) -> HTTPClientResponse:
         """
@@ -245,6 +263,7 @@ class AsyncHTTPClient:
                 headers=headers,
                 data=body,
                 timeout=timeout,
+                follow_redirects=follow_redirects,
                 **kwargs,
             )
 
@@ -255,6 +274,7 @@ class AsyncHTTPClient:
             json=json,
             data=data,
             timeout=timeout,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 
@@ -267,6 +287,7 @@ class AsyncHTTPClient:
         json: Any = None,
         data: dict[str, Any] | str | bytes | None = None,
         timeout: float | TimeoutConfig | None = None,
+        follow_redirects: bool | None = None,
         **kwargs: Any,
     ) -> HTTPClientResponse:
         """
@@ -291,6 +312,7 @@ class AsyncHTTPClient:
             json=json,
             data=data,
             timeout=timeout,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 
@@ -303,6 +325,7 @@ class AsyncHTTPClient:
         json: Any = None,
         data: dict[str, Any] | str | bytes | None = None,
         timeout: float | TimeoutConfig | None = None,
+        follow_redirects: bool | None = None,
         **kwargs: Any,
     ) -> HTTPClientResponse:
         """
@@ -327,6 +350,7 @@ class AsyncHTTPClient:
             json=json,
             data=data,
             timeout=timeout,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 
@@ -337,6 +361,7 @@ class AsyncHTTPClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float | TimeoutConfig | None = None,
+        follow_redirects: bool | None = None,
         **kwargs: Any,
     ) -> HTTPClientResponse:
         """
@@ -357,6 +382,7 @@ class AsyncHTTPClient:
             params=params,
             headers=headers,
             timeout=timeout,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 
@@ -367,6 +393,7 @@ class AsyncHTTPClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float | TimeoutConfig | None = None,
+        follow_redirects: bool | None = None,
         **kwargs: Any,
     ) -> HTTPClientResponse:
         """
@@ -387,6 +414,7 @@ class AsyncHTTPClient:
             params=params,
             headers=headers,
             timeout=timeout,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 
@@ -397,6 +425,7 @@ class AsyncHTTPClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float | TimeoutConfig | None = None,
+        follow_redirects: bool | None = None,
         **kwargs: Any,
     ) -> HTTPClientResponse:
         """
@@ -417,6 +446,7 @@ class AsyncHTTPClient:
             params=params,
             headers=headers,
             timeout=timeout,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 

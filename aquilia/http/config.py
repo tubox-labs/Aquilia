@@ -32,6 +32,10 @@ class CompressionAlgorithm(str, Enum):
     IDENTITY = "identity"
 
 
+#: Default response body size cap (64 MB). ``None`` disables the cap.
+DEFAULT_MAX_RESPONSE_SIZE = 64 * 1024 * 1024
+
+
 @dataclass(frozen=True, slots=True)
 class TimeoutConfig:
     """
@@ -230,12 +234,18 @@ class HTTPClientConfig:
         trust_env: Whether to read proxy settings from environment.
         raise_for_status: Raise HTTPStatusFault for 4xx/5xx responses.
         user_agent: User-Agent header value.
+        max_response_size: Maximum response body size in bytes
+            (decompressed); ``None`` disables the limit.
     """
 
     base_url: str | None = None
     timeout: TimeoutConfig = field(default_factory=TimeoutConfig)
     pool: PoolConfig = field(default_factory=PoolConfig)
-    retry: RetryConfig = field(default_factory=RetryConfig)
+    # Retries are opt-in: a request that fails should fail fast unless the
+    # user explicitly configured a retry policy. RetryConfig itself keeps
+    # max_attempts=3 for direct construction; only the client-level default
+    # is no-retry.
+    retry: RetryConfig = field(default_factory=RetryConfig.no_retry)
     proxy: ProxyConfig | None = None
     tls: TLSConfig = field(default_factory=TLSConfig)
     http_version: HTTPVersion = HTTPVersion.AUTO
@@ -250,11 +260,15 @@ class HTTPClientConfig:
     trust_env: bool = True
     raise_for_status: bool = False
     user_agent: str = "Aquilia-HTTP/1.0"
+    max_response_size: int | None = DEFAULT_MAX_RESPONSE_SIZE
 
     def __post_init__(self) -> None:
         # Validate max_redirects
         if self.max_redirects < 0:
             raise ValueError(f"max_redirects cannot be negative: {self.max_redirects}")
+
+        if self.max_response_size is not None and self.max_response_size < 0:
+            raise ValueError(f"max_response_size cannot be negative: {self.max_response_size}")
 
         # Auto-load proxy from env if enabled and not set
         if self.trust_env and self.proxy is None:
@@ -278,6 +292,7 @@ class HTTPClientConfig:
             trust_env=self.trust_env,
             raise_for_status=self.raise_for_status,
             user_agent=self.user_agent,
+            max_response_size=self.max_response_size,
         )
 
     def with_timeout(self, **kwargs: Any) -> HTTPClientConfig:
@@ -306,6 +321,7 @@ class HTTPClientConfig:
             trust_env=self.trust_env,
             raise_for_status=self.raise_for_status,
             user_agent=self.user_agent,
+            max_response_size=self.max_response_size,
         )
 
     def merge_headers(self, headers: dict[str, str] | None) -> dict[str, str]:
@@ -370,6 +386,7 @@ class HTTPClientConfig:
             "trust_env": self.trust_env,
             "raise_for_status": self.raise_for_status,
             "user_agent": self.user_agent,
+            "max_response_size": self.max_response_size,
         }
 
     @classmethod
@@ -398,7 +415,7 @@ class HTTPClientConfig:
                 enable_http2=pool_data.get("enable_http2", False),
             ),
             retry=RetryConfig(
-                max_attempts=retry_data.get("max_attempts", 3),
+                max_attempts=retry_data.get("max_attempts", 0),
                 backoff_base=retry_data.get("backoff_base", 1.0),
                 backoff_multiplier=retry_data.get("backoff_multiplier", 2.0),
                 backoff_max=retry_data.get("backoff_max", 60.0),
@@ -431,4 +448,5 @@ class HTTPClientConfig:
             trust_env=data.get("trust_env", True),
             raise_for_status=data.get("raise_for_status", False),
             user_agent=data.get("user_agent", "Aquilia-HTTP/1.0"),
+            max_response_size=data.get("max_response_size", DEFAULT_MAX_RESPONSE_SIZE),
         )

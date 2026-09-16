@@ -7,38 +7,14 @@ JSON/text parsing, and header access.
 
 from __future__ import annotations
 
-import json as stdlib_json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from http.cookies import SimpleCookie
 from typing import Any
 
-from aquilia.http.faults import ClientErrorFault, DecodingFault, ServerErrorFault
-
-# Try to import fast JSON libraries
-try:
-    import orjson
-
-    def _json_loads(data: bytes | str) -> Any:
-        if isinstance(data, str):
-            data = data.encode("utf-8")
-        return orjson.loads(data)
-except ImportError:
-    try:
-        import ujson
-
-        def _json_loads(data: bytes | str) -> Any:
-            if isinstance(data, bytes):
-                data = data.decode("utf-8")
-            return ujson.loads(data)
-    except ImportError:
-
-        def _json_loads(data: bytes | str) -> Any:
-            if isinstance(data, bytes):
-                data = data.decode("utf-8")
-            return stdlib_json.loads(data)
-
+from aquilia.http.faults import ClientErrorFault, DecodingFault, ServerErrorFault, StreamConsumedFault
+from aquilia.json import loads as _json_loads
 
 # HTTP status code reasons
 HTTP_STATUS_REASONS = {
@@ -139,6 +115,9 @@ class HTTPClientResponse:
     _body: bytes | None = field(default=None, repr=False)
     _stream: AsyncIterator[bytes] | None = field(default=None, repr=False)
     _body_consumed: bool = field(default=False, repr=False)
+    # Set when the stream was consumed through ``iter_bytes`` (which does
+    # not cache): a later ``read()`` is a caller bug, not an empty body.
+    _stream_iterated: bool = field(default=False, repr=False)
     # Raw field lines in arrival order. ``headers`` above collapses
     # duplicates into one comma-joined entry for convenience, which is
     # lossy for the fields that must not be combined (``Set-Cookie``);
@@ -263,6 +242,18 @@ class HTTPClientResponse:
                 result[morsel.key] = morsel.value
         return result
 
+    @property
+    def raw_headers(self) -> list[tuple[str, str]]:
+        """Raw response field lines in arrival order.
+
+        Duplicates are preserved as separate entries -- unlike
+        ``headers``, which combines them. ``Set-Cookie`` above all must
+        be read from here (RFC 9110 §5.2: it must not be combined).
+        """
+        if self._raw_headers:
+            return list(self._raw_headers)
+        return list(self.headers.items())
+
     def _header_lines(self, name: str) -> list[tuple[str, str]]:
         """Return the raw ``(name, value)`` lines whose name matches *name* (case-insensitive)."""
         name_lower = name.lower()
@@ -292,6 +283,16 @@ class HTTPClientResponse:
         """Read entire response body as bytes."""
         if self._body is not None:
             return self._body
+
+        if self._stream_iterated:
+            # The body was already handed out through iter_bytes() and
+            # not cached: a second read cannot reproduce it. Failing
+            # silently would look like an empty body.
+            raise StreamConsumedFault(
+                "Response body was already consumed via iter_bytes(); "
+                "read() cannot return it again",
+                url=self.url or self.request_url,
+            )
 
         if self._stream is None:
             return b""
@@ -357,10 +358,20 @@ class HTTPClientResponse:
         if self._stream is None or self._body_consumed:
             return
 
+        # Re-slice: a transport chunk larger than the caller's chunk_size
+        # is split, but small chunks are yielded as-is -- buffering to
+        # fill chunk_size would delay incremental delivery, and callers
+        # must tolerate short chunks anyway.
         async for chunk in self._stream:
-            yield chunk
+            if len(chunk) <= chunk_size:
+                yield chunk
+            else:
+                for i in range(0, len(chunk), chunk_size):
+                    yield chunk[i : i + chunk_size]
 
         self._body_consumed = True
+        # Not cached: a subsequent read() is a caller bug, not b"".
+        self._stream_iterated = True
         self._stream = None
 
     async def iter_text(
@@ -428,12 +439,18 @@ class HTTPClientResponse:
             )
 
     async def close(self) -> None:
-        """Close the response and release resources."""
-        if self._stream is not None:
-            # Consume remaining stream to properly close connection
-            async for _ in self._stream:
-                pass
-            self._stream = None
+        """Close the response and release resources.
+
+        The stream is aborted, not drained: a body the caller chose not
+        to read is discarded and its connection closed, never returned
+        to the pool half-read.
+        """
+        stream = self._stream
+        self._stream = None
+        if stream is not None:
+            aclose = getattr(stream, "aclose", None)
+            if aclose is not None:
+                await aclose()
         self._body_consumed = True
 
     async def __aenter__(self) -> HTTPClientResponse:
@@ -527,7 +544,7 @@ def create_response(
         elapsed=elapsed,
         request_url=request_url,
         history=history or [],
-        extensions=extensions or {},
+        extensions=extensions if extensions is not None else {},
         _body=body,
         _stream=stream,
         _body_consumed=body is not None,

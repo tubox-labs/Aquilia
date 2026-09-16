@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http.cookies import SimpleCookie
 from typing import Any
 from urllib.parse import urlparse
@@ -32,6 +32,8 @@ class Cookie:
         secure: Only send over HTTPS.
         http_only: Not accessible via JavaScript.
         same_site: SameSite attribute (Strict, Lax, None).
+        created_at: Creation timestamp (seconds since epoch); the
+            reference point for Max-Age expiration.
     """
 
     name: str
@@ -43,13 +45,17 @@ class Cookie:
     secure: bool = False
     http_only: bool = False
     same_site: str = ""
+    # LAST field so positional construction keeps working.
+    created_at: float = field(default_factory=time.time)
 
     @property
     def is_expired(self) -> bool:
         """Check if cookie has expired."""
         if self.max_age is not None:
-            # max_age takes precedence over expires
-            return False  # Need creation time to check this
+            # max_age takes precedence over expires and is measured from
+            # the cookie's creation time (N-06): without honoring it, a
+            # Max-Age cookie lived forever.
+            return time.time() > self.created_at + self.max_age
 
         if self.expires is not None:
             return time.time() > self.expires
@@ -449,7 +455,8 @@ class CookieInterceptor:
     __slots__ = ("_jar",)
 
     def __init__(self, jar: CookieJar | None = None):
-        self._jar = jar or CookieJar()
+        # ``is None`` check, not truthiness: an empty CookieJar is falsy.
+        self._jar = jar if jar is not None else CookieJar()
 
     @property
     def jar(self) -> CookieJar:
@@ -474,7 +481,10 @@ class CookieInterceptor:
         # Execute request
         response = await next_handler(request)
 
-        # Store cookies from response
-        self._jar.set_from_response(response.headers, request.url)
+        # Store cookies from response: feed the raw field lines, not the
+        # collapsed dict -- duplicate Set-Cookie headers must each reach
+        # the jar (F-HTTP-06).
+        raw_headers = getattr(response, "raw_headers", None) or response.headers
+        self._jar.set_from_response(raw_headers, request.url)
 
         return response

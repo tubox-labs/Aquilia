@@ -1074,15 +1074,16 @@ class TestNativeTransportDecompression:
         # Either it decompresses or returns original on failure
         assert len(decompressed) > 0
 
-    def test_decompress_invalid_returns_original(self):
+    def test_decompress_invalid_raises_decoding_fault(self):
         from aquilia.http._transport import NativeTransport
+        from aquilia.http.faults import DecodingFault
 
         transport = NativeTransport()
         invalid_data = b"not compressed data"
 
-        # Should return original on failure
-        result = transport._decompress_body(invalid_data, "gzip")
-        assert result == invalid_data
+        # A corrupt body must surface as a fault, not masquerade as the payload
+        with pytest.raises(DecodingFault):
+            transport._decompress_body(invalid_data, "gzip")
 
     def test_decompress_unknown_encoding_passthrough(self):
         from aquilia.http._transport import NativeTransport

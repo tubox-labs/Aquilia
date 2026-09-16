@@ -1,6 +1,11 @@
 """
 AquilaHTTP — Connection Pool.
 
+.. deprecated::
+    This module is deprecated and will be removed in 2.0.0. The live
+    pool implementation moved to ``aquilia.http._transport.ConnectionPool``
+    (used by ``NativeTransport``); import it from there instead.
+
 Async connection pool with per-host limits, keepalive management,
 and health tracking.
 """
@@ -10,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,6 +25,24 @@ from aquilia.http.config import PoolConfig
 from aquilia.http.faults import ConnectionClosedFault, ConnectionPoolExhaustedFault
 
 logger = logging.getLogger("aquilia.http.pool")
+
+# One deprecation warning per interpreter, not per import site.
+_POOL_DEPRECATED = False
+
+
+def _warn_deprecated() -> None:
+    global _POOL_DEPRECATED
+    if not _POOL_DEPRECATED:
+        _POOL_DEPRECATED = True
+        warnings.warn(
+            "aquilia.http.pool is deprecated and will be removed in 2.0.0; "
+            "use aquilia.http._transport.ConnectionPool instead",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
+
+_warn_deprecated()
 
 
 @dataclass

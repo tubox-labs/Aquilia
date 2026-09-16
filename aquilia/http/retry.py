@@ -330,6 +330,11 @@ class RetryExecutor:
         """
         state = RetryState(start_time=time.monotonic())
 
+        # A streaming request body cannot be replayed: the iterator is
+        # half-consumed after the first attempt. Never retry it.
+        if request.is_streaming():
+            return await operation(request)
+
         while True:
             state.attempt += 1
             response: HTTPClientResponse | None = None
@@ -350,6 +355,17 @@ class RetryExecutor:
                 # Check if error is retryable
                 if not self._strategy.should_retry(state, request, None, error):
                     raise
+
+            # The abandoned attempt's response owns a connection:
+            # release it (abort, since the body will never be read)
+            # before waiting out the backoff, or every retry leaks one.
+            if response is not None:
+                try:
+                    await response.close()
+                except Exception:
+                    pass
+                state.last_response = None
+                response = None
 
             # Calculate delay and wait
             delay = self._strategy.get_delay(state)

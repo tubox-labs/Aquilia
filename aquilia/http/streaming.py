@@ -168,10 +168,6 @@ async def stream_file(
     path = Path(path)
     loop = asyncio.get_running_loop()
 
-    def _read_chunks() -> bytes:
-        with open(path, "rb") as f:
-            return f.read(chunk_size)
-
     # Open file and read chunks in executor
     with open(path, "rb") as f:
         while True:

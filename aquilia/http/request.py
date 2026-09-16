@@ -89,9 +89,14 @@ def _validate_header_value(value: str, name: str = "") -> None:
                 header_name=name,
                 header_value=value[:50],
             )
-        if code > 126 and code < 256:
-            # Allow UTF-8 in header values (modern practice)
-            pass
+        if code >= 256:
+            # Header values travel as latin-1 on the wire; anything above
+            # that range cannot be encoded and would raise at send time.
+            raise InvalidHeaderFault(
+                f"Invalid character in header value: {char!r} (not latin-1 encodable)",
+                header_name=name,
+                header_value=value[:50],
+            )
 
 
 @dataclass
@@ -124,9 +129,15 @@ class HTTPClientRequest:
 
     @property
     def host(self) -> str:
-        """Extract host from URL."""
-        parsed = urlparse(self.url)
-        return parsed.netloc or ""
+        """Extract host (with port, without userinfo) from URL."""
+        netloc = urlparse(self.url).netloc
+        if not netloc:
+            return ""
+        # Strip userinfo (``user:pass@``) -- the caller wants the host the
+        # request is routed to, not embedded credentials.
+        if "@" in netloc:
+            netloc = netloc.rsplit("@", 1)[1]
+        return netloc
 
     @property
     def path(self) -> str:

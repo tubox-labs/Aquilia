@@ -429,6 +429,62 @@ class DecodingFault(ResponseFault):
         self.metadata["encoding"] = encoding
 
 
+class StreamConsumedFault(ResponseFault):
+    """
+    Response stream already consumed.
+
+    Raised when the body has already been iterated (``iter_bytes`` /
+    ``iter_text`` / ``iter_lines``) and a full read (``read``/``text``/
+    ``json``) is attempted afterwards. The stream cannot be rewound, so
+    silently returning ``b""`` would hide the data loss.
+    """
+
+    def __init__(
+        self,
+        message: str = "Response stream already consumed",
+        *,
+        status_code: int = 0,
+        url: str = "",
+        **kwargs,
+    ):
+        super().__init__(
+            code="HTTP_STREAM_CONSUMED",
+            message=message,
+            status_code=status_code,
+            url=url,
+            **kwargs,
+        )
+
+
+class ResponseSizeExceededFault(ResponseFault):
+    """
+    Response body exceeded the configured maximum size.
+
+    Raised while reading the body when it grows past
+    ``HTTPClientConfig.max_response_size``.
+    """
+
+    def __init__(
+        self,
+        message: str = "Response body exceeded maximum size",
+        *,
+        status_code: int = 0,
+        url: str = "",
+        max_size: int = 0,
+        bytes_read: int = 0,
+        **kwargs,
+    ):
+        super().__init__(
+            code="HTTP_RESPONSE_SIZE_EXCEEDED",
+            message=message,
+            status_code=status_code,
+            url=url,
+            **kwargs,
+        )
+        self.metadata["max_size"] = max_size
+        self.metadata["bytes_read"] = bytes_read
+
+
 class HTTPStatusFault(ResponseFault):
     """
     HTTP error status received.

@@ -92,24 +92,22 @@ class MiddlewareStack:
 
         handler = self._handler
 
-        # Build chain from inside out
+        # Build chain from inside out. Plain sync closures: the wrapping
+        # needs no awaitable work, so no event loop may be required.
         for middleware in reversed(self._middleware):
-            current_handler = handler
-
-            async def make_chain(
-                mw: HTTPClientMiddleware = middleware,
-                next_handler: MiddlewareHandler = current_handler,
-            ) -> MiddlewareHandler:
-                async def chained(request: HTTPClientRequest) -> HTTPClientResponse:
-                    return await mw(request, next_handler)
-
-                return chained
-
-            import asyncio
-
-            handler = asyncio.get_event_loop().run_until_complete(make_chain())
+            handler = self._wrap(middleware, handler)
 
         return handler
+
+    @staticmethod
+    def _wrap(
+        middleware: HTTPClientMiddleware,
+        next_handler: MiddlewareHandler,
+    ) -> MiddlewareHandler:
+        async def chained(request: HTTPClientRequest) -> HTTPClientResponse:
+            return await middleware(request, next_handler)
+
+        return chained
 
     async def execute(self, request: HTTPClientRequest) -> HTTPClientResponse:
         """Execute the middleware chain."""
@@ -399,7 +397,8 @@ class CookieMiddleware(HTTPClientMiddleware):
     def __init__(self, jar: Any = None):  # CookieJar
         from aquilia.http.cookies import CookieJar
 
-        self._jar = jar or CookieJar()
+        # ``is None`` check, not truthiness: an empty CookieJar is falsy.
+        self._jar = jar if jar is not None else CookieJar()
 
     @property
     def jar(self) -> Any:
@@ -423,8 +422,11 @@ class CookieMiddleware(HTTPClientMiddleware):
 
         response = await call_next(request)
 
-        # Store cookies from response
-        self._jar.set_from_response(response.headers, request.url)
+        # Store cookies from response: feed the raw field lines, not the
+        # collapsed dict -- duplicate Set-Cookie headers must each reach
+        # the jar (F-HTTP-06).
+        raw_headers = getattr(response, "raw_headers", None) or response.headers
+        self._jar.set_from_response(raw_headers, request.url)
 
         return response
 
