@@ -137,7 +137,9 @@ class Job:
         ``PENDING``/``SCHEDULED``/``WAITING`` → ``RUNNING`` → ``COMPLETED``,
         or → ``RETRYING`` → ``RUNNING`` … → ``DEAD`` once retries are spent.
         ``WAITING`` jobs are held until every ID in ``depends_on`` reaches
-        ``COMPLETED``.
+        ``COMPLETED``; a dependency that fails, dies, or vanishes marks the
+        dependent ``FAILED`` (``error_type="DependencyFailed"``) rather than
+        leaving it waiting forever.
 
     Distribution:
         ``lease_expires_at`` and ``owner`` support at-least-once delivery
@@ -167,8 +169,10 @@ class Job:
         owner: Worker ID currently holding the lease.
         lease_expires_at: When an unrenewed lease lapses and the job is
             reclaimable.
-        attempt_epoch: Increments on each reclaim, so a resurrected zombie
-            worker's late write can be detected and discarded.
+        attempt_epoch: Increments on each reclaim; a worker finishing a
+            job re-checks the epoch it claimed under before writing the
+            final state, so a resurrected zombie worker's late write is
+            detected and discarded.
     """
 
     # Identity

@@ -32,6 +32,31 @@ from datetime import datetime, timedelta, timezone
 
 from aquilia.tasks.faults import TaskScheduleFault
 
+#: Days in each month, February counted as 29 because leap years occur.
+#: Used only for satisfiability validation — scheduling itself walks the
+#: real calendar.
+_DAYS_IN_MONTH = {
+    1: 31,
+    2: 29,
+    3: 31,
+    4: 30,
+    5: 31,
+    6: 30,
+    7: 31,
+    8: 31,
+    9: 30,
+    10: 31,
+    11: 30,
+    12: 31,
+}
+
+#: How many days :meth:`CronSchedule.next_run` walks forward before giving
+#: up.  Satisfiable-but-rare expressions (a leap day pinned to one weekday)
+#: can have gaps up to ~40 years, so the window must comfortably exceed
+#: that; expressions whose day fields can never match a real date are
+#: rejected at construction instead of being discovered here.
+_NEXT_RUN_SCAN_DAYS = 100 * 366 + 7
+
 
 @dataclass(frozen=True)
 class IntervalSchedule:
@@ -134,22 +159,41 @@ class CronSchedule:
 
     def next_run(self, last_run: datetime | None = None) -> datetime:
         """
-        Calculate next matching minute from ``last_run``.
+        Calculate the next matching minute from ``last_run``.
 
-        Scans forward minute-by-minute (up to 48 hours) to find
-        the next matching slot.  For production use consider a
-        more efficient algorithm; this is simple and correct.
+        Walks forward day by day (dom/month/dow are day-granular) and picks
+        the first matching hour:minute, so even a yearly or leap-day
+        expression resolves to its true next occurrence rather than a
+        near-term fallback.
         """
         base = last_run or datetime.now(timezone.utc)
         # Start from the next minute
         candidate = base.replace(second=0, microsecond=0) + timedelta(minutes=1)
-        # Scan up to 48h of minutes
-        for _ in range(48 * 60):
-            if self.matches(candidate):
-                return candidate
-            candidate += timedelta(minutes=1)
-        # Fallback: 1 hour from now
-        return base + timedelta(hours=1)
+        hours = sorted(self._hour) if self._hour else range(24)
+        minutes = sorted(self._minute) if self._minute else range(60)
+
+        day = candidate.replace(hour=0, minute=0)
+        for _ in range(_NEXT_RUN_SCAN_DAYS):
+            if self._day_matches(day):
+                for hour in hours:
+                    for minute in minutes:
+                        dt = day.replace(hour=hour, minute=minute)
+                        if dt >= candidate:
+                            return dt
+            day += timedelta(days=1)
+
+        # Unreachable for expressions built through cron(), which rejects
+        # unsatisfiable ones at construction; a hand-constructed schedule
+        # that never matches must not fire on a fallback interval forever.
+        raise TaskScheduleFault(f"Cron expression {self.expression!r} can never match a real date")
+
+    def _day_matches(self, day: datetime) -> bool:
+        """Whether the calendar day (dom/month/dow fields) matches."""
+        return (
+            (not self._dom or day.day in self._dom)
+            and (not self._month or day.month in self._month)
+            and (not self._dow or (day.isoweekday() % 7) in self._dow)
+        )
 
 
 # Type alias for schedule parameters
@@ -225,8 +269,9 @@ def cron(expression: str) -> CronSchedule:
         CronSchedule instance.
 
     Raises:
-        TaskScheduleFault: If the expression is malformed or a field value
-            falls outside its allowed range.
+        TaskScheduleFault: If the expression is malformed, a field value
+            falls outside its allowed range, or the expression can never
+            match a real date (e.g. ``"0 0 30 2 *"`` — February 30th).
     """
     parts = expression.strip().split()
     if len(parts) != 5:
@@ -248,6 +293,20 @@ def cron(expression: str) -> CronSchedule:
 
     # Normalise day-of-week to 0=Sunday..6=Saturday (7 → 0)
     dow = tuple(sorted({v % 7 for v in parsed[4]}))
+
+    # Satisfiability: an expression naming a day-of-month that exists in no
+    # selected month (Feb 30, April 31, …) can never match, and left the old
+    # next_run fallback firing it hourly forever. Day-of-week never affects
+    # satisfiability — every real (month, day) pair falls on every weekday
+    # within the Gregorian cycle. February is counted as 29 days because a
+    # leap-day expression ("0 0 29 2 *") is valid, if rare.
+    doms = parsed[2] or range(1, 32)
+    months = parsed[3] or range(1, 13)
+    if not any(d <= _DAYS_IN_MONTH[m] for m in months for d in doms):
+        raise TaskScheduleFault(
+            f"Cron expression {expression!r} can never match: day-of-month "
+            f"{parsed[2]} does not exist in month(s) {parsed[3] or '(all)'}"
+        )
 
     return CronSchedule(
         expression=expression,

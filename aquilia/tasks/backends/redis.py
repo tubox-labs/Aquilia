@@ -125,6 +125,21 @@ end
 return 0
 """
 
+# Write a finished job's payload only while its attempt epoch is unchanged,
+# so a zombie worker whose lease was reclaimed cannot clobber the new
+# owner's state. KEYS[1] job key. ARGV[1] new payload, ARGV[2] expected epoch.
+_EPOCH_CAS_LUA = """
+local current = redis.call('GET', KEYS[1])
+if not current then
+    return 0
+end
+if cjson.decode(current)['attempt_epoch'] ~= tonumber(ARGV[2]) then
+    return 0
+end
+redis.call('SET', KEYS[1], ARGV[1])
+return 1
+"""
+
 
 def _epoch(dt: datetime) -> float:
     """Convert an aware datetime to epoch seconds."""
@@ -198,6 +213,7 @@ class RedisBackend(TaskBackend):
         self._claim: Any = None
         self._heartbeat: Any = None
         self._release_fp: Any = None
+        self._epoch_cas: Any = None
         self._sequence = 0
 
     # ── Key helpers ─────────────────────────────────────────────────
@@ -268,6 +284,7 @@ class RedisBackend(TaskBackend):
         self._claim = self._redis.register_script(_CLAIM_LUA)
         self._heartbeat = self._redis.register_script(_HEARTBEAT_LUA)
         self._release_fp = self._redis.register_script(_RELEASE_FP_LUA)
+        self._epoch_cas = self._redis.register_script(_EPOCH_CAS_LUA)
 
     async def shutdown(self) -> None:
         """Close the Redis connection pool.  Safe to call without initialize."""
@@ -327,7 +344,9 @@ class RedisBackend(TaskBackend):
 
         A job whose dependencies are unsatisfied is returned to the queue and
         the scan continues, so a blocked workflow node never stalls unrelated
-        work behind it.
+        work behind it.  A job whose dependencies can never be satisfied (a
+        parent failed, died, was cancelled, or is missing) is marked
+        ``FAILED`` and the scan continues.
 
         Returns:
             A claimed job, or ``None`` when nothing is runnable.
@@ -356,16 +375,23 @@ class RedisBackend(TaskBackend):
                 await redis.zrem(self._running_key, job.id)
                 continue
 
-            if job.depends_on and not await self.are_dependencies_satisfied(job):
-                job.state = JobState.WAITING
-                await redis.zrem(self._running_key, job.id)
-                await self._store(job)
-                self._sequence += 1
-                await redis.zadd(
-                    self._ready_key(job.queue),
-                    {job.id: job.priority.value * _BAND + self._sequence},
-                )
-                continue
+            if job.depends_on:
+                status = await self.dependency_status(job)
+                if status == "failed":
+                    # A dependency died or vanished — the job can never run.
+                    await self.fail_orphaned_dependent(job)
+                    await redis.zrem(self._running_key, job.id)
+                    continue
+                if status == "pending":
+                    job.state = JobState.WAITING
+                    await redis.zrem(self._running_key, job.id)
+                    await self._store(job)
+                    self._sequence += 1
+                    await redis.zadd(
+                        self._ready_key(job.queue),
+                        {job.id: job.priority.value * _BAND + self._sequence},
+                    )
+                    continue
 
             job.state = JobState.RUNNING
             job.owner = self.worker_id
@@ -404,31 +430,61 @@ class RedisBackend(TaskBackend):
         redis = await self._client()
         try:
             await self._store(job)
-
-            if job.is_terminal:
-                pipe = redis.pipeline()
-                pipe.zrem(self._running_key, job.id)
-                if job.state is JobState.DEAD:
-                    pipe.lpush(self._dead_key, job.id)
-                    pipe.ltrim(self._dead_key, 0, self.dead_letter_max - 1)
-                await pipe.execute()
-                if job.dedup_key:
-                    await self.release_fingerprint(job.dedup_key, job.id)
-
-            elif job.state in (JobState.RETRYING, JobState.PENDING, JobState.SCHEDULED, JobState.WAITING):
-                await redis.zrem(self._running_key, job.id)
-                self._sequence += 1
-                if job.scheduled_at and job.scheduled_at > datetime.now(timezone.utc):
-                    await redis.zadd(self._delayed_key(job.queue), {job.id: _epoch(job.scheduled_at)})
-                else:
-                    await redis.zadd(
-                        self._ready_key(job.queue),
-                        {job.id: job.priority.value * _BAND + self._sequence},
-                    )
+            await self._finalize_update(job)
         except TaskBackendFault:
             raise
         except Exception as e:
             raise TaskBackendFault("RedisBackend", "update", str(e)) from e
+
+    async def update_if_epoch(self, job: Job, expected_epoch: int) -> bool:
+        """
+        Persist a finished job only while its attempt epoch is unchanged.
+
+        The compare-and-set runs as a Lua script, so the payload check and
+        write happen atomically: a zombie worker whose lease was reclaimed
+        (which bumps the epoch) can never interleave its late write with the
+        reclaiming worker's.
+
+        See :meth:`TaskBackend.update_if_epoch` for the contract.
+        """
+        redis = await self._client()
+        try:
+            written = await self._epoch_cas(
+                keys=[self._job_key(job.id)],
+                args=[json.dumps(job.to_payload()), expected_epoch],
+            )
+            if not written:
+                return False
+            await self._finalize_update(job)
+            return True
+        except TaskBackendFault:
+            raise
+        except Exception as e:
+            raise TaskBackendFault("RedisBackend", "update_if_epoch", str(e)) from e
+
+    async def _finalize_update(self, job: Job) -> None:
+        """Post-write queue bookkeeping shared by update and update_if_epoch."""
+        redis = self._redis
+        if job.is_terminal:
+            pipe = redis.pipeline()
+            pipe.zrem(self._running_key, job.id)
+            if job.state is JobState.DEAD:
+                pipe.lpush(self._dead_key, job.id)
+                pipe.ltrim(self._dead_key, 0, self.dead_letter_max - 1)
+            await pipe.execute()
+            if job.dedup_key:
+                await self.release_fingerprint(job.dedup_key, job.id)
+
+        elif job.state in (JobState.RETRYING, JobState.PENDING, JobState.SCHEDULED, JobState.WAITING):
+            await redis.zrem(self._running_key, job.id)
+            self._sequence += 1
+            if job.scheduled_at and job.scheduled_at > datetime.now(timezone.utc):
+                await redis.zadd(self._delayed_key(job.queue), {job.id: _epoch(job.scheduled_at)})
+            else:
+                await redis.zadd(
+                    self._ready_key(job.queue),
+                    {job.id: job.priority.value * _BAND + self._sequence},
+                )
 
     # ── Leases ──────────────────────────────────────────────────────
 
@@ -591,7 +647,7 @@ class RedisBackend(TaskBackend):
             by_state[j.state.value] += 1
 
         completed = [j for j in all_jobs if j.state is JobState.COMPLETED and j.duration_ms is not None]
-        failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD)]
+        failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD, JobState.CANCELLED)]
         avg_duration = sum(j.duration_ms for j in completed) / len(completed) if completed else 0.0
 
         duration_buckets = [0, 10, 50, 100, 250, 500, 1000, 5000, float("inf")]

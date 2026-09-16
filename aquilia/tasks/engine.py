@@ -30,15 +30,22 @@ from datetime import datetime, timedelta, timezone
 from heapq import heappop, heappush
 from typing import Any
 
+from aquilia.faults.core import Fault
 from aquilia.tasks.decorators import _TaskDescriptor, get_task
 from aquilia.tasks.faults import TaskDuplicateFault, TaskEnqueueFault, TaskResolutionFault
 from aquilia.tasks.job import Job, JobResult, JobState, Priority
+from aquilia.tasks.schedule import CronSchedule, IntervalSchedule
 
 logger = logging.getLogger("aquilia.tasks")
 
 #: Sentinel a workflow stores in kwargs, swapped for real dependency results
 #: at execution time.  Kept in sync with :mod:`aquilia.tasks.workflow`.
 _PARENT_RESULTS_MARKER = "__aquilia_parent_results__"
+
+#: Grace period added to a job's timeout before an overrun after a swallowed
+#: cancellation is treated as a timeout failure, so scheduling jitter just
+#: inside the budget is not miscounted.
+_TIMEOUT_GRACE_SECONDS = 0.05
 
 
 # ============================================================================
@@ -200,6 +207,37 @@ class TaskBackend(ABC):
         """
         return 0
 
+    async def update_if_epoch(self, job: Job, expected_epoch: int) -> bool:
+        """
+        Persist a finished job's state, guarded by the attempt epoch.
+
+        Called by the manager on every job-completion path with the
+        :attr:`Job.attempt_epoch` captured when the job was claimed.  A
+        backend that reclaims expired leases bumps the epoch on reclaim;
+        if it no longer matches, the worker holding the old epoch is a
+        zombie whose lease was taken over, and its late write must not
+        clobber the reclaiming worker's state — return ``False`` without
+        writing.
+
+        Args:
+            job: Job in its intended post-run state.
+            expected_epoch: :attr:`Job.attempt_epoch` as captured at claim
+                time by the worker that executed the job.
+
+        Returns:
+            ``True`` when the state was persisted.  ``False`` when the
+            epoch moved on and the write was skipped — the caller should
+            discard its result (the reclaiming worker owns the job now).
+
+        Notes:
+            The default implementation writes unconditionally and returns
+            ``True``: a backend without lease reclamation never bumps the
+            epoch, so the guard is vacuous there and legacy backends keep
+            their historical behaviour.
+        """
+        await self.update(job)
+        return True
+
     # ── Idempotency (optional) ──────────────────────────────────────
 
     async def reserve_fingerprint(self, fingerprint: str, job_id: str, ttl: float) -> str | None:
@@ -237,6 +275,36 @@ class TaskBackend(ABC):
 
     # ── Workflows (optional) ────────────────────────────────────────
 
+    async def dependency_status(self, job: Job) -> str:
+        """
+        Classify ``job.depends_on`` as satisfied, pending, or failed.
+
+        Args:
+            job: Job awaiting its dependencies.
+
+        Returns:
+            ``"satisfied"`` when the job may proceed (a job with no
+            dependencies is always satisfied), ``"pending"`` while every
+            dependency is still resolvable and unfinished, and ``"failed"``
+            when any dependency reached a terminal failure state or does
+            not exist — the job can never run and must be failed rather
+            than left waiting.
+
+        Notes:
+            A missing dependency ID is treated as failed, not pending: a
+            typo'd or already-cleaned-up dependency would otherwise leave
+            the dependent ``WAITING`` forever.
+        """
+        if not job.depends_on:
+            return "satisfied"
+        for dep_id in job.depends_on:
+            dep = await self.get(dep_id)
+            if dep is None or dep.state in (JobState.FAILED, JobState.DEAD, JobState.CANCELLED):
+                return "failed"
+            if dep.state is not JobState.COMPLETED:
+                return "pending"
+        return "satisfied"
+
     async def are_dependencies_satisfied(self, job: Job) -> bool:
         """
         Whether every job in ``job.depends_on`` has completed successfully.
@@ -249,17 +317,53 @@ class TaskBackend(ABC):
             always satisfied.
 
         Notes:
-            A dependency that reached a terminal *failure* state never becomes
-            satisfied, so dependents stay ``WAITING`` and are surfaced by
-            :meth:`fail_orphaned_dependents` rather than running on incomplete
-            input.
+            A dependency that reached a terminal *failure* state, or a
+            dependency ID that does not exist, never becomes satisfied.
+            Such dependents are marked ``FAILED`` at pop time by
+            :meth:`fail_orphaned_dependent` and swept by
+            :meth:`TaskManager.fail_orphaned_dependents`, rather than
+            waiting forever in ``WAITING``.
         """
-        if not job.depends_on:
-            return True
+        return (await self.dependency_status(job)) == "satisfied"
+
+    async def fail_orphaned_dependent(self, job: Job) -> bool:
+        """
+        Mark ``job`` ``FAILED`` if any of its dependencies can never complete.
+
+        Sets ``error_type="DependencyFailed"`` with the offending dependency
+        in the message, so orphaned workflow steps surface in stats and are
+        pruned by cleanup like any other terminal job. Persists the
+        transition via :meth:`update`.
+
+        Args:
+            job: A non-terminal job with ``depends_on``.
+
+        Returns:
+            ``True`` when the job was failed; ``False`` when its
+            dependencies are satisfied or still pending (no change made).
+        """
+        reason: str | None = None
         for dep_id in job.depends_on:
             dep = await self.get(dep_id)
-            if dep is None or dep.state is not JobState.COMPLETED:
-                return False
+            if dep is None:
+                reason = f"dependency {dep_id!r} does not exist"
+                break
+            if dep.state in (JobState.FAILED, JobState.DEAD, JobState.CANCELLED):
+                reason = f"dependency {dep_id!r} reached terminal state {dep.state.value!r}"
+                break
+        if reason is None:
+            return False
+
+        job.state = JobState.FAILED
+        job.completed_at = datetime.now(timezone.utc)
+        job.result = JobResult(
+            success=False,
+            error=f"DependencyFailed: {reason}",
+            error_type="DependencyFailed",
+            duration_ms=0.0,
+        )
+        await self.update(job)
+        logger.warning("Job %s failed: %s", job.id, reason)
         return True
 
     async def get_dependency_results(self, job: Job) -> list[Any]:
@@ -350,9 +454,11 @@ class MemoryBackend(TaskBackend):
 
         Jobs are skipped over, not blocked on, when they are not yet due
         (``scheduled_at`` in the future) or still waiting on workflow
-        dependencies.  Skipped entries are pushed back after the scan, so a
-        delayed or blocked high-priority job never starves ready lower-priority
-        work behind it.
+        dependencies.  A job whose dependencies can never be satisfied
+        (a parent failed, died, was cancelled, or is missing) is marked
+        ``FAILED`` instead of being re-queued.  Skipped entries are pushed
+        back after the scan, so a delayed or blocked high-priority job
+        never starves ready lower-priority work behind it.
 
         Complexity: O(k log n) where ``k`` is the number of entries scanned.
         """
@@ -385,7 +491,15 @@ class MemoryBackend(TaskBackend):
         # critical section free of nested acquisition.
         if found is None:
             for entry, job in blocked:
-                if found is None and await self.are_dependencies_satisfied(job):
+                status = await self.dependency_status(job)
+                if status == "failed":
+                    # A dependency died or vanished — the job can never run;
+                    # fail it now instead of re-queueing it forever.  Its
+                    # heap entry is consumed (not re-pushed); future scans
+                    # skip it via the terminal-state check.
+                    await self.fail_orphaned_dependent(job)
+                    continue
+                if found is None and status == "satisfied":
                     found = job
                     continue
                 async with self._lock:
@@ -408,11 +522,35 @@ class MemoryBackend(TaskBackend):
         reservation, so identical work can be scheduled again later.
         """
         async with self._lock:
-            self._jobs[job.id] = job
-            if job.state == JobState.DEAD:
-                self._dead_letter.append(job)
+            self._store_locked(job)
         if job.is_terminal and job.dedup_key:
             await self.release_fingerprint(job.dedup_key, job.id)
+
+    def _store_locked(self, job: Job) -> None:
+        """Record a job and dead-letter it if permanently failed. Caller holds ``_lock``."""
+        self._jobs[job.id] = job
+        if job.state == JobState.DEAD:
+            self._dead_letter.append(job)
+
+    async def update_if_epoch(self, job: Job, expected_epoch: int) -> bool:
+        """
+        Persist ``job`` only if its stored ``attempt_epoch`` is unchanged.
+
+        The comparison is in-process: this backend never reclaims across
+        processes, so the epoch only moves when the job object was mutated
+        directly.  Kept for behavioural lockstep with the distributed
+        backends, whose lease reclamation bumps the epoch.
+
+        See :meth:`TaskBackend.update_if_epoch` for the contract.
+        """
+        async with self._lock:
+            current = self._jobs.get(job.id)
+            if current is not None and current.attempt_epoch != expected_epoch:
+                return False
+            self._store_locked(job)
+        if job.is_terminal and job.dedup_key:
+            await self.release_fingerprint(job.dedup_key, job.id)
+        return True
 
     async def list_jobs(
         self,
@@ -438,7 +576,7 @@ class MemoryBackend(TaskBackend):
             by_state[j.state.value] += 1
 
         completed = [j for j in all_jobs if j.state == JobState.COMPLETED and j.duration_ms is not None]
-        failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD)]
+        failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD, JobState.CANCELLED)]
         avg_duration = sum(j.duration_ms for j in completed) / len(completed) if completed else 0.0
 
         # ── Duration distribution (histogram buckets in ms) ─────────
@@ -853,11 +991,15 @@ class TaskManager:
         """
         Gracefully stop workers, cleanup loop, and scheduler.
 
-        Every background task is cancelled, then awaited under a single
-        bounded ``asyncio.wait_for``.  If a job function swallows
-        ``CancelledError`` (e.g. it is blocked in CPU-bound work), the wait
-        expires and shutdown proceeds anyway rather than hanging forever;
-        the stuck task is left detached and a warning is logged.
+        Every background task is cancelled, then awaited under a bounded
+        deadline.  A job function that swallows ``CancelledError`` cannot
+        block shutdown: unlike the ``wait_for(gather(...))`` form used
+        previously — which on Python 3.12+ awaits the cancelled gather to
+        completion and never reaches its timeout branch — this loop keeps
+        re-delivering cancellation while anything remains stuck, so a task
+        that swallows *some* cancellations still terminates.  A task that
+        would swallow every cancellation forever is detached with a warning
+        rather than blocking shutdown.
 
         Args:
             timeout: Maximum seconds to wait for tasks to unwind.  Values
@@ -880,20 +1022,34 @@ class TaskManager:
         for t in pending:
             t.cancel()
 
+        deadline = time.monotonic() + timeout if timeout > 0 else 0.0
         if pending and timeout > 0:
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(*pending, return_exceptions=True),
-                    timeout=timeout,
-                )
-            except asyncio.TimeoutError:
-                stuck = [t.get_name() for t in pending if not t.done()]
+            while pending and time.monotonic() < deadline:
+                # Each pass is short so re-delivery of cancellation happens
+                # promptly: asyncio.wait returns on timeout even while a
+                # task holds on to a swallowed cancellation, and the loop
+                # below then hands it another one at its next await point.
+                remaining = deadline - time.monotonic()
+                done, pending = await asyncio.wait(pending, timeout=min(0.1, max(0.01, remaining)))
+                for t in pending:
+                    # Re-deliver: a body that swallowed a cancellation and
+                    # resumed awaiting gets another delivery immediately.
+                    t.cancel()
+
+            if pending:
+                stuck = [t.get_name() for t in pending]
                 logger.warning(
-                    "TaskManager.stop timed out after %.1fs; %d task(s) still running: %s",
+                    "TaskManager.stop timed out after %.1fs; %d task(s) still running (detached): %s",
                     timeout,
                     len(stuck),
                     ", ".join(stuck),
                 )
+        # Retrieve exceptions so completed loops do not surface
+        # "exception was never retrieved" warnings.
+        for t in set(pending).union(set(self._workers)):
+            if t.done() and not t.cancelled():
+                with contextlib.suppress(Exception):
+                    t.exception()
 
         self._workers.clear()
         self._cleanup_task = None
@@ -939,6 +1095,8 @@ class TaskManager:
         workflow_id: str | None = None,
         initial_state: JobState | None = None,
         dedup: str = "allow",
+        dedup_fingerprint: str | None = None,
+        dedup_ttl: float | None = None,
         **kwargs,
     ) -> str:
         """
@@ -973,6 +1131,12 @@ class TaskManager:
                 - ``"skip"`` — if identical work is already in flight, return
                   that job's ID instead of enqueueing a second copy.
                 - ``"raise"`` — raise :class:`TaskDuplicateFault` instead.
+            dedup_fingerprint: Override the content fingerprint dedup
+                matches on.  The periodic scheduler passes a schedule-slot
+                fingerprint (task + due-time slot) so N processes each
+                running a scheduler collapse to one enqueue per slot.
+            dedup_ttl: Override how long this reservation is held, bounding
+                how long a crashed producer can block identical work.
 
             **kwargs: Keyword arguments passed to the callable.
 
@@ -1085,8 +1249,12 @@ class TaskManager:
             job.id = job_id
 
         if dedup != "allow":
-            fingerprint = job.fingerprint
-            holder = await self.backend.reserve_fingerprint(fingerprint, job.id, self.dedup_ttl)
+            fingerprint = dedup_fingerprint or job.fingerprint
+            holder = await self.backend.reserve_fingerprint(
+                fingerprint,
+                job.id,
+                self.dedup_ttl if dedup_ttl is None else dedup_ttl,
+            )
             if holder is not None and holder != job.id:
                 if dedup == "raise":
                     raise TaskDuplicateFault(fingerprint, holder)
@@ -1150,9 +1318,54 @@ class TaskManager:
         return await self.backend.list_jobs(queue=queue, state=state, limit=limit, offset=offset)
 
     async def cancel(self, job_id: str) -> bool:
-        """Cancel a pending/running job."""
+        """
+        Cancel a pending/running job.
+
+        A cancelled job can never complete, so any workflow dependents
+        waiting on it are immediately marked ``FAILED`` with
+        ``error_type="DependencyFailed"`` rather than left ``WAITING``.
+        """
         result = await self.backend.cancel(job_id)
+        if result:
+            await self.fail_orphaned_dependents(only_job_id=job_id)
         return result
+
+    async def fail_orphaned_dependents(self, *, only_job_id: str | None = None) -> int:
+        """
+        Fail every non-terminal job whose dependencies can never complete.
+
+        A dependency counts as never-completing when it reached a terminal
+        failure state (``FAILED``/``DEAD``/``CANCELLED``) or does not exist
+        (a typo'd ID, or already cleaned up).  Each orphan is marked
+        ``FAILED`` with ``error_type="DependencyFailed"`` via
+        :meth:`TaskBackend.fail_orphaned_dependent`, making it visible in
+        stats and prunable by cleanup.
+
+        Args:
+            only_job_id: Restrict the sweep to direct dependents of this one
+                job.  Used by the failure and cancellation paths, which know
+                exactly which parent just died.
+
+        Returns:
+            Number of dependents marked ``FAILED``.
+        """
+        orphans = 0
+        try:
+            candidates = await self.backend.list_jobs(limit=10_000)
+        except Exception as e:  # pragma: no cover - list is best-effort
+            logger.warning("fail_orphaned_dependents could not list jobs: %s", e)
+            return 0
+        for candidate in candidates:
+            if candidate.is_terminal or not candidate.depends_on:
+                continue
+            if only_job_id is not None and only_job_id not in candidate.depends_on:
+                continue
+            with contextlib.suppress(Exception):
+                if await self.backend.fail_orphaned_dependent(candidate):
+                    orphans += 1
+        if orphans:
+            logger.info("Marked %d orphaned dependent job(s) FAILED", orphans)
+        return orphans
 
     async def retry_job(self, job_id: str) -> bool:
         """Manually retry a failed/dead job."""
@@ -1225,8 +1438,8 @@ class TaskManager:
 
         Returns:
             The executed :class:`Job` (already in its post-run state:
-            ``COMPLETED``, ``RETRYING``, or ``DEAD``), or ``None`` when no
-            queue had a runnable job.
+            ``COMPLETED``, ``RETRYING``, ``DEAD``, or ``FAILED``), or
+            ``None`` when no queue had a runnable job.
 
         Notes:
             Job failures are handled internally by :meth:`_handle_failure`
@@ -1273,16 +1486,25 @@ class TaskManager:
         dependencies' return values substituted into ``parent_results`` here,
         at execution time — the values are read from the backend rather than
         captured at enqueue time, so they are correct even after a restart.
+
+        The callable runs as a child task so a task body that raises
+        ``CancelledError`` is distinguishable from cancellation of the worker
+        itself: the former is an ordinary job failure, the latter unwinds the
+        worker.  The :attr:`Job.attempt_epoch` captured at claim time guards
+        the final state write — a zombie worker whose lease was reclaimed
+        cannot clobber the reclaiming worker's state.
         """
         job.state = JobState.RUNNING
         job.started_at = datetime.now(timezone.utc)
         await self.backend.update(job)
+        claimed_epoch = job.attempt_epoch
 
         heartbeat: asyncio.Task | None = None
         if self.backend.is_distributed:
             heartbeat = asyncio.create_task(self._heartbeat_loop(job), name=f"aquilia-heartbeat-{job.id}")
 
         start_time = time.monotonic()
+        runner: asyncio.Task | None = None
         try:
             # Resolve callable
             func = job._func
@@ -1298,14 +1520,50 @@ class TaskManager:
             if call_kwargs.get("parent_results") == _PARENT_RESULTS_MARKER:
                 call_kwargs["parent_results"] = await self.backend.get_dependency_results(job)
 
-            # Execute with timeout
-            result = await asyncio.wait_for(
-                func(*job.args, **call_kwargs),
-                timeout=job.timeout,
-            )
+            # Run as a child task so a CancelledError escaping the body can
+            # be told apart from cancellation of the worker itself.  The
+            # shield lets wait_for's timeout surface at ~``job.timeout``
+            # seconds without cancelling the runner, so the outcome of a
+            # body that swallows the timeout cancellation can still be
+            # claimed below once it finishes.
+            runner = asyncio.create_task(func(*job.args, **call_kwargs))
+            timed_out = False
+            try:
+                result = await asyncio.wait_for(asyncio.shield(runner), timeout=job.timeout)
+            except asyncio.TimeoutError:
+                timed_out = True
+                # wait_for cancelled its (shielded) awaitable, not the
+                # runner.  Cancel the runner now: a well-behaved body
+                # unwinds into CancelledError and lands in the handler
+                # below; a body that swallows the cancellation keeps the
+                # runner alive, and the outcome is claimed here once it
+                # finishes either way.
+                runner.cancel()
+                result = await runner
+
+            elapsed = (time.monotonic() - start_time) * 1000
+
+            if timed_out or (
+                job.timeout is not None
+                and (time.monotonic() - start_time) > job.timeout + _TIMEOUT_GRACE_SECONDS
+            ):
+                # Either wait_for timed out, or the body swallowed the
+                # cancellation and overran its budget — a returned value
+                # then still counts as a timeout failure, otherwise a
+                # task that suppresses CancelledError would defeat the
+                # timeout and be recorded as a success.
+                await self._handle_failure(
+                    job,
+                    worker_name,
+                    error=f"Task timed out after {job.timeout}s",
+                    error_type="TimeoutError",
+                    traceback_str="",
+                    elapsed=elapsed,
+                    claimed_epoch=claimed_epoch,
+                )
+                return
 
             # Success
-            elapsed = (time.monotonic() - start_time) * 1000
             job.state = JobState.COMPLETED
             job.completed_at = datetime.now(timezone.utc)
             job.result = JobResult(
@@ -1313,7 +1571,8 @@ class TaskManager:
                 value=result,
                 duration_ms=elapsed,
             )
-            await self.backend.update(job)
+            if not await self._finalize_job(job, claimed_epoch):
+                return
             self._total_completed += 1
 
             # Notify listeners
@@ -1321,16 +1580,33 @@ class TaskManager:
                 with contextlib.suppress(Exception):
                     cb(job)
 
-        except asyncio.TimeoutError:
-            elapsed = (time.monotonic() - start_time) * 1000
-            await self._handle_failure(
-                job,
-                worker_name,
-                error=f"Task timed out after {job.timeout}s",
-                error_type="TimeoutError",
-                traceback_str="",
-                elapsed=elapsed,
-            )
+        except asyncio.CancelledError:
+            # Distinguish the job's cancellation from the worker's own: a
+            # runner that finished in the cancelled state means the *body*
+            # was cancelled — an ordinary job failure that must not kill
+            # the worker loop or leave the job frozen in RUNNING.  Any
+            # other case means the worker itself was cancelled (stop() or
+            # Worker.stop()), which unwinds the loop.
+            if runner is not None and runner.done() and runner.cancelled():
+                elapsed = (time.monotonic() - start_time) * 1000
+                error = "Task body raised CancelledError"
+                if timed_out:
+                    error = f"Task timed out after {job.timeout}s"
+                await self._handle_failure(
+                    job,
+                    worker_name,
+                    error=error,
+                    error_type="CancelledError" if not timed_out else "TimeoutError",
+                    traceback_str="",
+                    elapsed=elapsed,
+                    claimed_epoch=claimed_epoch,
+                )
+                return
+            if runner is not None and not runner.done():
+                # Best-effort: hand the still-running body its cancellation
+                # so shutdown does not leak the child task.
+                runner.cancel()
+            raise
 
         except Exception as e:
             elapsed = (time.monotonic() - start_time) * 1000
@@ -1341,6 +1617,8 @@ class TaskManager:
                 error_type=type(e).__name__,
                 traceback_str=tb_mod.format_exc(),
                 elapsed=elapsed,
+                claimed_epoch=claimed_epoch,
+                exc=e,
             )
 
         finally:
@@ -1348,6 +1626,31 @@ class TaskManager:
                 heartbeat.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await heartbeat
+            if runner is not None and not runner.done():
+                # Shutdown path: the worker was cancelled mid-job, so hand
+                # the body its cancellation and reap it.  A body that keeps
+                # swallowing cancellation is bounded by the caller's own
+                # cancellation (stop() re-cancels after its grace period).
+                runner.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await runner
+
+    async def _finalize_job(self, job: Job, claimed_epoch: int) -> bool:
+        """
+        Persist a job's terminal state under the attempt-epoch guard.
+
+        Returns:
+            ``False`` when the epoch moved on (the lease was reclaimed by
+            another worker) and the write was skipped; ``True`` otherwise.
+        """
+        if not await self.backend.update_if_epoch(job, claimed_epoch):
+            logger.warning(
+                "Discarding stale result for job %s: attempt epoch moved from %d (lease reclaimed elsewhere)",
+                job.id,
+                claimed_epoch,
+            )
+            return False
+        return True
 
     async def _heartbeat_loop(self, job: Job) -> None:
         """
@@ -1401,11 +1704,30 @@ class TaskManager:
         error_type: str,
         traceback_str: str,
         elapsed: float,
+        claimed_epoch: int | None = None,
+        exc: BaseException | None = None,
     ) -> None:
-        """Handle job failure with retry logic."""
+        """
+        Handle job failure with retry logic.
+
+        A raised :class:`~aquilia.faults.core.Fault` with ``retryable=False``
+        (e.g. :class:`TaskResolutionFault`, :class:`TaskSerializationFault`)
+        skips the retry budget and dead-letters immediately — retrying a
+        deterministic failure only burns attempts and delays the inevitable.
+
+        When a job permanently fails (DEAD after exhausted retries, or a
+        non-retryable fault), its workflow dependents are marked ``FAILED``
+        with ``error_type="DependencyFailed"`` so they do not wait forever.
+        """
         job.retry_count += 1
 
-        if job.can_retry:
+        retryable = job.can_retry
+        if retryable and exc is not None and isinstance(exc, Fault) and not exc.retryable:
+            # Deterministic framework fault (unresolvable func_ref, bad
+            # payload, …): retrying cannot succeed, so go straight to DEAD.
+            retryable = False
+
+        if retryable:
             # Schedule retry with backoff
             delay = job.next_retry_delay
             job.state = JobState.RETRYING
@@ -1417,9 +1739,7 @@ class TaskManager:
                 traceback=traceback_str,
                 duration_ms=elapsed,
             )
-            await self.backend.update(job)
-            # Re-enqueue
-            await self.backend.push(job)
+            await self._finalize_retry(job, claimed_epoch)
 
             logger.warning(
                 f"{worker_name} job {job.id} failed (attempt {job.retry_count}/{job.max_retries}), "
@@ -1430,7 +1750,7 @@ class TaskManager:
                 with contextlib.suppress(Exception):
                     cb(job)
         else:
-            # Exhausted retries → dead letter
+            # Exhausted retries (or a non-retryable fault) → dead letter
             job.state = JobState.DEAD
             job.completed_at = datetime.now(timezone.utc)
             job.result = JobResult(
@@ -1440,20 +1760,56 @@ class TaskManager:
                 traceback=traceback_str,
                 duration_ms=elapsed,
             )
-            await self.backend.update(job)
+            if claimed_epoch is not None:
+                if not await self.backend.update_if_epoch(job, claimed_epoch):
+                    logger.warning(
+                        "Discarding stale result for job %s: attempt epoch moved from %d (lease reclaimed elsewhere)",
+                        job.id,
+                        claimed_epoch,
+                    )
+                    return
+            else:
+                await self.backend.update(job)
             self._total_failed += 1
 
             logger.error(f"{worker_name} job {job.id} permanently failed after {job.retry_count} retries: {error}")
+
+            # A job that can never succeed orphans every dependent waiting
+            # on it — propagate the failure so they do not wait forever.
+            await self.fail_orphaned_dependents(only_job_id=job.id)
 
             for cb in self._on_dead_letter:
                 with contextlib.suppress(Exception):
                     cb(job)
 
+    async def _finalize_retry(self, job: Job, claimed_epoch: int | None) -> None:
+        """Persist a retrying job under the epoch guard and re-enqueue it."""
+        if claimed_epoch is not None:
+            if not await self.backend.update_if_epoch(job, claimed_epoch):
+                logger.warning(
+                    "Discarding stale retry for job %s: attempt epoch moved from %d (lease reclaimed elsewhere)",
+                    job.id,
+                    claimed_epoch,
+                )
+                return
+        else:
+            await self.backend.update(job)
+        # Re-enqueue
+        await self.backend.push(job)
+
     async def _cleanup_loop(self) -> None:
-        """Periodic cleanup of old terminal jobs."""
+        """
+        Periodic cleanup of old terminal jobs.
+
+        Each pass also sweeps ``WAITING`` jobs whose dependencies can never
+        complete and marks them ``FAILED`` (see
+        :meth:`fail_orphaned_dependents`), so orphans become visible — and
+        prunable — instead of waiting forever.
+        """
         while self._running:
             try:
                 await asyncio.sleep(self.cleanup_interval)
+                await self.fail_orphaned_dependents()
                 await self.backend.cleanup(self.cleanup_max_age)
             except asyncio.CancelledError:
                 break
@@ -1495,6 +1851,13 @@ class TaskManager:
         checks all ``@task(schedule=...)`` descriptors and enqueues
         those whose interval/cron has elapsed since their last run.
 
+        Multi-process safety: each periodic enqueue carries a dedup key
+        derived from the task and its due-time slot (see
+        :meth:`_schedule_slot_fingerprint`).  N processes each running a
+        scheduler race to reserve the same slot fingerprint, and exactly
+        one enqueue wins per slot — a periodic task fires once per slot
+        regardless of how many scheduler processes are live.
+
         This is the **industry-standard** approach: tasks with a
         ``schedule`` are automatically enqueued by the framework;
         tasks without one are on-demand only and dispatched via
@@ -1522,7 +1885,12 @@ class TaskManager:
 
                     if should_enqueue:
                         try:
-                            await self.enqueue(descriptor)
+                            await self.enqueue(
+                                descriptor,
+                                dedup="skip",
+                                dedup_fingerprint=self._schedule_slot_fingerprint(name, descriptor.schedule, now),
+                                dedup_ttl=max(2.0 * self.scheduler_tick, 30.0),
+                            )
                             self._schedule_last_run[name] = now
                         except Exception as e:
                             logger.warning("Scheduler failed to enqueue %s: %s", name, e)
@@ -1534,3 +1902,25 @@ class TaskManager:
             except Exception as e:
                 logger.error(f"Scheduler loop error: {e}", exc_info=True)
                 await asyncio.sleep(self.scheduler_tick)
+
+    @staticmethod
+    def _schedule_slot_fingerprint(name: str, schedule: IntervalSchedule | CronSchedule, now: datetime) -> str:
+        """
+        Dedup fingerprint identifying one firing slot of a periodic task.
+
+        The slot start is the current time floored to the schedule's
+        granularity — the interval on an :class:`IntervalSchedule`, or one
+        minute for a cron schedule (the finest cron resolution).  Two
+        scheduler processes evaluating the same periodic task within the
+        same slot derive the same fingerprint, so the backend's atomic
+        reservation collapses them to a single enqueue.  A crashed slot
+        can only block its own slot: the fingerprint changes as soon as
+        the clock crosses into the next one, bounded further by the short
+        reservation TTL used for these enqueues.
+        """
+        if isinstance(schedule, IntervalSchedule):
+            granularity = max(1.0, schedule.interval)
+        else:  # CronSchedule — minute is the finest field it can express
+            granularity = 60.0
+        slot_start = int(now.timestamp() // granularity)
+        return f"__schedule__:{name}:{slot_start}"

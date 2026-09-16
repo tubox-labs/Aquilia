@@ -318,7 +318,9 @@ class SQLBackend(TaskBackend):
         update.  A losing racer sees ``rowcount == 0`` and tries the next
         candidate, so concurrent workers never both claim one job.
 
-        Jobs with unsatisfied dependencies are skipped and left queued.
+        Jobs with unsatisfied dependencies are skipped and left queued; a
+        job whose dependencies can never be satisfied (a parent failed,
+        died, was cancelled, or is missing) is marked ``FAILED`` instead.
         """
         db = await self._ready()
         now = datetime.now(timezone.utc)
@@ -340,11 +342,19 @@ class SQLBackend(TaskBackend):
         for row in rows:
             job = self._row_to_job(row)
 
-            if job.depends_on and not await self.are_dependencies_satisfied(job):
-                if job.state is not JobState.WAITING:
-                    job.state = JobState.WAITING
-                    await self._write(db, job)
-                continue
+            if job.depends_on:
+                status = await self.dependency_status(job)
+                if status == "failed":
+                    # A dependency died or vanished — the job can never run.
+                    # Failed is terminal, so the row leaves the claimable
+                    # set and is never scanned again.
+                    await self.fail_orphaned_dependent(job)
+                    continue
+                if status == "pending":
+                    if job.state is not JobState.WAITING:
+                        job.state = JobState.WAITING
+                        await self._write(db, job)
+                    continue
 
             claimed = await db.execute(
                 f"""
@@ -391,15 +401,53 @@ class SQLBackend(TaskBackend):
         db = await self._ready()
         try:
             await self._write(db, job)
-            if job.is_terminal:
-                if job.dedup_key:
-                    await self.release_fingerprint(job.dedup_key, job.id)
-                if job.state is JobState.DEAD:
-                    await self._trim_dead_letter(db)
+            await self._finalize_update(db, job)
         except TaskBackendFault:
             raise
         except Exception as e:
             raise TaskBackendFault("SQLBackend", "update", str(e)) from e
+
+    async def update_if_epoch(self, job: Job, expected_epoch: int) -> bool:
+        """
+        Persist a finished job only while its attempt epoch is unchanged.
+
+        Re-reads the stored payload and compares ``attempt_epoch`` to the
+        value the worker claimed under.  On mismatch the write is skipped:
+        the lease lapsed, another worker reclaimed the job (bumping the
+        epoch on reclaim), and this worker's late result must not clobber
+        the new owner's state.  The compare-then-write is not a single
+        conditional statement — portable SQL has no JSON-path predicate —
+        so a reclaim racing the exact instant of the finish can still slip
+        through; the guard closes the practically observed case of a
+        zombie writing seconds or minutes after its lease died.
+
+        See :meth:`TaskBackend.update_if_epoch` for the contract.
+        """
+        db = await self._ready()
+        try:
+            row = await db.fetch_one(f"SELECT payload FROM {self.table} WHERE id = ?", [job.id])
+            if row is None:
+                # The job's row vanished (flushed); a late write would
+                # resurrect it, so refuse.
+                return False
+            stored = json.loads(row["payload"])
+            if stored.get("attempt_epoch", 0) != expected_epoch:
+                return False
+            await self._write(db, job)
+            await self._finalize_update(db, job)
+            return True
+        except TaskBackendFault:
+            raise
+        except Exception as e:
+            raise TaskBackendFault("SQLBackend", "update_if_epoch", str(e)) from e
+
+    async def _finalize_update(self, db: Any, job: Job) -> None:
+        """Post-write side effects shared by update and update_if_epoch."""
+        if job.is_terminal:
+            if job.dedup_key:
+                await self.release_fingerprint(job.dedup_key, job.id)
+            if job.state is JobState.DEAD:
+                await self._trim_dead_letter(db)
 
     async def _trim_dead_letter(self, db: Any) -> None:
         """Keep the dead-letter set bounded so a failing task cannot fill the table."""
@@ -565,7 +613,7 @@ class SQLBackend(TaskBackend):
             by_state[j.state.value] += 1
 
         completed = [j for j in all_jobs if j.state is JobState.COMPLETED and j.duration_ms is not None]
-        failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD)]
+        failed = [j for j in all_jobs if j.state in (JobState.FAILED, JobState.DEAD, JobState.CANCELLED)]
         avg_duration = sum(j.duration_ms for j in completed) / len(completed) if completed else 0.0
 
         duration_buckets = [0, 10, 50, 100, 250, 500, 1000, 5000, float("inf")]
