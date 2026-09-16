@@ -4,11 +4,30 @@ Authentication backend for username + password credentials.
 
 from __future__ import annotations
 
+import secrets as _secrets
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aquilia.auth.core import CredentialStore, Identity, IdentityStore
     from aquilia.auth.hashing import PasswordHasher
+
+
+# Fixed dummy hash used on username-miss paths (audit NEW-8). Without it
+# an unknown username returns immediately while a known one pays the full
+# Argon2 cost (~100ms) — a remotely measurable oracle for account
+# enumeration. Every miss path verifies against this hash so both paths
+# cost the same. Lazily computed once per process with the backend's own
+# hasher (first instantiation) so the dummy matches the configured
+# algorithm's parameters.
+_DUMMY_HASH: str | None = None
+
+
+def _dummy_hash(hasher: PasswordHasher) -> str:
+    """Return the shared dummy hash, building it with *hasher* once."""
+    global _DUMMY_HASH
+    if _DUMMY_HASH is None:
+        _DUMMY_HASH = hasher.hash(_secrets.token_hex(16))
+    return _DUMMY_HASH
 
 
 class PasswordBackend:
@@ -46,6 +65,14 @@ class PasswordBackend:
         self._hasher = password_hasher
         self._rate_limiter = rate_limiter
         self._login_attributes = login_attributes
+        # Warm the shared dummy hash now (audit NEW-8): account-enumeration
+        # timing parity must not depend on a lazy first-hit penalty. Test
+        # doubles (``password_hasher=object()``) skip the warm-up — the
+        # lazy path in ``_dummy_hash`` builds it on first real use.
+        try:
+            _dummy_hash(password_hasher)
+        except Exception:
+            pass
 
     # ── AuthBackend protocol ─────────────────────────────────────────────────
 
@@ -95,6 +122,10 @@ class PasswordBackend:
         # Resolve identity
         identity = await self._resolve_identity(username)
         if identity is None:
+            # NEW-8: verify against the dummy hash so an unknown username
+            # costs the same Argon2 work as a wrong password — otherwise
+            # the response time enumerates valid accounts.
+            self._hasher.verify(_dummy_hash(self._hasher), password)
             if self._rate_limiter:
                 self._rate_limiter.record_attempt(rate_key)
             raise AUTH_INVALID_CREDENTIALS(username=username)
@@ -103,11 +134,14 @@ class PasswordBackend:
         if identity.status == IdentityStatus.SUSPENDED:
             raise AUTH_ACCOUNT_SUSPENDED(identity_id=identity.id)
         if identity.status == IdentityStatus.DELETED:
+            self._hasher.verify(_dummy_hash(self._hasher), password)
             raise AUTH_INVALID_CREDENTIALS(username=username)
 
         # Password credential
         cred = await self._credential_store.get_password(identity.id)
         if cred is None:
+            # NEW-8: same timing-parity dummy verification as above.
+            self._hasher.verify(_dummy_hash(self._hasher), password)
             if self._rate_limiter:
                 self._rate_limiter.record_attempt(rate_key)
             raise AUTH_INVALID_CREDENTIALS(username=username)

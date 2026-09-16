@@ -9,6 +9,12 @@ The SessionEngine orchestrates the complete session lifecycle:
 5. Mutation - Handler reads/writes session data
 6. Commit - Persist, rotate, or destroy (concurrency checked BEFORE save)
 7. Emission - Transport writes updated reference
+
+Scoping and laziness (policy-driven):
+- ``path_prefix``: requests outside the prefix get a detached, ephemeral
+  placeholder session; nothing touches the store and no cookie is emitted.
+- ``persist_anonymous=False``: untouched anonymous sessions are never
+  saved or emitted -- only mutated/authenticated sessions commit.
 """
 
 from __future__ import annotations
@@ -70,6 +76,18 @@ class SessionEngine:
         self.logger = logger or logging.getLogger("aquilia.sessions")
         self._event_handlers: list = []
 
+    def handles_path(self, path: str) -> bool:
+        """
+        Whether *path* falls inside the policy's ``path_prefix`` scope.
+
+        The default prefix ``"/"`` matches every path. An empty path is
+        treated as ``"/"``.
+        """
+        prefix = (getattr(self.policy, "path_prefix", "/") or "/").rstrip("/") or "/"
+        if prefix == "/":
+            return True
+        return (path or "/").startswith(prefix)
+
     # ========================================================================
     # Phase 1 & 2: Detection + Resolution
     # ========================================================================
@@ -101,6 +119,23 @@ class SessionEngine:
                 print(f"Logged in user: {session.principal.id}")
         """
         now = datetime.now(timezone.utc)
+
+        # Path scoping (NEW-6): requests outside the policy's path prefix
+        # skip the whole session lifecycle -- no resolution, no store
+        # access, and (via commit(), which mirrors this check) no
+        # Set-Cookie emission. The default prefix "/" matches everything,
+        # preserving historic behavior.
+        if not self.handles_path(getattr(request, "path", "/")):
+            detached = Session(
+                id=SessionID(),
+                created_at=now,
+                last_accessed_at=now,
+                expires_at=None,
+                scope=SessionScope.REQUEST,
+                flags={SessionFlag.EPHEMERAL},
+            )
+            object.__setattr__(detached, "_out_of_scope", True)
+            return detached
 
         # Phase 1: Detection
         session_id_str = self.transport.extract(request)
@@ -222,7 +257,15 @@ class SessionEngine:
         # commit() sees is_dirty=False and never calls store.save(), so a
         # freshly created (non-fingerprint-bound) session is never persisted
         # even though the response cookie is issued for it unconditionally.
-        session.mark_dirty()
+        #
+        # Lazy anonymous persistence (NEW-6): when ``persist_anonymous`` is
+        # False a fresh anonymous session is NOT eagerly marked dirty -- it
+        # is only committed once a handler mutates it (any ``data`` write
+        # re-marks it dirty via _DirtyTrackingDict) or authentication binds
+        # a principal. This is what keeps cookie-less anonymous API hits
+        # from creating one store entry per response.
+        if getattr(self.policy, "persist_anonymous", True) or session.is_authenticated:
+            session.mark_dirty()
 
         # Bind fingerprint if policy requires it (OWASP)
         if self.policy.fingerprint_binding and request:
@@ -256,14 +299,36 @@ class SessionEngine:
         new one never persisted, leaving the caller with no valid session at
         all. Checking concurrency first means a rejected commit leaves the
         pre-existing session untouched.
+
+        Lazy anonymous persistence (NEW-6): with ``persist_anonymous=False``
+        a session that is still anonymous and was never mutated (no data
+        written, no authentication bound) is neither saved to the store nor
+        emitted as a ``Set-Cookie`` -- anonymous API traffic must not grow
+        the store or churn cookies. Any data write or privilege change
+        makes the session persistable again.
         """
         now = datetime.now(timezone.utc)
+
+        # Path scoping (NEW-6): the detached placeholder returned by
+        # resolve() for out-of-scope paths must never reach the store or
+        # the transport -- mirror resolve()'s scope check here.
+        if getattr(session, "_out_of_scope", False):
+            return
 
         if privilege_changed and session.is_authenticated:
             await self.check_concurrency(session)
 
-        # Check if rotation needed
-        if self.policy.should_rotate(session, privilege_changed):
+        # Lazy anonymous persistence: skip everything for an untouched
+        # anonymous session. This also suppresses the transport.inject()
+        # that normally follows, so no cookie is emitted either.
+        if not self._should_commit_anonymous(session):
+            return
+
+        # Rotation: an explicit Session.regenerate() request (set by
+        # callers right before authentication, e.g. the admin login flow)
+        # wins, then the policy's own rules.
+        rotation_requested = getattr(session, "_rotation_requested", False)
+        if rotation_requested or self.policy.should_rotate(session, privilege_changed):
             try:
                 session = await self._rotate_session(session, now)
                 self._emit_event("session_rotated", session, None)
@@ -286,6 +351,22 @@ class SessionEngine:
         # Phase 7: Emission
         self.transport.inject(response, session)
 
+    def _should_commit_anonymous(self, session: Session) -> bool:
+        """Whether *session* should reach the store/transport on commit.
+
+        Returns False only when lazy anonymous persistence is active
+        (``persist_anonymous=False``) AND the session is still anonymous
+        AND nothing made it persistable. Any mutation counts as
+        persistable: a ``data`` write (dirties the session via
+        ``_DirtyTrackingDict``), ``mark_authenticated``, or an explicit
+        ``regenerate()`` request. Every other session commits as before.
+        """
+        if getattr(self.policy, "persist_anonymous", True):
+            return True
+        if session.is_authenticated:
+            return True
+        return session.is_dirty or bool(getattr(session, "_persistable", False))
+
     async def _rotate_session(self, session: Session, now: datetime) -> Session:
         """Rotate session ID (create new ID, keep data)."""
         old_id = session.id
@@ -306,6 +387,11 @@ class SessionEngine:
         # Preserve fingerprint across rotation
         if hasattr(session, "_fingerprint") and session._fingerprint:
             object.__setattr__(new_session, "_fingerprint", session._fingerprint)
+
+        # Preserve the lazy-persistence flag across rotation (the rotated
+        # session replaces the original one for the remainder of commit()).
+        if getattr(session, "_persistable", False):
+            object.__setattr__(new_session, "_persistable", True)
 
         new_session.mark_dirty()
 

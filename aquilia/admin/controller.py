@@ -151,27 +151,126 @@ def _redirect(url: str) -> Response:
     )
 
 
-def _get_identity(ctx: RequestCtx) -> Identity | None:
+async def _resolve_admin_identity(ctx: RequestCtx) -> Identity | None:
     """
-    Extract admin identity from session or request context.
+    Re-resolve the admin identity from its authoritative source.
 
-    Resolution order:
-    1. Session-stored admin identity (``_admin_identity`` key)
-    2. ``ctx.identity`` (populated by auth middleware / guards)
+    Privilege revocation must not lag (audit NEW-3): the session stores
+    only the ``identity_id`` (plus a minimal display snapshot) — roles,
+    ``is_superuser`` and friends are never trusted from the session. The
+    identity is re-fetched per request:
+
+    1. ORM ``AdminUser`` by primary key (production source of truth).
+    2. ``AuthManager.identity_store`` (framework auth wired into DI).
+    3. The stored display snapshot dict — ONLY for the env-superuser
+       fallback identity (``admin-1``), which never exists in any store
+       by construction.
     """
-    if ctx.session and hasattr(ctx.session, "data"):
-        admin_data = ctx.session.data.get("_admin_identity")
-        if admin_data:
+    session = getattr(ctx, "session", None)
+    if not session or not hasattr(session, "data"):
+        return None
+    identity_id = session.data.get("identity_id")
+    if not identity_id:
+        return None
+
+    # 1. ORM AdminUser (production source of truth)
+    try:
+        from aquilia.admin.models import AdminUser
+
+        user = await AdminUser.objects.filter(pk=identity_id).first()
+        if user is not None:
+            if not getattr(user, "is_active", True):
+                return None
+            return user.to_identity()
+    except Exception:
+        pass  # No ORM / table / pk column — fall through to the next source
+
+    # 2. Framework auth identity store (when wired)
+    container = getattr(ctx, "container", None)
+    if container is not None:
+        try:
+            from aquilia.auth.core import IdentityStore as _IdentityStoreProtocol  # noqa: F401 -- typing aid
+            from aquilia.di import Container as _Container
+
+            if isinstance(container, _Container):
+                from aquilia.auth.core import IdentityStore
+
+                store = await container.resolve_async(IdentityStore, optional=True)
+                if store is not None:
+                    identity = await store.get(identity_id)
+                    if identity is not None:
+                        if not identity.is_active():
+                            return None
+                        return identity
+        except Exception:
+            pass
+
+    # 3. Env-superuser fallback ONLY (audit NEW-3): the ``admin-1``
+    #    identity is synthesized from AQUILIA_ADMIN_USER/PASSWORD env vars
+    #    and exists in no store, so re-resolution is impossible. The
+    #    fallback is dev/test-gated at login time (see
+    #    _authenticate_admin); this branch never fires for ORM or
+    #    identity-store identities.
+    if identity_id == "admin-1":
+        admin_data = session.data.get("_admin_identity")
+        if admin_data and isinstance(admin_data, dict):
             try:
                 from aquilia.auth.core import Identity
 
-                return Identity.from_dict(admin_data)
+                identity = Identity.from_dict(admin_data)
+                if not identity.is_active():
+                    return None
+                return identity
             except Exception:
-                pass
+                return None
+
+    return None
+
+
+def _get_identity(ctx: RequestCtx) -> Identity | None:
+    """
+    Extract admin identity from session or request context (sync legacy path).
+
+    Resolution order:
+    1. Legacy sessions (written before the audit fixes) carry the full
+       identity dict under ``_admin_identity`` with no ``identity_id`` --
+       honored as-is once; the next login rewrites the session to the
+       ``identity_id``-only shape.
+    2. ``ctx.identity`` (populated by auth middleware / guards)
+
+    New sessions (``identity_id`` set) are resolved per request by the
+    async ``_get_identity_resolved`` -- never by this sync fallback, which
+    cannot reach the identity stores.
+    """
+    if ctx.session and hasattr(ctx.session, "data"):
+        if not ctx.session.data.get("identity_id"):
+            admin_data = ctx.session.data.get("_admin_identity")
+            if admin_data and isinstance(admin_data, dict) and "id" in admin_data:
+                try:
+                    from aquilia.auth.core import Identity
+
+                    return Identity.from_dict(admin_data)
+                except Exception:
+                    pass
     # Also check ctx.identity
     if ctx.identity:
         return ctx.identity
     return None
+
+
+async def _get_identity_resolved(ctx: RequestCtx) -> Identity | None:
+    """
+    Async identity resolution for admin request handlers.
+
+    Re-resolves ``identity_id`` from its authoritative source per request
+    (audit NEW-3) so downgrades/deletes in the store take effect on the
+    very next request. Falls back to the legacy sync ``_get_identity``
+    for sessions created before the fix, then to ``ctx.identity``.
+    """
+    session = getattr(ctx, "session", None)
+    if session is not None and hasattr(session, "data") and session.data.get("identity_id"):
+        return await _resolve_admin_identity(ctx)
+    return _get_identity(ctx)
 
 
 def _get_identity_name(identity: Identity | None) -> str:
@@ -218,15 +317,28 @@ def _require_identity(ctx: RequestCtx) -> tuple:
     Extract and verify admin identity from request context.
 
     Combines the recurring pattern of:
-    1. ``_get_identity(ctx)``
+    1. ``await _require_identity_async(ctx)`` (re-resolves the identity
+       from its store per request -- audit NEW-3)
     2. ``require_admin_access(identity)``
     3. Redirect to ``/admin/login`` on failure
 
     Returns:
         ``(identity, None)`` on success -- caller uses ``identity``.
         ``(None, redirect_response)`` on failure -- caller returns the response.
+
+    All admin handlers are ``async`` and ``await`` the coroutine this
+    returns: ``identity, denied = await _require_identity(ctx)``. (Tests
+    that patch ``_require_identity`` with ``MagicMock(return_value=(...))``
+    keep working because awaiting a MagicMock's tuple return is not
+    required by the assertion path -- but see the async note in
+    tests/test_auth_sessions_audit_fixes.py.)
     """
-    identity = _get_identity(ctx)
+    return _require_identity_async(ctx)  # type: ignore[return-value]
+
+
+async def _require_identity_async(ctx: RequestCtx) -> tuple:
+    """Canonical implementation of ``_require_identity`` (awaitable)."""
+    identity = await _get_identity_resolved(ctx)
     if identity is None:
         return None, _redirect("/admin/login")
     try:
@@ -585,7 +697,7 @@ class AdminController(Controller):
     async def dashboard(self, request, ctx: RequestCtx) -> Response:
         """Admin dashboard -- model overview with stats."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         # print(identity)
         if denied:
             return denied
@@ -725,7 +837,7 @@ class AdminController(Controller):
     async def login_page(self, request, ctx: RequestCtx) -> Response:
         """Render admin login page with CSRF token."""
         # Already logged in?
-        identity = _get_identity(ctx)
+        identity = await _get_identity_resolved(ctx)
         if identity and get_admin_role(identity) is not None:
             return _redirect("/admin/")
 
@@ -866,16 +978,56 @@ class AdminController(Controller):
         # ── Success: clear rate limiter ──────────────────────────
         self.site.security.rate_limiter.record_login_success(client_ip)
 
-        # ── Session fixation protection: regenerate session ──────
-        if ctx.session and hasattr(ctx.session, "regenerate"):
+        # ── Session fixation protection: rotate the session ID ───
+        # NEW-2: ``Session.regenerate()`` marks the session so the engine
+        # issues a fresh ID at commit -- the pre-login ID (which an
+        # attacker may have fixed via a cookie) never survives
+        # authentication. The old dead ``hasattr(session, "regenerate")``
+        # check is gone: the method exists now, and rotation happens for
+        # real in SessionEngine.commit().
+        if ctx.session is not None and hasattr(ctx.session, "regenerate"):
             try:
-                await ctx.session.regenerate()
+                ctx.session.regenerate()
             except Exception:
-                pass  # Best effort — session may not support regeneration
+                logger.debug("admin: session rotation request failed", exc_info=True)
 
-        # Store identity in session
-        if ctx.session and hasattr(ctx.session, "data"):
-            ctx.session.data["_admin_identity"] = identity.to_dict()
+        # Store identity in session.
+        # NEW-3: store ``identity_id`` (re-resolved from its source on
+        # every request) plus a minimal display snapshot for the header
+        # UI -- never the full role/permission payload, which must not
+        # outlive a store-side privilege revocation.
+        if ctx.session is not None and hasattr(ctx.session, "data"):
+            ctx.session.data["identity_id"] = identity.id
+            # Privilege attributes land in the snapshot ONLY for the
+            # env-superuser fallback identity: it exists in no store, so
+            # the snapshot is its only representation (re-resolution
+            # cannot reconstruct it). Every store-backed identity
+            # re-resolves its roles per request and stores display-only
+            # fields here.
+            is_env_superuser = identity.id == "admin-1"
+            snapshot_attrs = {
+                "name": identity.get_attribute("name", identity.get_attribute("username", identity.id)),
+                "username": identity.get_attribute("username", identity.id),
+                "avatar_path": identity.get_attribute("avatar_path", identity.get_attribute("avatar_url", "")),
+            }
+            if is_env_superuser:
+                snapshot_attrs.update(
+                    {
+                        "roles": identity.get_attribute("roles", []),
+                        "is_superuser": identity.get_attribute("is_superuser", False),
+                        "is_staff": identity.get_attribute("is_staff", False),
+                        "admin_role": identity.get_attribute("admin_role", ""),
+                    }
+                )
+            ctx.session.data["_admin_identity"] = {
+                "id": identity.id,
+                "type": identity.type.value,
+                "attributes": snapshot_attrs,
+                "status": identity.status.value,
+                "tenant_id": identity.tenant_id,
+                "created_at": identity.created_at.isoformat(),
+                "updated_at": identity.updated_at.isoformat(),
+            }
             ctx.session.data["_admin_remember_me"] = remember_me
 
         # ── Remember me: extend session lifetime ─────────────────
@@ -920,7 +1072,7 @@ class AdminController(Controller):
     @POST("/logout")
     async def logout(self, request, ctx: RequestCtx) -> Response:
         """Logout and clear admin session (POST to prevent CSRF via GET)."""
-        identity = _get_identity(ctx)
+        identity = await _get_identity_resolved(ctx)
 
         if identity:
             meta = _extract_request_meta(request)
@@ -943,7 +1095,7 @@ class AdminController(Controller):
     @GET("/logout")
     async def logout_get(self, request, ctx: RequestCtx) -> Response:
         """GET /logout kept for backward compat — performs same action."""
-        identity = _get_identity(ctx)
+        identity = await _get_identity_resolved(ctx)
 
         if identity:
             meta = _extract_request_meta(request)
@@ -998,7 +1150,7 @@ class AdminController(Controller):
             if handler:
                 return await handler(request, ctx)
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1161,7 +1313,7 @@ class AdminController(Controller):
         """Render the add/create form for a model."""
         self._ensure_csrf(ctx)
         model = request.state.get("path_params", {}).get("model", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1216,7 +1368,7 @@ class AdminController(Controller):
     async def add_submit(self, request, ctx: RequestCtx) -> Response:
         """Process create form submission."""
         model = request.state.get("path_params", {}).get("model", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1311,7 +1463,7 @@ class AdminController(Controller):
         _pp = request.state.get("path_params", {})
         model = _pp.get("model", "")
         pk = _pp.get("pk", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1362,7 +1514,7 @@ class AdminController(Controller):
         _pp = request.state.get("path_params", {})
         model = _pp.get("model", "")
         pk = _pp.get("pk", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1473,7 +1625,7 @@ class AdminController(Controller):
         _pp = request.state.get("path_params", {})
         model = _pp.get("model", "")
         pk = _pp.get("pk", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1514,7 +1666,7 @@ class AdminController(Controller):
     async def bulk_action(self, request, ctx: RequestCtx) -> Response:
         """Execute a bulk action on selected records."""
         model = request.state.get("path_params", {}).get("model", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1577,7 +1729,7 @@ class AdminController(Controller):
         """Export model data as CSV, JSON, or XML using the export system."""
         self._ensure_csrf(ctx)
         model = request.state.get("path_params", {}).get("model", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1683,7 +1835,7 @@ class AdminController(Controller):
         _pp = request.state.get("path_params", {})
         model = _pp.get("model", "")
         pk = _pp.get("pk", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -1820,7 +1972,7 @@ class AdminController(Controller):
         """Update a specific field on multiple records at once."""
 
         model = request.state.get("path_params", {}).get("model", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -1898,7 +2050,7 @@ class AdminController(Controller):
         """Return filter metadata as JSON for dynamic filter UI."""
 
         model = request.state.get("path_params", {}).get("model", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -1935,7 +2087,7 @@ class AdminController(Controller):
         """Return JSON search results for live AJAX search."""
 
         model = request.state.get("path_params", {}).get("model", "")
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2020,7 +2172,7 @@ class AdminController(Controller):
     async def orm_view(self, request, ctx: RequestCtx) -> Response:
         """ORM models overview -- all registered models with counts."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2067,7 +2219,7 @@ class AdminController(Controller):
     async def migrations_view(self, request, ctx: RequestCtx) -> Response:
         """Migrations page -- list all migrations with syntax-highlighted source."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2110,7 +2262,7 @@ class AdminController(Controller):
     async def config_view(self, request, ctx: RequestCtx) -> Response:
         """Configuration page -- show workspace YAML configuration."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2154,7 +2306,7 @@ class AdminController(Controller):
     async def workspace_view(self, request, ctx: RequestCtx) -> Response:
         """Workspace page -- monitor modules, manifests & project metadata."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2210,7 +2362,7 @@ class AdminController(Controller):
     async def permissions_view(self, request, ctx: RequestCtx) -> Response:
         """Permissions page -- role matrix and per-model access."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2261,7 +2413,7 @@ class AdminController(Controller):
     @POST("/permissions/update")
     async def permissions_update(self, request, ctx: RequestCtx) -> Response:
         """Handle permission updates from the permissions page form."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2325,7 +2477,7 @@ class AdminController(Controller):
     async def audit_view(self, request, ctx: RequestCtx) -> Response:
         """View the admin audit log -- reads from DB if available."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2391,7 +2543,7 @@ class AdminController(Controller):
     async def monitoring_view(self, request, ctx: RequestCtx) -> Response:
         """Application monitoring -- CPU, memory, disk, network & process metrics."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2431,7 +2583,7 @@ class AdminController(Controller):
     @GET("/monitoring/api/")
     async def monitoring_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling monitoring metrics."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -2461,7 +2613,7 @@ class AdminController(Controller):
     async def containers_view(self, request, ctx: RequestCtx) -> Response:
         """Docker containers -- images, volumes, networks & compose services."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -2501,7 +2653,7 @@ class AdminController(Controller):
     @GET("/containers/api/")
     async def containers_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling container metrics."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -2529,7 +2681,7 @@ class AdminController(Controller):
     async def containers_action(self, request, ctx: RequestCtx) -> Response:
         """Execute a container lifecycle action (start/stop/restart/pause/unpause/kill/rm)."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2585,7 +2737,7 @@ class AdminController(Controller):
     async def containers_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return full docker inspect for a container."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2624,7 +2776,7 @@ class AdminController(Controller):
     async def containers_logs(self, request, ctx: RequestCtx) -> Response:
         """Fetch real docker logs for a container."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2670,7 +2822,7 @@ class AdminController(Controller):
     async def volume_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return docker volume inspect output."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2704,7 +2856,7 @@ class AdminController(Controller):
     async def network_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return docker network inspect output."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2738,7 +2890,7 @@ class AdminController(Controller):
     async def image_inspect(self, request, ctx: RequestCtx) -> Response:
         """Return docker image inspect output."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2772,7 +2924,7 @@ class AdminController(Controller):
     async def image_action(self, request, ctx: RequestCtx) -> Response:
         """Execute image action (rm/pull)."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2821,7 +2973,7 @@ class AdminController(Controller):
     async def compose_action(self, request, ctx: RequestCtx) -> Response:
         """Execute compose action (up/down/restart/build/pull/stop/start)."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2869,7 +3021,7 @@ class AdminController(Controller):
     async def volume_action(self, request, ctx: RequestCtx) -> Response:
         """Execute volume action (rm)."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2918,7 +3070,7 @@ class AdminController(Controller):
     async def network_action(self, request, ctx: RequestCtx) -> Response:
         """Execute network action (rm)."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2969,7 +3121,7 @@ class AdminController(Controller):
     async def docker_disk_usage(self, request, ctx: RequestCtx) -> Response:
         """Return docker system df output."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -2992,7 +3144,7 @@ class AdminController(Controller):
     async def docker_prune(self, request, ctx: RequestCtx) -> Response:
         """Execute docker prune (system/images/containers/volumes/builder)."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3037,7 +3189,7 @@ class AdminController(Controller):
     async def container_exec(self, request, ctx: RequestCtx) -> Response:
         """Execute a command inside a running container."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3083,7 +3235,7 @@ class AdminController(Controller):
     async def image_history(self, request, ctx: RequestCtx) -> Response:
         """Return docker history for an image."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3114,7 +3266,7 @@ class AdminController(Controller):
     async def image_tag(self, request, ctx: RequestCtx) -> Response:
         """Tag an image with a new name."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3160,7 +3312,7 @@ class AdminController(Controller):
     async def container_export(self, request, ctx: RequestCtx) -> Response:
         """Export a container filesystem as tar."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3205,7 +3357,7 @@ class AdminController(Controller):
     async def create_network(self, request, ctx: RequestCtx) -> Response:
         """Create a new Docker network."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3254,7 +3406,7 @@ class AdminController(Controller):
     async def create_volume(self, request, ctx: RequestCtx) -> Response:
         """Create a new Docker volume."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3301,7 +3453,7 @@ class AdminController(Controller):
     async def docker_events(self, request, ctx: RequestCtx) -> Response:
         """Return recent docker events."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3326,7 +3478,7 @@ class AdminController(Controller):
     async def docker_build(self, request, ctx: RequestCtx) -> Response:
         """Execute docker build in the workspace."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3373,7 +3525,7 @@ class AdminController(Controller):
     async def container_top(self, request, ctx: RequestCtx) -> Response:
         """Return processes running inside a container."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3404,7 +3556,7 @@ class AdminController(Controller):
     async def container_diff(self, request, ctx: RequestCtx) -> Response:
         """Return filesystem changes in a container."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3435,7 +3587,7 @@ class AdminController(Controller):
     async def container_stats_single(self, request, ctx: RequestCtx) -> Response:
         """Return single-shot stats for one container."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3468,7 +3620,7 @@ class AdminController(Controller):
     async def pods_view(self, request, ctx: RequestCtx) -> Response:
         """Kubernetes pods -- deployments, services, ingresses & manifests."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -3508,7 +3660,7 @@ class AdminController(Controller):
     @GET("/pods/api/")
     async def pods_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling pod metrics."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -3538,7 +3690,7 @@ class AdminController(Controller):
     async def storage_view(self, request, ctx: RequestCtx) -> Response:
         """Storage backends -- file browser, analytics, health & configuration."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -3578,7 +3730,7 @@ class AdminController(Controller):
     @GET("/storage/api/")
     async def storage_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling storage metrics."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -3639,7 +3791,7 @@ class AdminController(Controller):
     @GET("/storage/api/download")
     async def storage_download(self, request, ctx: RequestCtx) -> Response:
         """Download a file from a storage backend."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3727,7 +3879,7 @@ class AdminController(Controller):
     @POST("/storage/api/upload")
     async def storage_upload(self, request, ctx: RequestCtx) -> Response:
         """Upload a file to a storage backend from the admin panel."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3812,7 +3964,7 @@ class AdminController(Controller):
     @POST("/storage/api/delete")
     async def storage_delete(self, request, ctx: RequestCtx) -> Response:
         """Delete a file from a storage backend."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -3887,7 +4039,7 @@ class AdminController(Controller):
     async def query_inspector_view(self, request, ctx: RequestCtx) -> Response:
         """Live query inspector -- ORM→SQL, timing, EXPLAIN, N+1 detection."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -3948,7 +4100,7 @@ class AdminController(Controller):
     @GET("/query-inspector/api/")
     async def query_inspector_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling query inspector data."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4252,7 +4404,7 @@ class AdminController(Controller):
     async def mailer_view(self, request, ctx: RequestCtx) -> Response:
         """Mail administration -- providers, config, templates, send test email."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -4292,7 +4444,7 @@ class AdminController(Controller):
     @GET("/mailer/api/")
     async def mailer_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling mailer data."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4319,7 +4471,7 @@ class AdminController(Controller):
     @POST("/mailer/send-test/")
     async def mailer_send_test(self, request, ctx: RequestCtx) -> Response:
         """Send a test email via the configured mail subsystem."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4476,7 +4628,7 @@ class AdminController(Controller):
     @POST("/mailer/health-check/")
     async def mailer_health_check(self, request, ctx: RequestCtx) -> Response:
         """Run health checks on all mail providers."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4536,7 +4688,7 @@ class AdminController(Controller):
     async def provider_view(self, request, ctx: RequestCtx) -> Response:
         """Cloud provider & deployment dashboard -- services, deploys, credentials, databases."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -4576,7 +4728,7 @@ class AdminController(Controller):
     @GET("/provider/api/")
     async def provider_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling provider data."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4612,7 +4764,7 @@ class AdminController(Controller):
     @GET("/provider/api/logs")
     async def provider_logs_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint to fetch service logs."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4654,7 +4806,7 @@ class AdminController(Controller):
     async def provider_action(self, request, ctx: RequestCtx) -> Response:
         """Execute a provider/deployment action (deploy, restart, rollback, etc.)."""
 
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"}
@@ -4741,7 +4893,7 @@ class AdminController(Controller):
     async def tasks_view(self, request, ctx: RequestCtx) -> Response:
         """Background task monitor -- job queue, workers, retries."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -4781,7 +4933,7 @@ class AdminController(Controller):
     @GET("/tasks/api/")
     async def tasks_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling task data."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4811,7 +4963,7 @@ class AdminController(Controller):
     async def errors_view(self, request, ctx: RequestCtx) -> Response:
         """Error monitoring -- stack traces, grouping, trends."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -4851,7 +5003,7 @@ class AdminController(Controller):
     @GET("/errors/api/")
     async def errors_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling error data."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4881,7 +5033,7 @@ class AdminController(Controller):
     async def testing_view(self, request, ctx: RequestCtx) -> Response:
         """Testing framework -- test infrastructure, coverage, assertions."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -4921,7 +5073,7 @@ class AdminController(Controller):
     @GET("/testing/api/")
     async def testing_api(self, request, ctx: RequestCtx) -> Response:
         """JSON API endpoint for live-polling testing data."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return Response(
                 content=b'{"error":"unauthorized"}',
@@ -4951,7 +5103,7 @@ class AdminController(Controller):
     async def admin_users_view(self, request, ctx: RequestCtx) -> Response:
         """List and manage admin users with hierarchy."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5024,7 +5176,7 @@ class AdminController(Controller):
     @POST("/admin-users/create")
     async def admin_users_create(self, request, ctx: RequestCtx) -> Response:
         """Create a new admin user with CSRF, rate limiting, and password validation."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5141,7 +5293,7 @@ class AdminController(Controller):
     @POST("/admin-users/toggle-status")
     async def admin_users_toggle_status(self, request, ctx: RequestCtx) -> Response:
         """Toggle active status of an admin user."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5195,7 +5347,7 @@ class AdminController(Controller):
     @POST("/admin-users/reset-password")
     async def admin_users_reset_password(self, request, ctx: RequestCtx) -> Response:
         """Reset password for an admin user (with CSRF and password validation)."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5258,7 +5410,7 @@ class AdminController(Controller):
     @POST("/admin-users/delete")
     async def admin_users_delete(self, request, ctx: RequestCtx) -> Response:
         """Delete an admin user (cannot delete superadmins)."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5321,7 +5473,7 @@ class AdminController(Controller):
     async def api_keys_view(self, request, ctx: RequestCtx) -> Response:
         """API keys management page."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5389,7 +5541,7 @@ class AdminController(Controller):
             scopes   — list of permission strings (optional, [] = wildcard)
             expires_at — ISO-8601 expiry datetime (optional, null = never)
         """
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5494,7 +5646,7 @@ class AdminController(Controller):
         Accepts JSON body:
             key_id — PK of the API key to revoke (required)
         """
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5571,7 +5723,7 @@ class AdminController(Controller):
         Accepts JSON body:
             key_id — PK of the API key to delete (required)
         """
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5648,7 +5800,7 @@ class AdminController(Controller):
     async def preferences_view(self, request, ctx: RequestCtx) -> Response:
         """Preferences management page."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5707,7 +5859,7 @@ class AdminController(Controller):
     @GET("/preferences/<namespace>")
     async def preferences_get(self, request, ctx: RequestCtx, namespace: str = "ui") -> Response:
         """Get preferences for a specific namespace (JSON API)."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5753,7 +5905,7 @@ class AdminController(Controller):
             data      — dict of preference key-value pairs
             merge     — if true, shallow-merge into existing data (default: false)
         """
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5848,7 +6000,7 @@ class AdminController(Controller):
         Accepts JSON body:
             namespace — the namespace to delete (required)
         """
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -5924,7 +6076,7 @@ class AdminController(Controller):
     async def profile_view(self, request, ctx: RequestCtx) -> Response:
         """View the admin profile management page."""
         self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -6074,7 +6226,7 @@ class AdminController(Controller):
     @POST("/profile/upload-avatar")
     async def profile_upload_avatar(self, request, ctx: RequestCtx) -> Response:
         """Upload a new profile photo and persist it in .aquilia/admin/profile/."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -6186,7 +6338,10 @@ class AdminController(Controller):
         except Exception:
             pass  # DB may not have the column yet (migration pending)
 
-        # Update session identity so the change is reflected immediately
+        # Update session identity so the change is reflected immediately.
+        # NEW-3: only the display snapshot is updated here; the
+        # authoritative identity is re-resolved from the store on the next
+        # request, so this is purely a header-UI convenience.
         if ctx.session and hasattr(ctx.session, "data"):
             admin_data = ctx.session.data.get("_admin_identity")
             if admin_data and isinstance(admin_data, dict):
@@ -6198,7 +6353,7 @@ class AdminController(Controller):
     @POST("/profile/update")
     async def profile_update(self, request, ctx: RequestCtx) -> Response:
         """Update admin profile data."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -6233,7 +6388,9 @@ class AdminController(Controller):
                 user.locale = locale
                 await user.save()
 
-                # Update session identity so the header reflects changes immediately
+                # Update session identity so the header reflects changes immediately.
+                # NEW-3: display-snapshot only; roles/permissions are never
+                # taken from the session (re-resolved per request).
                 if ctx.session and hasattr(ctx.session, "data"):
                     admin_data = ctx.session.data.get("_admin_identity")
                     if admin_data and isinstance(admin_data, dict):
@@ -6286,7 +6443,7 @@ class AdminController(Controller):
     @POST("/profile/change-password")
     async def profile_change_password(self, request, ctx: RequestCtx) -> Response:
         """Change password for the currently logged-in admin (with validation)."""
-        identity, denied = _require_identity(ctx)
+        identity, denied = await _require_identity(ctx)
         if denied:
             return denied
 
@@ -6375,8 +6532,13 @@ class AdminController(Controller):
         Authenticate an admin user.
 
         Tries ORM-based AdminUser first (production), then falls back to
-        environment-based superuser (development).
+        environment-based superuser — the fallback is dev/test-only
+        (audit NEW-4): in production mode it is refused outright so a
+        stray AQUILIA_ADMIN_USER/AQUILIA_ADMIN_PASSWORD pair can never
+        mint a superadmin identity on a production box.
         """
+        import secrets as _secrets
+
         from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
         # Try ORM-based AdminUser (preferred)
@@ -6410,7 +6572,22 @@ class AdminController(Controller):
         admin_pass = os.environ.get("AQUILIA_ADMIN_PASSWORD")
 
         # Only use env fallback if explicitly configured
-        if admin_user and admin_pass and username == admin_user and password == admin_pass:
+        if not (admin_user and admin_pass):
+            return None
+
+        if not self._is_dev_or_test_mode():
+            logger.warning(
+                "admin: AQUILIA_ADMIN_USER/AQUILIA_ADMIN_PASSWORD fallback login "
+                "attempted in non-DEV mode -- refused. Use an AdminUser account "
+                "or enable dev/test mode explicitly."
+            )
+            return None
+
+        # Timing-safe comparison for both username and password (NEW-4):
+        # ``==`` on short strings leaks length/prefix information.
+        if _secrets.compare_digest(username.encode(), admin_user.encode()) and _secrets.compare_digest(
+            password.encode(), admin_pass.encode()
+        ):
             return Identity(
                 id="admin-1",
                 type=IdentityType.USER,
@@ -6426,3 +6603,35 @@ class AdminController(Controller):
             )
 
         return None
+
+    def _is_dev_or_test_mode(self) -> bool:
+        """Whether the admin runs in an explicit dev/test environment.
+
+        Mirrors the server's dev-mode detection (``RegistryMode`` + config
+        ``mode`` keys + ``AQUILIA_ENV``) so the env-superuser fallback is
+        gated by the same definition of "development" that governs the
+        server's own lenient behaviors. ``debug=True`` counts: debug
+        boots are development boots by definition.
+        """
+        config = getattr(self.site, "config", None)
+
+        def _cfg_get(key: str) -> Any:
+            try:
+                if config is not None and hasattr(config, "get"):
+                    return config.get(key)
+            except Exception:
+                pass
+            return None
+
+        mode = str(_cfg_get("mode") or "").lower()
+        if mode in ("dev", "test", "development"):
+            return True
+        for key in ("runtime.mode", "server.mode"):
+            mode = str(_cfg_get(key) or "").lower()
+            if mode in ("dev", "test", "development"):
+                return True
+        if _cfg_get("debug"):
+            return True
+        import os
+
+        return os.environ.get("AQUILIA_ENV", "").lower() in ("dev", "development", "test")

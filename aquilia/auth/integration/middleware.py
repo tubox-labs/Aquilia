@@ -226,6 +226,21 @@ class AquilAuthMiddleware(Middleware):
                 # session exists (legacy behavior preserved). Claims arrive
                 # as a raw dict (token strategies) or a TokenClaims object —
                 # normalize before the attribute-reading binder.
+                #
+                # SECURITY NOTE (NEW-1, documented design decision): this
+                # token→session binding upgrades a Bearer-token request to
+                # an *authenticated session* whenever any session cookie is
+                # also present — even one the token holder never logged
+                # into. The bound session then authenticates later requests
+                # without the token. Combined with cookie transports this
+                # widens the CSRF surface: a cross-site request that rides
+                # an anonymous cookie plus an injected Bearer header would
+                # mint an authenticated cookie. Changing the binding (opt-in
+                # vs opt-out) is a deliberate maintainer decision tracked by
+                # the audit; this note documents the behavior so callers
+                # understand the trade-off. See also
+                # aquilia/auth/integration/aquila_sessions.py (identity_id
+                # only) for what is written once bound.
                 if (
                     backend.__class__.__name__ in ("TokenBackend", "StatelessTokenBackend")
                     and session is not None

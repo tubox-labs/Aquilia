@@ -107,6 +107,21 @@ class SessionPolicy:
     - Concurrency limits
     - Transport mechanism
     - Fingerprint binding (OWASP hijack detection)
+    - Path scoping (which URL paths run the session lifecycle at all)
+    - Anonymous persistence (whether cookie-less anonymous sessions are stored)
+
+    Attributes:
+        path_prefix: URL prefix the session lifecycle is scoped to.
+            Requests outside this prefix skip session resolution, storage,
+            and cookie emission entirely (no ``Set-Cookie`` on API routes
+            for an admin-scoped policy). The default ``"/"`` matches every
+            path (historic behavior).
+        persist_anonymous: Whether fresh anonymous sessions (no principal,
+            no data) are persisted to the store and emitted as cookies.
+            ``False`` enables lazy persistence: only sessions that became
+            authenticated or hold data reach the store, so anonymous
+            API traffic creates zero store entries. The default ``True``
+            preserves the historic eager behavior.
     """
 
     name: str
@@ -120,6 +135,8 @@ class SessionPolicy:
     concurrency: ConcurrencyPolicy = dc_field(default=None)  # type: ignore[assignment]
     transport: TransportPolicy = dc_field(default=None)  # type: ignore[assignment]
     scope: str = "user"
+    path_prefix: str = "/"
+    persist_anonymous: bool = True
 
     def __post_init__(self):
         """Initialize sub-policies with defaults if not provided."""
@@ -242,6 +259,8 @@ class SessionPolicy:
             concurrency=concurrency,
             transport=transport,
             scope=scope_str,
+            path_prefix=config.get("path_prefix", "/"),
+            persist_anonymous=config.get("persist_anonymous", True),
         )
 
     # ========================================================================

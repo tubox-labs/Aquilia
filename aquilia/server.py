@@ -2302,6 +2302,19 @@ class AquiliaServer:
         """
         from datetime import timedelta
 
+        # New-6 scoping/laziness keys apply to every policy format:
+        # ``path_prefix`` restricts the session lifecycle to one URL prefix
+        # (no cookies on out-of-scope API routes), ``persist_anonymous``
+        # stops untouched anonymous sessions from reaching the store.
+        def _apply_scope_keys(policy):
+            scope_cfg = session_config.get("scope", {})
+            if isinstance(scope_cfg, dict):
+                if "path_prefix" in scope_cfg:
+                    object.__setattr__(policy, "path_prefix", scope_cfg["path_prefix"])
+                if "persist_anonymous" in scope_cfg:
+                    object.__setattr__(policy, "persist_anonymous", scope_cfg["persist_anonymous"])
+            return policy
+
         # ── Format 1: Integration.sessions() -- direct policy object (singular) ──
         if "policy" in session_config and not isinstance(session_config["policy"], dict):
             policy = session_config["policy"]
@@ -2336,7 +2349,7 @@ class AquiliaServer:
 
             self._apply_dev_cookie_override(transport)
 
-            return SessionEngine(policy=policy, store=store, transport=transport)
+            return SessionEngine(policy=_apply_scope_keys(policy), store=store, transport=transport)
 
         # ── Format 2: Workspace.sessions(policies=[...]) -- policy list (plural) ──
         if "policies" in session_config:
@@ -2372,7 +2385,7 @@ class AquiliaServer:
             # Dev mode: disable cookie_secure so sessions work on http://localhost
             self._apply_dev_cookie_override(transport)
 
-            engine = SessionEngine(policy=policy, store=store, transport=transport)
+            engine = SessionEngine(policy=_apply_scope_keys(policy), store=store, transport=transport)
 
             return engine
 
@@ -2427,7 +2440,7 @@ class AquiliaServer:
 
         # Create engine
         engine = SessionEngine(
-            policy=policy,
+            policy=_apply_scope_keys(policy),
             store=store,
             transport=transport,
         )
@@ -3547,6 +3560,17 @@ class AquiliaServer:
             registered_count = 0
             for method, path, handler_name, handler_func in admin_routes:
                 try:
+                    # Pre-auth routes (login form, login submit, offline
+                    # fallback) must stay reachable when
+                    # ``auth.require_auth_by_default`` locks everything
+                    # else down (F-AU-01): mark them public in the raw
+                    # metadata, the same spelling ``@Public()`` produces.
+                    # Logout stays protected.
+                    is_pre_auth = (method, path) in {
+                        ("GET", f"{url_prefix}/login"),
+                        ("POST", f"{url_prefix}/login"),
+                        ("GET", f"{url_prefix}/offline"),
+                    }
                     route = CompiledRoute(
                         controller_class=AdminController,
                         controller_metadata=None,
@@ -3555,6 +3579,7 @@ class AquiliaServer:
                             path_template=path,
                             full_path=path,
                             handler_name=handler_name,
+                            _raw_metadata={"public": True} if is_pre_auth else {},
                         ),
                         compiled_pattern=pc.compile(parse_pattern(path)),
                         full_path=path,
@@ -4788,6 +4813,14 @@ class AquiliaServer:
 
         # Run lifecycle shutdown hooks
         await self.coordinator.shutdown()
+
+        # Shutdown singleton controllers (on_shutdown hooks) before the DI
+        # containers they were resolved from are torn down
+        if getattr(self, "controller_factory", None) is not None:
+            try:
+                await self.controller_factory.shutdown()
+            except Exception as e:
+                self.logger.warning(f"Error shutting down controller factory: {e}")
 
         # Shutdown mail subsystem
         if hasattr(self, "_mail_service") and self._mail_service is not None:

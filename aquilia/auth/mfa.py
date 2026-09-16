@@ -56,6 +56,7 @@ class TOTPProvider:
         self.digits = digits
         self.period = period
         self.algorithm = algorithm
+        self.last_verified_counter: int | None = None
 
     def generate_secret(self) -> str:
         """
@@ -110,30 +111,60 @@ class TOTPProvider:
         code: str,
         window: int = 1,
         timestamp: int | None = None,
+        last_used_counter: int | None = None,
     ) -> bool:
         """
         Verify TOTP code.
+
+        Replay protection (audit NEW-9): pass ``last_used_counter`` — the
+        TOTP time counter of the most recent *successful* verification —
+        and any code from that counter or earlier is rejected, so a
+        sniffed code cannot be replayed within its validity window. The
+        counter of the winning offset is returned via
+        :attr:`last_verified_counter` after a successful call so callers
+        can persist it (e.g. on the user's ``MFACredential``).
+
+        Statelessness note: this provider has no storage of its own —
+        replay tracking is only as durable as the caller's persistence of
+        ``last_used_counter``. Callers that keep no state get the historic
+        behavior (codes reusable within the window); callers that persist
+        the counter get full single-use semantics.
 
         Args:
             secret: Base32-encoded secret
             code: User-provided code
             window: Number of periods to check (default 1 = ±30s)
             timestamp: Unix timestamp (default: current time)
+            last_used_counter: Highest counter already consumed by a
+                successful verification (``None`` = no prior use known).
 
         Returns:
-            True if code valid, False otherwise
+            True if code valid and not replayed, False otherwise
         """
         if timestamp is None:
             timestamp = int(time.time())
 
+        current_counter = timestamp // self.period
+
         # Check current period and adjacent periods (clock drift tolerance)
         for offset in range(-window, window + 1):
             check_time = timestamp + (offset * self.period)
+            counter = check_time // self.period
+            # Replay guard: a counter at or before the last used one has
+            # already been consumed by a successful verification.
+            if last_used_counter is not None and counter <= last_used_counter:
+                continue
             expected_code = self.generate_code(secret, check_time)
             if secrets.compare_digest(code, expected_code):
+                self.last_verified_counter = counter
                 return True
 
         return False
+
+    #: Counter of the most recent successful verification performed by
+    #: :meth:`verify_code` (set on success, never cleared on failure).
+    #: Callers persist this value and feed it back as ``last_used_counter``.
+    last_verified_counter: int | None = None
 
     def generate_provisioning_uri(self, secret: str, account_name: str) -> str:
         """

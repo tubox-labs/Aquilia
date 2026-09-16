@@ -417,6 +417,21 @@ class Session:
         self.flags.discard(SessionFlag.ROTATABLE)
         self._dirty = True
 
+    def regenerate(self) -> None:
+        """
+        Request a session-ID rotation at commit time (fixation defense).
+
+        Marks the session so the owning
+        :class:`~aquilia.sessions.engine.SessionEngine` issues a fresh ID
+        when the request commits — the pre-authentication ID never survives
+        an authentication event (OWASP session fixation). The marker is a
+        transient instance attribute: it is never serialized and is consumed
+        by ``SessionEngine.commit``, which rotates via ``_rotate_session``
+        (new ID, same data, old ID deleted from the store).
+        """
+        object.__setattr__(self, "_rotation_requested", True)
+        object.__setattr__(self, "_dirty", True)
+
     @property
     def is_authenticated(self) -> bool:
         return SessionFlag.AUTHENTICATED in self.flags and self.principal is not None

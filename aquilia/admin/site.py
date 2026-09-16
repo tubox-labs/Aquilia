@@ -599,6 +599,11 @@ class AdminSite:
         # Registry: model_class -> ModelAdmin instance
         self._registry: dict[type[Model], ModelAdmin] = {}
 
+        # Server config -- populated by server._wire_admin_integration().
+        # Default None keeps standalone AdminSite instances (tests,
+        # embedders) working without a server attached.
+        self.config: Any = None
+
         # Admin configuration -- populated by server._wire_admin_integration()
         self.admin_config: AdminConfig = AdminConfig()
 
