@@ -83,6 +83,7 @@ class ProjectionRegistry:
         all_facet_names: set[str],
         write_only_names: set[str],
         minimal_names: set[str] | None = None,
+        silently_derived_names: set[str] | None = None,
     ) -> None:
         """
         Configure named projections from Spec class declarations.
@@ -124,8 +125,13 @@ class ProjectionRegistry:
         minimal = frozenset(minimal_names) & self._all_facets
 
         if projections is None:
-            # No projections defined -- create a default "__all__" projection
-            self._projections["__all__"] = self._all_facets
+            # No projections defined -- create a default "__all__" projection.
+            # Facets that exist only because a Spec.model silently derived them
+            # (Spec.fields unset) are excluded: an author who never named those
+            # columns must not find them -- secrets included -- in molded
+            # output. Opting in is explicit: Spec.fields, Spec.projections, or
+            # a class-body/annotation declaration of the field.
+            self._projections["__all__"] = self._all_facets - frozenset(silently_derived_names or ())
             self._default = "__all__"
             return
 
@@ -150,7 +156,9 @@ class ProjectionRegistry:
                 elif includes:
                     self._projections[name] = frozenset(includes)
                 else:
-                    self._projections[name] = self._all_facets
+                    # An empty field list is a valid projection: it produces an
+                    # empty output rather than falling through to every facet.
+                    self._projections[name] = frozenset()
             else:
                 # Single field name or other
                 self._projections[name] = frozenset([str(fields)])

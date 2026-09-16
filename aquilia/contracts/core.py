@@ -337,6 +337,7 @@ class ContractMeta(type):
         # Now that the class is created, we can read cls.__annotations__
         # which is properly populated even with PEP 649 (Python 3.14).
         annotated_facets: dict[str, Facet] = {}
+        plain_defaults: dict[str, Any] = {}
         try:
             # Build a namespace dict with annotations and field descriptors
             ann_namespace: dict[str, Any] = {}
@@ -367,12 +368,17 @@ class ContractMeta(type):
             for fname, facet in declared_facets.items():
                 if fname not in ann_namespace and isinstance(facet, Computed):
                     ann_namespace[fname] = facet
-            # Inject any other class attributes that are defaults (not Facets)
+            # Inject any other class attributes that are defaults (not Facets).
+            # Underscore-prefixed names are internal class attributes (e.g.
+            # Contract._active_groups), not wire fields, and must stay in the
+            # class dict -- they are never recorded as plain defaults.
+            plain_defaults: dict[str, Any] = {}
             for fname in cls_annotations:
-                if fname not in ann_namespace and fname not in declared_facets:
+                if fname not in ann_namespace and fname not in declared_facets and not fname.startswith("_"):
                     val = namespace.get(fname, UNSET)
                     if val is not UNSET:
                         ann_namespace[fname] = val
+                        plain_defaults[fname] = val
             annotated_facets = introspect_annotations(
                 cls,
                 ann_namespace,
@@ -404,6 +410,38 @@ class ContractMeta(type):
             declared_facets=declared_facets,
         )
         cls._declared_facets = declared_facets
+
+        # ── Namespace hygiene ─────────────────────────────────────────
+        # Declared facets and plain default values left in the class dict
+        # shadow Contract.__getattr__, so ``bp.field`` returns the facet
+        # object or a stale default instead of the validated value. Remove
+        # them from this class's own dict; class-level access falls through
+        # to ContractMeta.__getattr__, which serves the facet for
+        # introspection.
+        for fname in declared_facets:
+            if fname in cls.__dict__:
+                delattr(cls, fname)
+        for fname in plain_defaults:
+            if fname in cls.__dict__:
+                delattr(cls, fname)
+
+        # A Field(...) assigned without a type annotation is collected above
+        # but never seen by annotation introspection, which only iterates
+        # annotated names -- the constraints silently vanish. Refuse loudly.
+        if field_descriptors:
+            inherited = set()
+            for base in bases:
+                inherited.update(getattr(getattr(base, "_all_facets", None), "keys", lambda: ())())
+            for fname in field_descriptors:
+                if fname not in cls_annotations and fname not in inherited:
+                    raise ConfigInvalidFault(
+                        key=f"contracts.{name}.{fname}",
+                        reason=(
+                            f"Field '{fname}' has no type annotation. A bare "
+                            f"Field(...) is silently ignored by contract "
+                            f"introspection; annotate it, e.g. '{fname}: str = Field(...)'."
+                        ),
+                    )
 
         # If this is the base Contract class itself, skip model derivation and basic setup
         if name == "Contract":
@@ -449,6 +487,42 @@ class ContractMeta(type):
         # Sort by creation order
         cls._all_facets = dict(sorted(all_facets.items(), key=lambda item: item[1]._order))
 
+        # Fields that may legitimately be absent from validated_data after a
+        # successful seal: optional fields with no default and no nullability
+        # (the sigil omit-rule), plus read-only fields (never validated at
+        # all). __getattr__ synthesizes None for them instead of raising
+        # AttributeError. Computed / Constant / Inject facets never live in
+        # validated_data either but carry no input meaning; they keep raising.
+        # ``_input_field_names`` covers every data facet and backs the
+        # partial=True (PATCH) case, where required fields may be absent.
+        cls._synthetic_none_fields = frozenset(
+            fname
+            for fname, facet in cls._all_facets.items()
+            if not isinstance(facet, (Computed, Constant, Inject))
+            and (
+                facet.read_only
+                or (not facet.required and facet.default is UNSET and not facet.allow_null)
+            )
+        )
+        cls._input_field_names = frozenset(
+            fname
+            for fname, facet in cls._all_facets.items()
+            if not isinstance(facet, (Computed, Constant, Inject))
+        )
+
+        # Facets that exist only through silent model derivation (Spec.model
+        # set, Spec.fields unset, nothing declared/annotated/parented under
+        # the same name). They are excluded from the implicit default
+        # projection to keep undeclared model columns -- secrets included --
+        # out of molded output.
+        silently_derived: set[str] = set()
+        if spec.model is not None and spec.fields is None:
+            named = set(declared_facets) | set(annotated_facets) | set(parent_facets) | set(spec.extra_facets)
+            silently_derived = {
+                fname for fname in model_facets if fname not in named and fname in cls._all_facets
+            }
+        cls._silently_derived_fields = frozenset(silently_derived)
+
         # The declared field names as a set, for the extra_fields="reject" check
         # in is_sealed(). Static per class, so rebuilding it per call was 80 ns
         # of pure waste. Assigned here rather than memoised on first use so a
@@ -470,7 +544,18 @@ class ContractMeta(type):
             all_facet_names=set(cls._all_facets.keys()),
             write_only_names=write_only_names,
             minimal_names=mcs._minimal_facet_names(cls._all_facets, spec),
+            silently_derived_names=silently_derived,
         )
+        if silently_derived and spec.projections is None:
+            warnings.warn(
+                f"Contract '{name}': {len(silently_derived)} model-derived field(s) "
+                f"({', '.join(sorted(silently_derived)[:5])}"
+                f"{'...' if len(silently_derived) > 5 else ''}) are excluded from the "
+                f"default output projection because Spec.fields/Spec.projections do not "
+                f"declare them. Declare them (or set Spec.fields) to include them in output.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
 
         # Collect ward methods
         from aquilia.contracts.ward import collect_ward_methods
@@ -668,6 +753,13 @@ class ContractMeta(type):
         else:
             include = set(model_fields.keys())
 
+        # Fields that exist only because the model binding silently derived
+        # them (Spec.fields unset) must not auto-require model NOT NULL
+        # constraints: an inbound PATCH/PUT contract would then 400 on every
+        # column its author never named. Explicit Spec.fields is the opt-in
+        # that keeps model-constraint-derived requiredness.
+        implicit_derivation = spec.fields is None
+
         if spec.exclude:
             include -= set(spec.exclude)
 
@@ -684,7 +776,27 @@ class ContractMeta(type):
             else:
                 facets[fname] = derive_facet(mf)
 
+            if implicit_derivation and facets[fname]._required is None:
+                facets[fname].required = False
+
         return facets
+
+    def __getattr__(cls, name: str) -> Any:
+        """Serve declared facets for CLASS-level access.
+
+        Facets and plain defaults are removed from the class ``__dict__`` by
+        ``__new__`` so they cannot shadow ``Contract.__getattr__`` on
+        instances. Introspection code that reads ``MyContract.myfield`` still
+        receives the facet. Private/dunder names and unknown names raise
+        AttributeError so ``getattr(cls, ..., default)`` and ``hasattr``
+        semantics are preserved.
+        """
+        if name.startswith("_"):
+            raise AttributeError(name)
+        facets = cls.__dict__.get("_all_facets")
+        if facets is not None and name in facets:
+            return facets[name]
+        raise AttributeError(f"Contract {cls.__name__!r} has no field {name!r}")
 
     def __getitem__(cls, projection: Any) -> Any:
         """
@@ -984,6 +1096,13 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
     # missing attribute as "no such field".
     _active_groups: frozenset[str] | None = None
 
+    # Absent-optional fields (__getattr__ returns None after a successful
+    # seal) and all data-carrying field names (partial=True lookups).
+    # Replaced per-class by the metaclass; defaults keep the base Contract
+    # and any class created before the metaclass finish usable.
+    _synthetic_none_fields: frozenset[str] = frozenset()
+    _input_field_names: frozenset[str] = frozenset()
+
     to_dict = ContractSerializationDescriptor("to_dict")
     to_dict_many = ContractSerializationDescriptor("to_dict_many")
     to_dict_async = ContractSerializationDescriptor("to_dict_async")
@@ -1102,11 +1221,23 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
         return self.__class__._all_facets
 
     def __getattr__(self, name: str) -> Any:
-        """Proxy attribute access to validated_data."""
+        """Proxy attribute access to validated_data.
+
+        Absent optional fields (optional, no default, not nullable) are
+        omitted from validated_data by the sigil; after a successful seal
+        they read as ``None`` instead of raising AttributeError. Under
+        ``partial=True`` every data field may be absent, so all of them
+        degrade to ``None``. Unknown names still raise.
+        """
         if name.startswith("_"):
             raise AttributeError(name)
         if self._validated_data is not None and name in self._validated_data:
             return self._validated_data[name]
+        if not self.many:
+            if name in self.__class__._synthetic_none_fields:
+                return None
+            if self.partial and name in self.__class__._input_field_names:
+                return None
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
     def __getitem__(self, key: str) -> Any:

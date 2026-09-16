@@ -202,8 +202,11 @@ async def test_nested_contract_validation():
         await engine._bind_parameters(route_meta, req, ctx, path_params={}, container=None)
 
     errors = exc_info.value.field_errors
-    assert "address" in errors
-    assert "city" in errors["address"]
+    # Nested contract failures flatten to dotted paths (F-CORE-01 fix) —
+    # the old shape kept the parent key with the child's *field names* as
+    # messages; the fix preserves real messages under "address.city".
+    assert "address.city" in errors
+    assert any("required" in msg.lower() for msg in errors["address.city"])
 
 
 @pytest.mark.asyncio

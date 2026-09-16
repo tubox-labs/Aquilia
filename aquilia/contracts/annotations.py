@@ -1069,6 +1069,19 @@ def _build_facet_from_annotation_raw(
             return ContractUnionAdapterFacet(actual_type, **union_kwargs)
 
         if target_facet is not None:
+            # ``Annotated[str | None, SomeFacet()]`` previously returned the
+            # facet untouched: the Optional half of the annotation was silently
+            # ignored and the field stayed required / non-nullable. Unwrap the
+            # annotated type's Optional-ness and apply it to the facet. The
+            # facet is cloned first when mutation is needed so a shared,
+            # module-level facet instance used in both Optional and non-
+            # Optional annotations is not polluted.
+            _inner, _is_optional = _unwrap_optional(actual_type)
+            if _is_optional and not target_facet.allow_null:
+                target_facet = target_facet.clone()
+                target_facet.allow_null = True
+                if target_facet._required is None:
+                    target_facet.required = False
             if pipeline is not None:
                 target_facet._pipeline = pipeline
 
@@ -1402,6 +1415,30 @@ def _build_constraint_validators(field_spec: Field) -> list[Callable]:
     return extra
 
 
+def _is_classvar_annotation(annotation: Any) -> bool:
+    """True for ClassVar/InitVar annotations (resolved objects or strings)."""
+    from typing import ClassVar as _ClassVar
+
+    try:
+        from dataclasses import InitVar as _InitVar
+    except ImportError:  # pragma: no cover
+        _InitVar = None
+
+    origin = get_origin(annotation)
+    if origin is _ClassVar:
+        return True
+    if _InitVar is not None and (
+        annotation is _InitVar or origin is _InitVar or isinstance(annotation, _InitVar)
+    ):
+        return True
+    if isinstance(annotation, str):
+        base = annotation.split("[", 1)[0].strip()
+        return base.endswith(("ClassVar", "InitVar"))
+    if isinstance(annotation, ForwardRef):
+        return _is_classvar_annotation(annotation.__forward_arg__)
+    return False
+
+
 def introspect_annotations(
     cls: type,
     namespace: dict[str, Any],
@@ -1553,6 +1590,11 @@ def introspect_annotations(
     for field_name, annotation in resolved_annotations.items():
         # Skip private/dunder
         if field_name.startswith("_"):
+            continue
+
+        # ClassVar / InitVar annotations are class-level configuration, not
+        # wire fields -- they must not become input/output facets.
+        if _is_classvar_annotation(annotation):
             continue
 
         # Skip if there's already an explicit Facet declared unless

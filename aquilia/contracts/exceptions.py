@@ -161,6 +161,27 @@ class SealFault(ContractFault):
 
     code = "BP200"
 
+    @staticmethod
+    def _flatten_errors(
+        errors: dict[str, Any], _prefix: str = ""
+    ) -> dict[str, list[str]]:
+        """Flatten nested-contract error dicts into dotted-path lists.
+
+        A nested failure surfaces as ``{field: {child: [messages]}}``;
+        ``list()`` over the inner dict would report child field names as
+        messages. Recurse so ``device.deviceId`` keeps its real message.
+        """
+        flat: dict[str, list[str]] = {}
+        for field, field_errors in errors.items():
+            key = f"{_prefix}{field}"
+            if isinstance(field_errors, dict):
+                flat.update(
+                    SealFault._flatten_errors(field_errors, _prefix=f"{key}.")
+                )
+            else:
+                flat[key] = list(field_errors)
+        return flat
+
     def __init__(
         self,
         message: str = "Contract validation failed",
@@ -172,13 +193,14 @@ class SealFault(ContractFault):
         # Flatten errors for details if possible
         details = None
         if errors:
+            flat = self._flatten_errors(errors)
             # If only one field failed, show that field and its reason
-            if len(errors) == 1:
-                field, reasons = next(iter(errors.items()))
+            if len(flat) == 1:
+                field, reasons = next(iter(flat.items()))
                 details = {"field": field, "reason": reasons[0] if reasons else "Validation failed"}
             else:
                 # Multiple fields: show all
-                details = {"fields": [{"field": f, "reasons": rs} for f, rs in errors.items()]}
+                details = {"fields": [{"field": f, "reasons": rs} for f, rs in flat.items()]}
         meta = dict(metadata or {})
         if details:
             meta["details"] = details
@@ -371,6 +393,26 @@ class StubGenerationFault(ContractFault):
     severity = Severity.WARN
 
 
+_CAST_PREFIX = "Cast failed for '"
+
+
+def _strip_cast_prefix(message: str) -> str:
+    """Remove leading ``Cast failed for '<field>': `` decorations.
+
+    Applied repeatedly: a fault re-wrapped by a collection facet (list/set/
+    dict) accumulates one prefix per layer, and the per-field error lists
+    collected by the sigil already carry the field name as their key.
+    """
+    while True:
+        idx = message.find(_CAST_PREFIX)
+        if idx != 0:
+            return message
+        end = message.find("': ", len(_CAST_PREFIX))
+        if end == -1:
+            return message
+        message = message[end + 3 :]
+
+
 def fault_message(exc: BaseException) -> str:
     """Return an exception's user-facing message without the fault-code prefix.
 
@@ -378,9 +420,11 @@ def fault_message(exc: BaseException) -> str:
     bracketed code is server-side diagnostics, not something an API client
     should see repeated inside every per-field error. Contract error
     collection uses this helper so field messages stay clean regardless of
-    how many layers re-wrapped the original fault.
+    how many layers re-wrapped the original fault. The ``Cast failed for
+    '<field>': `` decoration that :class:`CastFault` itself prepends is
+    stripped as well: the field is already conveyed by the error-dict key.
     """
     message = getattr(exc, "message", None)
     if isinstance(message, str) and message:
-        return message
+        return _strip_cast_prefix(message)
     return str(exc)
