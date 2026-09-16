@@ -1443,7 +1443,7 @@ class TestAdminControllerRoutes:
         req = self._make_request()
 
         # Ensure env vars don't match
-        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin", "AQUILIA_ENV": "test"}):
             resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 401
 
@@ -1453,7 +1453,7 @@ class TestAdminControllerRoutes:
         ctx.form = AsyncMock(return_value={"username": "admin", "password": "admin"})
         req = self._make_request()
 
-        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin", "AQUILIA_ENV": "test"}):
             resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 302
         assert resp.headers["location"] == "/admin/"
@@ -1471,7 +1471,7 @@ class TestAdminControllerRoutes:
         )
         req = self._make_request()
 
-        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin", "AQUILIA_ENV": "test"}):
             resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 302
         # Session should store the remember_me flag
@@ -1491,7 +1491,7 @@ class TestAdminControllerRoutes:
         )
         req = self._make_request()
 
-        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin", "AQUILIA_ENV": "test"}):
             resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 302
         assert ctx.session.data.get("_admin_remember_me") is False
@@ -1511,7 +1511,7 @@ class TestAdminControllerRoutes:
         )
         req = self._make_request()
 
-        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin", "AQUILIA_ENV": "test"}):
             resp = await self.ctrl.login_submit(req, ctx)
         assert resp.status == 302
         # Check audit log recorded the remember_me metadata
@@ -1842,7 +1842,7 @@ class TestAdminEdgeCases:
         """Test the environment-based authentication fallback."""
         ctrl = AdminController()
 
-        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "root", "AQUILIA_ADMIN_PASSWORD": "secret"}):
+        with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "root", "AQUILIA_ADMIN_PASSWORD": "secret", "AQUILIA_ENV": "test"}):
             identity = await ctrl._authenticate_admin("root", "secret")
             assert identity is not None
             assert identity.id == "admin-1"

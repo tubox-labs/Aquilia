@@ -1,5 +1,5 @@
 """
-Regression tests for the ORM forensic-audit fixes (v1.4.1).
+Regression tests for the ORM forensic-audit fixes (v1.4.2).
 
 Covers:
     - F-OR-01: find_or_create/get_or_create/update_or_create/bulk_update

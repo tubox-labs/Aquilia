@@ -1,5 +1,5 @@
 """
-Regression tests for the DB transaction / migration audit fixes (v1.4.1).
+Regression tests for the DB transaction / migration audit fixes (v1.4.2).
 
 Covers:
     - N1: cross-task transaction bleed. The SQLite adapter used to store

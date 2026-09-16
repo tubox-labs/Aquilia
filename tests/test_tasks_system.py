@@ -2008,7 +2008,7 @@ class TestQueryInspectorCRUDIntegration:
 
         with (
             patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}),
-            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+            patch("aquilia.admin.controller._require_identity", new_callable=AsyncMock, return_value=(mock_ctx.identity, None)),
         ):
             resp = await ctrl.edit_submit(mock_request, mock_ctx)
 
@@ -2057,7 +2057,7 @@ class TestQueryInspectorCRUDIntegration:
 
         with (
             patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}),
-            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+            patch("aquilia.admin.controller._require_identity", new_callable=AsyncMock, return_value=(mock_ctx.identity, None)),
             patch("aquilia.admin.controller.render_form_view") as mock_render,
         ):
             mock_render.return_value = "<html>form</html>"
@@ -2119,7 +2119,7 @@ class TestQueryInspectorCRUDIntegration:
 
         with (
             patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}),
-            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+            patch("aquilia.admin.controller._require_identity", new_callable=AsyncMock, return_value=(mock_ctx.identity, None)),
             patch("aquilia.admin.controller.render_form_view") as mock_render,
         ):
             mock_render.return_value = "<html>form with inspector</html>"
@@ -2162,7 +2162,7 @@ class TestQueryInspectorCRUDIntegration:
 
         with (
             patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"a": "b"}),
-            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+            patch("aquilia.admin.controller._require_identity", new_callable=AsyncMock, return_value=(mock_ctx.identity, None)),
         ):
             resp = await ctrl.edit_submit(mock_request, mock_ctx)
 
@@ -2208,7 +2208,7 @@ class TestQueryInspectorCRUDIntegration:
 
         with (
             patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}),
-            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+            patch("aquilia.admin.controller._require_identity", new_callable=AsyncMock, return_value=(mock_ctx.identity, None)),
         ):
             await ctrl.edit_submit(mock_request, mock_ctx)
 
