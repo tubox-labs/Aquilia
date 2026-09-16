@@ -15,6 +15,7 @@ Integrates with Aquilia's middleware stack to provide:
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac
 import logging
@@ -197,6 +198,14 @@ class CacheMiddleware(Middleware):
         cached_data = await self._cache.get(cache_key, namespace=self._namespace)
 
         if cached_data and isinstance(cached_data, dict):
+            # Decode the stored body.  Bodies are base64-encoded on store so
+            # they survive JSON-serializing backends; an entry that cannot be
+            # decoded (legacy format, corruption) is treated as a miss.
+            cached_body = self._decode_body(cached_data.get("body", ""))
+            if cached_body is None:
+                cached_data = None
+
+        if cached_data and isinstance(cached_data, dict):
             # Check if stale
             cached_at = cached_data.get("cached_at", 0)
             ttl_used = cached_data.get("ttl", self._default_ttl)
@@ -230,7 +239,7 @@ class CacheMiddleware(Middleware):
                     self._spawn_refresh(request, ctx, next_handler, cache_key)
 
                     return Response(
-                        content=cached_data.get("body", b""),
+                        content=cached_body,
                         status=cached_data.get("status", 200),
                         headers=headers,
                     )
@@ -242,7 +251,7 @@ class CacheMiddleware(Middleware):
                 headers["Age"] = str(int(age))
 
                 return Response(
-                    content=cached_data.get("body", b""),
+                    content=cached_body,
                     status=cached_data.get("status", 200),
                     headers=headers,
                 )
@@ -278,9 +287,11 @@ class CacheMiddleware(Middleware):
             return response
         etag = self._generate_etag(body)
 
-        # Store in cache
+        # Store in cache.  The body is base64-encoded: a JSON-serializing
+        # backend would otherwise coerce raw bytes to their ``repr`` string
+        # and serve corrupted bodies on every subsequent hit.
         cache_data = {
-            "body": body,
+            "body": base64.b64encode(body).decode("ascii"),
             "status": response.status,
             "headers": dict(response.headers) if hasattr(response, "headers") else {},
             "etag": etag,
@@ -394,7 +405,7 @@ class CacheMiddleware(Middleware):
 
                 etag = self._generate_etag(body)
                 cache_data = {
-                    "body": body,
+                    "body": base64.b64encode(body).decode("ascii"),
                     "status": response.status,
                     "headers": dict(response.headers) if hasattr(response, "headers") else {},
                     "etag": etag,
@@ -409,6 +420,33 @@ class CacheMiddleware(Middleware):
                 )
         except Exception as e:
             logger.warning(f"Background cache refresh failed: {e}")
+
+    @staticmethod
+    def _decode_body(stored: Any) -> bytes | None:
+        """
+        Decode a cached response body.
+
+        Args:
+            stored: The ``body`` field of a cached entry.
+
+        Returns:
+            The decoded bytes, or ``None`` when the entry cannot be decoded
+            (legacy or corrupt format) and must be treated as a miss.
+
+        Note:
+            Bytes pass through untouched -- binary-safe serializers (e.g.
+            pickle) round-trip bodies natively.  Strings are expected to be
+            base64 (the storage format); the legacy JSON-repr format
+            (``"b'...'"``) fails validation and yields a miss.
+        """
+        if isinstance(stored, bytes):
+            return stored
+        if isinstance(stored, str):
+            try:
+                return base64.b64decode(stored.encode("ascii"), validate=True)
+            except (ValueError, UnicodeEncodeError):
+                return None
+        return None
 
     def _build_request_key(self, request: Request) -> str:
         """Build a cache key from request attributes."""

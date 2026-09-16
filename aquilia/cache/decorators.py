@@ -17,7 +17,7 @@ and ``key_version`` and embed the namespace exactly once -- identical to
 keys produced by direct ``cache.get``/``cache.set`` calls.
 
 Functions returning ``None`` are cached: the value is stored as a private
-sentinel and restored on read, so a legitimately ``None`` result does not
+marker and restored on read, so a legitimately ``None`` result does not
 force recomputation on every call.
 """
 
@@ -35,8 +35,15 @@ logger = logging.getLogger("aquilia.cache.decorators")
 
 T = TypeVar("T")
 
-#: Marker stored in place of ``None`` so cached ``None`` results are hits.
-_NONE_SENTINEL: Final[str] = "__aquilia_cache_none__"
+#: Wrapper stored in place of ``None`` so cached ``None`` results are hits.
+#: The marker is a dict, not a bare string: a plain-string sentinel collided
+#: with any user function that legitimately returned that exact string.
+_NONE_MARKER: Final[dict[str, bool]] = {"__aquilia_cache_none__": True}
+
+#: Bare-string sentinel written by earlier Aquilia versions.  Entries
+#: carrying it are treated as misses (recomputed and overwritten), never
+#: served as values and never misread as ``None``.
+_NONE_SENTINEL_LEGACY: Final[str] = "__aquilia_cache_none__"
 
 # Module-level cache service registry for decorators
 # Set via `set_default_cache_service()` during app startup
@@ -159,8 +166,12 @@ def cached(
 
             # Try cache
             cached_value = await cache_service.get(cache_key, namespace=namespace)
-            if cached_value is not None:
-                return None if cached_value == _NONE_SENTINEL else cached_value
+            if isinstance(cached_value, dict) and cached_value == _NONE_MARKER:
+                return None
+            if cached_value is not None and cached_value != _NONE_SENTINEL_LEGACY:
+                return cached_value
+            # Miss, or a legacy-format sentinel entry: recompute so callers
+            # never receive an internal marker as a value.
 
             # Cache miss -- compute
             result = await func(*args, **kwargs) if is_async else func(*args, **kwargs)
@@ -176,7 +187,7 @@ def cached(
             if should_cache:
                 await cache_service.set(
                     cache_key,
-                    _NONE_SENTINEL if result is None else result,
+                    _NONE_MARKER if result is None else result,
                     ttl=ttl,
                     namespace=namespace,
                     tags=tags,

@@ -20,6 +20,8 @@ from typing import (
     runtime_checkable,
 )
 
+from aquilia.faults.domains import ConfigInvalidFault
+
 T = TypeVar("T")
 
 
@@ -241,7 +243,8 @@ class CacheConfig:
     redis_socket_timeout: float = 5.0
     redis_socket_connect_timeout: float = 5.0
     redis_retry_on_timeout: bool = True
-    redis_decode_responses: bool = True
+    # Effective default False: values are handed to the serializer as bytes.
+    redis_decode_responses: bool = False
 
     # Composite (L1/L2) specific
     l1_max_size: int = 1000  # L1 (memory) size
@@ -260,6 +263,26 @@ class CacheConfig:
     trace_enabled: bool = True
     metrics_enabled: bool = True
     log_level: str = "WARNING"
+
+    def __post_init__(self) -> None:
+        """
+        Validate capacity settings at construction time.
+
+        A ``max_size`` of ``0`` means "unlimited" (the memory backend never
+        evicts), but a negative capacity is a configuration error -- it used
+        to send the memory backend into an unawaited eviction loop that hung
+        the event loop.
+        """
+        if self.max_size < 0:
+            raise ConfigInvalidFault(
+                key="cache.max_size",
+                reason=f"max_size must be >= 0 (0 = unlimited), got {self.max_size}",
+            )
+        if self.l1_max_size < 0:
+            raise ConfigInvalidFault(
+                key="cache.l1_max_size",
+                reason=f"l1_max_size must be >= 0 (0 = unlimited), got {self.l1_max_size}",
+            )
 
     def apply_jitter(self, ttl: int) -> int:
         """
@@ -536,6 +559,7 @@ class CacheBackend(ABC):
         items: dict[str, Any],
         ttl: int | None = None,
         namespace: str = "default",
+        tags: tuple[str, ...] = (),
     ) -> None:
         """
         Batch set multiple key-value pairs.
@@ -543,7 +567,7 @@ class CacheBackend(ABC):
         Default implementation calls set() for each item.
         """
         for key, value in items.items():
-            await self.set(key, value, ttl=ttl, namespace=namespace)
+            await self.set(key, value, ttl=ttl, tags=tags, namespace=namespace)
 
     async def delete_many(self, keys: list[str]) -> int:
         """

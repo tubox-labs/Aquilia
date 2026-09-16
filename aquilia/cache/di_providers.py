@@ -59,7 +59,16 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
             socket_timeout=config.redis_socket_timeout,
             connect_timeout=config.redis_socket_connect_timeout,
             retry_on_timeout=config.redis_retry_on_timeout,
-            key_prefix=config.key_prefix,
+            decode_responses=config.redis_decode_responses,
+            # The service-level key builder already composes
+            # ``{key_prefix}{version}:{namespace}:{key}``; a second prefix
+            # here doubled it to ``{key_prefix}{key_prefix}v1:...``.
+            #
+            # Migration note (one generation): entries written by versions
+            # that double-prefixed (``aq:aq:v1:...``) are orphaned by this
+            # change -- they stay invisible until their TTL expires or
+            # ``key_version`` is bumped, then age out harmlessly.
+            key_prefix="",
             serializer=_build_serializer(config),
         )
 
@@ -68,13 +77,18 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
             max_size=config.l1_max_size,
             eviction_policy=config.eviction_policy,
             capacity_warning_threshold=config.capacity_warning_threshold,
+            default_ttl=config.l1_ttl,
         )
 
         if config.l2_backend == "redis":
             l2 = RedisBackend(
                 url=config.redis_url,
                 max_connections=config.redis_max_connections,
-                key_prefix=config.key_prefix,
+                socket_timeout=config.redis_socket_timeout,
+                connect_timeout=config.redis_socket_connect_timeout,
+                retry_on_timeout=config.redis_retry_on_timeout,
+                decode_responses=config.redis_decode_responses,
+                key_prefix="",  # service already prefixed; see note above
                 serializer=_build_serializer(config),
             )
         else:
@@ -84,6 +98,7 @@ def create_cache_backend(config: CacheConfig) -> CacheBackend:
             l1=l1,
             l2=l2,
             async_l2_write=config.l2_async_write,
+            l1_ttl=config.l1_ttl,
         )
 
     elif backend_type == "null":
@@ -176,7 +191,7 @@ def build_cache_config(config_dict: dict[str, Any]) -> CacheConfig:
         redis_socket_timeout=config_dict.get("redis_socket_timeout", 5.0),
         redis_socket_connect_timeout=config_dict.get("redis_socket_connect_timeout", 5.0),
         redis_retry_on_timeout=config_dict.get("redis_retry_on_timeout", True),
-        redis_decode_responses=config_dict.get("redis_decode_responses", True),
+        redis_decode_responses=config_dict.get("redis_decode_responses", False),
         l1_max_size=config_dict.get("l1_max_size", 1000),
         l1_ttl=config_dict.get("l1_ttl", 60),
         l2_backend=config_dict.get("l2_backend", "redis"),

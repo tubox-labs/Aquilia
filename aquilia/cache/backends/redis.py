@@ -22,10 +22,18 @@ import logging
 import time
 import uuid
 from typing import Any
+from urllib.parse import urlparse
 
 from aquilia.cache.core import CacheBackend, CacheEntry, CacheStats
 
 logger = logging.getLogger("aquilia.cache.redis")
+
+#: Seconds a command may wait for a free connection before giving up.
+#:
+#: The pool is a ``BlockingConnectionPool``: when all connections are busy,
+#: callers queue instead of failing instantly, so a short burst of requests
+#: degrades to queuing rather than to silently dropped writes.
+_POOL_ACQUIRE_TIMEOUT: float = 30.0
 
 #: Atomically increment a counter only when it already exists.
 #:
@@ -91,6 +99,9 @@ class RedisBackend(CacheBackend):
         socket_timeout: Per-command socket timeout in seconds.
         connect_timeout: Connection establishment timeout in seconds.
         retry_on_timeout: Retry commands that time out.
+        decode_responses: Ask redis-py to decode replies as ``str``.  The
+            default is ``False`` because values are handed to the configured
+            serializer as bytes; replies are normalised either way.
         key_prefix: Prefix applied to every key this backend writes.
         serializer: Value serializer; defaults to JSON.
 
@@ -107,9 +118,12 @@ class RedisBackend(CacheBackend):
         "_socket_timeout",
         "_connect_timeout",
         "_retry_on_timeout",
+        "_decode_responses",
         "_key_prefix",
         "_serializer",
         "_redis",
+        "_pool",
+        "_db",
         "_stats",
         "_start_time",
         "_initialized",
@@ -125,6 +139,7 @@ class RedisBackend(CacheBackend):
         socket_timeout: float = 5.0,
         connect_timeout: float = 5.0,
         retry_on_timeout: bool = True,
+        decode_responses: bool = False,
         key_prefix: str = "aq:",
         serializer: Any | None = None,
     ):
@@ -133,8 +148,11 @@ class RedisBackend(CacheBackend):
         self._socket_timeout = socket_timeout
         self._connect_timeout = connect_timeout
         self._retry_on_timeout = retry_on_timeout
+        self._decode_responses = decode_responses
         self._key_prefix = key_prefix
+        self._db = self._parse_db_index(url)
         self._redis = None
+        self._pool = None
         self._stats = CacheStats(backend="redis")
         self._start_time = time.monotonic()
         self._initialized = False
@@ -149,6 +167,25 @@ class RedisBackend(CacheBackend):
             self._serializer = JsonCacheSerializer()
         else:
             self._serializer = serializer
+
+    @staticmethod
+    def _parse_db_index(url: str) -> int:
+        """
+        Extract the logical DB index from a Redis URL.
+
+        Args:
+            url: Connection URL such as ``redis://host:6379/15``.
+
+        Returns:
+            The DB number (0 when the URL carries no path segment).
+        """
+        path = urlparse(url).path
+        if not path or path == "/":
+            return 0
+        try:
+            return int(path.strip("/"))
+        except ValueError:
+            return 0
 
     @property
     def name(self) -> str:
@@ -169,14 +206,20 @@ class RedisBackend(CacheBackend):
             raise ImportError("Redis backend requires 'redis' package. Install with: pip install redis[hiredis]")
 
         try:
-            self._redis = aioredis.from_url(
+            # A blocking pool queues callers when all connections are busy
+            # instead of raising "Too many connections" on the spot -- with
+            # the never-raise contract on each operation, an eagerly-failing
+            # pool turned every burst into silently dropped writes.
+            self._pool = aioredis.BlockingConnectionPool.from_url(
                 self._url,
                 max_connections=self._max_connections,
                 socket_timeout=self._socket_timeout,
                 socket_connect_timeout=self._connect_timeout,
                 retry_on_timeout=self._retry_on_timeout,
-                decode_responses=False,  # We handle serialization
+                decode_responses=self._decode_responses,
+                timeout=_POOL_ACQUIRE_TIMEOUT,
             )
+            self._redis = aioredis.Redis(connection_pool=self._pool)
             # Verify connection
             await self._redis.ping()
             self._incr_script = self._redis.register_script(_INCR_IF_EXISTS_LUA)
@@ -195,7 +238,12 @@ class RedisBackend(CacheBackend):
             # both so a redis-py 5 install keeps working.
             closer = getattr(self._redis, "aclose", None) or self._redis.close
             await closer()
+            # An explicitly supplied pool is not auto-closed by the client;
+            # disconnect it ourselves so no sockets are leaked.
+            if self._pool is not None:
+                await self._pool.disconnect()
             self._redis = None
+            self._pool = None
         self._initialized = False
 
     def _full_key(self, key: str) -> str:
@@ -218,6 +266,11 @@ class RedisBackend(CacheBackend):
     def _decode(value: Any) -> str:
         """Decode a Redis reply to ``str`` regardless of byte/str mode."""
         return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+
+    @staticmethod
+    def _as_bytes(value: Any) -> bytes:
+        """Normalise a raw reply to ``bytes`` for the serializer."""
+        return value.encode("utf-8") if isinstance(value, str) else value
 
     async def get(self, key: str) -> CacheEntry | None:
         """
@@ -250,7 +303,7 @@ class RedisBackend(CacheBackend):
                 self._stats.misses += 1
                 return None
 
-            value = self._serializer.deserialize(raw)
+            value = self._serializer.deserialize(self._as_bytes(raw))
             self._stats.hits += 1
 
             expires_at = None
@@ -337,9 +390,13 @@ class RedisBackend(CacheBackend):
                     # Extend tag set TTL to at least match entry TTL
                     pipe.expire(tag_key, ttl + 60)
 
-            # Register in namespace set
+            # Register in namespace set.  Mirror the tag-set TTL so the
+            # index self-prunes once its last member has expired; without
+            # it, namespace sets grew without bound.
             ns_key = self._ns_set_key(namespace)
             pipe.sadd(ns_key, full_key)
+            if ttl and ttl > 0:
+                pipe.expire(ns_key, ttl + 60)
 
             await pipe.execute()
             self._stats.sets += 1
@@ -409,13 +466,22 @@ class RedisBackend(CacheBackend):
 
     async def clear(self, namespace: str | None = None) -> int:
         """
-        Clear a namespace, or every key carrying this backend's prefix.
+        Clear a namespace, or every entry this cache has registered.
 
         Args:
-            namespace: Namespace to clear, or ``None`` for everything.
+            namespace: Namespace to clear, or ``None`` for everything this
+                backend itself wrote.
 
         Returns:
             Number of entries deleted.
+
+        Note:
+            A full clear never scans-and-deletes by raw prefix: a prefix is
+            shared with any other user of the database, so a blind
+            ``SCAN match <prefix>*`` deleted foreign keys that merely
+            happened to share it.  Instead, only keys registered in the
+            cache's own namespace index (and the index/sidecar keys derived
+            from them) are removed.
         """
         if not self._redis:
             return 0
@@ -435,25 +501,49 @@ class RedisBackend(CacheBackend):
                 await self._redis.delete(ns_key)
                 return 0
             else:
-                # Clear all keys with our prefix
+                # Registry-driven full clear: the namespace index names
+                # exactly the data keys this backend stored, so foreign keys
+                # sharing the prefix are never touched.
+                ns_sets = await self._scan_keys(f"{self._key_prefix}_ns:*")
+                tag_sets = await self._scan_keys(f"{self._key_prefix}_tags:*")
+                if not ns_sets and not tag_sets:
+                    return 0
+
+                pipe = self._redis.pipeline()
                 count = 0
-                cursor = 0
-                while True:
-                    cursor, keys = await self._redis.scan(
-                        cursor=cursor,
-                        match=f"{self._key_prefix}*",
-                        count=1000,
-                    )
-                    if keys:
-                        await self._redis.delete(*keys)
-                        count += len(keys)
-                    if cursor == 0:
-                        break
+                for set_key in ns_sets:
+                    for member in await self._live_members(set_key):
+                        pipe.delete(member)
+                        pipe.delete(self._meta_key(self._strip_prefix(member)))
+                        count += 1
+                    pipe.delete(set_key)
+                for set_key in tag_sets:
+                    pipe.delete(set_key)
+                await pipe.execute()
                 return count
         except Exception as e:
             logger.warning(f"Redis CLEAR error: {e}")
             self._stats.errors += 1
             return 0
+
+    async def _scan_keys(self, match: str) -> list[str]:
+        """
+        Collect every key matching a glob pattern via SCAN.
+
+        Args:
+            match: Glob pattern (already fully qualified).
+
+        Returns:
+            Matching keys, decoded to ``str``.
+        """
+        result: list[str] = []
+        cursor = 0
+        while True:
+            cursor, batch = await self._redis.scan(cursor=cursor, match=match, count=1000)
+            result.extend(self._decode(k) for k in batch)
+            if cursor == 0:
+                break
+        return result
 
     def _strip_prefix(self, full_key: str) -> str:
         """Return the unprefixed form of a fully-qualified key."""
@@ -474,29 +564,17 @@ class RedisBackend(CacheBackend):
                 prefix_len = len(self._key_prefix)
                 keys = [k[prefix_len:] for k in raw_keys if k.startswith(self._key_prefix)]
             else:
-                full_pattern = f"{self._key_prefix}{pattern}"
-                result = []
-                cursor = 0
-                while True:
-                    cursor, batch = await self._redis.scan(
-                        cursor=cursor,
-                        match=full_pattern,
-                        count=1000,
-                    )
-                    result.extend(batch)
-                    if cursor == 0:
-                        break
-                prefix_len = len(self._key_prefix)
-                internal = (
-                    f"{self._key_prefix}_tags:",
-                    f"{self._key_prefix}_ns:",
-                    f"{self._key_prefix}_meta:",
-                )
+                # Registry-driven, mirroring the namespace branch: only keys
+                # this cache registered are listed, so foreign keys that
+                # merely share a prefix never leak into diagnostics.
                 keys = []
-                for k in result:
-                    s = self._decode(k)
-                    if s.startswith(self._key_prefix) and not s.startswith(internal):
-                        keys.append(s[prefix_len:])
+                seen: set[str] = set()
+                for set_key in await self._scan_keys(f"{self._key_prefix}_ns:*"):
+                    for member in await self._live_members(set_key):
+                        stripped = self._strip_prefix(member)
+                        if stripped not in seen:
+                            seen.add(stripped)
+                            keys.append(stripped)
 
             if pattern != "*":
                 keys = [k for k in keys if fnmatch.fnmatch(k, pattern)]
@@ -515,8 +593,9 @@ class RedisBackend(CacheBackend):
                 info = await self._redis.info("memory", "keyspace")
                 self._stats.memory_bytes = info.get("used_memory", 0)
 
-                # Count keys
-                db_info = info.get("db0", {})
+                # Count keys in the DB this backend actually connects to,
+                # parsed from the connection URL (db0 only by coincidence).
+                db_info = info.get(f"db{self._db}", {})
                 if isinstance(db_info, dict):
                     self._stats.size = db_info.get("keys", 0)
             except Exception:
@@ -571,27 +650,66 @@ class RedisBackend(CacheBackend):
             return 0
 
     async def get_many(self, keys: list[str]) -> dict[str, CacheEntry | None]:
-        """Pipelined batch get."""
+        """
+        Pipelined batch get, restoring tags, namespace, and expiry.
+
+        Values, per-key TTLs, and per-key sidecar metadata are fetched in a
+        single pipeline round trip so each hit yields the same fully
+        populated entry a single ``get`` would -- tag-less, expiry-less
+        entries poisoned L1 promotion in ``CompositeBackend``.
+        """
         if not self._redis or not keys:
             return {k: None for k in keys}
 
         try:
-            full_keys = [self._full_key(k) for k in keys]
-            values = await self._redis.mget(full_keys)
+            pipe = self._redis.pipeline()
+            pipe.mget([self._full_key(k) for k in keys])
+            for k in keys:
+                pipe.pttl(self._full_key(k))
+                pipe.hgetall(self._meta_key(k))
+            replies = await pipe.execute()
+
+            values = replies[0]
+            per_key = replies[1:]  # (pttl, meta) pairs, in key order
 
             results = {}
-            for key, raw in zip(keys, values, strict=False):
+            for i, key in enumerate(keys):
+                raw = values[i]
                 if raw is None:
                     self._stats.misses += 1
                     results[key] = None
-                else:
-                    try:
-                        value = self._serializer.deserialize(raw)
-                        self._stats.hits += 1
-                        results[key] = CacheEntry(key=key, value=value)
-                    except Exception:
-                        self._stats.errors += 1
-                        results[key] = None
+                    continue
+
+                pttl, meta = per_key[i * 2], per_key[i * 2 + 1]
+
+                try:
+                    value = self._serializer.deserialize(self._as_bytes(raw))
+                except Exception:
+                    self._stats.errors += 1
+                    results[key] = None
+                    continue
+
+                self._stats.hits += 1
+
+                expires_at = None
+                if pttl and pttl > 0:
+                    expires_at = time.monotonic() + pttl / 1000.0
+
+                tags: tuple[str, ...] = ()
+                namespace = "default"
+                if meta:
+                    decoded = {self._decode(k): self._decode(v) for k, v in meta.items()}
+                    raw_tags = decoded.get("tags", "")
+                    tags = tuple(t for t in raw_tags.split("\x1f") if t)
+                    namespace = decoded.get("namespace", "default")
+
+                results[key] = CacheEntry(
+                    key=key,
+                    value=value,
+                    expires_at=expires_at,
+                    tags=tags,
+                    namespace=namespace,
+                )
 
             return results
         except Exception as e:
@@ -604,8 +722,15 @@ class RedisBackend(CacheBackend):
         items: dict[str, Any],
         ttl: int | None = None,
         namespace: str = "default",
+        tags: tuple[str, ...] = (),
     ) -> None:
-        """Pipelined batch set."""
+        """
+        Pipelined batch set.
+
+        Every key receives the same sidecar/tag/namespace bookkeeping a
+        single ``set`` performs, so ``set_many`` entries remain valid
+        targets for tag and namespace invalidation.
+        """
         if not self._redis or not items:
             return
 
@@ -614,6 +739,7 @@ class RedisBackend(CacheBackend):
 
             for key, value in items.items():
                 full_key = self._full_key(key)
+                meta_key = self._meta_key(key)
                 serialized = self._serializer.serialize(value)
 
                 if ttl and ttl > 0:
@@ -621,8 +747,27 @@ class RedisBackend(CacheBackend):
                 else:
                     pipe.set(full_key, serialized)
 
+                # Sidecar metadata so get()/get_many() can restore tags/namespace.
+                pipe.delete(meta_key)
+                pipe.hset(
+                    meta_key,
+                    mapping={"tags": "\x1f".join(tags), "namespace": namespace},
+                )
+                if ttl and ttl > 0:
+                    pipe.expire(meta_key, ttl)
+
+                # Register in tag sets
+                for tag in tags:
+                    tag_key = self._tag_set_key(tag)
+                    pipe.sadd(tag_key, full_key)
+                    if ttl and ttl > 0:
+                        pipe.expire(tag_key, ttl + 60)
+
+                # Register in namespace set, mirroring the entry's TTL.
                 ns_key = self._ns_set_key(namespace)
                 pipe.sadd(ns_key, full_key)
+                if ttl and ttl > 0:
+                    pipe.expire(ns_key, ttl + 60)
 
             await pipe.execute()
             self._stats.sets += len(items)
@@ -658,6 +803,46 @@ class RedisBackend(CacheBackend):
         except Exception as e:
             logger.warning(f"Redis INCRBY error: {e}")
             return None
+
+    async def touch(self, key: str, ttl: int) -> bool:
+        """
+        Refresh a key's TTL atomically via ``EXPIRE``.
+
+        The stored value, its sidecar metadata, tags, and namespace are all
+        preserved -- unlike a get+set cycle, nothing is re-serialised, so a
+        touch can never corrupt or drop an entry's tags.
+
+        Args:
+            key: Unprefixed cache key.
+            ttl: New TTL in seconds (<= 0 removes the expiry).
+
+        Returns:
+            True if the key existed and was refreshed, False on miss.
+        """
+        if not self._redis:
+            return False
+
+        full_key = self._full_key(key)
+
+        try:
+            pipe = self._redis.pipeline()
+            if ttl > 0:
+                # EXPIRE with 0 would DELETE the key -- never pass a non-positive TTL.
+                pipe.expire(full_key, ttl)
+            else:
+                pipe.persist(full_key)
+            # Keep the meta sidecar alive exactly as long as the entry, so
+            # tags/namespace stay readable for the extended lifetime.
+            if ttl > 0:
+                pipe.expire(self._meta_key(key), ttl)
+            else:
+                pipe.persist(self._meta_key(key))
+            renewed, _meta_renewed = await pipe.execute()
+            return bool(renewed)
+        except Exception as e:
+            logger.warning(f"Redis TOUCH error for key '{key}': {e}")
+            self._stats.errors += 1
+            return False
 
     async def health_check(self) -> bool:
         """Check if Redis is reachable."""

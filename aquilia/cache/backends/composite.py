@@ -53,6 +53,9 @@ class CompositeBackend(CacheBackend):
         l2: Distributed backend (typically ``RedisBackend``).
         promote_on_l2_hit: Promote L2 hits into L1.
         async_l2_write: Schedule L2 writes in the background for lower latency.
+        l1_ttl: Cap on the TTL used for L1 entries (seconds).  Promotions
+            and write-throughs never outlive ``min(l1_ttl, ttl)``; L1 is a
+            hot-key buffer, not a second source of truth.
 
     Usage::
 
@@ -62,7 +65,7 @@ class CompositeBackend(CacheBackend):
         await backend.shutdown()   # pending L2 writes are drained here
     """
 
-    __slots__ = ("_l1", "_l2", "_promote_on_l2_hit", "_async_l2_write", "_l2_healthy", "_pending")
+    __slots__ = ("_l1", "_l2", "_promote_on_l2_hit", "_async_l2_write", "_l1_ttl", "_l2_healthy", "_pending")
 
     def __init__(
         self,
@@ -70,11 +73,13 @@ class CompositeBackend(CacheBackend):
         l2: CacheBackend,
         promote_on_l2_hit: bool = True,
         async_l2_write: bool = False,
+        l1_ttl: int | None = None,
     ):
         self._l1 = l1
         self._l2 = l2
         self._promote_on_l2_hit = promote_on_l2_hit
         self._async_l2_write = async_l2_write
+        self._l1_ttl = l1_ttl
         self._l2_healthy = True
         self._pending: set[asyncio.Task[None]] = set()
 
@@ -145,6 +150,25 @@ class CompositeBackend(CacheBackend):
         await self._l1.shutdown()
         await self._l2.shutdown()
 
+    def _l1_effective_ttl(self, ttl: int | None) -> int | None:
+        """
+        Clamp a TTL for L1 storage.
+
+        Args:
+            ttl: TTL requested for the entry (``None`` = no expiry).
+
+        Returns:
+            ``min(l1_ttl, ttl)`` when both are set, ``l1_ttl`` alone when the
+            requested TTL is unbounded, otherwise the requested TTL.  L1 is a
+            short-lived hot-key buffer -- a promoted entry must never outlive
+            ``l1_ttl``, and an unbounded one must never live forever in L1.
+        """
+        if self._l1_ttl is None:
+            return ttl
+        if ttl is None:
+            return self._l1_ttl
+        return min(ttl, self._l1_ttl)
+
     async def get(self, key: str) -> CacheEntry | None:
         """Read-through: L1 → L2, promoting on L2 hit. L2 errors degrade gracefully."""
         # Try L1 first
@@ -168,7 +192,7 @@ class CompositeBackend(CacheBackend):
                 await self._l1.set(
                     key,
                     entry.value,
-                    ttl=ttl,
+                    ttl=self._l1_effective_ttl(ttl),
                     tags=entry.tags,
                     namespace=entry.namespace,
                 )
@@ -185,8 +209,8 @@ class CompositeBackend(CacheBackend):
         namespace: str = "default",
     ) -> None:
         """Write-through: write to L1 always, L2 with optional async mode."""
-        # L1 always synchronous
-        await self._l1.set(key, value, ttl=ttl, tags=tags, namespace=namespace)
+        # L1 always synchronous, capped at l1_ttl
+        await self._l1.set(key, value, ttl=self._l1_effective_ttl(ttl), tags=tags, namespace=namespace)
 
         # L2: async fire-and-forget or synchronous with error handling
         if self._async_l2_write:
@@ -278,7 +302,13 @@ class CompositeBackend(CacheBackend):
             for key, entry in l2_results.items():
                 if entry is not None:
                     ttl = int(entry.ttl_remaining) if entry.ttl_remaining else None
-                    await self._l1.set(key, entry.value, ttl=ttl, tags=entry.tags, namespace=entry.namespace)
+                    await self._l1.set(
+                        key,
+                        entry.value,
+                        ttl=self._l1_effective_ttl(ttl),
+                        tags=entry.tags,
+                        namespace=entry.namespace,
+                    )
 
         # Merge results
         final = {}
@@ -291,38 +321,60 @@ class CompositeBackend(CacheBackend):
         items: dict[str, Any],
         ttl: int | None = None,
         namespace: str = "default",
+        tags: tuple[str, ...] = (),
     ) -> None:
         """Write-through batch set with async L2 option."""
-        await self._l1.set_many(items, ttl=ttl, namespace=namespace)
+        await self._l1.set_many(items, ttl=self._l1_effective_ttl(ttl), namespace=namespace, tags=tags)
         if self._async_l2_write:
-            self._schedule_l2(self._safe_l2_set_many(items, ttl, namespace))
+            self._schedule_l2(self._safe_l2_set_many(items, ttl, namespace, tags))
         else:
-            await self._safe_l2_set_many(items, ttl, namespace)
+            await self._safe_l2_set_many(items, ttl, namespace, tags)
 
     async def _safe_l2_set_many(
         self,
         items: dict[str, Any],
         ttl: int | None,
         namespace: str,
+        tags: tuple[str, ...],
     ) -> None:
         """L2 batch set with error resilience."""
         try:
-            await self._l2.set_many(items, ttl=ttl, namespace=namespace)
+            await self._l2.set_many(items, ttl=ttl, namespace=namespace, tags=tags)
             self._l2_healthy = True
         except Exception as e:
             logger.warning(f"L2 SET_MANY failed: {e}")
             self._l2_healthy = False
 
     async def increment(self, key: str, delta: int = 1) -> int | None:
-        """Increment in L2 (authoritative) and update L1."""
+        """
+        Increment in L2 (authoritative) and invalidate L1.
+
+        L1 is dropped rather than refreshed: a promoted copy is stale the
+        moment the L2 counter moves, and re-reading L2 to refresh it still
+        races with concurrent increments (the reader would cache a value
+        that is already outdated).  The next ``get`` re-promotes.
+        """
         result = await self._l2.increment(key, delta)
         if result is not None:
-            # Update L1 with new value
-            entry = await self._l2.get(key)
-            if entry:
-                ttl = int(entry.ttl_remaining) if entry.ttl_remaining else None
-                await self._l1.set(key, result, ttl=ttl, namespace=entry.namespace)
+            await self._l1.delete(key)
         return result
+
+    async def touch(self, key: str, ttl: int) -> bool:
+        """
+        Refresh a key's TTL in both levels.
+
+        Args:
+            key: Key to refresh.
+            ttl: New TTL in seconds.
+
+        Returns:
+            True if either level held the entry and was refreshed.
+        """
+        l1_touch = getattr(self._l1, "touch", None)
+        l2_touch = getattr(self._l2, "touch", None)
+        l1_result = bool(await l1_touch(key, ttl)) if l1_touch is not None else False
+        l2_result = bool(await l2_touch(key, ttl)) if l2_touch is not None else False
+        return l1_result or l2_result
 
     async def health_check(self) -> bool:
         """Check health of both levels."""
@@ -336,6 +388,39 @@ class CompositeBackend(CacheBackend):
 
         self._l2_healthy = l2_ok
         return l1_ok  # L1 health is critical; L2 degradation is acceptable
+
+    # ── Distributed locking ──────────────────────────────────────────
+
+    @property
+    def supports_distributed_lock(self) -> bool:
+        """Locks are coordinated through L2, the level visible to every process."""
+        return self._l2.supports_distributed_lock
+
+    async def try_acquire_lock(self, key: str, ttl: float) -> str | None:
+        """
+        Attempt a cross-process lock via L2.
+
+        Args:
+            key: Lock key, already fully qualified.
+            ttl: Lock lease in seconds.
+
+        Returns:
+            An opaque token from L2, or ``None`` if another holder owns it.
+        """
+        return await self._l2.try_acquire_lock(key, ttl)
+
+    async def release_lock(self, key: str, token: str) -> bool:
+        """
+        Release a previously acquired L2 lock.
+
+        Args:
+            key: Lock key.
+            token: Token returned by the matching acquire call.
+
+        Returns:
+            True if this caller held the lock and released it.
+        """
+        return await self._l2.release_lock(key, token)
 
     @property
     def l2_healthy(self) -> bool:

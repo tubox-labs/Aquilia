@@ -55,6 +55,7 @@ class MemoryBackend(CacheBackend):
         "_max_size",
         "_max_memory_bytes",
         "_eviction_policy",
+        "_default_ttl",
         "_store",
         "_lock",
         "_stats",
@@ -79,20 +80,26 @@ class MemoryBackend(CacheBackend):
         sweep_interval: float = 30.0,
         max_memory_bytes: int = 0,
         capacity_warning_threshold: float = 0.85,
+        default_ttl: int | None = None,
     ):
         """
         Initialize memory backend.
 
         Args:
-            max_size: Maximum number of entries
+            max_size: Maximum number of entries (<= 0 means unlimited)
             eviction_policy: Eviction strategy ("lru", "lfu", "fifo", "ttl", "random")
             sweep_interval: Seconds between TTL sweep cycles
             max_memory_bytes: Maximum memory usage in bytes (0 = unlimited)
             capacity_warning_threshold: Warn when capacity exceeds this fraction (0.0-1.0)
+            default_ttl: TTL applied when ``set`` receives ``ttl=None``;
+                ``None`` keeps the historical "no expiry" behaviour
         """
+        # max_size <= 0 means unlimited: the capacity-eviction loop below
+        # must never run with an empty store, or it spins forever.
         self._max_size = max_size
         self._max_memory_bytes = max_memory_bytes
         self._eviction_policy = EvictionPolicy(eviction_policy)
+        self._default_ttl = default_ttl
         self._sweep_interval = sweep_interval
         self._capacity_warning_threshold = capacity_warning_threshold
         self._capacity_warned = False
@@ -211,8 +218,8 @@ class MemoryBackend(CacheBackend):
             if key in self._store:
                 self._evict_key(key)
 
-            # Evict if at capacity
-            while len(self._store) >= self._max_size:
+            # Evict if at capacity (max_size <= 0 means unlimited)
+            while self._max_size > 0 and len(self._store) >= self._max_size:
                 self._evict_one()
 
             # Evict if at memory limit
@@ -221,10 +228,12 @@ class MemoryBackend(CacheBackend):
                 while self._stats.memory_bytes + size_bytes > self._max_memory_bytes and len(self._store) > 0:
                     self._evict_one()
 
-            # Calculate expiry
+            # Calculate expiry; a configured default_ttl bounds writes that
+            # do not ask for one (e.g. L1 promotion inside CompositeBackend).
+            effective_ttl = self._default_ttl if ttl is None else ttl
             expires_at = None
-            if ttl is not None and ttl > 0:
-                expires_at = time.monotonic() + ttl
+            if effective_ttl is not None and effective_ttl > 0:
+                expires_at = time.monotonic() + effective_ttl
 
             # Create entry
             self._seq += 1
@@ -361,6 +370,7 @@ class MemoryBackend(CacheBackend):
         items: dict[str, Any],
         ttl: int | None = None,
         namespace: str = "default",
+        tags: tuple[str, ...] = (),
     ) -> None:
         """Batch set -- single lock acquisition."""
         async with self._lock:
@@ -369,13 +379,14 @@ class MemoryBackend(CacheBackend):
                 if key in self._store:
                     self._evict_key(key)
 
-                # Evict if at capacity
-                while len(self._store) >= self._max_size:
+                # Evict if at capacity (max_size <= 0 means unlimited)
+                while self._max_size > 0 and len(self._store) >= self._max_size:
                     self._evict_one()
 
+                effective_ttl = self._default_ttl if ttl is None else ttl
                 expires_at = None
-                if ttl is not None and ttl > 0:
-                    expires_at = time.monotonic() + ttl
+                if effective_ttl is not None and effective_ttl > 0:
+                    expires_at = time.monotonic() + effective_ttl
 
                 size_bytes = sys.getsizeof(value)
                 self._seq += 1
@@ -384,12 +395,15 @@ class MemoryBackend(CacheBackend):
                     value=value,
                     expires_at=expires_at,
                     size_bytes=size_bytes,
+                    tags=tags,
                     namespace=namespace,
                     seq=self._seq,
                 )
 
                 self._store[key] = entry
                 self._namespace_index[namespace].add(key)
+                for tag in tags:
+                    self._tag_index[tag].add(key)
 
                 if self._eviction_policy == EvictionPolicy.LFU:
                     self._freq_counter[key] = 1
@@ -421,6 +435,37 @@ class MemoryBackend(CacheBackend):
                 return new_value
             except (TypeError, ValueError):
                 return None
+
+    async def touch(self, key: str, ttl: int) -> bool:
+        """
+        Refresh a key's TTL in place, under the store lock.
+
+        Unlike a get+set cycle this preserves the entry's value, tags, and
+        namespace; only ``expires_at`` is rewritten.
+
+        Args:
+            key: Key to refresh.
+            ttl: New TTL in seconds (<= 0 removes the expiry).
+
+        Returns:
+            True if the key existed and was refreshed, False on miss.
+        """
+        async with self._lock:
+            entry = self._store.get(key)
+            if entry is None or entry.is_expired:
+                return False
+
+            expires_at = None
+            if ttl > 0:
+                expires_at = time.monotonic() + ttl
+            entry.expires_at = expires_at
+
+            if expires_at is not None:
+                # Push a fresh heap tuple; the previous one (if any) is
+                # superseded and discarded lazily by sweeper/compaction.
+                heappush(self._ttl_heap, (expires_at, entry.seq, key))
+                self._compact_ttl_heap()
+            return True
 
     # ── Private helpers ──────────────────────────────────────────────
 
