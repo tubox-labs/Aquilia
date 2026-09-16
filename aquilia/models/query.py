@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from aquilia.db.engine import current_model_var, get_database
 from aquilia.faults.domains import ModelNotFoundFault, QueryFault, SecurityFault
 from aquilia.models._native_plan import row_plan_for
-from aquilia.models.fields.lookups import lookup_registry, resolve_lookup
+from aquilia.models.fields.lookups import _escape_like, lookup_registry, resolve_lookup
 
 logger = logging.getLogger("aquilia.models.query")
 
@@ -300,9 +300,14 @@ def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
             rhs, params = _render_value(value)
             return f'"{field}" != {rhs}', params
         elif op == "ilike":
-            return f'LOWER("{field}") LIKE LOWER(?)', [value]
+            # Escape LIKE meta-characters, matching the registry lookups
+            # (models/fields/lookups.py) -- without this, a value of '%'
+            # or '_' acted as a wildcard instead of a literal character.
+            escaped = _escape_like(value)
+            return f"LOWER(\"{field}\") LIKE LOWER(?) ESCAPE '\\'", [escaped]
         elif op == "like":
-            return f'"{field}" LIKE ?', [value]
+            escaped = _escape_like(value)
+            return f"\"{field}\" LIKE ? ESCAPE '\\'", [escaped]
         else:
             rhs, params = _render_value(value)
             return f'"{field}" = {rhs}', params
@@ -490,6 +495,56 @@ class Q(Generic[TModel]):
                 return "mysql"
         return "sqlite"
 
+    def _resolve_field_spec(
+        self,
+        name: str,
+        *,
+        context: str,
+        allow_annotation: bool = False,
+    ) -> tuple[str, Any]:
+        """Resolve a user-supplied field name against the bound model.
+
+        Returns an ``(attr_name, field)`` pair, accepting both the relation
+        spelling (``author``) and the raw column spelling (``author_id``)
+        via the metaclass ``_col_to_attr`` index. Annotation aliases (when
+        *allow_annotation* is set) and cross-relation ``__`` paths return
+        ``(name, None)`` so callers render them as-is.
+
+        Raises:
+            QueryFault: If *name* is neither a model field, a known
+                annotation alias, nor a ``__`` path. Unknown names used to
+                pass the charset-only check and build silently-broken SQL
+                (``ORDER BY "nonexistent"``, or ``values('no_such_col')``
+                selecting the name as a bare string literal).
+        """
+        _validate_field_name(name, context=context)
+        model_cls = self._model_cls
+        fields = getattr(model_cls, "_fields", None)
+        # An empty ``_fields`` dict means the queryset is bound to a fake or
+        # raw-table model (a real model always has at least its PK), so
+        # there is nothing to validate against -- pass the name through.
+        if not isinstance(fields, dict) or not fields:
+            return name, None
+        if allow_annotation and name in self._annotations:
+            return name, None
+        field = fields.get(name)
+        if field is not None:
+            return name, field
+        col_map = getattr(model_cls, "_col_to_attr", None)
+        if isinstance(col_map, dict):
+            mapped = col_map.get(name)
+            if mapped is not None:
+                return mapped[0], mapped[1]
+        if "__" in name:
+            # Cross-relation path (``author__name``) -- rendered as-is,
+            # preserving the pre-existing pass-through for these.
+            return name, None
+        raise QueryFault(
+            model=getattr(model_cls, "__name__", "<query>"),
+            operation=context,
+            reason=f"Unknown field: {name!r}. Valid fields: {list(fields.keys())}",
+        )
+
     # ── Chain methods (return new Q) ─────────────────────────────────
 
     def where(self, clause: str, *args: Any, **kwargs: Any) -> Q[TModel]:
@@ -672,10 +727,12 @@ class Q(Generic[TModel]):
                             message=f"Invalid field name in order(): {name!r}. "
                             f"Field names must contain only alphanumeric characters and underscores.",
                         )
+                    attr, field = new._resolve_field_spec(name, context="order", allow_annotation=True)
+                    column = field.column_name if field is not None else attr
                     if f.startswith("-"):
-                        new._order_clauses.append(f'"{name}" DESC')
+                        new._order_clauses.append(f'"{column}" DESC')
                     else:
-                        new._order_clauses.append(f'"{f}" ASC')
+                        new._order_clauses.append(f'"{column}" ASC')
             else:
                 # Other expression types
                 if hasattr(f, "as_sql"):
@@ -764,12 +821,25 @@ class Q(Generic[TModel]):
         Usage:
             users = await User.objects.only("id", "name").all()
         """
-        for f in fields:
-            _validate_field_name(f, context="only")
         new = self._clone()
+        model_cls = self._model_cls
+        fields_dict = getattr(model_cls, "_fields", None)
+        field_list: list[str] = []
+        for f in fields:
+            if isinstance(fields_dict, dict):
+                attr, field = new._resolve_field_spec(f, context="only")
+                # Render column names -- the FK relation attribute
+                # (``author``) must select its ``author_id`` column.
+                field_list.append(field.column_name if field is not None else attr)
+            else:
+                _validate_field_name(f, context="only")
+                field_list.append(f)
         # Always include PK
-        pk = self._model_cls._pk_attr
-        field_list = list(fields)
+        pk = getattr(model_cls, "_pk_attr", "id")
+        if isinstance(fields_dict, dict):
+            pk_field = fields_dict.get(pk)
+            if pk_field is not None:
+                pk = pk_field.column_name
         if pk not in field_list:
             field_list.insert(0, pk)
         new._only_fields = field_list
@@ -783,10 +853,20 @@ class Q(Generic[TModel]):
 
             users = await User.objects.defer("bio", "avatar").all()
         """
-        for f in fields:
-            _validate_field_name(f, context="defer")
         new = self._clone()
-        new._defer_fields = list(fields)
+        model_cls = self._model_cls
+        fields_dict = getattr(model_cls, "_fields", None)
+        field_list: list[str] = []
+        for f in fields:
+            if isinstance(fields_dict, dict):
+                # Normalize to attribute names -- ``_build_select`` compares
+                # the defer list against the model's attribute names.
+                attr, _field = new._resolve_field_spec(f, context="defer")
+                field_list.append(attr)
+            else:
+                _validate_field_name(f, context="defer")
+                field_list.append(f)
+        new._defer_fields = field_list
         return new
 
     def annotate(self, **expressions: Any) -> Q[TModel]:
@@ -808,10 +888,18 @@ class Q(Generic[TModel]):
 
     def group_by(self, *fields: str) -> Q[TModel]:
         """GROUP BY clause."""
-        for f in fields:
-            _validate_field_name(f, context="group_by")
         new = self._clone()
-        new._group_by.extend(fields)
+        model_cls = self._model_cls
+        fields_dict = getattr(model_cls, "_fields", None)
+        group_cols: list[str] = []
+        for f in fields:
+            if isinstance(fields_dict, dict):
+                attr, field = new._resolve_field_spec(f, context="group_by", allow_annotation=True)
+                group_cols.append(field.column_name if field is not None else attr)
+            else:
+                _validate_field_name(f, context="group_by")
+                group_cols.append(f)
+        new._group_by.extend(group_cols)
         return new
 
     def having(self, clause: str, *args: Any) -> Q[TModel]:
@@ -1732,6 +1820,14 @@ class Q(Generic[TModel]):
             else:
                 # Apply field.to_db() conversion if the field exists
                 field = self._model_cls._fields.get(k) if hasattr(self._model_cls, "_fields") else None
+                if field is None:
+                    # A foreign key is updated by its column name (``user_id=``)
+                    # while ``_fields`` is keyed by the relation attribute
+                    # (``user``); resolve through the column map -- the same
+                    # fallback _coerce_filter_value applies to filters.
+                    mapped = getattr(self._model_cls, "_col_to_attr", {}).get(k)
+                    if mapped is not None:
+                        field = mapped[1]
                 if field is not None:
                     v = field.to_db(v, dialect=dialect)
                 set_parts.append(f'"{k}" = ?')
@@ -1785,12 +1881,24 @@ class Q(Generic[TModel]):
         if self._is_none:
             return []
 
-        # Validate field names to prevent identifier injection
-        for f in fields:
-            _validate_field_name(f, context="values")
+        # Validate field names to prevent identifier injection, resolve
+        # them against the model (``values('no_such_col')`` used to render
+        # the bare string as a SQL literal -- one per row -- silently), and
+        # normalize to column names.
+        col_list: list[str] | None
+        if fields:
+            resolved: list[str] = []
+            for f in fields:
+                attr, field = self._resolve_field_spec(f, context="values", allow_annotation=True)
+                # Annotation aliases keep their alias name (the SELECT
+                # renders them as ``expr AS "alias"``); real fields use
+                # their column name.
+                resolved.append(field.column_name if field is not None else attr)
+            col_list = resolved
+        else:
+            col_list = None
 
         # Delegate to _build_select with explicit column list
-        col_list = list(fields) if fields else None
         sql, params = self._build_select(columns=col_list)
 
         # Set operations
@@ -1811,9 +1919,19 @@ class Q(Generic[TModel]):
             names = await User.objects.values_list("name", flat=True)
             # ["Alice", "Bob", ...]
         """
+        # values() normalizes names to column names; re-resolve here so the
+        # flat list keeps indexing the dict keys values() actually produced
+        # (e.g. the FK spelling ``author_id`` -- same column, same name).
+        resolved_names: list[str] | None = None
+        if fields:
+            resolved_names = []
+            for f in fields:
+                attr, field = self._resolve_field_spec(f, context="values_list", allow_annotation=True)
+                resolved_names.append(field.column_name if field is not None else attr)
         rows = await self.values(*fields)
         if flat and len(fields) == 1:
-            return [row[fields[0]] for row in rows]
+            key = resolved_names[0] if resolved_names else fields[0]
+            return [row[key] for row in rows]
         return [tuple(row.values()) for row in rows]
 
     async def in_bulk(self, id_list: list[Any], *, batch_size: int = 999) -> dict[Any, TModel]:
@@ -2054,6 +2172,7 @@ class _ChunkedQueryIterator:
         self._query = query
         self._chunk_size = chunk_size
         self._offset = 0
+        self._remaining = getattr(query, "_limit_val", None)
         self._buffer: list = []
         self._index = 0
         self._exhausted = False
@@ -2066,18 +2185,36 @@ class _ChunkedQueryIterator:
         the database), and marks itself exhausted -- raising
         ``StopAsyncIteration`` on this and all subsequent calls -- once a
         batch comes back shorter than ``chunk_size`` or empty.
+
+        A user-set ``limit()`` on the wrapped query is respected rather
+        than clobbered: the per-batch LIMIT is capped at the number of
+        rows still below the user limit (so ``limit(1).iterator(2)``
+        yields at most one row instead of every row), and the iterator
+        stops as soon as that budget is exhausted.
         """
         if self._index >= len(self._buffer):
             if self._exhausted:
                 raise StopAsyncIteration
-            # Fetch next chunk
-            chunk_qs = self._query.limit(self._chunk_size).offset(self._offset)
+            if self._remaining is not None and self._remaining <= 0:
+                raise StopAsyncIteration
+            # Fetch next chunk, never asking for more rows than the
+            # user-set limit still allows.
+            fetch_size = self._chunk_size
+            if self._remaining is not None:
+                fetch_size = min(fetch_size, self._remaining)
+                if fetch_size <= 0:
+                    raise StopAsyncIteration
+            chunk_qs = self._query.limit(fetch_size).offset(self._offset)
             # Bypass cache for chunk fetching
             chunk_qs._result_cache = None
             self._buffer = await chunk_qs.all()
             self._index = 0
-            self._offset += self._chunk_size
-            if len(self._buffer) < self._chunk_size:
+            self._offset += len(self._buffer)
+            if self._remaining is not None:
+                self._remaining -= len(self._buffer)
+                if self._remaining <= 0:
+                    self._exhausted = True
+            if len(self._buffer) < fetch_size:
                 self._exhausted = True
             if not self._buffer:
                 raise StopAsyncIteration

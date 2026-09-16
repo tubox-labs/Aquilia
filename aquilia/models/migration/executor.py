@@ -415,20 +415,29 @@ class MigrationExecutor:
                         history_index = index
                         break
 
+            # RunPython callables run *inside* the final transactional group
+            # (before history is committed) whenever that group is the last
+            # one, so a failing RunPython rolls the whole migration back --
+            # schema *and* tracking row -- and the migration is retried
+            # instead of being recorded as applied and skipped forever.
+            # When non-transactional statements follow (rare: a trailing
+            # PRAGMA after a table rebuild) or the backend cannot do
+            # transactional DDL, they run after the loop, as before.
+            python_ops_in_txn = history_index != -1 and history_index == len(groups) - 1
+
             for index, (group, transactional) in enumerate(groups):
                 if transactional and transactional_ddl:
                     async with self.db.transaction():
                         await self._execute_group(group, result)
                         if index == history_index:
+                            if python_ops_in_txn:
+                                await self._run_python_ops(python_ops, result)
                             await self._write_history(node, rolling_back)
                 else:
                     await self._execute_group(group, result)
 
-            for operation in python_ops:
-                if operation.code is None:
-                    continue
-                await _invoke(operation.code, self.db)
-                result.python_operations += 1
+            if not python_ops_in_txn:
+                await self._run_python_ops(python_ops, result)
 
             if history_index == -1:
                 await self._write_history(node, rolling_back)
@@ -459,6 +468,19 @@ class MigrationExecutor:
             f"{result.duration_ms}ms"
         )
         return result
+
+    async def _run_python_ops(self, python_ops: list[RunPython], result: ExecutionResult) -> None:
+        """Invoke each :class:`RunPython` callable against the database.
+
+        Called inside the final transactional group when the backend and
+        statement mix allow it (see :meth:`_run`), so a failing callable
+        rolls the migration -- and its tracking row -- back together.
+        """
+        for operation in python_ops:
+            if operation.code is None:
+                continue
+            await _invoke(operation.code, self.db)
+            result.python_operations += 1
 
     async def _execute_group(self, group: list[Statement], result: ExecutionResult) -> None:
         """Execute one group of statements, tolerating backend-ignorable errors."""

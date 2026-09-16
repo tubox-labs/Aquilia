@@ -895,9 +895,16 @@ class Model(metaclass=ModelMeta):
                 reason="At least one lookup field is required",
             )
 
-        # Validate field names (prevent SQL injection)
+        # Validate field names (prevent SQL injection) and normalize them to
+        # attribute names. Both the relation spelling (``author``) and the
+        # raw column spelling (``author_id``) are accepted -- the same two
+        # spellings filter()/create() accept -- via the metaclass
+        # ``_col_to_attr`` map, so every downstream use of ``lookup``
+        # (unique-constraint validation, the INSERT data, the post-conflict
+        # SELECT) works on one canonical name.
         _SAFE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-        for key in lookup:
+        normalized_lookup: dict[str, Any] = {}
+        for key, value in lookup.items():
             if not _SAFE.match(key):
                 raise QueryFault(
                     model=cls.__name__,
@@ -906,11 +913,17 @@ class Model(metaclass=ModelMeta):
                     "Field names must contain only letters, digits, and underscores.",
                 )
             if key not in cls._fields:
+                mapped = cls._col_to_attr.get(key)
+                if mapped is not None:
+                    key = mapped[0]
+            if key not in cls._fields:
                 raise QueryFault(
                     model=cls.__name__,
                     operation="find_or_create",
                     reason=f"Unknown field: {key!r}. Valid fields: {list(cls._fields.keys())}",
                 )
+            normalized_lookup[key] = value
+        lookup = normalized_lookup
 
         # ── Validate unique constraint exists on lookup fields ────────────
         lookup_fields = set(lookup.keys())
@@ -1020,6 +1033,32 @@ class Model(metaclass=ModelMeta):
         return cls.from_row(row), False
 
     @classmethod
+    def _normalize_lookup_attr(cls, field_name: str) -> str:
+        """
+        Resolve a lookup field name to its attribute name.
+
+        Accepts both the relation spelling (``author``) and the raw column
+        spelling (``author_id``) -- the same two spellings ``filter()`` and
+        ``create()`` accept -- by mapping through the metaclass
+        ``_col_to_attr`` index. Unknown names are returned unchanged so the
+        caller's own validation reports them.
+
+        Defensive against ``cls`` being a mock (the unbound helpers are
+        unit-tested with MagicMock models): a non-string resolution is
+        discarded and the original name kept.
+        """
+        if field_name in cls._fields:
+            return field_name
+        col_map = getattr(cls, "_col_to_attr", None)
+        if isinstance(col_map, dict):
+            mapped = col_map.get(field_name)
+            if mapped is not None:
+                resolved = mapped[0]
+                if isinstance(resolved, str):
+                    return resolved
+        return field_name
+
+    @classmethod
     def _validate_unique_constraint(cls, lookup_fields: set[str]) -> bool:
         """
         Check if lookup fields are covered by a unique constraint.
@@ -1029,7 +1068,19 @@ class Model(metaclass=ModelMeta):
         - The primary key field is in lookup_fields
         - All lookup fields together form a composite unique constraint
           (via Meta.unique_together or Meta.constraints with UniqueConstraint)
+
+        Lookup fields given as raw FK column names (``owner_id``) are
+        normalized to the relation attribute name first, so a unique FK
+        validates the same way however it was spelled.
         """
+        # The isinstance guard keeps this unit-testable with mocked model
+        # classes: attribute access on a MagicMock returns another mock
+        # rather than invoking this real classmethod on it.
+        lookup_fields = {
+            name if not isinstance(normalized := cls._normalize_lookup_attr(name), str) else normalized
+            for name in lookup_fields
+        }
+
         # Check single-field unique constraints
         for field_name in lookup_fields:
             field = cls._fields.get(field_name)
@@ -1075,8 +1126,9 @@ class Model(metaclass=ModelMeta):
            was bypassed or the constraint shape wasn't recognized above.
 
         Args:
-            lookup_fields: The attribute names passed as ``**lookup`` to
-                ``find_or_create()``.
+            lookup_fields: The field names passed as ``**lookup`` to
+                ``find_or_create()`` -- either relation attribute names or
+                raw FK column names.
             dialect: Unused directly here (columns are dialect-independent)
                 but accepted for symmetry with sibling helpers.
 
@@ -1085,6 +1137,12 @@ class Model(metaclass=ModelMeta):
             the conflict target, e.g. for
             ``ON CONFLICT (col_a, col_b) DO NOTHING``.
         """
+        # Same mock guard as _validate_unique_constraint.
+        lookup_fields = {
+            name if not isinstance(normalized := cls._normalize_lookup_attr(name), str) else normalized
+            for name in lookup_fields
+        }
+
         # Prefer single unique field if available
         for field_name in lookup_fields:
             field = cls._fields.get(field_name)
@@ -1136,7 +1194,10 @@ class Model(metaclass=ModelMeta):
         Args:
             instances: List of dicts with field data
             batch_size: Number of records per INSERT batch (None = all at once)
-            ignore_conflicts: If True, use INSERT OR IGNORE (SQLite)
+            ignore_conflicts: If True, skip rows that would violate a unique
+                constraint, using the dialect-appropriate clause:
+                ``INSERT OR IGNORE`` (SQLite), ``ON CONFLICT DO NOTHING``
+                (PostgreSQL), ``INSERT IGNORE`` (MySQL).
         """
         if not instances:
             return []
@@ -1145,10 +1206,25 @@ class Model(metaclass=ModelMeta):
         dialect = getattr(db, "dialect", "sqlite")
         results: list[Self] = []
 
+        def _apply_ignore_conflicts(sql: str) -> str:
+            # Dialect-aware conflict-ignoring clause. The previous
+            # implementation unconditionally used ``INSERT OR IGNORE INTO``
+            # (a SQLite/MySQL-ism), which is a syntax error on PostgreSQL.
+            if dialect == "sqlite":
+                return sql.replace("INSERT INTO", "INSERT OR IGNORE INTO", 1)
+            if dialect == "postgresql":
+                return sql.replace("INSERT INTO", "INSERT INTO", 1) + " ON CONFLICT DO NOTHING"
+            if dialect == "mysql":
+                return sql.replace("INSERT INTO", "INSERT IGNORE INTO", 1)
+            return sql
+
         # Process in batches
         effective_batch = batch_size or len(instances)
         for i in range(0, len(instances), effective_batch):
             batch = instances[i : i + effective_batch]
+            batch_rows: list[dict[str, Any]] = []
+            batch_objs: list[Self] = []
+
             for data in batch:
                 obj = cls(**data)
 
@@ -1169,15 +1245,42 @@ class Model(metaclass=ModelMeta):
                         final_data[field.column_name] = field.to_db(value, dialect=dialect)
 
                 if final_data:
-                    builder = InsertBuilder(cls._table_name).from_dict(final_data)
-                    sql, values = builder.build()
+                    batch_rows.append(final_data)
+                    batch_objs.append(obj)
+
+            if not batch_rows:
+                continue
+
+            # Multi-row INSERT (executemany): one statement for the whole
+            # batch when every row produced the same column set -- the
+            # common case, since rows come from the same model with the
+            # same defaults. Falls back to per-row INSERTs otherwise
+            # (build_many binds missing keys as NULL, which would violate
+            # NOT NULL constraints on fields another row did set).
+            first_keys = list(batch_rows[0].keys())
+            if len(batch_rows) > 1 and all(list(row.keys()) == first_keys for row in batch_rows[1:]):
+                sql, params_list = InsertBuilder(cls._table_name).build_many(batch_rows)
+                if ignore_conflicts:
+                    sql = _apply_ignore_conflicts(sql)
+                cursor = await db.execute_many(sql, params_list)
+                pk_field = cls._fields[cls._pk_attr]
+                if isinstance(pk_field, (AutoField, BigAutoField)):
+                    last_id = getattr(cursor, "lastrowid", None) if cursor is not None else None
+                    for obj in batch_objs[:-1]:
+                        setattr(obj, cls._pk_attr, None)
+                    if last_id and batch_objs:
+                        setattr(batch_objs[-1], cls._pk_attr, last_id)
+            else:
+                for row, obj in zip(batch_rows, batch_objs):
+                    sql, values = InsertBuilder(cls._table_name).from_dict(row).build()
                     if ignore_conflicts:
-                        sql = sql.replace("INSERT INTO", "INSERT OR IGNORE INTO", 1)
+                        sql = _apply_ignore_conflicts(sql)
                     cursor = await db.execute(sql, values)
                     pk_field = cls._fields[cls._pk_attr]
                     if isinstance(pk_field, (AutoField, BigAutoField)) and cursor.lastrowid:
                         setattr(obj, cls._pk_attr, cursor.lastrowid)
-                results.append(obj)
+
+            results.extend(batch_objs)
 
         return results
 
@@ -1227,6 +1330,14 @@ class Model(metaclass=ModelMeta):
                 data: dict[str, Any] = {}
                 for fname in fields:
                     field = cls._fields.get(fname)
+                    if field is None:
+                        # Accept the raw FK-column spelling (``author_id``)
+                        # as well as the relation attribute (``author``),
+                        # matching what filter()/update() accept.
+                        mapped = cls._col_to_attr.get(fname)
+                        if mapped is not None:
+                            fname = mapped[0]
+                            field = mapped[1]
                     if field is None or isinstance(field, ManyToManyField):
                         continue
                     value = getattr(obj, fname, None)

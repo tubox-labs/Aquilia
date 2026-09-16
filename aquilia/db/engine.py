@@ -358,6 +358,15 @@ class AquiliaDatabase:
 
         Delegates to the backend adapter's transaction management.
 
+        ``CancelledError`` (a :class:`BaseException`, not an
+        :class:`Exception`) also rolls back and re-raises: catching only
+        ``Exception`` here leaked the pinned transaction connection and left
+        the adapter flagged in-transaction, so every later query in the
+        process routed onto a connection whose transaction was already
+        gone. The native sqlite ``TransactionContext`` and the ORM
+        ``Atomic`` already handled cancellation; this brings the
+        engine-level context manager in line with them.
+
         Usage:
             async with db.transaction():
                 await db.execute("INSERT INTO ...")
@@ -367,8 +376,14 @@ class AquiliaDatabase:
         try:
             yield
             await self.commit()
-        except Exception:
-            await self.rollback()
+        except BaseException:
+            # Roll back even on cancellation/KeyboardInterrupt, then
+            # re-raise. A rollback failure must not mask the original
+            # exception, so it is logged and suppressed.
+            try:
+                await self.rollback()
+            except Exception:
+                logger.exception("Rollback during exception handling failed; transaction state may be stale")
             raise
 
     async def savepoint(self, name: str) -> None:

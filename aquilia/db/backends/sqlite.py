@@ -19,6 +19,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Sequence
+from contextvars import ContextVar
 from typing import Any
 
 from aquilia.db.backends.base import AdapterCapabilities, ColumnInfo, DatabaseAdapter
@@ -36,6 +37,26 @@ __all__ = ["SQLiteAdapter"]
 
 # Savepoint name validation -- prevent SQL injection
 _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+# The connection pinned by the active transaction for the CURRENT task.
+#
+# The adapter instance is shared by every concurrent request, so transaction
+# state must NOT live on the adapter itself: with a plain ``_in_transaction``
+# flag, a rollback in request A's transaction silently rolled back request
+# B's auto-commit writes (B had been routed onto A's pinned writer and got a
+# normal-looking pk back, no error). A ContextVar is copied per task, so
+# ``begin()``/``commit()``/``rollback()`` -- which always run in the owning
+# task -- bind the pinned connection to exactly that task's context, and the
+# query methods below route to it only for the task inside the transaction.
+# Nested transactions (savepoints) run on the same pinned connection, so the
+# var is simply left set for their duration.
+_active_txn_conn: ContextVar[Any] = ContextVar("aquilia_sqlite_active_txn", default=None)
+
+# Identity token of the task that opened the current legacy-path
+# transaction (set alongside ``_writer_conn`` when no ContextVar-based
+# routing applied, and always cleared on commit/rollback). Used to
+# attribute the shared writer only to its owning task.
+_txn_owner_token: ContextVar[Any] = ContextVar("aquilia_sqlite_txn_owner", default=None)
 
 
 class SQLiteAdapter(DatabaseAdapter):
@@ -72,8 +93,44 @@ class SQLiteAdapter(DatabaseAdapter):
         self._pool: ConnectionPool | None = None
         self._connected = False
         self._lock = asyncio.Lock()
+        # Legacy shared-state transaction tracking. Kept for the
+        # ``in_transaction``-style introspection paths and as a fallback when
+        # a transaction was begun outside any task context (no ContextVar
+        # token); concurrent routing itself is done through
+        # ``_active_txn_conn`` -- see its module-level comment.
         self._in_transaction = False
         self._writer_conn: Any = None  # held during transaction
+
+    def _active_transaction_conn(self) -> Any:
+        """Return the connection pinned by the active transaction for the *current* task.
+
+        Prefers the per-task ContextVar (correct under concurrency); falls
+        back to the legacy adapter-level pinned writer when the transaction
+        was begun from a context the var could not cover. Returns ``None``
+        when the current task is not inside a transaction -- the caller then
+        takes the normal pool path.
+
+        Note: the fallback is deliberately consulted only when the current
+        task itself began that transaction. Returning the shared writer for
+        ANY ``_in_transaction`` would recreate the cross-task bleed this
+        routing exists to fix (task B's auto-commit writes joining task A's
+        transaction, since A's BEGIN flips ``_in_transaction`` on the very
+        connection object the pool hands out to every writer).
+        """
+        conn = _active_txn_conn.get()
+        if conn is not None:
+            return conn
+        if self._in_transaction and self._writer_conn is not None:
+            # Legacy path (no ContextVar set): only honor it when this
+            # task is the one that opened the transaction. The ContextVar
+            # is set by every begin() from a running task; a set-less state
+            # means the begin() ran outside task context (e.g. a
+            # synchronous caller), in which case we cannot attribute the
+            # transaction to any task and must NOT route others onto it.
+            token = _txn_owner_token.get()
+            if token is not None:
+                return self._writer_conn
+        return None
 
     async def connect(self, url: str, **options) -> None:
         if self._connected:
@@ -90,6 +147,7 @@ class SQLiteAdapter(DatabaseAdapter):
                 synchronous=options.get("synchronous", "NORMAL"),
                 pool_size=options.get("pool_size", 5),
                 pool_min_size=options.get("pool_min_size", 2),
+                pool_timeout=options.get("pool_timeout", 30.0),
                 statement_cache_size=options.get("statement_cache_size", 256),
                 echo=options.get("echo", False),
             )
@@ -109,16 +167,18 @@ class SQLiteAdapter(DatabaseAdapter):
         if not self._connected or self._pool is None:
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
-        if self._in_transaction and self._writer_conn is not None:
-            return await self._writer_conn.execute(sql, params)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            return await txn_conn.execute(sql, params)
         # Auto-commit mode: use pool quick method (acquires writer)
         return await self._pool.execute(sql, params)
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
         if not self._connected or self._pool is None:
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
-        if self._in_transaction and self._writer_conn is not None:
-            await self._writer_conn.execute_many(sql, params_list)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            await txn_conn.execute_many(sql, params_list)
             return
         await self._pool.execute_many(sql, params_list)
 
@@ -126,8 +186,9 @@ class SQLiteAdapter(DatabaseAdapter):
         if not self._connected or self._pool is None:
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
-        if self._in_transaction and self._writer_conn is not None:
-            rows = await self._writer_conn.fetch_all(sql, params)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            rows = await txn_conn.fetch_all(sql, params)
         else:
             rows = await self._pool.fetch_all(sql, params)
         return rows
@@ -136,8 +197,9 @@ class SQLiteAdapter(DatabaseAdapter):
         if not self._connected or self._pool is None:
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
-        if self._in_transaction and self._writer_conn is not None:
-            row = await self._writer_conn.fetch_one(sql, params)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            row = await txn_conn.fetch_one(sql, params)
         else:
             row = await self._pool.fetch_one(sql, params)
         return row
@@ -146,8 +208,9 @@ class SQLiteAdapter(DatabaseAdapter):
         if not self._connected or self._pool is None:
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
         params = params or []
-        if self._in_transaction and self._writer_conn is not None:
-            return await self._writer_conn.fetch_val(sql, params)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            return await txn_conn.fetch_val(sql, params)
         return await self._pool.fetch_val(sql, params)
 
     # ── Transactions ─────────────────────────────────────────────────
@@ -159,32 +222,71 @@ class SQLiteAdapter(DatabaseAdapter):
         # backends and intentionally ignored here.
         if not self._connected or self._pool is None:
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
+        if self._active_transaction_conn() is not None:
+            raise QueryFault(
+                message="A transaction is already active in this task. "
+                "Use savepoints (atomic() nesting) instead of a second BEGIN."
+            )
         # readonly=True pins a reader connection instead of the single
         # writer, so a read-only atomic() block doesn't contend with
         # concurrent writers for the pool's one writer slot.
-        self._writer_conn = await self._pool._acquire(readonly=readonly)
-        await self._writer_conn.begin(mode="DEFERRED")
+        conn = await self._pool._acquire(readonly=readonly)
+        await conn.begin(mode="DEFERRED")
+        self._writer_conn = conn
         self._in_transaction = True
+        # Bind the pinned connection to the CURRENT task so concurrent
+        # tasks keep taking the auto-commit pool path (see the
+        # ``_active_txn_conn`` comment for why this must not be shared).
+        # The pinned connection is the pool's single writer object itself,
+        # so without this binding every other task's auto-commit write
+        # would join this transaction (the writer's ``_in_transaction``
+        # flag disables its per-statement auto-commit) and be rolled back
+        # with it.
+        try:
+            _active_txn_conn.set(conn)
+        except ValueError:  # pragma: no cover - no running task/context
+            _txn_owner_token.set(asyncio.current_task())
 
     async def commit(self) -> None:
-        if self._writer_conn is not None:
-            await self._writer_conn.commit()
-            await self._pool._release(self._writer_conn)  # type: ignore[union-attr]
-            self._writer_conn = None
+        conn = _active_txn_conn.get()
+        if conn is None:
+            conn = self._writer_conn
+        if conn is not None:
+            try:
+                await conn.commit()
+            finally:
+                await self._pool._release(conn)  # type: ignore[union-attr]
+            if _active_txn_conn.get() is conn:
+                _active_txn_conn.set(None)
+            if _txn_owner_token.get() is not None:
+                _txn_owner_token.set(None)
+            if self._writer_conn is conn:
+                self._writer_conn = None
         self._in_transaction = False
 
     async def rollback(self) -> None:
-        if self._writer_conn is not None:
-            await self._writer_conn.rollback()
-            await self._pool._release(self._writer_conn)  # type: ignore[union-attr]
-            self._writer_conn = None
+        conn = _active_txn_conn.get()
+        if conn is None:
+            conn = self._writer_conn
+        if conn is not None:
+            try:
+                await conn.rollback()
+            finally:
+                await self._pool._release(conn)  # type: ignore[union-attr]
+            if _active_txn_conn.get() is conn:
+                _active_txn_conn.set(None)
+            if _txn_owner_token.get() is not None:
+                _txn_owner_token.set(None)
+            if self._writer_conn is conn:
+                self._writer_conn = None
         self._in_transaction = False
 
     async def savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
-        if self._writer_conn is not None:
-            await self._writer_conn.savepoint(name)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            await txn_conn.savepoint(name)
         elif self._pool is not None:
             async with self._pool.acquire(readonly=False) as conn:
                 await conn.savepoint(name)
@@ -192,8 +294,9 @@ class SQLiteAdapter(DatabaseAdapter):
     async def release_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
-        if self._writer_conn is not None:
-            await self._writer_conn.release_savepoint(name)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            await txn_conn.release_savepoint(name)
         elif self._pool is not None:
             async with self._pool.acquire(readonly=False) as conn:
                 await conn.release_savepoint(name)
@@ -201,8 +304,9 @@ class SQLiteAdapter(DatabaseAdapter):
     async def rollback_to_savepoint(self, name: str) -> None:
         if not _SP_NAME_RE.match(name):
             raise QueryFault(message=f"Invalid savepoint name: {name!r}")
-        if self._writer_conn is not None:
-            await self._writer_conn.rollback_to_savepoint(name)
+        txn_conn = self._active_transaction_conn()
+        if txn_conn is not None:
+            await txn_conn.rollback_to_savepoint(name)
         elif self._pool is not None:
             async with self._pool.acquire(readonly=False) as conn:
                 await conn.rollback_to_savepoint(name)

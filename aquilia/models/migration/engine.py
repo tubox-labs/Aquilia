@@ -24,11 +24,15 @@ written first and the snapshot only after it lands.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import datetime
 import logging
+import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aquilia.artifacts.backends.json_file import JSONFileBackend
 from aquilia.artifacts.canonical import bare_fingerprint
@@ -41,7 +45,7 @@ from aquilia.models.migration.schema import ProjectState
 from aquilia.models.migration.serializer import load_migration_module, render_migration_module
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import AsyncIterator, Iterable
 
     from aquilia.db.engine import AquiliaDatabase
     from aquilia.models.base import Model
@@ -54,6 +58,127 @@ __all__ = ["MigrationEngine", "MigrationStatus", "SNAPSHOT_FILENAME"]
 
 SNAPSHOT_FILENAME = "schema_snapshot.json"
 """Filename of the state snapshot stored alongside migration files."""
+
+# ── Cross-process migration lock ─────────────────────────────────────────────
+#
+# Concurrent boots (multiple workers, a supervisor restart racing the old
+# process, or a deploy overlapping a CLI migrate) used to plan from the same
+# "nothing applied" state and both emit ``CREATE TABLE`` -- one wins, the
+# other fails with "table already exists" and the boot degrades. The lock is
+# deliberately best-effort: if it cannot be acquired within
+# ``_MIGRATION_LOCK_WAIT_SECONDS`` the engine logs a warning and proceeds,
+# rather than deadlocking boot on a stale lock holder.
+
+_MIGRATION_LOCK_WAIT_SECONDS = 10.0
+_MIGRATION_LOCK_POLL_INTERVAL = 0.2
+
+#: Arbitrary stable key for PostgreSQL's ``pg_advisory_lock`` namespace.
+_PG_ADVISORY_LOCK_KEY = 0xA1711A
+
+
+def _sqlite_path_from_url(url: str) -> str | None:
+    """Return the filesystem path of a ``sqlite:///`` URL, or ``None``."""
+    for prefix in ("sqlite:///", "sqlite://"):
+        if url.startswith(prefix):
+            path = url[len(prefix) :]
+            return path or None
+    return None
+
+
+async def _acquire_migration_lock(db: AquiliaDatabase) -> tuple[Any, ...] | None:
+    """Acquire the cross-process migration lock, best-effort.
+
+    SQLite (file-backed) locks a sibling ``<db>.migration-lock`` file with
+    ``fcntl.flock`` -- a database-level ``BEGIN IMMEDIATE`` would conflict
+    with the engine's own transaction management during the migrate run.
+    PostgreSQL takes a session-level ``pg_advisory_lock`` on a connection
+    held for the duration. In-memory databases, unsupported platforms
+    (no ``fcntl``), and missing drivers skip the lock entirely.
+
+    Returns an opaque holder for :func:`_release_migration_lock`, or
+    ``None`` when no lock was taken.
+    """
+    url = getattr(db, "url", "") or ""
+    dialect = getattr(db, "dialect", "sqlite")
+
+    if url.startswith("sqlite"):
+        path = _sqlite_path_from_url(url)
+        if not path or ":memory:" in path:
+            return None
+        try:
+            import fcntl
+        except ImportError:  # pragma: no cover - non-POSIX platform
+            logger.debug("fcntl unavailable; skipping cross-process migration lock")
+            return None
+        lock_path = Path(path).resolve().parent / (Path(path).name + ".migration-lock")
+        handle = open(lock_path, "w")
+        deadline = time.monotonic() + _MIGRATION_LOCK_WAIT_SECONDS
+        while True:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return ("fcntl", handle)
+            except OSError:
+                if time.monotonic() >= deadline:
+                    logger.warning(
+                        "Migration lock %s still held by another process after %.0fs; "
+                        "proceeding anyway. Concurrent schema changes are possible.",
+                        lock_path,
+                        _MIGRATION_LOCK_WAIT_SECONDS,
+                    )
+                    handle.close()
+                    return None
+                await asyncio.sleep(_MIGRATION_LOCK_POLL_INTERVAL)
+
+    if dialect == "postgresql":
+        adapter = getattr(db, "_adapter", None)
+        pool = getattr(adapter, "_pool", None)
+        if pool is None:
+            return None
+        try:
+            conn = await asyncio.wait_for(pool.acquire(), timeout=_MIGRATION_LOCK_WAIT_SECONDS)
+        except Exception as exc:
+            logger.warning("Could not acquire a connection for the migration lock (%s); proceeding anyway.", exc)
+            return None
+        try:
+            await conn.execute(f"SELECT pg_advisory_lock({_PG_ADVISORY_LOCK_KEY})")
+            return ("pg", conn, pool)
+        except Exception as exc:
+            logger.warning("pg_advisory_lock failed (%s); proceeding without the migration lock.", exc)
+            with contextlib.suppress(Exception):
+                await pool.release(conn)
+            return None
+
+    return None
+
+
+async def _release_migration_lock(holder: tuple[Any, ...] | None) -> None:
+    """Release a lock previously acquired by :func:`_acquire_migration_lock`."""
+    if holder is None:
+        return
+    if holder[0] == "fcntl":
+        handle = holder[1]
+        with contextlib.suppress(OSError):
+            handle.close()  # closing releases the flock
+    elif holder[0] == "pg":
+        _kind, conn, pool = holder
+        with contextlib.suppress(Exception):
+            await conn.execute(f"SELECT pg_advisory_unlock({_PG_ADVISORY_LOCK_KEY})")
+        with contextlib.suppress(Exception):
+            await pool.release(conn)
+
+
+@asynccontextmanager
+async def cross_process_migration_lock(db: AquiliaDatabase) -> AsyncIterator[None]:
+    """Hold the cross-process migration lock around the wrapped block.
+
+    See :func:`_acquire_migration_lock` for the strategy and failure
+    semantics; acquisition failures degrade to a warning, never an error.
+    """
+    holder = await _acquire_migration_lock(db)
+    try:
+        yield
+    finally:
+        await _release_migration_lock(holder)
 
 
 @dataclass
@@ -454,26 +579,29 @@ class MigrationEngine:
         """
         from aquilia.models.migration.executor import MigrationExecutor
 
-        executor = MigrationExecutor(db)
-        await executor.ensure_tracking_table()
-        applied = await executor.applied_revisions()
-        graph = self.load_graph()
-        if not graph.nodes:
-            return []
-        graph.check_conflicts()
+        # Plan and apply under the cross-process lock so concurrent boots
+        # don't both read "nothing applied" and race their CREATE TABLEs.
+        async with cross_process_migration_lock(db):
+            executor = MigrationExecutor(db)
+            await executor.ensure_tracking_table()
+            applied = await executor.applied_revisions()
+            graph = self.load_graph()
+            if not graph.nodes:
+                return []
+            graph.check_conflicts()
 
-        results: list[ExecutionResult] = []
+            results: list[ExecutionResult] = []
 
-        if target is not None:
-            for node in graph.backward_plan(applied, target):
-                state = self.state_at(node.revision)
-                results.append(await executor.rollback(node, state, fake=fake))
+            if target is not None:
+                for node in graph.backward_plan(applied, target):
+                    state = self.state_at(node.revision)
+                    results.append(await executor.rollback(node, state, fake=fake))
+                return results
+
+            state = self.state_for(applied)
+            for node in graph.forward_plan(set(applied)):
+                results.append(await executor.apply(node, state, fake=fake))
             return results
-
-        state = self.state_for(applied)
-        for node in graph.forward_plan(set(applied)):
-            results.append(await executor.apply(node, state, fake=fake))
-        return results
 
     async def verify_checksums(self, db: AquiliaDatabase) -> list[dict[str, str]]:
         """Report applied migrations whose files no longer match what was applied.

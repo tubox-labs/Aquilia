@@ -2009,14 +2009,25 @@ class DateTimeField(Field[datetime.datetime]):
     def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         """Serialize for storage, handling dialect-specific timezone quirks.
 
-        SQLite gets an ISO-8601 string. Other dialects get the native
-        ``datetime`` object, except that on PostgreSQL a naive (tz-less)
-        datetime is assumed to be UTC and given an explicit ``tzinfo``
-        before being handed to the driver -- PostgreSQL's
-        ``TIMESTAMP WITH TIME ZONE`` columns require tz-aware input, and a
-        naive datetime reaching asyncpg would otherwise raise a "can't
-        subtract offset-naive and offset-aware datetimes" error deep in the
-        driver.
+        SQLite gets an ISO-8601 string; a tz-aware datetime is converted to
+        UTC first. Without that normalization, mixed naive/aware values
+        sorted by their raw ``isoformat()`` strings compared wrongly --
+        ``2026-06-01T14:00:00+02:00`` (= 12:00 UTC) lexically sorted after
+        a naive ``13:00``, because only the timestamp prefix participates
+        in the comparison and the offset is silently ignored. Naive
+        datetimes are stored as-is: converting them to UTC requires
+        assuming an offset, and apps that only ever write naive (already
+        local/UTC-normalized) datetimes keep byte-identical storage with
+        previously written rows. Do not mix naive and aware values in one
+        column -- compare like with like.
+
+        Other dialects get the native ``datetime`` object, except that on
+        PostgreSQL a naive (tz-less) datetime is assumed to be UTC and
+        given an explicit ``tzinfo`` before being handed to the driver --
+        PostgreSQL's ``TIMESTAMP WITH TIME ZONE`` columns require tz-aware
+        input, and a naive datetime reaching asyncpg would otherwise raise
+        a "can't subtract offset-naive and offset-aware datetimes" error
+        deep in the driver.
         """
         if value is None:
             return None
@@ -2024,6 +2035,11 @@ class DateTimeField(Field[datetime.datetime]):
             # PostgreSQL/MySQL/Oracle drivers expect native datetime objects;
             # SQLite stores datetimes as ISO-8601 text.
             if dialect == "sqlite":
+                # Normalize aware datetimes to UTC before serializing so
+                # string comparison matches chronological order. ``from_db``
+                # parses both offset and non-offset forms back unchanged.
+                if value.tzinfo is not None:
+                    value = value.astimezone(datetime.timezone.utc)
                 return value.isoformat()
             # PostgreSQL TIMESTAMP WITH TIME ZONE requires tz-aware datetimes.
             # If a naive datetime slips through, assume UTC to avoid
