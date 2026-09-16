@@ -289,8 +289,7 @@ class HTTPClientResponse:
             # not cached: a second read cannot reproduce it. Failing
             # silently would look like an empty body.
             raise StreamConsumedFault(
-                "Response body was already consumed via iter_bytes(); "
-                "read() cannot return it again",
+                "Response body was already consumed via iter_bytes(); read() cannot return it again",
                 url=self.url or self.request_url,
             )
 

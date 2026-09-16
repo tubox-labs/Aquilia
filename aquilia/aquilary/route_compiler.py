@@ -187,9 +187,7 @@ class RouteCompiler:
                     routes = self.compile_controller(controller_path, config)
                     all_routes.extend(routes)
                 except Exception as e:
-                    _log.warning(
-                        "Failed to compile controller %s: %s", controller_path, e
-                    )
+                    _log.warning("Failed to compile controller %s: %s", controller_path, e)
 
         self.routes = all_routes
 

@@ -145,9 +145,7 @@ class HTTPClientProvider:
 
         if self._scope == "singleton":
             if self._client is None:
-                self._client = AsyncHTTPClient(
-                    config=self._config, cookies=self._cookies, middleware=mw_list
-                )
+                self._client = AsyncHTTPClient(config=self._config, cookies=self._cookies, middleware=mw_list)
             return self._client
 
         return AsyncHTTPClient(config=self._config, cookies=self._cookies, middleware=mw_list)

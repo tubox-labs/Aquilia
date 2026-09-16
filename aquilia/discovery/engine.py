@@ -935,8 +935,7 @@ class ManifestWriter:
             workspace_root = manifest_path.parent.parent if manifest_path is not None else None
             if _ref_target_exists(old_ref, workspace_root):
                 logger.info(
-                    "ManifestWriter: keeping existing ref %r in %s (target still exists); "
-                    "not rewriting to %r",
+                    "ManifestWriter: keeping existing ref %r in %s (target still exists); not rewriting to %r",
                     old_ref,
                     manifest_path,
                     import_path,

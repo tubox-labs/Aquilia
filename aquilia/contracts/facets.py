@@ -2208,9 +2208,7 @@ class ListFacet(Facet):
                 try:
                     self.child.seal(item)
                 except CastFault as exc:
-                    raise CastFault(
-                        f"{self.name or '<unbound>'}[{i}]", f"item {i}: {fault_message(exc)}"
-                    ) from exc
+                    raise CastFault(f"{self.name or '<unbound>'}[{i}]", f"item {i}: {fault_message(exc)}") from exc
         return super().seal(value)
 
     def mold(self, value: Any) -> list | None:
@@ -2430,9 +2428,7 @@ class TupleFacet(Facet):
                 try:
                     self.child.seal(item)
                 except CastFault as exc:
-                    raise CastFault(
-                        f"{self.name or '<unbound>'}[{i}]", f"item {i}: {fault_message(exc)}"
-                    ) from exc
+                    raise CastFault(f"{self.name or '<unbound>'}[{i}]", f"item {i}: {fault_message(exc)}") from exc
         return super().seal(value)
 
     def mold(self, value: Any) -> list | None:

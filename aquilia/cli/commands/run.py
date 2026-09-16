@@ -300,9 +300,7 @@ def _print_validation_errors(validation_errors: list[str]) -> None:
     """Render workspace validation failures in the ``aq run`` error style."""
     import click
 
-    click.secho(
-        "\n  Workspace validation failed! Fix these issues before starting the server:\n", fg="red", bold=True
-    )
+    click.secho("\n  Workspace validation failed! Fix these issues before starting the server:\n", fg="red", bold=True)
     for error in validation_errors:
         if "Import error" in error:
             parts = error.split(": ", 1)

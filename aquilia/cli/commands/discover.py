@@ -230,9 +230,7 @@ class DiscoveryInspector:
 
                 reports = []
                 for module_name in engine.scanner.discover_modules():
-                    reports.append(
-                        engine.sync_manifest(module_name, dry_run=dry_run, strict=strict, prune=prune)
-                    )
+                    reports.append(engine.sync_manifest(module_name, dry_run=dry_run, strict=strict, prune=prune))
 
                 for report in reports:
                     if report.has_changes:

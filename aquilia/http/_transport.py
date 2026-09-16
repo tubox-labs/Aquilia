@@ -306,9 +306,7 @@ class ConnectionPool:
 
             if connect is None:
                 self._release_slot(key)
-                raise ConnectionClosedFault(
-                    f"No pooled connection to {key} and no connector available"
-                )
+                raise ConnectionClosedFault(f"No pooled connection to {key} and no connector available")
 
             conn = await connect()
         except BaseException:
@@ -649,9 +647,7 @@ class _BodyReader:
                     return
 
                 if chunk_size > MAX_CHUNK_SIZE:
-                    raise InvalidResponseFault(
-                        f"Chunk size {chunk_size} exceeds {MAX_CHUNK_SIZE} byte limit"
-                    )
+                    raise InvalidResponseFault(f"Chunk size {chunk_size} exceeds {MAX_CHUNK_SIZE} byte limit")
 
                 remaining = chunk_size
                 while remaining > 0:
@@ -1106,9 +1102,7 @@ class NativeTransport(HTTPTransport):
         if "Accept-Encoding" not in headers:
             # Derived from the configured algorithms, not hardcoded: the
             # client must only advertise what its config says it accepts.
-            headers["Accept-Encoding"] = (
-                ", ".join(algo.value for algo in self._config.compression) or "gzip, deflate"
-            )
+            headers["Accept-Encoding"] = ", ".join(algo.value for algo in self._config.compression) or "gzip, deflate"
         if "Connection" not in headers:
             headers["Connection"] = "keep-alive"
 
@@ -1120,9 +1114,7 @@ class NativeTransport(HTTPTransport):
         # Content-Length (honored byte-exactly by _write_streaming_body)
         # or the body travels chunked.
         if request.is_streaming():
-            has_explicit_length = any(
-                name.lower() == "content-length" for name in headers
-            )
+            has_explicit_length = any(name.lower() == "content-length" for name in headers)
             if not has_explicit_length and "Transfer-Encoding" not in headers:
                 headers["Transfer-Encoding"] = "chunked"
 
@@ -1335,16 +1327,14 @@ class NativeTransport(HTTPTransport):
                     written += len(data)
                     if written > explicit_length:
                         raise RequestBuildFault(
-                            f"Streaming body exceeded its Content-Length "
-                            f"{explicit_length}: at least {written} bytes",
+                            f"Streaming body exceeded its Content-Length {explicit_length}: at least {written} bytes",
                             url=request.url,
                         )
                     conn.writer.write(data)
                     await asyncio.wait_for(conn.writer.drain(), timeout=write_timeout)
                 if written != explicit_length:
                     raise RequestBuildFault(
-                        f"Streaming body produced {written} bytes but "
-                        f"Content-Length is {explicit_length}",
+                        f"Streaming body produced {written} bytes but Content-Length is {explicit_length}",
                         url=request.url,
                     )
             else:
@@ -1435,9 +1425,7 @@ class NativeTransport(HTTPTransport):
             if proxy_url is not None:
 
                 def open_via_proxy() -> ConnectionInfo:
-                    return self._connect_via_proxy(
-                        host, port, proxy_url, use_ssl, effective_connect, pool_key
-                    )
+                    return self._connect_via_proxy(host, port, proxy_url, use_ssl, effective_connect, pool_key)
 
                 conn = await self._pool.acquire(
                     acquire_host,

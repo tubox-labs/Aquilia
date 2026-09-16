@@ -48,9 +48,7 @@ except ImportError:  # pragma: no cover - sse is an optional subsystem
     _SSEResponse = None
 
 
-def _merge_contract_errors(
-    target: dict[str, list[str]], errors: dict[str, Any]
-) -> None:
+def _merge_contract_errors(target: dict[str, list[str]], errors: dict[str, Any]) -> None:
     """Merge a contract's error mapping into ``target``.
 
     Nested-contract failures surface as ``{field: {child: [messages]}}`` —
@@ -1661,9 +1659,7 @@ class ControllerEngine:
                     self.logger.error(f"QuerySet filtering failed: {e}", exc_info=True)
                     from aquilia.faults.domains import InternalServerErrorFault
 
-                    raise InternalServerErrorFault(
-                        detail="Request filtering failed"
-                    ) from e
+                    raise InternalServerErrorFault(detail="Request filtering failed") from e
             elif is_list:
                 result = _filter_data(
                     list(result),

@@ -1544,8 +1544,7 @@ class TaskManager:
             elapsed = (time.monotonic() - start_time) * 1000
 
             if timed_out or (
-                job.timeout is not None
-                and (time.monotonic() - start_time) > job.timeout + _TIMEOUT_GRACE_SECONDS
+                job.timeout is not None and (time.monotonic() - start_time) > job.timeout + _TIMEOUT_GRACE_SECONDS
             ):
                 # Either wait_for timed out, or the body swallowed the
                 # cancellation and overran its budget — a returned value

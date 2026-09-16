@@ -1368,9 +1368,7 @@ class AppManifest:
         if self.features:
             result["features"] = [f.to_dict() for f in self.features]
         if self.versioning is not None:
-            result["versioning"] = (
-                self.versioning.to_dict() if hasattr(self.versioning, "to_dict") else self.versioning
-            )
+            result["versioning"] = self.versioning.to_dict() if hasattr(self.versioning, "to_dict") else self.versioning
         if self.config_schema is not None:
             result["config_schema"] = self.config_schema
         if self.database:

@@ -200,16 +200,10 @@ class ConfigLoader:
             from aquilia.dotenv import DotEnvLoader
 
             dotenv_search: list[str] | None = None
-            config_dirs = {
-                Path(pattern).resolve().parent
-                for pattern in (paths or [])
-                if pattern.endswith(".py")
-            }
+            config_dirs = {Path(pattern).resolve().parent for pattern in (paths or []) if pattern.endswith(".py")}
             if config_dirs:
                 dotenv_search = sorted(
-                    str(directory / candidate)
-                    for directory in config_dirs
-                    for candidate in (".env", ".env.local")
+                    str(directory / candidate) for directory in config_dirs for candidate in (".env", ".env.local")
                 )
             DotEnvLoader.ensure_loaded(search_paths=dotenv_search)
         except ImportError:

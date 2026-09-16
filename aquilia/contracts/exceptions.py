@@ -162,9 +162,7 @@ class SealFault(ContractFault):
     code = "BP200"
 
     @staticmethod
-    def _flatten_errors(
-        errors: dict[str, Any], _prefix: str = ""
-    ) -> dict[str, list[str]]:
+    def _flatten_errors(errors: dict[str, Any], _prefix: str = "") -> dict[str, list[str]]:
         """Flatten nested-contract error dicts into dotted-path lists.
 
         A nested failure surfaces as ``{field: {child: [messages]}}``;
@@ -175,9 +173,7 @@ class SealFault(ContractFault):
         for field, field_errors in errors.items():
             key = f"{_prefix}{field}"
             if isinstance(field_errors, dict):
-                flat.update(
-                    SealFault._flatten_errors(field_errors, _prefix=f"{key}.")
-                )
+                flat.update(SealFault._flatten_errors(field_errors, _prefix=f"{key}."))
             else:
                 flat[key] = list(field_errors)
         return flat

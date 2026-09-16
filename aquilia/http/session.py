@@ -229,11 +229,7 @@ class HTTPSession:
         # Handle redirects if enabled. A per-request override
         # (request.follow_redirects) wins over the session default
         # (F-HTTP-05).
-        follow = (
-            request.follow_redirects
-            if request.follow_redirects is not None
-            else self._config.follow_redirects
-        )
+        follow = request.follow_redirects if request.follow_redirects is not None else self._config.follow_redirects
         if follow and response.is_redirect:
             response = await self._follow_redirects(request, response)
 

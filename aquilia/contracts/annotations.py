@@ -1427,9 +1427,7 @@ def _is_classvar_annotation(annotation: Any) -> bool:
     origin = get_origin(annotation)
     if origin is _ClassVar:
         return True
-    if _InitVar is not None and (
-        annotation is _InitVar or origin is _InitVar or isinstance(annotation, _InitVar)
-    ):
+    if _InitVar is not None and (annotation is _InitVar or origin is _InitVar or isinstance(annotation, _InitVar)):
         return True
     if isinstance(annotation, str):
         base = annotation.split("[", 1)[0].strip()

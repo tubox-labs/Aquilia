@@ -499,15 +499,10 @@ class ContractMeta(type):
             fname
             for fname, facet in cls._all_facets.items()
             if not isinstance(facet, (Computed, Constant, Inject))
-            and (
-                facet.read_only
-                or (not facet.required and facet.default is UNSET and not facet.allow_null)
-            )
+            and (facet.read_only or (not facet.required and facet.default is UNSET and not facet.allow_null))
         )
         cls._input_field_names = frozenset(
-            fname
-            for fname, facet in cls._all_facets.items()
-            if not isinstance(facet, (Computed, Constant, Inject))
+            fname for fname, facet in cls._all_facets.items() if not isinstance(facet, (Computed, Constant, Inject))
         )
 
         # Facets that exist only through silent model derivation (Spec.model
@@ -518,9 +513,7 @@ class ContractMeta(type):
         silently_derived: set[str] = set()
         if spec.model is not None and spec.fields is None:
             named = set(declared_facets) | set(annotated_facets) | set(parent_facets) | set(spec.extra_facets)
-            silently_derived = {
-                fname for fname in model_facets if fname not in named and fname in cls._all_facets
-            }
+            silently_derived = {fname for fname in model_facets if fname not in named and fname in cls._all_facets}
         cls._silently_derived_fields = frozenset(silently_derived)
 
         # The declared field names as a set, for the extra_fields="reject" check
