@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] — 2026-09-16 — "Depths Unknown"
+
+Aquilia v1.4.2 is a **forensic-verification release**: a third audit wave re-verified
+every finding of the AniWave post-implementation report
+([`docs/AQUILIA_POST_IMPLEMENTATION_FINDINGS.md`](docs/AQUILIA_POST_IMPLEMENTATION_FINDINGS.md))
+against the framework source — nine specialized subsystem auditors plus two independent
+cross-review validators — and repaired everything it confirmed, plus a large set of
+previously-unreported defects found by an aggressive independent hunt (several more
+severe than anything in the report). Every fix was reproduced at runtime before being
+fixed and is covered by permanent regression tests. Full report:
+[`docs/AQUILIA_POST_IMPLEMENTATION_AUDIT_FIXES.md`](docs/AQUILIA_POST_IMPLEMENTATION_AUDIT_FIXES.md).
+
+Of the report's framework findings, all verified true against the current source except
+one (F-CORE-06, auth string-token DI — stale after the 1.4.1 auth rebuild: class tokens
+and string tokens normalize to identical dotted keys).
+
+### Added — Post-implementation forensic audit response (2026-09-16)
+
+#### Critical repairs (each reproduced before fixing)
+- **`Request.path_params` is a property** (was a method — contract path binding, clearance compartments, guard contexts and debug pages silently never saw path params).
+- **Nested-contract error fidelity** — engine aggregation and `SealFault` details flatten nested error dicts to dotted paths with real messages (was: child field *names* as messages).
+- **cwd-independent boot** — `Runtime.configure` passes the absolute workspace file to `ConfigLoader` (a wrong-cwd deployment silently served an unconfigured app); missing config paths now warn.
+- **Singleton controllers resolve from the owning module's container** (module-scoped services were invisible to the base container).
+- **HTTP client overhaul** — true incremental streaming (was whole-body buffering before first yield); pool release gated on clean body completion (abandoned/cancelled streams no longer poison pooled connections — cross-request corruption); HEAD/204/304 framing fixed (HEAD previously blocked and poisoned the pool); trailer parsing; chunk-size validation; truncated Content-Length now faults (was silent partial body); total deadline covers the full body; per-request `follow_redirects`; redirect hops carry/store cookies and drain intermediates (was: connection leak per hop); duplicate `Set-Cookie` through the session jar (was collapsed); constructor `headers=`/`default_params` actually sent (was silently dropped — the SendGrid provider's Authorization header was dead); streaming request bodies via chunked upload (was silently no-body); retry config wired (opt-in, response drained between attempts); proxy support (absolute-form + CONNECT tunnel, SNI to the target, `no_proxy`); 64MB response cap (gzip-bomb guard); `read()`-after-`iter_bytes()` faults; unknown kwargs raise `TypeError`; `pool.py` deprecated.
+- **DB transaction integrity** — cross-task SQLite transaction bleed eliminated (one request's rollback silently destroyed other requests' committed writes); `db.transaction()` rolls back on `CancelledError` (was: engine wedged forever); concurrent-boot migration lock; `RunPython` runs inside the history transaction (a failing data migration was recorded as applied and skipped forever).
+- **Task worker resilience** — a task body raising `CancelledError` no longer kills its worker permanently; timeouts can't be defeated by swallowing cancellation (was: overrun recorded as success); `stop()` no longer hangs forever on swallowers; dependency-failure propagation implemented (`fail_orphaned_dependents` was docstring-only — dependents stayed WAITING forever, including missing-dependency typos); multi-process scheduler dedup; unsatisfiable cron expressions fault at construction (was: fired hourly forever); `attempt_epoch` zombie-write guard.
+- **Cache correctness** — `clear()` no longer deletes foreign keys sharing the prefix; redis `BlockingConnectionPool` (burst traffic silently lost writes at the 10-connection cap); `get_or_set` caches `None`; `l1_ttl` actually reaches the L1; `set_many` keeps tags on all backends; composite lock delegation; atomic `touch`; composite `increment` no longer writes stale values to L1; `get_many` restores tags/TTL; `MemoryBackend(max_size=0)` no longer freezes the event loop; middleware bodies survive JSON-serializing backends; uniform never-raise surface.
+- **ORM lookup consistency** — `find_or_create`/`get_or_create`/`update_or_create`/`bulk_update` accept FK-column keys (`user_id`) that `filter`/`create` always accepted; unique-FK detection fixed (was: spurious warning + racy fallback); `order`/`values`/`only` reject unknown fields (was: silent no-ops / string literals); UTC-normalized datetime storage; LIKE-escaping in legacy lookups; `iterator()` respects user limits; dialect-aware `ignore_conflicts` + real multi-row batching.
+- **CLI safety** — `aq run` validates via import (the text-scraping validator falsely rejected framework/cross-module refs and crashed on `redis://` URLs); validate-before-mutate; non-zero exit on failure; the discovery differ never *removes* manifest entries by default (`--prune` opt-in, importlib-verified); `auto_discover=False` respected; `aq manifest update` refuses destructive writes on failed imports (was: silently emptied controllers/services), detects real controllers, emits modern syntax, freezes keyword-form manifests, and edits AST-aware; manifest fingerprints cover all config fields.
+- **Contracts** — attribute access returns validated data for all three declaration styles (`= None` defaults and declared facets no longer shadow; absent optionals return `None`); `Optional[T]` honored with raw facets in `Annotated`; `ClassVar` is not a wire field; bare `Field()` without annotation faults; implicit model derivation no longer auto-requires every column; the default projection excludes silently-derived model columns (**secrets leak fix** — `refresh_token_hash`-style columns no longer appear in molded output without explicit opt-in; a RuntimeWarning names the exclusions); empty projection lists produce empty output; `item {i}:` labels replace stacked `Cast failed for` prefixes.
+- **Auth/sessions/admin** — pre-auth admin routes are public (protect-by-default no longer locks the admin login page); session path-prefix scoping + `persist_anonymous` policy (API responses no longer churn anonymous cookies/sessions when scoped — was: one stored session per cookie-less request); real session-ID rotation on admin login (fixation); admin sessions store `identity_id` and re-resolve per request (privilege revocation takes effect); env-superuser fallback gated to dev/test with timing-safe compare; `aq admin` generator emits `cookie_secure=True` and admin-scoped sessions; password-backend timing parity on unknown usernames.
+- **Engine hardening** — `Response(headers=...)` validates header values; `RequestIdMiddleware` sanitizes echoed inbound IDs; malformed JSON bodies surface as invalid-JSON faults (was: per-field "required" errors); filter/pagination failures fail closed (was: unfiltered data returned — an ACL-bypass class); the framework's own `seal_*` validators migrated to `@ward` (no more self-deprecation noise; validators verified still firing).
+- **Config** — subsystem config merges root + integration sections (an env var no longer wholesale-discards a typed integration); singleton controllers shut down with the server; malformed `workspace.py` raises a contextual fault; dotenv loading can't freeze the policy from a foreign cwd.
+
+#### Documentation
+- GUIDE.md §11 (ORM), §22 (OTel), §23 (validation) rewritten against the real APIs (`Q`/`QNode`, `MigrationEngine`, `null=`/`db_index=`, `get_current_span`, facet-style contracts); every import statement in GUIDE.md/README.md runtime-verified; 1,063 broken doc links repaired; footer version corrected.
+
+### Verified (post-implementation audit)
+- Complete suite: **10,053 passed, 0 failed** (407 new regression tests this wave, across 9 new test files).
+- Every reported finding re-verified against source before fixing; one refuted (F-CORE-06 — stale post-rebuild).
+- Every fix reproduced-then-fixed with a permanent regression test; two cross-review validators stress-tested the contracts and HTTP designs before implementation.
+
+
 ## [1.4.1] — 2026-09-15 — "Safe Harbor"
 
 Aquilia v1.4.1 is a **hardening and repair release**: it resolves two admin-subsystem defects reported from production use, lands the framework's response to a full 27-finding migration audit performed while porting a real NestJS backend to native Aquilia, and — following a second, auth-focused gap analysis — **rebuilds the authentication & authorization architecture** end-to-end (configuration, strategies, guards, principals, tokens, stores, middleware). Every fix was independently reproduced before being fixed and is covered by permanent regression tests. See [`releases/1.4.1/`](releases/1.4.1/README.md) for full documentation, [`docs/AQUILIA_MIGRATION_AUDIT.md`](docs/AQUILIA_MIGRATION_AUDIT.md) §7 for the audit report, and [`docs/AUTH_ARCHITECTURE.md`](docs/AUTH_ARCHITECTURE.md) for the auth architecture reference.
