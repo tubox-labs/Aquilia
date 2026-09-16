@@ -47,10 +47,26 @@ interface StaticRelease {
 
 const staticReleases: StaticRelease[] = [
   {
+    version: '1.4.2',
+    codename: 'Depths Unknown',
+    date: 'Sep 16, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
+    license: 'MIT',
+    summary: 'Forensic verification release: AniWave post-implementation audit repairs, HTTP client overhaul, DB transaction integrity, task worker resilience, contracts security fixes, and manifest CLI safety.',
+    assets: [
+      { name: 'aquilia-1.4.2.tar.gz', size: 'Source', type: 'Source' },
+      { name: 'aquilia-1.4.2-<python>-<platform>.whl', size: 'Platform-specific', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.4.2',
+    commitCount: '15',
+    contributors: 4
+  },
+  {
     version: '1.4.1',
     codename: 'Safe Harbor',
     date: 'Sep 15, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13', '3.14'],
     license: 'MIT',
     summary: 'Hardening and repair release featuring complete authentication & authorization architecture rebuild, NestJS migration audit fixes, admin session loop resolution, and durable database/Redis stores.',

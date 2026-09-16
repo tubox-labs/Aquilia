@@ -171,9 +171,17 @@ export const roadmap: RoadmapNode[] = [
     version: '1.4.1',
     codename: 'Safe Harbor',
     date: 'Sep 15, 2026',
-    status: 'current',
+    status: 'released',
     type: 'patch',
     highlights: ['Auth architecture rebuild', 'Migration audit fixes', 'Async route guards', 'Durable DB/Redis stores'],
+  },
+  {
+    version: '1.4.2',
+    codename: 'Depths Unknown',
+    date: 'Sep 16, 2026',
+    status: 'current',
+    type: 'patch',
+    highlights: ['Forensic verification audit', 'HTTP client overhaul', 'DB transaction integrity', 'Worker resilience & manifest safety'],
   },
 ]
 
@@ -211,7 +219,13 @@ export function ReleaseTimeline({ isDark }: Props) {
             const staticMatch = roadmap.find(r => r.version === version)
             
             let defaultCodename = "Genesis"
-            if (version.startsWith('1.3')) {
+            if (version === '1.4.2') {
+              defaultCodename = "Depths Unknown"
+            } else if (version === '1.4.1') {
+              defaultCodename = "Safe Harbor"
+            } else if (version === '1.4.0' || version.startsWith('1.4.0b')) {
+              defaultCodename = "Grand Armada"
+            } else if (version.startsWith('1.3')) {
               defaultCodename = "Poseidon's Trident"
             } else if (version.startsWith('1.2')) {
               defaultCodename = "Kraken's Wake"

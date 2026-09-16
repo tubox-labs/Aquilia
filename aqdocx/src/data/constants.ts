@@ -1,4 +1,4 @@
-export const AQUILIA_VERSION = '1.4.1';
+export const AQUILIA_VERSION = '1.4.2';
 
 export const CONSTANTS = {
   DOMAIN: 'tubox.cloud',

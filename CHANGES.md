@@ -356,3 +356,38 @@ Summary:
 - docs/AUTH_ARCHITECTURE.md written (authoritative reference); gaps doc
   §11 fix report; GUIDE.md §7 rewritten; scaffold template updated;
   CHANGELOG/RELEASE_NOTES/releases-1.4.1 extended under v1.4.1.
+
+## Session 2026-09-16 — v1.4.2 "Depths Unknown" forensic verification release
+
+Timestamp: 2026-09-16T06:20:00Z
+
+Agent: Aquilia forensic-verification audit wave
+
+Files Modified (framework):
+- aquilia/controller/{request,engine}.py (Request.path_params property; nested-contract error aggregation; filter/pagination fail closed)
+- aquilia/contracts/{core,facets,annotations,exceptions}.py (attribute access returns validated data; Optional[T] raw facets; ClassVar excluded; bare Field() faults; default projection model-column exclusion secrets guard)
+- aquilia/runtime.py, aquilia/config/_loader.py, aquilia/server.py (cwd-independent boot; singleton module-container resolution & teardown; response header validation)
+- aquilia/http/{client,_transport,response,session}.py (incremental streaming; pool release on clean completion; HEAD/204/304 framing; trailer parsing; deadline; redirect cookies & intermediate drain; constructor headers & params; chunked uploads; retry config; proxy CONNECT/SNI; 64MB limit; pool.py deprecation)
+- aquilia/db/backends/{sqlite,postgres}.py, aquilia/db/transaction.py, aquilia/models/migration/engine.py, aquilia/models/query.py (cross-task transaction bleed fix; CancelledError rollback; cross-process migration lock; RunPython history transaction; upsert FK keys; unknown field validation in order/values/only; UTC datetime normalization; dialect-aware ignore_conflicts)
+- aquilia/tasks/{worker,manager,engine,decorators}.py (worker survives CancelledError; unsinkable timeouts; bounded stop(); dependency-failure propagation; multi-process scheduler dedup; unsatisfiable cron fault; attempt_epoch zombie-write guard)
+- aquilia/cache/{backends/{redis,memory},service,middleware}.py (registry-scoped clear(); BlockingConnectionPool; None caching; l1_ttl; bulk tags; atomic touch; composite increment fix; full-fidelity get_many; max_size=0 loop hang fix; middleware body roundtrip)
+- aquilia/cli/commands/{run,discover,manifest}.py, aquilia/manifest.py (import-based aq run validation; validate-before-mutate; non-zero exits; never-remove differ default with --prune; auto_discover=False; non-destructive AST manifest updates)
+- aquilia/auth/{config,middleware}.py, aquilia/admin/{security,views}.py (pre-auth admin routes public; session path-prefix scoping & persist_anonymous; admin login session rotation; per-request identity re-resolution; dev/test env-superuser gating; timing parity)
+- aquilia/_version.py (bump to 1.4.2 "Depths Unknown")
+- CHANGELOG.md, RELEASE_NOTES.md, releases/1.4.2/README.md, docs/AQUILIA_POST_IMPLEMENTATION_AUDIT_FIXES.md, GUIDE.md
+
+Tests: 407 new regression tests across 9 files
+(test_core_audit_fixes, test_contract_attr_and_projection_fixes,
+test_http_client_overhaul, test_db_transaction_fixes,
+test_orm_audit_fixes, test_tasks_audit_fixes, test_cache_audit_fixes,
+test_cli_manifest_audit_fixes, test_auth_sessions_audit_fixes).
+
+Summary:
+- Full forensic audit wave addressing AniWave post-implementation report
+  (every finding verified against source; F-CORE-06 refuted as stale post-1.4.1).
+- Hostile independent hunt uncovered and fixed critical latent defects: dead HTTP
+  constructor headers, connection pool stream poisoning, SQLite cross-task
+  transaction bleed, task worker CancelledError death, manifest deletion bug,
+  cache cross-key wiping, and contract model-derived secrets leak.
+- Complete suite: 10,053 passed, 0 failed, 9 skipped; ruff check and ruff format clean.
+
